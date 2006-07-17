@@ -1,0 +1,136 @@
+.\" Copyright (c) 2006 rPath, Inc.
+.TH RMAKESERVER 1 "23 May 2006" "rPath, Inc."
+.SH NAME
+rmake \- Environment-controlled package building tool for conary
+.SH SYNOPSIS
+.B /sbin/service rmake \fIcommand \fR[\fI<args>\fR]
+.SH DESCRIPTION
+The \fBrmake\fR server is the back-end for rmake, and controls the rmake
+database, repository, changeset cache, and more.
+For information on using rmake, see \fBrmake(1)\fR.
+
+\fBNote that rmake is ALPHA software; any and all behavior is subject to
+change with future releases.  Read the NEWS file for information on changes
+and updates.\fR
+
+.SH REFERENCE
+The rmake server is a daemon process with minimal user interaction facilities.
+It does provide for configuration of parameters such as paths and listening
+port via a configuration file, however. 
+
+.SS "Server Management"
+Use the following \fBcommands\fP to start, query, and stop the rMake server.
+.TP 4
+.B start
+Starts the server
+.RS 4
+.TP
+.B \-\-no-daemon (\-n)
+Runs the server in the foreground instead of in daemon mode
+.TP
+.RE
+
+.TP
+.B stop, kill
+Stops the server
+.TP
+.B config
+Displays current configuration parameters for rmake server. Configuration
+values are detailed in the FILES section below.
+.RE
+.\"
+.\"
+.\"
+.SH FILES
+.\" do not put excess space in the file list
+.PD 0
+.TP 4
+.I /etc/rmake/serverrc
+The rmake server configuration file
+
+Configuration values can also be specified via command line options,including
+the \fB\-\-config\fR option, which allows you to override one line in the
+config file, and the \-\-config-file option, which  reads in an additional
+specified config file that overrides all other configuration files.  The 
+\-\-skip-default-config option causes the server to not read
+/etc/rmake/serverrc for configuration.
+
+Note that you can always use \fIrmake config\fR to see the current value of a
+configuration item.  This is the most surefire way to read what rmake actually
+thinks a configuration value is.
+ 
+Make configuration items can be strings, boolean values
+(\fBTrue\fP or \fBFalse\fP), or mappings (\f(BIto from\fP) and can include:
+.PD
+.RS 4
+.TP 4
+.B buildDir
+Directory under which rMake builds.  For security reasons, this directory must 
+be owned by the rmake user, and its permissions must be set to 700.
+.TP 4
+.B chrootHelperPath
+Path to chrootHelper, defaults to /usr/libexec/chroothelper
+.TP 4
+.B logDir
+Directory for rmake server log output; default is /var/log/rmake
+.B NOTE: log formats and paths are very likely to change in the future.
+Watch the NEWS file for updates.
+.TP 4
+.B lockDir
+Directory to create lockfile in; default is /var/lock/rmake
+.TP 4
+.B reposPassword
+Password for rmake repository
+.TP 4
+.B serverDir
+Directory in which the rmake server stores its data
+.TP 4
+.B serverPort
+Port on which the internal repository listens; default is 7777
+.TP 4
+.B serverName
+Name of the internal repository; default is localhost
+.TP 4
+.B socketPath
+Path to rmake connection socket; default is /var/lib/rmake/socket
+.TP
+.SH
+.PD 0
+.TP 4
+.TP
+.I <logDir>/buildlogs
+Log files for individual builds
+.TP
+.I <logDir>/repos.log
+Log file for repository
+.TP
+.I <serverDir>/repos
+Internal Repository files
+.TP
+.I <serverDir>/repos/serverrc
+Automatically generated 
+.TP
+.I <buildDir>/chroot
+Chroot directory
+.TP
+.I <buildDir>/cscache
+Location of cached changesets
+It is reasonable to run tmpwatch on this directory.
+.PD 0
+.TP 4
+.I /etc/sysconfig/rmake
+If this file exists, rmake will read it for CONARY_PATH and RMAKE_PATH values,
+to determine where to search for the conary and rmake libraries.
+.SH BUGS
+You can report rmake bugs at http://issues.rpath.com/
+.\"
+.\"
+.\"
+.SH "SEE ALSO"
+cvc(1)
+.br
+conary(1)
+.br
+http://www.rpath.com/
+.br
+http://wiki.rpath.com/

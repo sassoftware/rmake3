@@ -1,0 +1,214 @@
+#
+# Copyright (c) 2006 rPath, Inc.
+#
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.opensource.org/licenses/cpl.php.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
+#
+"""
+Describes a BuildConfiguration, which is close to, but neither a subset nor
+a superset of a conarycfg file.
+"""
+import re
+
+from conary.conaryclient import cmdline
+from conary.lib.cfgtypes import (CfgBool, CfgPath, CfgList, CfgDict, CfgString,
+                                 CfgInt, CfgType, CfgQuotedLineList)
+from conary import conarycfg
+from conary import versions
+from conary.conarycfg import CfgLabel
+from conary.conarycfg import ParseError
+from conary.lib import sha1helper
+
+from rmake.lib import apiutils, daemon
+from rmake import plugins
+
+class CfgTroveSpec(CfgType):
+    def parseString(self, val):
+        return cmdline.parseTroveSpec(val)
+
+    def format(self, val, displayOptions=None):
+        if not val[2] is None:
+            flavorStr = '[%s]' % val[2]
+        else:
+            flavorStr = ''
+        if val[1]:
+            verStr = '=%s' % val[1]
+        else:
+            verStr = ''
+
+        return '%s%s%s' % (val[0], verStr, flavorStr)
+
+class CfgTroveTuple(CfgType):
+    def parseString(self, val):
+        (name, version, flavor) = cmdline.parseTroveSpec(val)
+        return (name, versions.VersionFromString(version), flavor)
+
+    def format(self, val, displayOptions=None):
+        return '%s=%s[%s]' % val
+
+class CfgSubscriberDict(CfgDict):
+    def parseValueString(self, key, value):
+        return self.valueType.parseString(key, value)
+
+class CfgSubscriber(CfgType):
+
+    def parseString(self, name, val):
+        protocol, uri = val.split(None, 1)
+        s = plugins.SubscriberFactory(name, protocol, uri)
+        return s
+
+    def updateFromString(self, s, str):
+        s.parse(*str.split(None, 1))
+        return s
+
+    def toStrings(self, s, displayOptions):
+        return s.freezeData()
+
+class CfgUUID(CfgType):
+
+    def parseString(self, val):
+        newVal = val.replace('-', '').lower()
+        if not re.match('^[0-9a-f]{32}$', newVal):
+            raise ParseError, "Invalid UUID: '%s'" % val
+        return newVal
+
+    def toStrings(self, val, displayOptions):
+        return [ val ]
+
+class BuildConfiguration(conarycfg.ConaryConfiguration):
+
+    defaultBuildReqs     = (CfgList(CfgString),
+                            ['bash:runtime',
+                             'coreutils:runtime', 'filesystem',
+                             'conary:runtime',
+                             'conary-build:runtime', 'epdb', 'dev:runtime', 
+                             'grep:runtime', 'procps:runtime', 'sed:runtime',
+                             'findutils:runtime', 'gawk:runtime'
+                             ])
+    enforceManagedPolicy = (CfgBool, False)
+    subscribe            = (CfgSubscriberDict(CfgSubscriber), {})
+    resolveTroves        = (CfgList(CfgQuotedLineList(CfgTroveSpec)),
+                            [[('group-dist', None, None)]])
+    targetLabel          = (CfgLabel, versions.Label('localhost@LOCAL:NONE'))
+
+    # Here are options that are not visible from the command-line
+    # and should not be displayed.  They are job-specific.  However,
+    # they must be stored with the job, parsed with the job, etc.
+
+    buildTroveSpecs      = CfgList(CfgTroveSpec)
+    resolveTroveTups     = CfgList(CfgQuotedLineList(CfgTroveTuple))
+    uuid                 = (CfgUUID, '')
+
+    _hiddenOptions = [ 'buildTroveSpecs', 'resolveTroveTups' ]
+
+
+    def __init__(self, readConfigFiles=False, root='', conaryConfig=None):
+        # we default the value of these items to whatever they
+        # are set to on the local system's conaryrc.
+        conarycfg.ConaryConfiguration.__init__(self)
+        if conaryConfig:
+            for key in self.iterkeys():
+                if (key in conaryConfig and 
+                    conaryConfig[key] is not conaryConfig.getDefaultValue(key)):
+                    self[key] = conaryConfig[key]
+
+        # then we override with an rmake-specific config file.
+        if readConfigFiles:
+            self.read(root + '/etc/rmake/clientrc', False)
+
+        # these values are not set based on 
+        # config file values - we don't want to touch the system database, 
+        # and we don't want to use conary's logging mechanism.
+        self.root = ':memory:'
+        self.dbPath = ':memory:'
+        self.logFile = []
+        for option in self._hiddenOptions:
+            del self._lowerCaseMap[option.lower()]
+
+    def getTargetLabel(self, versionOrLabel):
+        if isinstance(versionOrLabel, versions.Label):
+            cookLabel = versionOrLabel
+        else:
+            cookLabel = versionOrLabel.trailingLabel()
+
+        targetLabel = self.targetLabel
+        if targetLabel:
+            # we treat NONE in the label as being a special target,
+            # if your targetLabel is localhost@rpl:NONE, we build 
+            # onto localhost@rpl:<branch> where branch is the branch
+            # of the source version.
+            needNewLabel = False
+            if targetLabel.getNamespace().lower() == 'none':
+                needNewLabel = True
+                nameSpace = cookLabel.getNamespace()
+            else:
+                nameSpace = targetLabel.getNamespace()
+
+            if targetLabel.branch.lower() == 'none':
+                needNewLabel = True
+                branch = cookLabel.branch
+            else:
+                branch = targetLabel.branch
+
+            if needNewLabel:
+                targetLabel = '%s@%s:%s' % (targetLabel.getHost(),
+                                            nameSpace, branch)
+                targetLabel = versions.Label(targetLabel)
+            return targetLabel
+        else:
+            return version.getTrailingLabel()
+
+    def _writeKey(self, out, cfgItem, value, options):
+        if cfgItem.name in self._hiddenOptions:
+            if not options.get('displayHidden', False):
+                return
+        conarycfg.ConaryConfiguration._writeKey(self, out, cfgItem,
+                                                self[cfgItem.name], options)
+
+    def __freeze__(self):
+        """ 
+            Support the freeze mechanism to allow a build config to be 
+            sent via xmlrpc.  Basically converts to a set of strings
+            that can be read in on the other side.
+        """
+        configOptions = dict(prettyPrint=False, expandPaths=True)
+        d = {}
+        for name, cfgItem in self._options.iteritems():
+            val = self[name]
+            if val == cfgItem.default:
+                continue
+            if val is None:
+                continue
+            else:
+                d[name] = list(cfgItem.valueType.toStrings(val, configOptions))
+        return d
+
+    @classmethod
+    def __thaw__(class_, d):
+        """ 
+            Support the thaw mechanism to allow a build config to be 
+            read from xmlrpc.  Converts back from a set of strings.
+        """
+
+        obj = class_(False)
+        for name, cfgItem in obj._options.iteritems():
+            if name in d:
+                lines = d[name]
+                if not lines:
+                    obj[name] = lines
+
+                for line in d.get(name, []):
+                    setattr(obj, name,
+                            obj._options[name].parseString(obj[name], line))
+        return obj
+
+
+apiutils.register(apiutils.api_freezable(BuildConfiguration),
+                  'BuildConfiguration')

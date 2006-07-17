@@ -1,0 +1,105 @@
+Changes in @NEW@:
+
+  o Client Changes:
+    * Add an explicit error message for redirect and group recipes, which 
+      rMake cannot cook. (RMK-9)
+    * rMake now tells you when a job is queued (RMK-88)
+
+Changes in 0.5 (BETA):
+  We are now calling this the BETA of rMake 1.
+
+  o Client Changes:
+    * rMake now supports a password helper for its xml interface, that
+      will pop up a gui window to ask you for username/passord (RMK-89)
+    * rMake now supports a "delete" option (RMK-5).
+    * allow resolveTroves entries to be ordered (RMK-59).
+    * tell users to look at the buildlog when their chroot server didn't
+      start. (RMK-116)
+
+  o Bug Fixes:
+    * Fixed a bug in commit behavior where builds with troves on different 
+      branches would not commit all troves from that build (RMK-106).
+    * You can now cook recipes with flavors
+    * Fixed a bug where trying to commit a failed job would result in the
+      job's state being set to BUILT (RMK-113)
+    * rmake start should not return STARTED unless the start is actually
+      successful (RMK-111)
+    * rmake now setuids before killing processes both ensure no incorrect
+      processes are killed and also to make sure logfile is owned by the right
+      user. (RMK-102)
+    * Stopping a job will set all troves in "INIT" state to failed (RMK-83)
+    * Fixed a bug that kept building from groups from working. (RMK-118)
+    * Don't traceback with IOError on broken pipe (RMK-120)
+
+Changes in 0.4:
+  o Client Changes:
+    * The rMake server now tracks a "Committing" and "Committed" state.
+      It will send out state updated messages to subscribers when committing
+      troves (RMK-54).
+    * Added support for a stop command (RMK-76).
+    * Subscribers are now passed an apiVersion as the first parameter, allowing
+      their behavior to change based on the version of rmake they are
+      dealing with (RMK-77)
+
+  o Bug Fixes:
+    * Fixed bug that caused rmake to fail to build troves with names that were 
+      2 characters long (RMK-86)
+    * Environment variables in configurations are now expanded before they
+      are sent over to the server, since the environment there isn't the
+      same (Requires conary 1.0.21 or newer) (RMK-80)
+    * Handle unicode in logs from builds by converting to escaped utf-8 
+      (RMK-91)
+    * Do a better job of updating internal shadow to source changes
+      when performing a cook of a local file.  Adds and removes are now
+      handled correctly. (RMK-95)
+    * rmake commands now print an error message when passed an invalid 
+      jobId or UUID (RMK-101)
+    * rMake's home directory in the build chroot is now set to something
+      that rmake can write to.
+
+Changes in 0.3:
+  o Client Changes:
+    * rMake can now perform builds using local Conary recipes and
+      sources.  If the recipe is associated with a source component,
+      you can commit the source component and binary together.  This
+      association is determined through the CONARY file, which is
+      normally created by running "cvc checkout".  The CONARY file and
+      the conary recipe file must be in the same directory.  This
+      feature requires Conary 1.0.19. (RMK-40)
+    * rMake supports a specifying a uuid with a build, needed for integrating 
+      rMake with rBuilder Online (RMK-73)
+    * Slightly delay output of emit events in order to collate them
+
+  o Bug Fixes:
+    * rMake now uses the "buildLabel" and "buildFlavor" configuration
+      variables to find troves to build, and "installLabelPath" and
+      "flavor" variables to find solutions to build
+      dependencies. (RMK-53)
+    * The "/sbin/service rmake status" status message has been
+      fixed. Thanks to David Coulthart for the bug report and fix. (RMK-69)
+    * The default use flag and policy directories are now copied into
+      the build chroot so that locally defined use flags and policies
+      are available to build against. (RMK-68)
+    * Build requirement dependency resolution is now calculated by the
+      rMake client instead of the rMake server. (RMK-46, RMK-60)
+    * Newly created checkouts (created with the cvc newpkg command) can now be
+      cooked (RMK-81)
+    * chroothelper would access nonexistant variable and segfault on cleanup,
+      now all chroothelper exit statuses are checked (RMK-66)
+
+Changes in 0.2:
+  o Client Changes:
+    * Query output fixup: only display the full list of troves for a job 
+      when no trove is specified.
+    * Add rmake q <jobId> --poll for convenience
+
+  o Bug Fixes:
+    * Fixed traceback if reading conary config results in a parse error
+    * Improved traceback output message
+    * rMake no longer tries to sign troves at build time, since passwords 
+      cannot be read at that time.
+    * rmake changeset and rmake commit were broken
+    * a change in conary caused rmake builds to fail with conary 1.0.18.
+
+Changes in 0.1:
+    * Initial test release

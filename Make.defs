@@ -1,0 +1,42 @@
+#
+# Copyright (c) 2006 rPath, Inc.
+#
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.opensource.org/licenses/cpl.php.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
+#
+
+VERSION=0.5
+# the uid/gid the rmake server runs as
+export RMAKE_USER=rmake
+export RMAKE_GROUP=rmake
+# These should not be the same as RMAKE_USER
+export CHROOT_USER=rmake-chroot
+export CHROOT_GROUP=rmake-chroot
+export CHROOT_RMAKE=/usr/share/rmake
+export CHROOT_SERVER=/rmake/build/chroot/server.py
+# used for making the ccs
+export DATE=$(shell date +'%Y_%m_%d_%H%M')
+export CCSVERSION=$(VERSION)_$(DATE)
+
+export prefix = /usr
+export bindir = $(prefix)/bin
+export sbindir = $(prefix)/sbin
+export libdir = $(prefix)/lib
+export libexecdir = $(prefix)/libexec
+export datadir = $(prefix)/share
+export mandir = $(datadir)/man
+export sitedir = $(libdir)/python$(PYVERSION)/site-packages/
+export rmakedir = $(sitedir)/rmake
+export rmakelibdir = $(libdir)/rmake
+export rmakelibexecdir = $(libexecdir)/rmake
+export initdir = /etc/init.d
+export sysconfdir = /etc/sysconfig
+
+export VERSION

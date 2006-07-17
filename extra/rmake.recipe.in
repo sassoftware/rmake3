@@ -1,0 +1,39 @@
+#
+# Copyright (c) 2006 rPath, Inc.
+# All rights reserved
+#
+
+class RmakeRecipe(CPackageRecipe):
+    name = 'rmake'
+    version = '@ccsversion@'
+
+    buildRequires = [ 'conary:python', 'chkconfig:runtime',
+                      'info-rmake:user',  'libcap:devel',
+                      'conary-repository:python', 'desktop-file-utils:runtime']
+
+    def setup(r):
+        r.addArchive('rmake-@version@.tar.bz2')
+        r.Make('libdir=%(libdir)s')
+        r.MakeInstall('libdir=%(libdir)s')
+
+        r.MakeDirs('%(localstatedir)s/lib/rmake')
+        r.MakeDirs('%(localstatedir)s/log/rmake')
+        r.MakeDirs('%(localstatedir)s/run/rmake')
+        r.MakeDirs('%(localstatedir)s/rmake', mode=0700)
+        r.MakeDirs('%(servicedir)s/rmake')
+        r.MakeDirs('%(sysconfdir)s/rmake')
+        r.Desktopfile('extra/rmake.desktop')
+        r.Ownership('rmake', 'rmake',
+                    '%(localstatedir)s/rmake',
+                    '%(localstatedir)s/(lib|log|run)/rmake',
+                    '%(servicedir)s/rmake',
+                    '%(libexecdir)s/rmake')
+        r.ExcludeDirectories(exceptions='%(localstatedir)s/(lib|log|run)/rmake')
+        r.ExcludeDirectories(exceptions='%(localstatedir)s/rmake')
+        r.ExcludeDirectories(exceptions='%(servicedir)s/rmake')
+        r.ExcludeDirectories(exceptions='%(sysconfdir)s/rmake')
+
+        r.SetModes('%(libexecdir)s/rmake/chroothelper', 04755)
+        r.Requires(exceptDeps='python: epdb')
+        r.UtilizeUser('rmake-chroot', '%(libexecdir)s/rmake/chroothelper')
+        r.UtilizeGroup('rmake-chroot', '%(libexecdir)s/rmake/chroothelper')
