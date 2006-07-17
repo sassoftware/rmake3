@@ -273,8 +273,25 @@ class DependencyHandler(object):
         log.debug('   finding buildreqs for %s....' % trv.getName())
         start = time.time()
 
-        installLabelPath = [trv.getVersion().trailingLabel()] + self.installLabelPath
+        # NOTE: turn off automatic adding of buildLabel to buildReq
+        # search path.  The user can add it on their own if they'd
+        # like, but there's no way to turn it off if we enable it...
+        #
+        #troveVersion = trv.getVersion()
+        #troveLabel = troveVersion.trailingLabel()
+        #if troveLabel.getNamespace() == 'LOCAL':
+        #     # exception - if the namespace is LOCAL, it's a local
+        #     # cook of a .recipe file - don't include the internal
+	#     # repository in the search path
+        #    if not troveVersion.branch().hasParentBranch():
+        #        installLabelPath = []
+        #    else:
+        #        installLabelPath = [troveVersion.branch().parentBranch().label()]
+        #else:
+        #    installLabelPath = [troveLabel]
 
+        installLabelPath = []
+        installLabelPath.extend(self.installLabelPath)
 
         result = searchSource.findTroves(installLabelPath,
                                          trv.getBuildRequirementSpecs(),

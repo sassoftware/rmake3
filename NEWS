@@ -5,6 +5,10 @@ Changes in @NEW@:
       rMake cannot cook. (RMK-9)
     * rMake now tells you when a job is queued (RMK-88)
 
+  o Bug Fixes:
+    * Don't include the trove's label in the search path automatically - 
+      let the user do that explicitly.
+
 Changes in 0.5 (BETA):
   We are now calling this the BETA of rMake 1.
 
