@@ -235,7 +235,9 @@ def displayTrovesByState(dcfg, job, trove, indent='     '):
         print '%s%s Troves:' % (indent,troves[0].getStateName())
         txt = '  '.join(x.name.split(':')[0] for x in troves)
         lines, cols = getTerminalSize()
-        print textwrap.fill(txt, initial_indent=indent, subsequent_indent=indent, width=cols - len(indent))
+        if not cols:
+            cols = 80
+        print textwrap.fill(txt, initial_indent=indent, subsequent_indent=indent, width=max(cols - len(indent), 20))
         print
 
 def printOneTrove(dcfg, job, trove, indent='       '):
