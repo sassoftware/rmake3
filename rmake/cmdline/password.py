@@ -146,6 +146,11 @@ class PasswordPrompter(object):
 
     def getPassword(self, server, userName=None):
         contextNames = self.getContexts(server)
+        if 'rmake' in contextNames:
+            # if rmake is an available context, set that w/o prompting.
+            section = self.cfg.getSection(context)
+            return section.user.find(self.formData.hostname)
+
         info = PasswordData(self.cfg, server, contextList=sorted(contextNames), 
                             user=userName)
         PasswordPrompterGui(info).main()
