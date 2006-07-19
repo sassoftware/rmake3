@@ -10,8 +10,9 @@ Changes in @NEW@:
       of the rmake internal repository as well as the job list.
 
   o Bug Fixes:
-    * Don't include the trove's label in the search path automatically - 
+    * Don't include the trove's label in the search path automatically -
       let the user do that explicitly.
+    * Don't die if /etc/localtime doesn't exist (RMK-126)
 
 Changes in 0.5 (BETA):
   We are now calling this the BETA of rMake 1.
