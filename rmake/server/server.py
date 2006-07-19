@@ -19,6 +19,7 @@ import errno
 import itertools
 import pwd
 import os
+import shutil
 import signal
 import sys
 import time
@@ -505,8 +506,8 @@ class rMakeServer(apirpc.XMLApiServer):
     def __init__(self, uri, cfg):
         self.uri = uri
         self.cfg = cfg
-        self.db = database.Database("%s/jobs.db" % cfg.serverDir,
-                                    "%s/jobcontents" % cfg.serverDir)
+        self.db = database.Database(cfg.getDbPath(),
+                                    cfg.getDbContentsPath())
 
         # any jobs that were running before are not running now
         self._publisher = subscribe._RmakeServerPublisher()
@@ -614,11 +615,26 @@ class rMakeClient(object):
 
 # ----- daemon
 
+class ResetCommand(daemon.DaemonCommand):
+    commands = ['reset']
+
+    def runCommand(self, daemon, cfg, argSet, args):
+        for dir in (cfg.getReposDir(), cfg.getBuildLogDir(),
+                    cfg.getDbContentsPath()):
+            if os.path.exists(dir):
+                print "Deleting %s" % dir
+                shutil.rmtree(dir)
+        for path in (cfg.getDbPath(),):
+            if os.path.exists(path):
+                print "Deleting %s" % path
+                os.remove(path)
+
 class rMakeDaemon(daemon.Daemon):
     name = 'rmake'
     version = constants.version
     configClass = servercfg.rMakeConfiguration
     user = constants.rmakeuser
+    commandList = list(daemon.Daemon.commandList) + [ResetCommand]
 
     def __init__(self, *args, **kw):
         daemon.Daemon.__init__(self, *args, **kw)

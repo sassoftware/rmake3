@@ -21,6 +21,14 @@ port via a configuration file, however.
 .SS "Server Management"
 Use the following \fBcommands\fP to start, query, and stop the rMake server.
 .TP 4
+.TP
+.B config
+Displays current configuration parameters for rmake server. Configuration
+values are detailed in the FILES section below.
+.TP
+.B reset
+Deletes everything in the current rmake repository and database, allowing you
+to start fresh.
 .B start
 Starts the server
 .RS 4
@@ -33,10 +41,6 @@ Runs the server in the foreground instead of in daemon mode
 .TP
 .B stop, kill
 Stops the server
-.TP
-.B config
-Displays current configuration parameters for rmake server. Configuration
-values are detailed in the FILES section below.
 .RE
 .\"
 .\"

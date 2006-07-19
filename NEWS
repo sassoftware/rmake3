@@ -5,6 +5,10 @@ Changes in @NEW@:
       rMake cannot cook. (RMK-9)
     * rMake now tells you when a job is queued (RMK-88)
 
+  o Server Changes:
+    * Added 'rmake-server reset' command, to delete the entire contents
+      of the rmake internal repository as well as the job list.
+
   o Bug Fixes:
     * Don't include the trove's label in the search path automatically - 
       let the user do that explicitly.

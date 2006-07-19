@@ -47,6 +47,12 @@ class rMakeConfiguration(daemon.DaemonConfig):
         for path in ['/etc/rmake/serverrc', 'serverrc']:
             self.read(path, False)
 
+    def getDbPath(self):
+        return self.serverDir + '/jobs.db'
+
+    def getDbContentsPath(self):
+        return self.serverDir + '/jobcontents'
+
     def getContentsPath(self):
         return self.serverDir + '/repos/contents'
 
@@ -68,6 +74,9 @@ class rMakeConfiguration(daemon.DaemonConfig):
     def getRepositoryMap(self):
         return { self.serverName :
                  'http://localhost:%s/conary/' % (self.serverPort) }
+
+    def getBuildLogDir(self):
+        return self.logDir + '/buildlogs/'
 
     def getBuildLogPath(self, jobId):
         return self.logDir + '/buildlogs/%d.log' % jobId

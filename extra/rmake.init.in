@@ -56,6 +56,21 @@ restart() {
     start
 }
 
+reset() {
+    stop
+    resetinternal || return $?
+    start || return $?
+}
+
+resetinternal() {
+    echo $"Flushing rMake internal repository and database"
+    cd /etc/rmake;
+    @sbindir@/rmake-server reset
+    RETVAL=$?
+    echo
+    return $RETVAL
+}
+
 RETVAL=0
 
 # See how we were called.
@@ -78,8 +93,11 @@ case "$1" in
     restart|reload)
         restart
         ;;
+    reset)
+        reset
+        ;;
     *)
-        echo $"Usage: $0 {start|stop|debug|status|restart|config}"
+        echo $"Usage: $0 {start|stop|debug|status|restart|config|delete}"
         exit 1
 esac
 
