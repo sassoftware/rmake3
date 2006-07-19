@@ -227,7 +227,9 @@ resolveTroves group-x11=foo.rpath.org@rpl:devel gtk=gtk.rpath.org@rpl:devel
 resolveTroves group-dist
 
 Were added, then the specified group-x11 and gtk would be searched before
-group-dist.  Creating new buckets can down dependency resolution, however.
+group-dist.  Creating new buckets can slow down dependency resolution, however.
+
+To disable resolveTroves, add the line 'resolveTroves []'
 .TP
 .B targetLabel
 Specifies the label to build troves against.  Modification of this value is
