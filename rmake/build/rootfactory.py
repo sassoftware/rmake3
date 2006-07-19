@@ -294,8 +294,10 @@ class ConaryBasedRoot(BaseChroot):
         self.copyFile('/etc/resolv.conf')
 
         # make time outputs accurate
-        self.copyFile('/etc/localtime')
-        self.copyFile('/etc/nsswitch.conf')
+        if os.path.exists('/etc/localtime'):
+            self.copyFile('/etc/localtime')
+        if os.path.exists('/etc/nsswitch.conf'):
+            self.copyFile('/etc/nsswitch.conf')
 
         # ********
         # NOTE:
