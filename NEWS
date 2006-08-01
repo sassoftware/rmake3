@@ -13,6 +13,7 @@ Changes in @NEW@:
     * Don't include the trove's label in the search path automatically -
       let the user do that explicitly.
     * Don't die if /etc/localtime doesn't exist (RMK-126)
+    * Fix password prompter to work with contexts (RMK-89)
 
 Changes in 0.5 (BETA):
   We are now calling this the BETA of rMake 1.
