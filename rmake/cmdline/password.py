@@ -49,7 +49,8 @@ class PasswordPrompterGui(object):
 
         contextLabel = gtk.Label('Or select the correct context')
         contextList = gtk.combo_box_new_text()
-        for name in ['Select a context'] + formData.contextList:
+        contextList.append_text('Select a context')
+        for name in formData.contextList:
             contextList.append_text(name)
         contextList.set_active(0)
         contextList.connect("changed", self.contextSelected)
@@ -91,8 +92,12 @@ class PasswordPrompterGui(object):
     def contextSelected(self, widget):
         context = self._getContext()
         if context:
-            section = self.formData.cfg.getSection(context)
-            user, password = section.user.find(self.formData.hostname)
+            context = self.formData.contextList.get(context, None)
+            if not context:
+                user, password = '', ''
+            else:
+                section = self.formData.cfg.getSection(context)
+                user, password = section.user.find(self.formData.hostname)
             self.userEntry.set_text(user)
             self.passwordEntry.set_text(password)
 
@@ -106,8 +111,8 @@ class PasswordPrompterGui(object):
         gtk.main_quit()
 
     def cancel(self, widget):
-        self.info.user = None
-        self.info.password = None
+        self.formData.user = None
+        self.formData.password = None
         self.window.hide()
         gtk.main_quit()
 
@@ -130,7 +135,7 @@ class PasswordPrompter(object):
         self.cfg = cfg
 
     def getContexts(self, server, user=None):
-        sectionNames = []
+        sectionNames = {}
         for sectionName in self.cfg.iterSectionNames():
             section = self.cfg.getSection(sectionName)
             data = section.user.find(server)
@@ -140,25 +145,25 @@ class PasswordPrompter(object):
                 if data[0] == user and data[1]:
                     sectionNames.append(sectionName)
             else:
-                sectionNames.append(sectionName)
+                sectionNames[sectionName + ' (%s)' % data[0]] = sectionName
         return sectionNames
 
 
     def getPassword(self, server, userName=None):
         contextNames = self.getContexts(server)
-        if 'rmake' in contextNames:
+        if 'rmake' in contextNames.values():
             # if rmake is an available context, set that w/o prompting.
-            section = self.cfg.getSection(context)
+            section = self.cfg.getSection('rmake')
             return section.user.find(self.formData.hostname)
 
-        info = PasswordData(self.cfg, server, contextList=sorted(contextNames), 
+        info = PasswordData(self.cfg, server, contextList=contextNames,
                             user=userName)
         PasswordPrompterGui(info).main()
         return info.user, info.password
 
 def main(argv):
     cfg = conarycfg.ConaryConfiguration(True)
-    return PasswordPrompter(cfg).getPassword('conary.rpath.com')
+    return PasswordPrompter(cfg).getPassword(sys.argv[1])
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv))
