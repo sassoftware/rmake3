@@ -254,13 +254,19 @@ class DependencyHandler(object):
             """
             if len(solutions) == 1:
                 return solutions[0]
-            # flavorSpec should have been handled by findTroves.
-            
-            # we should only get here if two buildreqs are found on
-            # the exact same label with different version paths.
-            # Since they're on the same host, we'll compare commit times
-            # (what else can we do?)
-            return max(solutions)
+            # flavorSpec _should_ have been handled by findTroves.
+            # However, in some cases it's not - for example, if two different
+            # flavors of a trove are in the same group (glibc, e.g.).
+            filter = resolve.DepResolutionMethod(None, None)
+            result = None
+            affDict = dict.fromkeys(x[0] for x in solutions)
+            for flavor in self.installFlavor:
+                result = filter.selectResolutionTrove(trove, None, None,
+                                                      solutions, flavor,
+                                                      affDict)
+                if result:
+                    break
+            return result
 
         if not trv.getBuildRequirements():
             return True, set()
