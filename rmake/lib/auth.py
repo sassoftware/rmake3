@@ -44,7 +44,7 @@ class SocketAuth(object):
         creds = struct.unpack('iii', buf)
         self.pid = creds[0]
         self.uid = creds[1]
-        self.gid = creds[1]
+        self.gid = creds[2]
 
     def __repr__(self):
         return 'SocketAuth(pid=%s, uid=%s, gid=%s)' % (self.pid, self.uid, 
