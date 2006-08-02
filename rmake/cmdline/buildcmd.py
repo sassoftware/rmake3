@@ -13,18 +13,7 @@ from conary import versions
 
 from rmake import errors
 
-def getTrovesToBuild(conaryclient, troveSpecList, limitToHosts=None, 
-                     message=None):
-    toBuild = []
-    toFind = {}
-    groupsToFind = []
-
-    repos = conaryclient.getRepos()
-    cfg = conaryclient.cfg
-
-    cfg.limitToHosts = limitToHosts
-    cfg.buildTroveSpecs = []
-
+def getResolveTroveTups(cfg, repos):
     # get resolve troves - use installLabelPath and install flavor
     # for these since they're used for dep resolution
     try:
@@ -37,12 +26,27 @@ def getTrovesToBuild(conaryclient, troveSpecList, limitToHosts=None,
     resolveTroves = []
     for resolveTroveSpecList in cfg.resolveTroves:
         lst = []
-        resolveTroves.append(lst)
         for troveSpec in resolveTroveSpecList:
             lst.extend(results[troveSpec])
         resolveTroves.append(lst)
-    cfg.resolveTroveTups = resolveTroves
 
+    return resolveTroves
+
+
+
+def getTrovesToBuild(conaryclient, troveSpecList, limitToHosts=None, 
+                     message=None):
+    toBuild = []
+    toFind = {}
+    groupsToFind = []
+
+    repos = conaryclient.getRepos()
+    cfg = conaryclient.cfg
+
+    cfg.resolveTroveTups = getResolveTroveTups(cfg, repos)
+
+    cfg.limitToHosts = limitToHosts
+    cfg.buildTroveSpecs = []
     newTroveSpecs = []
     recipesToCook = []
     for troveSpec in list(troveSpecList):
