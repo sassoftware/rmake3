@@ -38,7 +38,8 @@ NPError NP_GetValue(void *future, NPPVariable var, void *val) {
 
 char * NP_GetMIMEDescription (void) {
     return ("application/x-rmake::rMake build service;"
-	    "application/x-rmake;version=1.0::rMake build service;");
+	    "application/x-rmake;version=1.0::rMake build service;"
+	    "application/x-rmake;subscriberApiVer=1::rMake build service;");
 }
 
 NPError NP_Initialize(NPNetscapeFuncs *moz_funcs,
