@@ -108,6 +108,8 @@ class BuildCommand(rMakeCommand):
             client.buildConfig.flavor = [newFlavor]
         hosts = argSet.pop('host', [])
         quiet = argSet.pop('quiet', False)
+        if not troveSpecs:
+            return self.usage()
         jobId = client.buildTroves(troveSpecs,
                                    monitorJob=argSet.pop('poll', False),
                                    limitToHosts=hosts,
