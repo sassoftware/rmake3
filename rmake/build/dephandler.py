@@ -513,6 +513,7 @@ class DepResolutionByTroveLists(resolve.DepResolutionByTroveList):
         self.installLabelPath = labelPath
 
     def _getIntraTroveDeps(self, depList):
+        suggsByDep = {}
         intraDeps = {}
         for troveTup, depSet in depList:
             pkgName = troveTup[0].split(':', 1)[0]
@@ -520,7 +521,9 @@ class DepResolutionByTroveLists(resolve.DepResolutionByTroveList):
                 if (dep.name.startswith(pkgName) 
                     and dep.name.split(':', 1)[0] == pkgName):
                     troveToGet = (dep.name, troveTup[1], troveTup[2])
-                    intraDeps.setdefault(depSet, {}).setdefault(dep, []).append(troveToGet)
+                    l = suggsByDep.setdefault(dep, [])
+                    l.append(troveToGet)
+                    intraDeps.setdefault(depSet, {}).setdefault(dep, l)
         return intraDeps
 
     def prepareForResolution(self, depList):
