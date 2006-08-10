@@ -18,6 +18,9 @@ Changes in @NEW@:
       trove of different flavors in a group could resolve buildreq (RMK-152).
     * Resolve troves no longer show up in the resolve trove list twice.
     * 'rmake build' without any troves returns a usage message (RMK-155).
+    * In some cases rMake must choose between x86 and x86_64 troves that
+      both solve intraTrove dependencies but conflict.  In this case,
+      conary should pick one using normal dep resolution rules.
 
 Changes in 0.5 (BETA):
   We are now calling this the BETA of rMake 1.
