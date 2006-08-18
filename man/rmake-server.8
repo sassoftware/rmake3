@@ -93,7 +93,7 @@ Directory in which the rmake server stores its data
 Port on which the internal repository listens; default is 7777
 .TP 4
 .B serverName
-Name of the internal repository; default is localhost
+Name of the internal repository; default is based off of the current hostname.  If you are using dhcp, you may wish to set this to something stable.  However, don't use something too common (like localhost) as collisions between this and the upstream naming will cause you to be unable to commit.
 .TP 4
 .B socketPath
 Path to rmake connection socket; default is /var/lib/rmake/socket
