@@ -8,6 +8,7 @@ Changes in @NEW@:
   o Server Changes:
     * Added 'rmake-server reset' command, to delete the entire contents
       of the rmake internal repository as well as the job list.
+    * Change repository to be based off of hostname.
 
   o Bug Fixes:
     * Don't include the trove's label in the search path automatically -
@@ -28,7 +29,7 @@ Changes in 0.5 (BETA):
   o Client Changes:
     * rMake now supports a password helper for its xml interface, that
       will pop up a gui window to ask you for username/passord (RMK-89)
-    * rMake now supports a "delete" option (RMK-5).
+    * rMake now supports a "reset" option (RMK-5).
     * allow resolveTroves entries to be ordered (RMK-59).
     * tell users to look at the buildlog when their chroot server didn't
       start. (RMK-116)

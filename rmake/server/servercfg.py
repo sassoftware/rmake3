@@ -19,6 +19,7 @@ local setup needed to use rMake.
 """
 import os
 import pwd
+import socket
 import stat
 import sys
 
@@ -36,7 +37,7 @@ class rMakeConfiguration(daemon.DaemonConfig):
                                 # information here!
     serverDir         = (CfgPath, '/srv/rmake')
     serverPort        = (CfgInt, 7777)
-    serverName        = 'localhost'
+    serverName        = socket.getfqdn()
     socketPath        = (CfgPath, '/var/lib/rmake/socket')
 
     def __init__(self, readConfigFiles = True):
