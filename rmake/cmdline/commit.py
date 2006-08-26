@@ -17,6 +17,8 @@ Commit command
 from conary.conaryclient import callbacks
 from conary.deps.deps import Flavor
 
+from rmake import compat
+
 def commitJob(conaryclient, job, rmakeConfig, message=None):
     trovesByBranch = {}
     for troveTup in job.iterTroveList():
@@ -47,12 +49,18 @@ def commitJob(conaryclient, job, rmakeConfig, message=None):
                 cloneTroves.append((trove.getName(), trove.getVersion(),
                                     Flavor()))
         assert(cloneTroves)
-        callback = callbacks.CloneCallback(conaryclient.cfg, message)
+        kw = {}
+        if compat.ConaryVersion().supportsCloneCallback():
+            callback = callbacks.CloneCallback(conaryclient.cfg, message)
+            kw['callback'] = callback
+        else:
+            callback = callbacks.ChangesetCallback()
+
         passed, cs = conaryclient.createCloneChangeSet(
                                             targetBranch,
                                             cloneTroves,
                                             updateBuildInfo=True,
-                                            callback=callback)
+                                            **kw)
         if passed:
             repos.commitChangeSet(cs, callback=callback)
             importantTups.extend(cs.getPrimaryTroveList())
