@@ -202,6 +202,9 @@ def _shadowAndCommit(conaryclient, recipeDir, stateFile, message):
         cfg.signatureKey = None
         cfg.signatureKeyMap = {}
 
+        if message is None:
+            message = 'Automated rMake commit'
+
         checkin.commit(repos, cfg, message)
         if log.errorOccurred():
             raise errors.RmakeError("Could not commit changes to build"

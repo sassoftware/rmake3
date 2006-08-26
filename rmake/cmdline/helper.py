@@ -27,13 +27,13 @@ from conary import conaryclient
 from conary import state
 from conary.build import use
 from conary.deps import deps
-from conary.deps.deps import Flavor
 from conary.lib import log
 from conary.lib import options
 
 from rmake.build import buildcfg
 from rmake.build import buildjob
 from rmake.cmdline import buildcmd
+from rmake.cmdline import commit
 from rmake.cmdline import monitor
 from rmake.server import servercfg
 from rmake.server import server
@@ -155,52 +155,7 @@ class rMakeHelper(object):
         self.repos.createChangeSetFile(jobList, path, recurse=False, 
                                        primaryTroveList=primaryTroveList)
 
-    def commitJob(self, jobId):
-
-        def _commitJob(job):
-            trovesByBranch = {}
-            for troveTup in job.iterTroveList():
-                trove = job.getTrove(*troveTup)
-                troveVersion = trove.getVersion()
-                if troveVersion.getHost() == self.rmakeConfig.serverName:
-                    if troveVersion.branch().hasParentBranch():
-                        targetBranch = troveVersion.branch().parentBranch()
-                    else:
-                        message = ('Cannot commit filesystem cook %s - '
-                                   ' nowhere to commit to!' % troveTup[0])
-                        return False, message
-                else:
-                    targetBranch = trove.getVersion().branch()
-                trovesByBranch.setdefault(targetBranch, []).append(trove)
-            assert(trovesByBranch)
-
-            repos = self.conaryclient.getRepos()
-
-            importantTups = []
-            for targetBranch, troves in trovesByBranch.iteritems():
-                cloneTroves = []
-                for trove in troves:
-                    builtTroves = list(trove.iterBuiltTroves())
-                    assert(builtTroves)
-                    cloneTroves.extend(builtTroves)
-                    if trove.getVersion().branch() != targetBranch:
-                        cloneTroves.append((trove.getName(), trove.getVersion(),
-                                            Flavor()))
-                assert(cloneTroves)
-                passed, cs = self.conaryclient.createCloneChangeSet(
-                                                    targetBranch,
-                                                    cloneTroves,
-                                                    updateBuildInfo=True)
-                if passed:
-                    repos.commitChangeSet(cs)
-                    importantTups.extend(cs.getPrimaryTroveList())
-                    importantTups.extend(x.getNewNameVersionFlavor()
-                                         for x in cs.iterNewTroveList()
-                                         if x.getName().endswith(':source'))
-                else:
-                    return False, 'Creating clone failed'
-            return True, importantTups
-
+    def commitJob(self, jobId, message=None):
         job = self.client.getJob(jobId)
         if not job.isBuilt():
             log.error('Can only commit built jobs,'
@@ -208,7 +163,8 @@ class rMakeHelper(object):
             return False
         self.client.startCommit(jobId)
         try:
-            succeeded, data = _commitJob(job)
+            succeeded, data = commit.commitJob(self.conaryclient, job,
+                                               self.rmakeConfig, message)
             if succeeded:
                 self.client.commitSucceeded(jobId, data)
                 print 'Committed:\n',
