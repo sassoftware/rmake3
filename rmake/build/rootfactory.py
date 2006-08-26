@@ -164,6 +164,7 @@ class AbstractChroot:
     def _copyFiles(self):
         for (sourceFile, targetFile) in self.filesToCopy:
             log.debug("copying file %s into chroot:%s", sourceFile, targetFile)
+            util.mkdirChain(os.path.dirname(self.root + targetFile))
             shutil.copy(sourceFile, self.root + targetFile)
 
     def _copyDirs(self):
@@ -312,7 +313,9 @@ class ConaryBasedRoot(BaseChroot):
 
         self._installRmake()
 
-        self.copyFile('/etc/conary/macros')
+        for macrosFile in cfg.defaultMacros:
+            if os.path.exists(macrosFile):
+                self.copyFile(macrosFile)
 
         for policyDir in cfg.policyDirs:
             if os.path.exists(policyDir):
