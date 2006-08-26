@@ -96,7 +96,7 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
     subscribe            = (CfgSubscriberDict(CfgSubscriber), {})
     resolveTroves        = (CfgList(CfgQuotedLineList(CfgTroveSpec)),
                             [[('group-dist', None, None)]])
-    targetLabel          = (CfgLabel, versions.Label('localhost@LOCAL:NONE'))
+    targetLabel          = (CfgLabel, versions.Label('NONE@LOCAL:NONE'))
 
     # Here are options that are not visible from the command-line
     # and should not be displayed.  They are job-specific.  However,
@@ -109,7 +109,8 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
     _hiddenOptions = [ 'buildTroveSpecs', 'resolveTroveTups' ]
 
 
-    def __init__(self, readConfigFiles=False, root='', conaryConfig=None):
+    def __init__(self, readConfigFiles=False, root='', conaryConfig=None,
+                 serverConfig=None):
         # we default the value of these items to whatever they
         # are set to on the local system's conaryrc.
         conarycfg.ConaryConfiguration.__init__(self)
@@ -129,8 +130,12 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
         self.root = ':memory:'
         self.dbPath = ':memory:'
         self.logFile = []
+        self.serverCfg = serverConfig
         for option in self._hiddenOptions:
             del self._lowerCaseMap[option.lower()]
+
+    def setServerConfig(self, serverCfg):
+        self.serverCfg = serverCfg
 
     def getTargetLabel(self, versionOrLabel):
         if isinstance(versionOrLabel, versions.Label):
@@ -144,7 +149,14 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
             # if your targetLabel is localhost@rpl:NONE, we build 
             # onto localhost@rpl:<branch> where branch is the branch
             # of the source version.
+
             needNewLabel = False
+            if targetLabel.getHost().lower() == 'none':
+                needNewLabel = True
+                host = self.serverCfg.serverName
+            else:
+                host = targetLabel.getHost()
+
             if targetLabel.getNamespace().lower() == 'none':
                 needNewLabel = True
                 nameSpace = cookLabel.getNamespace()
@@ -158,8 +170,7 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
                 branch = targetLabel.branch
 
             if needNewLabel:
-                targetLabel = '%s@%s:%s' % (targetLabel.getHost(),
-                                            nameSpace, branch)
+                targetLabel = '%s@%s:%s' % (host, nameSpace, branch)
                 targetLabel = versions.Label(targetLabel)
             return targetLabel
         else:

@@ -15,12 +15,14 @@ import errno
 import os
 import resource
 import signal
+import sys
 import tempfile
 import time
 import traceback
 
 from conary.build import cook,use
 from conary.deps import deps
+from conary.lib import epdb
 from conary.lib import log,util
 from conary import conaryclient
 from conary import versions
@@ -182,6 +184,8 @@ def stopBuild(results, pid, inF, csFile):
     log.info('pid %s killed' % pid)
 
 def _buildFailed(failureFd, errMsg, traceBack):
+    #if sys.stdin.isatty():
+    #    epdb.post_mortem(sys.exc_info()[2])
     log.error(errMsg)
     frz = '\002'.join(str(x) for x in freeze('FailureReason',
                                 BuildFailed(errMsg, traceBack)))

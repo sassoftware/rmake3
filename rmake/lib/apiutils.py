@@ -221,6 +221,18 @@ class api_version:
         return versions.ThawVersion(versionStr)
 register(api_version)
 
+class api_label:
+    name = 'label'
+
+    @staticmethod
+    def __freeze__(label):
+        return str(label)
+
+    @staticmethod
+    def __thaw__(label):
+        return versions.Label(label)
+register(api_label)
+
 
 class api_flavor:
     name = 'flavor'

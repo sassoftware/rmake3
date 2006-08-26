@@ -129,8 +129,9 @@ class Builder(object):
             troveToBuild.troveFailed(f)
             return
 
-        logPath, pid = chroot.buildTrove(self.buildCfg,
-                                         *troveToBuild.getNameVersionFlavor())
+        n,v,f = troveToBuild.getNameVersionFlavor()
+        targetLabel = self.buildCfg.getTargetLabel(v)
+        logPath, pid = chroot.buildTrove(self.buildCfg, targetLabel, n, v, f)
         troveToBuild.troveBuilding(logPath, pid)
         self._buildingTroves.append((chrootFactory, chroot, troveToBuild))
 

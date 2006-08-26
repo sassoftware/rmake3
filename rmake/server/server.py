@@ -259,6 +259,7 @@ class rMakeServer(apirpc.XMLApiServer):
                 if job.isFailed():
                     continue
                 buildCfg = self.db.getJobConfig(job.jobId)
+                buildCfg.setServerConfig(self.cfg)
                 self._startBuild(job, buildCfg)
         self._emitEvents()
         self._collectChildren()
