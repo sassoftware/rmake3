@@ -442,6 +442,8 @@ class ConaryBasedRoot(BaseChroot):
                 args = [prog, self.cfg.root]
                 if self.targetArch:
                     args.extend(['--arch', self.targetArch])
+                if self.serverCfg.useTmpfs:
+                    args.append('--tmpfs')
                 os.execv(prog, args)
             else:
                 # testsuite path

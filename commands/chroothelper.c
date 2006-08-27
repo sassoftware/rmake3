@@ -105,6 +105,35 @@ int switch_to_user(const char * userName) {
     return switch_to_uid_gid(pwent->pw_uid, pwent->pw_gid);
 }
 
+int mount_dir(const char * chrootDir, const char * fromDir,
+              const char * toDir,     const char * mountType) {
+    int rc;
+    struct stat st;
+    char tempPath[PATH_MAX];
+
+    rc = snprintf(tempPath, PATH_MAX, "%s%s", chrootDir, toDir);
+    if (rc > PATH_MAX) {
+        fprintf(stderr, "mount: path too long\n");
+        return 1;
+    } else if(rc < 0) {
+        perror("snprintf");
+        return 1;
+    }
+    if (opt_verbose)
+        printf("mount %s -> %s (type %s)\n", fromDir, tempPath, mountType);
+    /* check destination directory exists */
+    rc = stat(tempPath, &st);
+    if (rc == -1 || !S_ISDIR(st.st_mode)) {
+        fprintf(stderr, "ERROR: %s should be an existing directory\n", tempPath);
+        return 1;
+    }
+    if (-1 == mount(fromDir, tempPath, mountType, 0, NULL)) {
+        perror("mount");
+        return 1;
+    }
+    return 0;
+}
+
 int do_chroot(const char * chrootDir) {
     /* Enter in chroot and cd / */
     if (opt_verbose)
@@ -163,6 +192,11 @@ int clean(const char * chrootDir) {
         if (-1 == umount(mounts[i].to)) {
             perror("umount");
         }
+    }
+    if (opt_verbose)
+        printf("umount %s\n", "/tmp");
+    if (-1 == umount("/tmp")) {
+        perror("umount /tmp");
     }
 
     /* We only want to remove files owned by chrootuid, everything
@@ -244,36 +278,23 @@ int clean(const char * chrootDir) {
  * and execs the chroot server.
  *
  *********************************************************/
-int enter_chroot(const char * chrootDir) {
+
+int enter_chroot(const char * chrootDir, int useTmpfs) {
     cap_t cap;
-    char tempPath[PATH_MAX];
     int i;
     int rc;
     pid_t pid;
+    char tempPath[PATH_MAX];
 
     /* do the mounting here, since there is no mount capability */
     for(i=0; i < (sizeof(mounts) / sizeof(mounts[0])); i++) {
-	struct stat st;
-        rc = snprintf(tempPath, PATH_MAX, "%s%s", chrootDir, mounts[i].to);
-        if (rc > PATH_MAX) {
-            fprintf(stderr, "mount: path too long\n");
-            return 1;
-        } else if(rc < 0) {
-            perror("snprintf");
-            return 1;
-        }
-	if (opt_verbose)
-	    printf("mount %s -> %s (type %s)\n", mounts[i].from, tempPath, mounts[i].type);
-	/* check destination directory exists */
-	rc = stat(tempPath, &st);
-	if (rc == -1 || !S_ISDIR(st.st_mode)) {
-	    fprintf(stderr, "ERROR: %s should be an existing directory\n", tempPath);
-	    return 1;
-	}
-        if (-1 == mount(mounts[i].from, tempPath, mounts[i].type, 0, NULL)) {
-            perror("mount");
-            return 1;
-        }
+        if ((rc = mount_dir(chrootDir, mounts[i].from,
+                           mounts[i].to, mounts[i].type)))
+            return rc;
+    }
+    if (useTmpfs) {
+        if ((rc = mount_dir(chrootDir, "/tmp", "/tmp", "tmpfs")))
+            return rc;
     }
 
     /* keep our capabilities as we transition back to our real uid */
@@ -466,10 +487,12 @@ int main(int argc, char **argv)
     int rc;
 
     int opt_clean = 0; /* set if we need to --clean */
+    int opt_tmpfs = 0; /* set if we are using tmpfs */
     char *archname = NULL;
     char * chrootDir = NULL;
 
     struct option main_options[] = {
+	{"tmpfs", no_argument, &opt_tmpfs, 1},
 	{"clean", no_argument, &opt_clean, 1},
 	{"arch", required_argument, NULL, 'a'},
 	{"help", no_argument, NULL, 'h'},
@@ -556,5 +579,5 @@ int main(int argc, char **argv)
 	}
     }
     /* finally, start the work */
-    return enter_chroot(chrootDir);
+    return enter_chroot(chrootDir, opt_tmpfs);
 }

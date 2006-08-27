@@ -100,6 +100,9 @@ Path to rmake connection socket; default is /var/lib/rmake/socket
 .TP 4
 .B user
 As in conary configuration, takes a server glob, user and password.  These should be the values needed to access the rMake repository.  If used, the serverGlob should match with serverName, and the username and password should be values with write access to that repository.  If left blank, rMake will fill them in with default values - <serverName>, rmake rmake.
+.TP 4
+.B useTmpfs
+Causes rMake to mount a tmpfs filesystem at /tmp within the chroot, where all rMake builds take place.  With this memory-based filesystem in place, rMake builds will generally be faster but require more memory and less disk space.
 .TP
 .SH
 .PD 0

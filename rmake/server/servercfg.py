@@ -25,6 +25,7 @@ import sys
 
 from conary.lib import log, cfg
 from conary.lib.cfgtypes import CfgPath, CfgList, CfgString, CfgInt, CfgType
+from conary.lib.cfgtypes import CfgBool
 from conary.conarycfg import CfgLabel, CfgUserInfo
 from rmake.lib import daemon
 
@@ -38,13 +39,14 @@ class rMakeConfiguration(daemon.DaemonConfig):
     serverPort        = (CfgInt, 7777)
     serverName        = socket.getfqdn()
     socketPath        = (CfgPath, '/var/lib/rmake/socket')
+    useTmpfs          = (CfgBool, False)
     user              = CfgUserInfo
 
     def __init__(self, readConfigFiles = True):
         daemon.DaemonConfig.__init__(self)
         self.readFiles()
 
-        if not self.user and not self.isExternalServer():
+        if not self.user and not self.isExternalRepos():
             self.user.addServerGlob(self.serverName, 'rmake', 'rmake')
 
     def setServerName(self, serverName):
@@ -59,7 +61,7 @@ class rMakeConfiguration(daemon.DaemonConfig):
         for path in ['/etc/rmake/serverrc', 'serverrc']:
             self.read(path, False)
 
-    def isExternalServer(self):
+    def isExternalRepos(self):
         return self.serverUrl
 
     def getDbPath(self):
@@ -87,7 +89,7 @@ class rMakeConfiguration(daemon.DaemonConfig):
         return self.logDir + '/repos.log'
 
     def getRepositoryMap(self):
-        if self.isExternalServer():
+        if self.isExternalRepos():
             url = self.serverUrl
         else:
             url = 'http://localhost:%s/conary/' % (self.serverPort)

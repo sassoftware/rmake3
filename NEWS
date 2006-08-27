@@ -15,6 +15,8 @@ Changes in @NEW@:
     * Added the ability to use an external repository for as the internal
       rMake repository by specifying the serverName, serverUrl and user 
       parameters (RMK-165).
+    * Added a useTmpfs configuration option.  If used, the build will
+      be done on a tmpfs filesystem within the chroot. (RMK-163)
 
   o Bug Fixes:
     * Don't include the trove's label in the search path automatically -
