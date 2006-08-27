@@ -83,20 +83,23 @@ Watch the NEWS file for updates.
 .B lockDir
 Directory to create lockfile in; default is /var/lock/rmake
 .TP 4
-.B reposPassword
-Password for rmake repository
-.TP 4
 .B serverDir
 Directory in which the rmake server stores its data
 .TP 4
 .B serverPort
-Port on which the internal repository listens; default is 7777
+Port on which the internal repository listens; default is 7777.  If you wish to use another repository for rMake's internal storage, do not set this parameter, instead set serverUrl.
 .TP 4
 .B serverName
-Name of the internal repository; default is based off of the current hostname.  If you are using dhcp, you may wish to set this to something stable.  However, don't use something too common (like localhost) as collisions between this and the upstream naming will cause you to be unable to commit.
+Name of the internal repository; default is based off of the current hostname.  If you are using dhcp, you may wish to set this to something stable.  However, don't use something too common (like localhost) as collisions between this and the upstream naming will cause you to be unable to commit.  If you wish to you another repository for rMake's internal storage, set this to the name of the the server you wish to commit to.
+.TP 4
+.B serverUrl
+If you do not want rMake to start its own repository, but instead wish it to use an external repository for its commits, set this value along with serverName to create a repositoryMap entry for that server.  Note using this configuraiton is not recommended except for in advanced usage - rMake commits builds to this repository automatically, and if you are not using the rMake repository then rMake cannot reset the repository for you.
 .TP 4
 .B socketPath
 Path to rmake connection socket; default is /var/lib/rmake/socket
+.TP 4
+.B user
+As in conary configuration, takes a server glob, user and password.  These should be the values needed to access the rMake repository.  If used, the serverGlob should match with serverName, and the username and password should be values with write access to that repository.  If left blank, rMake will fill them in with default values - <serverName>, rmake rmake.
 .TP
 .SH
 .PD 0

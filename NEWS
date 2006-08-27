@@ -12,6 +12,9 @@ Changes in @NEW@:
     * Added 'rmake-server reset' command, to delete the entire contents
       of the rmake internal repository as well as the job list.
     * Change repository to be based off of hostname.
+    * Added the ability to use an external repository for as the internal
+      rMake repository by specifying the serverName, serverUrl and user 
+      parameters (RMK-165).
 
   o Bug Fixes:
     * Don't include the trove's label in the search path automatically -

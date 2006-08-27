@@ -25,7 +25,7 @@ import sys
 
 from conary.lib import log, cfg
 from conary.lib.cfgtypes import CfgPath, CfgList, CfgString, CfgInt, CfgType
-from conary.conarycfg import CfgLabel
+from conary.conarycfg import CfgLabel, CfgUserInfo
 from rmake.lib import daemon
 
 class rMakeConfiguration(daemon.DaemonConfig):
@@ -33,20 +33,34 @@ class rMakeConfiguration(daemon.DaemonConfig):
     chrootHelperPath  = (CfgPath, "/usr/libexec/rmake/chroothelper")
     logDir            = (CfgPath, '/var/log/rmake')
     lockDir           = (CfgPath, '/var/run/rmake')
-    reposPassword     = 'rmake' # FIXME: we should not be storing this 
-                                # information here!
     serverDir         = (CfgPath, '/srv/rmake')
+    serverUrl         = (CfgString, None)
     serverPort        = (CfgInt, 7777)
     serverName        = socket.getfqdn()
     socketPath        = (CfgPath, '/var/lib/rmake/socket')
+    user              = CfgUserInfo
 
     def __init__(self, readConfigFiles = True):
         daemon.DaemonConfig.__init__(self)
         self.readFiles()
 
+        if not self.user and not self.isExternalServer():
+            self.user.addServerGlob(self.serverName, 'rmake', 'rmake')
+
+    def setServerName(self, serverName):
+        for x in list(self.user):
+            if x[0] == self.serverName:
+                self.user.remove(x)
+        if not self.user.find(serverName):
+            self.user.addServerGlob(serverName, 'rmake', 'rmake')
+        self.serverName = serverName
+
     def readFiles(self):
         for path in ['/etc/rmake/serverrc', 'serverrc']:
             self.read(path, False)
+
+    def isExternalServer(self):
+        return self.serverUrl
 
     def getDbPath(self):
         return self.serverDir + '/jobs.db'
@@ -73,8 +87,14 @@ class rMakeConfiguration(daemon.DaemonConfig):
         return self.logDir + '/repos.log'
 
     def getRepositoryMap(self):
-        return { self.serverName :
-                 'http://localhost:%s/conary/' % (self.serverPort) }
+        if self.isExternalServer():
+            url = self.serverUrl
+        else:
+            url = 'http://localhost:%s/conary/' % (self.serverPort)
+        return { self.serverName : url }
+
+    def getUserGlobs(self):
+        return self.user
 
     def getBuildLogDir(self):
         return self.logDir + '/buildlogs/'
@@ -86,6 +106,10 @@ class rMakeConfiguration(daemon.DaemonConfig):
         currUser = pwd.getpwuid(os.getuid()).pw_name
 
         cfgPaths = ['buildDir', 'logDir', 'lockDir', 'serverDir']
+
+        if self.serverPort != self.getDefaultValue('serverPort'):
+            if self.serverUrl:
+                log.error('Cannot specify both serverPort and serverUrl')
 
         if os.path.exists(self.socketPath):
             cfgPaths.append('socketPath')

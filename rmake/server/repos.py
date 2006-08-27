@@ -75,7 +75,8 @@ def startRepository(cfg = None, fork = True):
     schema.loadSchema(db)
     db.commit()
 
-    addUser(serverCfg, 'rmake', cfg.reposPassword, write=True)
+    user, password = cfg.user.find(cfg.serverName)
+    addUser(serverCfg, user, password, write=True)
     addUser(serverCfg, 'anonymous', 'anonymous')
 
     if fork:

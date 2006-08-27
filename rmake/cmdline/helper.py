@@ -63,11 +63,10 @@ class rMakeHelper(object):
 
         self.client = server.rMakeClient(uri)
 
-        # FIXME: we need this for creating shadows, etc
-        # in the rmake repository for builds.  
-        # To do this we'll have to fix authentification to the internal repos.
-        buildConfig.user.append((rmakeConfig.serverName, 'rmake',
-                                 rmakeConfig.reposPassword))
+        # this should use extend but extend used to be broken when
+        # there were multiple entries
+        for info in reversed(rmakeConfig.user):
+            buildConfig.user.append(info)
         buildConfig.initializeFlavors()
         use.setBuildFlagsFromFlavor(None, buildConfig.buildFlavor, error=False)
 

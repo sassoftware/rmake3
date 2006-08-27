@@ -241,10 +241,9 @@ class rMakeServer(apirpc.XMLApiServer):
         return builder.Builder(self.cfg, buildConfig, job)
 
     def updateBuildConfig(self, buildConfig):
-        buildConfig.repositoryMap[self.cfg.serverName] = \
-                        'http://localhost:%d/conary/' % self.cfg.serverPort
-        buildConfig.user.addServerGlob(self.cfg.serverName, 'rmake',
-                                       self.cfg.reposPassword)
+        buildConfig.repositoryMap.update(self.cfg.getRepositoryMap())
+        for serverName, user, password in self.cfg.getUserGlobs():
+            buildConfig.user.addServerGlob(serverName, user, password)
 
     def _serveLoopHook(self):
         if not self._initialized:
@@ -649,7 +648,10 @@ class rMakeDaemon(daemon.Daemon):
     def doWork(self):
         cfg = self.cfg
         cfg.sanityCheck()
-        self.reposPid = repos.startRepository(cfg, fork=True)
+        if not cfg.isExternalRepos():
+            self.reposPid = repos.startRepository(cfg, fork=True)
+        else:
+            self.reposId = None
         misc.removeIfExists(cfg.socketPath)
         server = rMakeServer('unix://%s' % cfg.socketPath, cfg)
         signal.signal(signal.SIGTERM, server._signalHandler)

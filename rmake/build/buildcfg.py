@@ -130,12 +130,20 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
         self.root = ':memory:'
         self.dbPath = ':memory:'
         self.logFile = []
-        self.serverCfg = serverConfig
         for option in self._hiddenOptions:
             del self._lowerCaseMap[option.lower()]
 
+        self.setServerConfig(serverConfig)
+
     def setServerConfig(self, serverCfg):
         self.serverCfg = serverCfg
+        if serverCfg:
+            # we need to be careful of duplicate entries here,
+            # so we have to feed the user entry data in the
+            # right order.
+            for entry in reversed(serverCfg.user):
+                self.user.append(entry)
+
 
     def getTargetLabel(self, versionOrLabel):
         if isinstance(versionOrLabel, versions.Label):
