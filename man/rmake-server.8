@@ -1,16 +1,17 @@
 .\" Copyright (c) 2006 rPath, Inc.
 .TH RMAKESERVER 1 "23 May 2006" "rPath, Inc."
 .SH NAME
-rmake \- Environment-controlled package building tool for conary
+rmake \- Environment-controlled package building tool for Conary
 .SH SYNOPSIS
 .B /sbin/service rmake \fIcommand \fR[\fI<args>\fR]
 .SH DESCRIPTION
-The \fBrmake\fR server is the back-end for rmake, and controls the rmake
-database, repository, changeset cache, and more.
+The \fBrmake\fR server is the back-end for rMake, and controls such elements
+as rMake's database, repository, and changeset cache.
+
 For information on using rmake, see \fBrmake(1)\fR.
 
-\fBNote that rmake is ALPHA software; any and all behavior is subject to
-change with future releases.  Read the NEWS file for information on changes
+\fBNote that rMake is ALPHA software; any and all behavior is subject to
+change with future releases. Read the NEWS file for information on changes
 and updates.\fR
 
 .SH REFERENCE
@@ -19,16 +20,16 @@ It does provide for configuration of parameters such as paths and listening
 port via a configuration file, however. 
 
 .SS "Server Management"
-Use the following \fBcommands\fP to start, query, and stop the rMake server.
+Use the following \fBcommands\fP to start, query, and stop rmake server.
 .TP 4
 .TP
 .B config
 Displays current configuration parameters for rmake server. Configuration
-values are detailed in the FILES section below.
+values are detailed in the FILES section of this manual page.
 .TP
 .B reset
-Deletes everything in the current rmake repository and database, allowing you
-to start fresh.
+Deletes everything in the current rmake repository and database. Use reset
+to begin using rmake with a new database and repository.
 .B start
 Starts the server
 .RS 4
@@ -52,24 +53,24 @@ Stops the server
 .I /etc/rmake/serverrc
 The rmake server configuration file
 
-Configuration values can also be specified via command line options,including
+Configuration values can also be specified via command line options, including
 the \fB\-\-config\fR option, which allows you to override one line in the
-config file, and the \-\-config-file option, which  reads in an additional
-specified config file that overrides all other configuration files.  The 
+config file, and the \-\-config-file option, which reads in an additional
+specified config file that overrides all other configuration files. The 
 \-\-skip-default-config option causes the server to not read
 /etc/rmake/serverrc for configuration.
 
 Note that you can always use \fIrmake config\fR to see the current value of a
-configuration item.  This is the most surefire way to read what rmake actually
-thinks a configuration value is.
+configuration item.  This is the most surefire way to read what rmake will
+actually use as a configuration value for a given item.
  
-Make configuration items can be strings, boolean values
+The rmake server configuration items can be strings, boolean values
 (\fBTrue\fP or \fBFalse\fP), or mappings (\f(BIto from\fP) and can include:
 .PD
 .RS 4
 .TP 4
 .B buildDir
-Directory under which rMake builds.  For security reasons, this directory must 
+Directory under which rmake builds.  For security reasons, this directory must 
 be owned by the rmake user, and its permissions must be set to 700.
 .TP 4
 .B chrootHelperPath
@@ -84,25 +85,43 @@ Watch the NEWS file for updates.
 Directory to create lockfile in; default is /var/lock/rmake
 .TP 4
 .B serverDir
-Directory in which the rmake server stores its data
+Directory in which the rmake server stores data
 .TP 4
 .B serverPort
-Port on which the internal repository listens; default is 7777.  If you wish to use another repository for rMake's internal storage, do not set this parameter, instead set serverUrl.
+Port on which the internal repository listens; default is 7777.  If you wish
+to use another repository for rmake server's internal storage, do not set this
+parameter, instead set serverUrl.
 .TP 4
 .B serverName
-Name of the internal repository; default is based off of the current hostname.  If you are using dhcp, you may wish to set this to something stable.  However, don't use something too common (like localhost) as collisions between this and the upstream naming will cause you to be unable to commit.  If you wish to you another repository for rMake's internal storage, set this to the name of the the server you wish to commit to.
+Name of the internal repository; default is based on the current hostname.
+If you are using dhcp, you may wish to set this to something stable. However,
+don't use something too common (like localhost) as collisions between this
+and the upstream naming will cause you to be unable to commit.  If you wish to
+use another repository for rMake's internal storage, set this to the name of
+the the server you wish to commit to.
 .TP 4
 .B serverUrl
-If you do not want rMake to start its own repository, but instead wish it to use an external repository for its commits, set this value along with serverName to create a repositoryMap entry for that server.  Note using this configuraiton is not recommended except for in advanced usage - rMake commits builds to this repository automatically, and if you are not using the rMake repository then rMake cannot reset the repository for you.
+If you do not want rmake server to start its own repository, but instead wish
+it to use an external repository for commits, set this value along with
+serverName to create a repositoryMap entry for that server. Note that using
+this configuration is recommended only for advanced usage. rmake commits
+builds to this repository automatically, and if you are not using the rMake
+repository then rmake cannot reset the repository for you.
 .TP 4
 .B socketPath
 Path to rmake connection socket; default is /var/lib/rmake/socket
 .TP 4
 .B user
-As in conary configuration, takes a server glob, user and password.  These should be the values needed to access the rMake repository.  If used, the serverGlob should match with serverName, and the username and password should be values with write access to that repository.  If left blank, rMake will fill them in with default values - <serverName>, rmake rmake.
+Similar to Conary' configuration, accepts a server glob, user and password.
+These should be the values needed to access the rMake repository.  If used,
+the serverGlob should match with serverName, and the username and password
+should be values with write access to that repository. If left blank, rMake
+will fill them in with default values: <serverName>, rmake rmake.
 .TP 4
 .B useTmpfs
-Causes rMake to mount a tmpfs filesystem at /tmp within the chroot, where all rMake builds take place.  With this memory-based filesystem in place, rMake builds will generally be faster but require more memory and less disk space.
+Causes rMake to mount a tmpfs filesystem at /tmp within the chroot, where
+all rMake builds take place. With this memory-based filesystem in place, rMake
+builds will generally be faster but require more memory and less disk space.
 .TP
 .SH
 .PD 0

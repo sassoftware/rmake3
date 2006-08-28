@@ -45,7 +45,8 @@ repository, then rmake will shadow that recipe to rmake's internal repository
 and commit your local changes to that shadow.  Then, when you commit that
 job, the related source component(s) will be also be committed.  
 
-You may also build recipes that are not source checkouts, but you cannot commit them - you can only get changesets from these builds.
+You can also build recipes that are not source checkouts, but you cannot
+commit them; these builds only generate changesets.
 
 Example: \fIrmake build 'glib=foresight.rpath.org@fl:desktop/1.0-1[!mysql]'\fP
 would build glib from the foresight repository, with the mysql flavor turned
@@ -108,7 +109,7 @@ below.
 .RS 4
 .TP 4
 .B \-\-show-passwords
-Normally, rmake config will mask paswords in repository maps, to avoid their
+Normally, rmake config will mask passwords in repository maps, to avoid their
 accidental display.  You can override this masking with --show-passwords.
 .RE
 .TP
@@ -145,7 +146,7 @@ and status.
 .TP
 .B \-\-flavors
 Displays full flavors of all troves.
-See the conary manual page for more detaila about flavors.
+See the conary manual page for more details about flavors.
 .TP
 .B \-\-full-versions
 Full version strings are displayed instead of abbreviated version numbers
@@ -181,7 +182,7 @@ Stops the given job, failing any current builds.
 The configuration file for the rmake client. rMake also reads in
 /etc/conaryrc, $HOME/.conaryrc, and ./conaryrc to determine default values
 for conary configuration, and also supports configuration contexts
-(see conary man page for information about contexts).  Note that for
+(see conary(1) for information about contexts).  Note that for
 simplicity, rMake reads in all conary configuration values. The currently
 documented conary configuration values affect rMake operation.
  
@@ -259,7 +260,8 @@ The label that rMake will use to find troves to build.
 rMake uses this list of flavors to satisfy build reqs and resolve dependencies 
 when building.
 .B installLabelPath
-This is the search path used by rmake when finding troves to satisfy build requirements, and when resolving dependencies for building.
+This is the search path used by rmake when finding troves to satisfy build
+requirements, and when resolving dependencies for building.
 .TP
 .B repositoryMap
 Maps a hostname from a label to a full URL for a networked repository.
