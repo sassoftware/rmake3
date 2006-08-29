@@ -314,7 +314,8 @@ class ConaryBasedRoot(BaseChroot):
         self._installRmake()
 
         # always copy in entitlements
-        self.copyDir(self.cfg.entitlementDirectory)
+        if os.path.exists(self.cfg.entitlementDirectory):
+            self.copyDir(self.cfg.entitlementDirectory)
         if not cfg.strictMode:
             for option in ['archDirs', 'mirrorDirs', 'policyDirs',
                            'siteConfigPath', 'useDirs']:
