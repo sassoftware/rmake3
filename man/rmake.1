@@ -231,6 +231,18 @@ group-dist.  Creating new buckets can slow down dependency resolution, however.
 
 To disable resolveTroves, add the line 'resolveTroves []'
 .TP
+.B resolveTrovesOnly
+resolveTrovesOnly turns off the use of the installLabelPath by conary, limiting
+conary to only including troves that are referenced in resolveTroves.
+.TP
+.B strictMode
+Strict mode disables the copying in of configuration files from your system.
+It also does not copy in the conary from your running system into the build
+root but instead uses the conary installed in that root.  It also turns on 
+enforceManagedPolicy if it is turned off.
+
+The following values are still copied into the chroot: repositoryMap and entitlement info, user info, buildFlavor, flavor and installLabelPath.
+.TP
 .B targetLabel
 Specifies the label to build troves against.  Modification of this value is
 almost never necessary. By default, this is a label on the rmake internal
@@ -267,7 +279,6 @@ Multiple maps can be given for a single label. (If no mapping is found,
 \fBhttp://\f(BIhostname\fB/conary/\fR is used as the default map.)  See 
 conary(1) for more information.
 .TP
-
 .B includeConfigFile
 Immediately reads the listed configuration file.  The file name may include
 shell globs, in which case all files matching the glob will be read in.

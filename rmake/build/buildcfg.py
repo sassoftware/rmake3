@@ -93,9 +93,11 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
                              'findutils:runtime', 'gawk:runtime'
                              ])
     enforceManagedPolicy = (CfgBool, False)
-    subscribe            = (CfgSubscriberDict(CfgSubscriber), {})
     resolveTroves        = (CfgList(CfgQuotedLineList(CfgTroveSpec)),
                             [[('group-dist', None, None)]])
+    resolveTrovesOnly    = (CfgBool, False)
+    strictMode           = (CfgBool, False)
+    subscribe            = (CfgSubscriberDict(CfgSubscriber), {})
     targetLabel          = (CfgLabel, versions.Label('NONE@LOCAL:NONE'))
 
     # Here are options that are not visible from the command-line

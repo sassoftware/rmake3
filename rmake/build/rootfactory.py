@@ -313,17 +313,18 @@ class ConaryBasedRoot(BaseChroot):
 
         self._installRmake()
 
-        for macrosFile in cfg.defaultMacros:
-            if os.path.exists(macrosFile):
-                self.copyFile(macrosFile)
-
-        for policyDir in cfg.policyDirs:
-            if os.path.exists(policyDir):
-                self.copyDir(policyDir)
-
-        for useDir in cfg.useDirs:
-            if os.path.exists(useDir):
-                self.copyDir(useDir)
+        # always copy in entitlements
+        self.copyDir(self.cfg.entitlementDirectory)
+        if not cfg.strictMode:
+            for option in ['archDirs', 'mirrorDirs', 'policyDirs',
+                           'siteConfigPath', 'useDirs']:
+                for dir in cfg[option]:
+                    if os.path.exists(dir):
+                        self.copyDir(dir)
+            for option in ['defaultMacros']:
+                for path in cfg[option]:
+                    if os.path.exists(path):
+                        self.copyFile(path)
 
         self.addDir(cfg.tmpDir, mode=01777)
         self.csCache = csCache
@@ -340,10 +341,12 @@ class ConaryBasedRoot(BaseChroot):
                                 'Cannot create chroot - chroot helper failed to clean old chroot')
 
     def _installRmake(self):
-        conaryDir = os.path.dirname(sys.modules['conary'].__file__)
-        if not self.targetArch:
-            self.copyDir(conaryDir)
-            self.copyDir(conaryDir, '/usr/lib/python2.4/site-packages/conary')
+        if not self.cfg.strictMode:
+            conaryDir = os.path.dirname(sys.modules['conary'].__file__)
+            if not self.targetArch:
+                self.copyDir(conaryDir)
+                self.copyDir(conaryDir,
+                             '/usr/lib/python2.4/site-packages/conary')
 
 
         rmakeDir = os.path.dirname(sys.modules['rmake'].__file__)
@@ -389,9 +392,20 @@ class ConaryBasedRoot(BaseChroot):
     def createConaryRc(self):
         conaryrc = open('%s/etc/conaryrc' % self.root, 'w')
         conaryCfg = conarycfg.ConaryConfiguration(False)
-        for key, value in self.cfg.iteritems():
-            if key in conaryCfg:
-                conaryCfg[key] = value
+        if self.cfg.strictMode:
+            conaryCfg.buildFlavor = self.cfg.buildFlavor
+            conaryCfg.installLabelPath = self.cfg.installLabelPath
+            conaryCfg.flavor = self.cfg.flavor
+            # even in strict mode we need to be able to access the repos
+            # to get pathIds
+            conaryCfg.repositoryMap = self.cfg.repositoryMap
+            conaryCfg.user = self.cfg.user
+            conaryCfg.entitlementDirectory = self.cfg.entitlementDirectory
+            conarycfg.enforceManagedPolicy = True
+        else:
+            for key, value in self.cfg.iteritems():
+                if key in conaryCfg:
+                    conaryCfg[key] = value
         try:
             if self.canChroot(): # then we will be chrooting into this dir
                 oldroot = self.cfg.root
@@ -525,16 +539,19 @@ class ChrootFactory(object):
         except OSError, err:
             if err.errno != errno.ESRCH:
                 raise
-        else:
-            died = False
-            for i in xrange(400):
-                foundPid, status = os.waitpid(pid, os.WNOHANG)
-                if not foundPid:
-                    time.sleep(.1)
-                else:
-                    died = True
-                    break
-            if not died:
-                self.warning('child process %s did not shut down' % pid)
             else:
-                del self.chroots[pid]
+                return
+        except errors.OpenError, err:
+            pass
+        died = False
+        for i in xrange(400):
+            foundPid, status = os.waitpid(pid, os.WNOHANG)
+            if not foundPid:
+                time.sleep(.1)
+            else:
+                died = True
+                break
+        if not died:
+            self.warning('child process %s did not shut down' % pid)
+        else:
+            del self.chroots[pid]

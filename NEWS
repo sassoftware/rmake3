@@ -7,6 +7,12 @@ Changes in @NEW@:
     * rMake now has has callbacks to tell you how a commit is proceeding.  It
       also now asks you for a message for a recipe build on commit, not when 
       you start to build the recipe (depends on conary 1.0.30).
+    * added a strictMode config option that does not copy in configuration
+      files or conary from your local system, but instead uses the conary
+      and configuration in the chroot (RMK-167).
+    * Added resolveTrovesOnly config option, it does not use your 
+      installLabelPath to resolve dependencies but instead limits itself to 
+      only the resolveTroves list (RMK-166).
 
   o Server Changes:
     * Added 'rmake-server reset' command, to delete the entire contents
