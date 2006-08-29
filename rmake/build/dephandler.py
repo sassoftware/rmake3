@@ -118,7 +118,11 @@ class DependencyHandler(object):
     def __init__(self, statusLog, cfg, searchSource, depState):
         self.depState = depState
         self.client = conaryclient.ConaryClient(cfg)
-        self.installLabelPath = cfg.installLabelPath
+        if cfg.resolveTrovesOnly:
+            self.installLabelPath = None
+        else:
+            self.installLabelPath = cfg.installLabelPath
+
         self.installFlavor = cfg.flavor
 
         statusLog.subscribe(statusLog.TROVE_BUILT, self.troveBuilt)
@@ -142,9 +146,11 @@ class DependencyHandler(object):
                 searchSourceTroves.append(resolveTroves)
 
             self.searchSource = DepHandlerSource(
-                                               depState.getBuiltTrovesSource(),
-                                               searchSourceTroves,
-                                               searchSource)
+                               depState.getBuiltTrovesSource(),
+                               searchSourceTroves,
+                               searchSource,
+                               useInstallLabelPath=not cfg.resolveTrovesOnly)
+
             self.resolveSource = DepResolutionByTroveLists(cfg, None,
                                                            searchSourceTroves)
         else:
@@ -296,12 +302,17 @@ class DependencyHandler(object):
         #else:
         #    installLabelPath = [troveLabel]
 
-        installLabelPath = []
-        installLabelPath.extend(self.installLabelPath)
+        if self.installLabelPath is None:
+            installLabelPath = None
+            searchFlavor = None
+        else:
+            installLabelPath = []
+            installLabelPath.extend(self.installLabelPath)
+            searchFlavor =  client.cfg.flavor
 
         result = searchSource.findTroves(installLabelPath,
                                          trv.getBuildRequirementSpecs(),
-                                         client.cfg.flavor, allowMissing=True,
+                                         searchFlavor, allowMissing=True,
                                          acrossLabels=False)
 
         okay = True
@@ -325,6 +336,7 @@ class DependencyHandler(object):
         start = time.time()
         itemList = [ (x[0], (None, None), (x[1], x[2]), True)
                                                 for x in buildReqTups ]
+
         self.resolveSource.setLabelPath(installLabelPath)
 
         uJob = database.UpdateJob(None)
@@ -442,20 +454,24 @@ class DependencyHandler(object):
                 return False, checkedTroves
 
 class DepHandlerSource(trovesource.TroveSourceStack):
-    def __init__(self, builtTroveSource, troveListList, repos):
+    def __init__(self, builtTroveSource, troveListList, repos,
+                 useInstallLabelPath=True):
+        self.repos = repos
         if troveListList:
             troveSources = []
             for troveList in troveListList:
                 allTroves = itertools.chain((x.getNameVersionFlavor() for x in troveList), *( x.iterTroveList(weakRefs=True, strongRefs=True) for x in troveList))
                 troveSources.append(trovesource.SimpleTroveSource(allTroves))
 
-            self.sources = [builtTroveSource] + troveSources + [repos]
+            self.sources = [builtTroveSource] + troveSources
+            if useInstallLabelPath:
+                self.sources.append(repos)
         else:
             self.sources = [builtTroveSource, repos]
 
     def resolveDependenciesByGroups(self, troveList, depList):
         sugg = self.sources[0].resolveDependencies(None, depList)
-        sugg2 = self.sources[2].resolveDependenciesByGroups(troveList, depList)
+        sugg2 = self.repos.resolveDependenciesByGroups(troveList, depList)
         for depSet, trovesByDep in sugg.iteritems():
             for idx, troveList in enumerate(trovesByDep):
                 if not troveList:
