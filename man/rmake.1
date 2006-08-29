@@ -238,11 +238,13 @@ conary to only including troves that are referenced in resolveTroves.
 .TP
 .B strictMode
 Strict mode disables the copying in of configuration files from your system.
-It also does not copy in the conary from your running system into the build
-root but instead uses the conary installed in that root.  It also turns on 
-enforceManagedPolicy if it is turned off.
+The conary instance from your running system will not be copied into the build
+root if strict mode is used; the conary instance installed in that root will
+be used instead. If enforceManagedPolicy is off, strict mode will also turn it
+on.
 
-The following values are still copied into the chroot: repositoryMap and entitlement info, user info, buildFlavor, flavor and installLabelPath.
+The following values are still copied into the chroot: repositoryMap and
+entitlement info, user info, buildFlavor, flavor and installLabelPath.
 .TP
 .B targetLabel
 Specifies the label to build troves against.  Modification of this value is
