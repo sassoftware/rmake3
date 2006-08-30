@@ -14,6 +14,7 @@
 import sys
 import time
 
+from conary.build import recipe
 from conary.conaryclient import cmdline
 from conary.deps import deps
 from conary import trove
@@ -30,12 +31,26 @@ troveStates = {
     'TROVE_STATE_BUILT'     : 5,
     }
 
+recipeTypes = {
+    'RECIPE_TYPE_UNKNOWN'      : 0,
+    'RECIPE_TYPE_PACKAGE'      : 1,
+    'RECIPE_TYPE_FILESET'      : 2,
+    'RECIPE_TYPE_GROUP'        : 3,
+    'RECIPE_TYPE_INFO'         : 4,
+    'RECIPE_TYPE_REDIRECT'     : 5,
+}
+
+
 # assign troveStates to this module's dict so that they can be referenced with
 # module 'getattribute' notation (eg; buildtrove.TROVE_STATE_INIT)
 sys.modules[__name__].__dict__.update(troveStates)
+sys.modules[__name__].__dict__.update(recipeTypes)
 
-stateNames = dict([(x[1], x[0].split('_')[-1].capitalize()) \
+stateNames = dict([(x[1], x[0].rsplit('_', 1)[-1].capitalize()) \
                    for x in troveStates.iteritems()])
+recipeTypeNames = dict([(x[1], x[0].rsplit('_', 1)[-1].capitalize()) \
+                       for x in recipeTypes.iteritems()])
+
 
 stateNames.update({
     TROVE_STATE_INIT      : 'Initialized',
@@ -44,10 +59,27 @@ stateNames.update({
 def _getStateName(state):
     return stateNames[state]
 
+def _getRecipeTypeName(recipeType):
+    return recipeTypeNames[recipeType]
+
+def getRecipeType(recipeClass):
+    if recipe.isPackageRecipe(recipeClass):
+        return RECIPE_TYPE_PACKAGE
+    if recipe.isGroupRecipe(recipeClass):
+        return RECIPE_TYPE_GROUP
+    if recipe.isInfoRecipe(recipeClass):
+        return RECIPE_TYPE_INFO
+    if recipe.isRedirectRecipe(recipeClass):
+        return RECIPE_TYPE_REDIRECT
+    if recipe.isFilesetRecipe(recipeClass):
+        return RECIPE_TYPE_FILESET
+    return RECIPE_TYPE_UNKNOWN
+
 TROVE_STATE_LIST = sorted(troveStates.values())
 
 class _AbstractBuildTrove(object):
     def __init__(self):
+        self.recipeType = RECIPE_TYPE_UNKNOWN
         self.state = None
         self.status = ''
         self._statusLogger = None
@@ -89,7 +121,7 @@ class _AbstractBuildTrove(object):
         if isinstance(failureReason, str):
             failureReason = failure.BuildFailed(failureReason)
         self.setFailureReason(failureReason)
-        self.status = str(str(self.getFailureReason()))
+        self.status = str(self.getFailureReason())
         self._setStatus(TROVE_STATE_FAILED)
 
     def troveMissingBuildReqs(self, buildReqs):
@@ -148,7 +180,7 @@ class BuildTrove(_AbstractBuildTrove):
     def __init__(self, jobId, name, version, flavor,
                  state=TROVE_STATE_INIT, status='',
                  failureReason=None, logPath='', start=0, finish=0, 
-                 pid=0):
+                 pid=0, recipeType=RECIPE_TYPE_PACKAGE):
         assert(name.endswith(':source'))
         _AbstractBuildTrove.__init__(self)
         self.jobId = jobId
@@ -165,6 +197,7 @@ class BuildTrove(_AbstractBuildTrove):
         self.finish = finish
         self.failureReason = failureReason
         self.pid = pid
+        self.recipeType = recipeType
 
     def __repr__(self):
         return "<BuildTrove('%s=%s[%s]')>" % (self.getName(),
@@ -203,6 +236,21 @@ class BuildTrove(_AbstractBuildTrove):
 
     def isUnbuilt(self):
         return self.state in (TROVE_STATE_INIT, TROVE_STATE_BUILDABLE)
+
+    def isPackageRecipe(self):
+        return self.recipeType == RECIPE_TYPE_PACKAGE
+
+    def isInfoRecipe(self):
+        return self.recipeType == RECIPE_TYPE_INFO
+
+    def isGroupRecipe(self):
+        return self.recipeType == RECIPE_TYPE_GROUP
+
+    def isFilesetRecipe(self):
+        return self.recipeType == RECIPE_TYPE_FILESET
+
+    def isRedirectRecipe(self):
+        return self.recipeType == RECIPE_TYPE_REDIRECT
 
     def setBuiltTroves(self, troveList):
         self.builtTroves = set(troveList)

@@ -17,7 +17,7 @@ SQL schema for the persistent DB store for rmake
 
 # NOTE: this schema is sqlite-specific
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 def createJobs(db):
     cu = db.cursor()
@@ -138,6 +138,7 @@ def createBuildTroves(db):
             start          STRING NOT NULL DEFAULT '0',
             finish         STRING NOT NULL DEFAULT '0',
             logPath        STRING NOT NULL DEFAULT '',
+            recipeType     INTEGER NOT NULL DEFAULT 1,
             CONSTRAINT BuildTroves_jobId_fk
                 FOREIGN KEY(jobId) REFERENCES Jobs(jobId)
                 ON DELETE CASCADE ON UPDATE RESTRICT
@@ -271,6 +272,11 @@ class Migrator(object):
             self.cu.execute("UPDATE Jobs SET state=? WHERE state=?",
                             fState, iState)
         return 4
+
+    def migrateFrom4(self):
+        self._addColumn('BuildTroves', "recipeType",
+                        "INTEGER NOT NULL DEFAULT 0")
+        return 5
 
     def _addColumn(self, table, name, value):
         self.cu.execute('ALTER TABLE %s ADD COLUMN %s    %s' % (table, name, value))

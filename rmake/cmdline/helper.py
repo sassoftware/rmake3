@@ -81,6 +81,7 @@ class rMakeHelper(object):
         self.repos = self.conaryclient.getRepos()
         self.buildConfig = buildConfig
         self.rmakeConfig = rmakeConfig
+        self.buildConfig.setServerConfig(rmakeConfig)
 
     def _getContext(self, cfg, context):
         if context:
@@ -101,7 +102,7 @@ class rMakeHelper(object):
 
     def buildTroves(self, troveSpecList, monitorJob=False,
                     limitToHosts=None, showTroveLogs=False,
-                    showBuildLogs=False, message=None):
+                    showBuildLogs=False, message=None, recurseGroups=False):
         toBuild = buildcmd.getTrovesToBuild(self.conaryclient,
                                             troveSpecList,
                                             limitToHosts=limitToHosts,
