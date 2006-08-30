@@ -253,17 +253,7 @@ class AbstractChroot:
             log.debug("unmounting %s", m.toDir)
             m.unmount()
 
-class BaseChroot(AbstractChroot):
-    def __init__(self, root):
-        AbstractChroot.__init__(self, root)
-        self.addDir('/tmp', mode=01777)
-        self.addDir('/var/tmp', mode=01777)
-        self.addMount('/proc', '/proc', type='proc')
-        self.addMount('/dev/pts', '/dev/pts', type='devpts')
-        self.addDeviceNode('urandom') # needed for ssl and signing
-        self.addDeviceNode('ptmx') # needed for pty use
-
-class ConaryBasedRoot(BaseChroot):
+class ConaryBasedRoot(AbstractChroot):
     """ The root manages a root environment, creating and installing
         the necessary files for the root to be usuable, and cleaning up
         after itself as much as possible.
@@ -275,9 +265,9 @@ class ConaryBasedRoot(BaseChroot):
             uid/gid:  the uid/gid which special files in the chroot should be 
                       owned by
         """
-        BaseChroot.__init__(self, root)
-
         assert(root and root[0] == '/' and root != "/")
+        AbstractChroot.__init__(self, root)
+
         self.cfg = cfg
         self.jobId = buildTrove.jobId
         self.jobList = jobList
@@ -285,49 +275,35 @@ class ConaryBasedRoot(BaseChroot):
         self.chrootHelperPath = chrootHelperPath
         self.targetArch = targetArch
         self.serverCfg = serverCfg
+        self.csCache = csCache
 
         buildTrove.log('Creating chroot')
 
+        self.addDir('/tmp', mode=01777)
+        self.addDir('/var/tmp', mode=01777)
         self.addDir('/etc')
         self.addDir('/etc/rmake')
         self.addDir('/etc/conary')
-        self.copyFile('/etc/hosts')
-        self.copyFile('/etc/resolv.conf')
-
-        # make time outputs accurate
-        if os.path.exists('/etc/localtime'):
-            self.copyFile('/etc/localtime')
-        if os.path.exists('/etc/nsswitch.conf'):
-            self.copyFile('/etc/nsswitch.conf')
-
-        # ********
-        # NOTE:
-        # We copy in local system files, including policy and use dirs,
-        # in order to make the use of rmake as easy as possible.  If rMake
-        # ever gets to the point where its use is distributed, we should 
-        # no longer copy anything but required networking/system info 
-        # from the host system, and instead generate or pass in this
-        # information from the host system
-        self.copyFile('/etc/passwd')
-        self.copyFile('/etc/group')
-
-        self._installRmake()
-
-        # always copy in entitlements
-        self.copyDir(self.cfg.entitlementDirectory)
-        if not cfg.strictMode:
-            for option in ['archDirs', 'mirrorDirs', 'policyDirs',
-                           'siteConfigPath', 'useDirs']:
-                for dir in cfg[option]:
-                    if os.path.exists(dir):
-                        self.copyDir(dir)
-            for option in ['defaultMacros']:
-                for path in cfg[option]:
-                    if os.path.exists(path):
-                        self.copyFile(path)
-
         self.addDir(cfg.tmpDir, mode=01777)
-        self.csCache = csCache
+
+        self._copyInRmake()
+        if not self.cfg.strictMode:
+            self._copyInConary()
+
+    def _copyInConary(self):
+        conaryDir = os.path.dirname(sys.modules['conary'].__file__)
+        if not self.targetArch:
+            self.copyDir(conaryDir)
+            self.copyDir(conaryDir,
+                         '/usr/lib/python2.4/site-packages/conary')
+
+    def _copyInRmake(self):
+        # should this be controlled by strict mode too?
+        rmakeDir = os.path.dirname(sys.modules['rmake'].__file__)
+        self.copyDir(rmakeDir)
+        # just copy to a standard path
+        self.copyDir(rmakeDir, '/usr/share/rmake/rmake')
+        self.copyDir(rmakeDir, '/usr/lib/python2.4/site-packages/rmake')
 
     def unmount(self):
         if not os.path.exists(self.cfg.root):
@@ -338,23 +314,7 @@ class ConaryBasedRoot(BaseChroot):
                             self.cfg.root))
             if rc:
                 raise errors.OpenError(
-                                'Cannot create chroot - chroot helper failed to clean old chroot')
-
-    def _installRmake(self):
-        if not self.cfg.strictMode:
-            conaryDir = os.path.dirname(sys.modules['conary'].__file__)
-            if not self.targetArch:
-                self.copyDir(conaryDir)
-                self.copyDir(conaryDir,
-                             '/usr/lib/python2.4/site-packages/conary')
-
-
-        rmakeDir = os.path.dirname(sys.modules['rmake'].__file__)
-
-        self.copyDir(rmakeDir)
-        # just copy to a standard path
-        self.copyDir(rmakeDir, '/usr/share/rmake/rmake')
-        self.copyDir(rmakeDir, '/usr/lib/python2.4/site-packages/rmake')
+                'Cannot create chroot - chroot helper failed to clean old chroot')
 
 
     def _install(self):
@@ -392,20 +352,9 @@ class ConaryBasedRoot(BaseChroot):
     def createConaryRc(self):
         conaryrc = open('%s/etc/conaryrc' % self.root, 'w')
         conaryCfg = conarycfg.ConaryConfiguration(False)
-        if self.cfg.strictMode:
-            conaryCfg.buildFlavor = self.cfg.buildFlavor
-            conaryCfg.installLabelPath = self.cfg.installLabelPath
-            conaryCfg.flavor = self.cfg.flavor
-            # even in strict mode we need to be able to access the repos
-            # to get pathIds
-            conaryCfg.repositoryMap = self.cfg.repositoryMap
-            conaryCfg.user = self.cfg.user
-            conaryCfg.entitlementDirectory = self.cfg.entitlementDirectory
-            conarycfg.enforceManagedPolicy = True
-        else:
-            for key, value in self.cfg.iteritems():
-                if key in conaryCfg:
-                    conaryCfg[key] = value
+        for key, value in self.cfg.iteritems():
+            if key in conaryCfg:
+                conaryCfg[key] = value
         try:
             if self.canChroot(): # then we will be chrooting into this dir
                 oldroot = self.cfg.root
@@ -460,18 +409,64 @@ class ConaryBasedRoot(BaseChroot):
                     args.append('--tmpfs')
                 os.execv(prog, args)
             else:
-                # testsuite path
+                # testsuite and FakeRoot path
                 rmakeDir = os.path.dirname(sys.modules['rmake'].__file__)
                 conaryDir = os.path.dirname(sys.modules['conary'].__file__)
                 prog = (self.cfg.root + constants.chrootRmakePath
                         + constants.chrootServerPath)
                 util.mkdirChain(self.cfg.root + '/tmp/rmake/lib')
-                args = [prog, 'start', '-n', '--config', 
+                args = [prog, 'start', '-n', '--config',
                         'root %s' % self.cfg.root]
                 os.execve(prog, args,
                       {'PYTHONPATH' : '%s:%s' % (os.path.dirname(rmakeDir),
                                                  os.path.dirname(conaryDir))})
 
+class FakeRoot(ConaryBasedRoot):
+    def canChroot(self):
+        return False
+
+class FullChroot(ConaryBasedRoot):
+
+    def __init__(self, *args, **kw):
+        ConaryBasedRoot.__init__(self, *args, **kw)
+        self.addMount('/proc', '/proc', type='proc')
+        self.addMount('/dev/pts', '/dev/pts', type='devpts')
+        self.addDeviceNode('urandom') # needed for ssl and signing
+        self.addDeviceNode('ptmx') # needed for pty use
+
+        self.copyFile('/etc/hosts')
+        self.copyFile('/etc/resolv.conf')
+
+        # make time outputs accurate
+        if os.path.exists('/etc/localtime'):
+            self.copyFile('/etc/localtime')
+        if os.path.exists('/etc/nsswitch.conf'):
+            self.copyFile('/etc/nsswitch.conf')
+
+        # ********
+        # NOTE:
+        # We copy in local system files, including policy and use dirs,
+        # in order to make the use of rmake as easy as possible.  If rMake
+        # ever gets to the point where its use is distributed, we should 
+        # no longer copy anything but required networking/system info 
+        # from the host system, and instead generate or pass in this
+        # information from the host system
+        self.copyFile('/etc/passwd')
+        self.copyFile('/etc/group')
+
+
+        # always copy in entitlements
+        self.copyDir(self.cfg.entitlementDirectory)
+        if not self.cfg.strictMode:
+            for option in ['archDirs', 'mirrorDirs', 'policyDirs',
+                           'siteConfigPath', 'useDirs']:
+                for dir in self.cfg[option]:
+                    if os.path.exists(dir):
+                        self.copyDir(dir)
+            for option in ['defaultMacros']:
+                for path in self.cfg[option]:
+                    if os.path.exists(path):
+                        self.copyFile(path)
 
 class ChrootFactory(object):
     def __init__(self, job, baseDir, chrootHelperPath, buildCfg, serverCfg):
@@ -488,6 +483,42 @@ class ChrootFactory(object):
         self.csCache = changesetcache.ChangeSetCache(cacheDir)
         self.chroots = {}
 
+    def createRoot(self, jobList, buildTrove):
+        self.cfg.logFile = '/var/log/conary'
+        self.cfg.dbPath = '/var/lib/conarydb'
+
+        setArch, targetArch = flavorutil.getTargetArch(buildTrove.flavor)
+        if not setArch:
+            targetArch = None
+
+        if self.cfg.strictMode or (buildTrove.isPackageRecipe()
+                                   or buildTrove.isInfoRecipe()):
+            rootDir = self.baseDir + '/chroot'
+            chrootClass = FullChroot
+        elif (buildTrove.isRedirectRecipe() or buildTrove.isGroupRecipe()
+              or buildTrove.isFilesetRecipe()):
+            # we don't need to actually instantiate a root to cook
+            # these packages - if we're not worried about using the 
+            # "correct" conary, conary-policy, etc.
+            rootDir = self.baseDir + '/chroot'
+            jobList = []
+            os.chdir(self.baseDir)
+            chrootClass = FakeRoot
+        else:
+            raise errors.OpenError('Chroot could not be created - unknown recipe type for %s' % buildTrove.getName())
+
+        self.cfg.root = rootDir
+        chroot = chrootClass(buildTrove, rootDir,
+                             self.chrootHelperPath,
+                             self.cfg, self.serverCfg, jobList,
+                             csCache=self.csCache,
+                             targetArch=targetArch)
+
+        chroot.create()
+        client = chroot.start()
+        self.chroots[client.getPid()] = (chroot, client)
+        return client
+
     def info(self, message):
         log.info('[%s] [jobId %s] CF: %s', time.strftime('%x %X'), self.jobId,
                   message)
@@ -495,30 +526,6 @@ class ChrootFactory(object):
     def warning(self, message):
         log.warning('[%s] [jobId %s] CF: %s', time.strftime('%x %X'), 
                     self.jobId, message)
-
-
-
-    def createRoot(self, jobList, buildTrove):
-        rootDir = self.baseDir + '/chroot'
-        self.cfg.root = rootDir
-        self.cfg.logFile = '/var/log/conary'
-        self.cfg.dbPath = '/var/lib/conarydb'
-        socketPath = '/tmp/lib/rmake/chrootsocket'
-
-        setArch, targetArch = flavorutil.getTargetArch(buildTrove.flavor)
-        if not setArch:
-            targetArch = None
-
-        chroot = ConaryBasedRoot(buildTrove, rootDir,
-                                 self.chrootHelperPath,
-                                 self.cfg, self.serverCfg, jobList,
-                                 csCache=self.csCache,
-                                 targetArch=targetArch)
-        chroot.create()
-
-        client = chroot.start()
-        self.chroots[client.getPid()] = (chroot, client)
-        return client
 
     def cleanRoot(self, pid):
         root, client = self.chroots[pid]
