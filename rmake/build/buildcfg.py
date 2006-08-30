@@ -110,21 +110,40 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
 
     _hiddenOptions = [ 'buildTroveSpecs', 'resolveTroveTups' ]
 
+    _strictOptions = [ 'buildFlavor', 'buildLabel', 'entitlementDirectory',
+                       'flavor', 'installLabelPath', 'repositoryMap', 'root',
+                       'user' ]
 
     def __init__(self, readConfigFiles=False, root='', conaryConfig=None,
                  serverConfig=None):
         # we default the value of these items to whatever they
         # are set to on the local system's conaryrc.
         conarycfg.ConaryConfiguration.__init__(self)
+
+        if conaryConfig and readConfigFiles:
+            # ugh.
+            rmakeConfig = BuildConfiguration(True, root=root)
+            strictMode = rmakeConfig.strictMode
+        else:
+            strictMode = self.strictMode
+
         if conaryConfig:
+            # copy in conary config values that we haven't
+            # overrided from the rmake config
             for key in self.iterkeys():
-                if (key in conaryConfig and 
-                    conaryConfig[key] is not conaryConfig.getDefaultValue(key)):
+                if key not in conaryConfig:
+                    continue
+                if strictMode and key not in self._strictOptions:
+                    continue
+                if conaryConfig[key] is not conaryConfig.getDefaultValue(key):
                     self[key] = conaryConfig[key]
 
-        # then we override with an rmake-specific config file.
         if readConfigFiles:
             self.read(root + '/etc/rmake/clientrc', False)
+
+
+
+            self.enforceManagedPolicy = True
 
         # these values are not set based on 
         # config file values - we don't want to touch the system database, 
