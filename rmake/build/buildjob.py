@@ -98,6 +98,9 @@ class _AbstractBuildJob(object):
         self._setStatus(JOB_STATE_COMMITTING, '')
 
     def jobCommitFailed(self, message=''):
+        if self.failureReason:
+            # this job was previously failed, so revert to its failed state.
+            self._setStatus(JOB_STATE_FAILED, str(self.failureReason))
         self._setStatus(JOB_STATE_BUILT, 'Commit failed: %s' % message)
 
     def jobCommitted(self, troveTupleList):

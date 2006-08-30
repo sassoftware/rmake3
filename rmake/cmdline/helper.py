@@ -157,9 +157,8 @@ class rMakeHelper(object):
 
     def commitJob(self, jobId, message=None):
         job = self.client.getJob(jobId)
-        if not job.isBuilt():
-            log.error('Can only commit built jobs,'
-                      ' this job is %s' % job.getStateName())
+        if not list(job.iterBuiltTroves()):
+            log.error('This job has no built troves to commit')
             return False
         self.client.startCommit(jobId)
         try:

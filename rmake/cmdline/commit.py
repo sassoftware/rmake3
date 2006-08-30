@@ -14,6 +14,7 @@
 """
 Commit command
 """
+from conary.build.cook import signAbsoluteChangeset
 from conary.conaryclient import callbacks
 from conary.deps.deps import Flavor
 
@@ -43,12 +44,16 @@ def commitJob(conaryclient, job, rmakeConfig, message=None):
         cloneTroves = []
         for trove in troves:
             builtTroves = list(trove.iterBuiltTroves())
-            assert(builtTroves)
-            cloneTroves.extend(builtTroves)
-            if trove.getVersion().branch() != targetBranch:
-                cloneTroves.append((trove.getName(), trove.getVersion(),
-                                    Flavor()))
-        assert(cloneTroves)
+            if builtTroves:
+                cloneTroves.extend(builtTroves)
+                if trove.getVersion().branch() != targetBranch:
+                    cloneTroves.append((trove.getName(), trove.getVersion(),
+                                        Flavor()))
+        if not cloneTroves:
+            log.error('Can only commit built troves,'
+                      ' this job has none')
+            return False
+
         kw = {}
         if compat.ConaryVersion().supportsCloneCallback():
             callback = callbacks.CloneCallback(conaryclient.cfg, message)
@@ -62,6 +67,11 @@ def commitJob(conaryclient, job, rmakeConfig, message=None):
                                             updateBuildInfo=True,
                                             **kw)
         if passed:
+            # Sign the troves if we have a signature key.
+            signatureKey = conaryclient.cfg.signatureKey
+            if signatureKey:
+                cs = signAbsoluteChangeset(cs, signatureKey)
+
             repos.commitChangeSet(cs, callback=callback)
             importantTups.extend(cs.getPrimaryTroveList())
             importantTups.extend(x.getNewNameVersionFlavor()

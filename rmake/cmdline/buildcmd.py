@@ -130,14 +130,25 @@ def _getLocalCook(conaryclient, recipePath, message):
         raise errors.RmakeError('Local cooks require at least conary 1.0.19')
     recipeDir = os.path.dirname(recipePath)
 
-    if os.access(recipeDir + '/CONARY', os.R_OK):
-        stateFile = state.ConaryStateFromFile(recipeDir + '/CONARY')
-        if stateFile.hasSourceState():
-            stateFile = stateFile.getSourceState()
-            if stateFile.getVersion() != versions.NewVersion():
-                return _shadowAndCommit(conaryclient, recipeDir, stateFile, 
-                                        message)
-    return _commitRecipe(conaryclient, recipePath, message)
+    # We do not want to sign commits to the local repository, doing so
+    # would require that we manage keys in this repository as well.
+    oldKey = conaryclient.cfg.signatureKey
+    oldMap = conaryclient.cfg.signatureKeyMap
+    try:
+        conaryclient.cfg.signatureKey = None
+        conaryclient.cfg.signatureKeyMap = {}
+
+        if os.access(recipeDir + '/CONARY', os.R_OK):
+            stateFile = state.ConaryStateFromFile(recipeDir + '/CONARY')
+            if stateFile.hasSourceState():
+                stateFile = stateFile.getSourceState()
+                if stateFile.getVersion() != versions.NewVersion():
+                    return _shadowAndCommit(conaryclient, recipeDir, stateFile, 
+                                            message)
+        return _commitRecipe(conaryclient, recipePath, message)
+    finally:
+        conaryclient.cfg.signatureKey = oldKey
+        conaryclient.cfg.signatureKeyMap = oldMap
 
 def _getPathList(repos, cfg, recipePath):
     loader, recipeClass, sourceVersion = cook.getRecipeInfoFromPath(repos, cfg,
@@ -212,9 +223,6 @@ def _shadowAndCommit(conaryclient, recipeDir, stateFile, message):
         checkin.addFiles(toAdd)
         for f in toDel:
             checkin.removeFile(f)
-
-        cfg.signatureKey = None
-        cfg.signatureKeyMap = {}
 
         if message is None and compat.ConaryVersion().supportsCloneCallback():
             message = 'Automated rMake commit'

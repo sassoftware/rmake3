@@ -18,6 +18,10 @@ Changes in @NEW@:
       in the job (RMK-125).
     * As a part of the changes needed for building groups, recursively building
       the contents of a group has been renamed "buildgroup".
+    * You can now commit partial builds (if the commit fails, rMake will
+      move the status back to failed).
+    * rMake now will sign troves with the available signature keys on commit
+      (RMK-149).
 
   o Server Changes:
     * Added 'rmake-server reset' command, to delete the entire contents
