@@ -79,7 +79,7 @@ def _getJobIdOrUUId(val):
             raise errors.ParseError, 'Not a valid jobId or UUID: %s' % val
 
 class BuildCommand(rMakeCommand):
-    commands = ['build']
+    commands = ['build', 'buildgroup']
     paramHelp = '<troveSpec> [<troveSpec>]*'
 
     docs = {'flavor' : "flavor to build with",
@@ -110,11 +110,13 @@ class BuildCommand(rMakeCommand):
         quiet = argSet.pop('quiet', False)
         if not troveSpecs:
             return self.usage()
+        recurseGroups = args[0] == 'buildgroup'
         jobId = client.buildTroves(troveSpecs,
                                    monitorJob=argSet.pop('poll', False),
                                    limitToHosts=hosts,
                                    showTroveLogs = not quiet,
-                                   showBuildLogs = not quiet)
+                                   showBuildLogs = not quiet,
+                                   recurseGroups=recurseGroups)
 register(BuildCommand)
 
 

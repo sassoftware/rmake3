@@ -49,7 +49,7 @@ def getResolveTroveTups(cfg, repos):
 
 
 def getTrovesToBuild(conaryclient, troveSpecList, limitToHosts=None, 
-                     message=None):
+                     message=None, recurseGroups=False):
     toBuild = []
     toFind = {}
     groupsToFind = []
@@ -73,7 +73,7 @@ def getTrovesToBuild(conaryclient, troveSpecList, limitToHosts=None,
                 continue
         cfg.buildTroveSpecs.append(troveSpec)
 
-        if troveSpec[0].startswith('group-'):
+        if troveSpec[0].startswith('group-') and recurseGroups:
             groupsToFind.append(troveSpec)
         else:
             newTroveSpecs.append(troveSpec)

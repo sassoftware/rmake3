@@ -131,7 +131,6 @@ def getRecipeObj(repos, name, version, flavor, recipeFile=None):
                                                ignoreInstalled=True)
         recipeClass = loader[0].getRecipe()
     if recipe.isGroupRecipe(recipeClass):
-        raise errors.RmakeError('rMake cannot build groups')
         recipeObj = recipeClass(repos, cfg, label, None,
                                 {'buildlabel' : label.asString()})
         recipeObj.sourceVersion = version
@@ -149,10 +148,9 @@ def getRecipeObj(repos, name, version, flavor, recipeFile=None):
         recipeObj.sourceVersion = version
         recipeObj.setup()
     elif recipe.isRedirectRecipe(recipeClass):
-        raise errors.RmakeError('rMake cannot build redirects')
         recipeObj = recipeClass(repos, cfg, label, flavor)
         recipeObj.sourceVersion = version
-        raise RuntimeErr
+        recipeObj.setup()
     else:
         raise RuntimeError, 'Unknown class type %s for recipe %s' % (recipeClass, name)
     return recipeObj, loader
@@ -211,9 +209,11 @@ def loadSourceTroves(job, repos, troveTupleList):
             (loader, recipeObj, relevantFlavor) = loadRecipe(repos,
                                                          n, v, f,
                                                          (recipeFile, trove))
-            buildTrove = buildtrove.BuildTrove(None, n, v, relevantFlavor)
-            buildTrove.setBuildRequirements(recipeObj.buildRequires)
-            buildTrove.setDerivedPackages(recipeObj.packages)
+            recipeType = buildtrove.getRecipeType(recipeObj)
+            buildTrove = buildtrove.BuildTrove(None, n, v, relevantFlavor,
+                                               recipeType=recipeType)
+            buildTrove.setBuildRequirements(getattr(recipeObj, 'buildRequires', []))
+            buildTrove.setDerivedPackages(getattr(recipeObj, 'packages', [recipeObj.name]))
         except Exception, err:
             if relevantFlavor is None:
                 relevantFlavor = f

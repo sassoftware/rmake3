@@ -16,7 +16,7 @@ repository, they are then cloned from this repository to your main repository
 upon committing them. For more information about the architecture of rMake,
 see the rMake developer documentation (not yet available).
 
-\fBNote that rmake is ALPHA software; any and all behavior is subject to
+\fBNote that rmake is BETA software; any and all behavior is subject to
 change with future releases.  Read the NEWS file for information on changes
 and updates.\fR
 
@@ -35,7 +35,7 @@ build foo from that repository.
 The following \fBcommands\fP are used to start, query, monitor, and commit
 builds using rMake.
 .TP 4
-.B build [<\fItrovename\fP[=\fI<versionSpec>\fP\fI[<flavor>]\fP>]|<recipe>]\fP
+.B [build|buildgroup] [<\fItrovename\fP[=\fI<versionSpec>\fP\fI[<flavor>]\fP>]|<recipe>]\fP
 Builds the packages specified.  If a versionSpec is specified, it should
 point to a source version of \fI<troveName>\fP. Although this command finds
 source packages to build, the :source component part of the name is implicit.
@@ -55,13 +55,9 @@ off.
 More information on version specs and flavors is available in the conary
 documentation and on the conary Wiki.
 
-Group names may also be specified to build, in which case rmake finds the
-matching \fIbinary\fP version of this group, and rebuilds the packages within
-that group with the flavors they were built with previously.
+rMake can also build groups, redirects and filesets, \fIas long as they are the only trove specfied as part of the job\fP.  If these types of troves are specified as part of a larger job they will be failed.  This limitation may be lifted in a future version of rMake.
 
-This behavior is likely to change with a future version of rmake.
-
-Note also that passing redirect recipes into rmake currently fails.
+If you use the command buildgroup instead of build, groups that are specified at the command line will cause conary to find the matching \fIbinary\fP version of this group, and rebuild the packages within that group with the flavors they were built with previously.
 
 .RS 4
 .TP

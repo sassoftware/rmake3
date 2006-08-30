@@ -110,7 +110,7 @@ class JobStore(object):
                 """
                     SELECT jobId, troveId, troveName, version ,flavor, state, 
                         status, failureReason, failureData, start, finish, 
-                        logPath, pid
+                        logPath, pid, recipeType
                         FROM tJobIdList
                         JOIN BuildTroves USING(jobId)
                 """)
@@ -119,7 +119,7 @@ class JobStore(object):
 
                 for (jobId, troveId, name, version, flavor, state, status, 
                      failureReason, failureData, start, finish, 
-                     logPath, pid) in results:
+                     logPath, pid, recipeType) in results:
 
                     version = versions.ThawVersion(version)
                     flavor = ThawFlavor(flavor)
@@ -131,7 +131,7 @@ class JobStore(object):
                                                finish=float(finish),
                                                logPath=logPath, status=status,
                                                failureReason=failureReason,
-                                               pid=pid)
+                                               pid=pid, recipeType=recipeType)
                     trovesById[troveId] = buildTrove
                     jobsById[jobId].addTrove(name, version, flavor, buildTrove)
 
@@ -206,7 +206,8 @@ class JobStore(object):
         results = cu.execute(
         """
             SELECT troveId, jobId, pid, troveName, version, flavor, state, 
-                status, failureReason, failureData, start, finish, logPath
+                status, failureReason, failureData, start, finish, logPath,
+                recipeType
                 FROM tTroveInfo
                 JOIN BuildTroves USING(jobId, troveName, version, flavor)
         """)
@@ -215,7 +216,8 @@ class JobStore(object):
         trovesByNVF = {}
         # FIXME From here on out it's mostly duplication from getJobs code
         for (troveId, jobId, pid, troveName, version, flavor, state, status,
-             failureReason, failureData, start, finish, logPath) in results:
+             failureReason, failureData, start, finish, logPath, recipeType) \
+             in results:
             version = versions.ThawVersion(version)
             flavor = ThawFlavor(flavor)
             failureReason = thaw('FailureReason',
@@ -225,7 +227,8 @@ class JobStore(object):
                                            state=state, start=float(start),
                                            finish=float(finish),
                                            logPath=logPath, status=status,
-                                           failureReason=failureReason)
+                                           failureReason=failureReason,
+                                           recipeType=recipeType)
             trovesById[troveId] = buildTrove
             trovesByNVF[(jobId, troveName, version, flavor)] = buildTrove
 
@@ -361,7 +364,8 @@ class JobStore(object):
                   status=trove.status,
                   state=trove.state,
                   failureReason=failureTup[0],
-                  failureData=failureTup[1])
+                  failureData=failureTup[1],
+                  recipeType=trove.recipeType)
         fieldList = '=?, '.join(kw) + '=?'
         valueList = kw.values()
         valueList += (trove.jobId, trove.getName(),
@@ -391,6 +395,7 @@ class JobStore(object):
                   start=trove.start,
                   finish=trove.finish,
                   logPath=trove.logPath,
+                  recipeType=trove.recipeType,
                   status=trove.status,
                   state=trove.state,
                   failureReason=failureTup[0],

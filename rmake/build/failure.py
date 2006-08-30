@@ -52,6 +52,9 @@ class FailureReason(object):
     def __repr__(self):
         return '<%s: %s>' % (self.__class__.__name__, self.data)
 
+    def __str__(self):
+        return str(self.data)
+
     def __freeze__(self):
         return (self.tag, self._freezeData())
 

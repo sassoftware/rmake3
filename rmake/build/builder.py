@@ -80,8 +80,9 @@ class Builder(object):
     def initializeBuild(self):
         self.job.log('Build started - loading troves')
 
-        buildTroves = recipeutil.getSourceTrovesFromJob(self.job, 
+        buildTroves = recipeutil.getSourceTrovesFromJob(self.job,
                                                         self.buildCfg)
+
         self.job.setBuildTroves(buildTroves)
 
         self.buildState = dephandler.DependencyBasedBuildState(
@@ -90,11 +91,17 @@ class Builder(object):
         self.dh = dephandler.DependencyHandler(self.job.getStatusLogger(),
                                                self.buildCfg, self.repos,
                                                self.buildState)
+
+        if not self._checkBuildSanity(buildTroves):
+            return False
+
         self.job.log('Finding a buildable trove')
         self.dh.updateBuildableTroves()
+        return True
 
     def build(self):
-        self.initializeBuild()
+        if not self.initializeBuild():
+            return False
 
         if self.job.hasBuildableTroves():
             while True:
@@ -115,6 +122,21 @@ class Builder(object):
             self.job.jobFailed('Did not find any buildable troves')
         return False
 
+    def _checkBuildSanity(self, buildTroves):
+        def _referencesOtherTroves(trv):
+            return (trv.isGroupRecipe() or trv.isRedirectRecipe()
+                    or trv.isFilesetRecipe())
+
+        delayed = [ x for x in buildTroves if _referencesOtherTroves(x) ]
+        if delayed and len(buildTroves) > 1:
+            err = ('group, redirect, and fileset packages must'
+                   ' be alone in their own job')
+            for trove in delayed:
+                trove.troveFailed(failure.FailureReason('Trove failed sanity check: %s' % err))
+            troveNames = ', '.join(x.getName().split(':')[0] for x in delayed)
+            self.job.jobFailed(failure.FailureReason("Job failed sanity check: %s: %s" % (err, troveNames)))
+            return False
+        return True
 
     def _buildTrove(self, troveToBuild):
         chrootFactory = self.getChrootFactory()
