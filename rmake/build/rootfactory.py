@@ -456,7 +456,7 @@ class FullChroot(ConaryBasedRoot):
 
 
         # always copy in entitlements
-        if os.path.exists(self.cfg.entitlementDir):
+        if os.path.exists(self.cfg.entitlementDirectory):
             self.copyDir(self.cfg.entitlementDirectory)
         if not self.cfg.strictMode:
             for option in ['archDirs', 'mirrorDirs', 'policyDirs',
