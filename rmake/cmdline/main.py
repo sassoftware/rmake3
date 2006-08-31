@@ -133,7 +133,7 @@ class ChangeSetCommand(rMakeCommand):
 register(ChangeSetCommand)
 
 class CommitCommand(rMakeCommand):
-    commands = ['commit']
+    commands = ['commit', 'ci']
     paramHelp = '<jobId>'
 
     def runCommand(self, client, cfg, argSet, args):
