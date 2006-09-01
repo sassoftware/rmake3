@@ -18,13 +18,19 @@ compatibility checks.
 from conary import constants
 
 class ConaryVersion(object):
-    def __init__(self):
-        self.conaryVersion = [int(x) for x in constants.version.split('.')]
+    def __init__(self, conaryVersion=None):
+        if conaryVersion is None:
+            conaryVersion = constants.version
+        self.conaryVersion = [int(x) for x in conaryVersion.split('.')]
         self.majorVersion = self.conaryVersion[0:2]
         self.minorVersion = self.conaryVersion[2]
         self.isOneOne = self.majorVersion == (1,1)
-    
+
     def supportsCloneCallback(self):
+        # support added in 1.0.30 and 1.1.3
+        return self.checkVersion(30, 3)
+
+    def supportsCloneNonRecursive(self):
         # support added in 1.0.30 and 1.1.3
         return self.checkVersion(30, 3)
 
@@ -32,8 +38,8 @@ class ConaryVersion(object):
         if self.majorVersion == [1,0]:
             if oneZeroVersion is None:
                 return False
-            return self.minorVersion < oneZeroVersion
+            return self.minorVersion >= oneZeroVersion
         elif self.majorVersion == [1,1]:
             if oneOneVersion is None:
                 return False
-            return self.minorVersion < oneOneVersion
+            return self.minorVersion >= oneOneVersion
