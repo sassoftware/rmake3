@@ -15,6 +15,7 @@
 Describes a BuildConfiguration, which is close to, but neither a subset nor
 a superset of a conarycfg file.
 """
+import os
 import re
 
 from conary.conaryclient import cmdline
@@ -22,6 +23,7 @@ from conary.lib.cfgtypes import (CfgBool, CfgPath, CfgList, CfgDict, CfgString,
                                  CfgInt, CfgType, CfgQuotedLineList)
 from conary import conarycfg
 from conary import versions
+from conary.lib import log
 from conary.conarycfg import CfgLabel
 from conary.conarycfg import ParseError
 from conary.lib import sha1helper
@@ -121,7 +123,7 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
         conarycfg.ConaryConfiguration.__init__(self)
 
         if conaryConfig and readConfigFiles:
-            # ugh.
+            # ugh.  Read config files once _just_ for strictMode value.
             rmakeConfig = BuildConfiguration(True, root=root)
             strictMode = rmakeConfig.strictMode
         else:
@@ -139,7 +141,15 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
                     self[key] = conaryConfig[key]
 
         if readConfigFiles:
-            self.read(root + '/etc/rmake/clientrc', False)
+            if os.path.exists(root + '/etc/rmake/clientrc'):
+                log.warning(root + '/etc/rmake/clientrc should be renamed'
+                                   ' to /etc/rmake/rmakerc')
+                self.read(root + '/etc/rmake/clientrc', exception=False)
+            self.read(root + '/etc/rmake/rmakerc', exception=False)
+            if os.environ.has_key("HOME"):
+                self.read(root + os.environ["HOME"] + "/" + ".rmakerc",
+                          exception=False)
+            self.read('rmakerc', exception=False)
 
         if strictMode:
             self.enforceManagedPolicy = True
