@@ -66,18 +66,23 @@ def getTrovesToBuild(conaryclient, troveSpecList, limitToHosts=None,
     for troveSpec in list(troveSpecList):
         if not isinstance(troveSpec, tuple):
             troveSpec = cmdline.parseTroveSpec(troveSpec)
-            if (not troveSpec[1] and not os.path.isdir(troveSpec[0]) 
-                and os.access(troveSpec[0], os.R_OK)):
-                cfg.buildTroveSpecs.append((troveSpec[0], None, troveSpec[2]))
-                recipesToCook.append((os.path.realpath(troveSpec[0]), troveSpec[2]))
-                continue
+
+        if (troveSpec[0].startswith('group-') and not recurseGroups
+            and not compat.ConaryVersion().supportsCloneNonRecursive()):
+            log.warning('You will not be able to commit this group build'
+                        ' without upgrading conary.')
+
+        if (not troveSpec[1] and not os.path.isdir(troveSpec[0]) 
+            and os.access(troveSpec[0], os.R_OK)):
+            cfg.buildTroveSpecs.append((troveSpec[0], None, troveSpec[2]))
+            recipesToCook.append((os.path.realpath(troveSpec[0]), troveSpec[2]))
+            continue
         cfg.buildTroveSpecs.append(troveSpec)
 
         if troveSpec[0].startswith('group-') and recurseGroups:
             groupsToFind.append(troveSpec)
         else:
             newTroveSpecs.append(troveSpec)
-
 
     results = repos.findTroves(cfg.buildLabel,
                                groupsToFind, cfg.buildFlavor)
@@ -134,9 +139,11 @@ def _getLocalCook(conaryclient, recipePath, message):
     # would require that we manage keys in this repository as well.
     oldKey = conaryclient.cfg.signatureKey
     oldMap = conaryclient.cfg.signatureKeyMap
+    oldInteractive = conaryclient.cfg.interactive
     try:
         conaryclient.cfg.signatureKey = None
         conaryclient.cfg.signatureKeyMap = {}
+        conaryclient.cfg.interactive = False
 
         if os.access(recipeDir + '/CONARY', os.R_OK):
             stateFile = state.ConaryStateFromFile(recipeDir + '/CONARY')
@@ -149,6 +156,7 @@ def _getLocalCook(conaryclient, recipePath, message):
     finally:
         conaryclient.cfg.signatureKey = oldKey
         conaryclient.cfg.signatureKeyMap = oldMap
+        conaryclient.cfg.interactive = True
 
 def _getPathList(repos, cfg, recipePath):
     loader, recipeClass, sourceVersion = cook.getRecipeInfoFromPath(repos, cfg,

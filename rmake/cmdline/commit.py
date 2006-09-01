@@ -22,6 +22,14 @@ from rmake import compat
 
 def commitJob(conaryclient, job, rmakeConfig, message=None):
     trovesByBranch = {}
+
+
+    for troveTup in job.iterTroveList():
+        if (troveTup[0].startswith('group-') 
+            and not compat.ConaryVersion().supportsCloneNonRecursive()):
+            log.error('You need to upgrade your conary before you can '
+                      'commit group builds')
+            return False
     for troveTup in job.iterTroveList():
         trove = job.getTrove(*troveTup)
         troveVersion = trove.getVersion()
@@ -60,6 +68,9 @@ def commitJob(conaryclient, job, rmakeConfig, message=None):
             kw['callback'] = callback
         else:
             callback = callbacks.ChangesetCallback()
+
+        if compat.ConaryVersion().supportsCloneNonRecursive():
+            kw['fullRecurse'] = False
 
         passed, cs = conaryclient.createCloneChangeSet(
                                             targetBranch,
