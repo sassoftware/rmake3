@@ -141,8 +141,7 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
         if readConfigFiles:
             self.read(root + '/etc/rmake/clientrc', False)
 
-
-
+        if strictMode:
             self.enforceManagedPolicy = True
 
         # these values are not set based on 
