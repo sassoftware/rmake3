@@ -342,7 +342,7 @@ class DependencyHandler(object):
         uJob = database.UpdateJob(None)
         uJob.setSearchSource(searchSource)
         oldVerbosity = log.getVerbosity()
-        log.setVerbosity(log.WARNING)
+        log.setVerbosity(log.DEBUG)
         jobSet = client._updateChangeSet(itemList, uJob, useAffinity=False)
         (depList, suggMap, cannotResolve, splitJob, keepList) = \
             client.resolver.resolveDependencies(uJob, jobSet, resolveDeps=True,
