@@ -174,6 +174,7 @@ def _getPathList(repos, cfg, recipePath):
 def _shadowAndCommit(conaryclient, recipeDir, stateFile, message):
     cfg = conaryclient.cfg
     repos = conaryclient.getRepos()
+    conaryCompat = compat.ConaryVersion()
 
     oldSourceVersion = stateFile.getVersion()
     targetLabel = cfg.getTargetLabel(oldSourceVersion)
@@ -207,11 +208,19 @@ def _shadowAndCommit(conaryclient, recipeDir, stateFile, message):
         checkin.checkout(repos, cfg, shadowSourceDir,
                         ['%s=%s' % (troveName, shadowVersion)])
 
+        if compat.ConaryVersion().stateFileVersion() > 0:
+            kw = dict(repos=repos)
+        else:
+            kw = {}
         # grab new and old state and make any modifications due to adding
         # or deleting of files (we assume files that don't exist are 
         # autosource and can be ignored)
-        oldState = state.ConaryStateFromFile(recipeDir + '/CONARY').getSourceState()
-        newState = state.ConaryStateFromFile(shadowSourceDir + '/CONARY').getSourceState()
+        oldState = conaryCompat.ConaryStateFromFile(recipeDir + '/CONARY',
+                                                    repos=repos).getSourceState()
+        newConaryState = conaryCompat.ConaryStateFromFile(
+                                                shadowSourceDir + '/CONARY',
+                                                repos=repos)
+        newState = newConaryState.getSourceState()
 
         neededFiles = set(x[1] for x in oldState.iterFileList()
                           if os.path.exists(os.path.join(recipeDir, x[1])))
@@ -228,9 +237,35 @@ def _shadowAndCommit(conaryclient, recipeDir, stateFile, message):
 
         os.chdir(shadowSourceDir)
 
-        checkin.addFiles(toAdd)
         for f in toDel:
             checkin.removeFile(f)
+
+        if conaryCompat.stateFileVersion() == 0:
+            checkin.addFiles(toAdd)
+        else:
+            oldPathIds = dict((x[1], x[0]) for x in oldState.iterFileList())
+            for path in toAdd:
+                isText = oldState.fileIsConfig(oldPathIds[path])
+                checkin.addFiles([path], text=isText)
+            if toAdd:
+                # get the new pathIDs for all the added troves, 
+                # since we can't set the refresh setting without the 
+                # needed pathIds
+                newState = conaryCompat.ConaryStateFromFile(
+                                                shadowSourceDir + '/CONARY',
+                                                repos=repos).getSourceState()
+            newPathIds = dict((x[1], x[0]) for x in newState.iterFileList())
+
+            for path in (toCopy | toAdd):
+                isConfig = oldState.fileIsConfig(oldPathIds[path])
+                needsRefresh = oldState.fileNeedsRefresh(oldPathIds[path])
+                newState.fileIsConfig(newPathIds[path], isConfig)
+                newState.fileNeedsRefresh(newPathIds[path], needsRefresh)
+
+            # we may have modified the state file. Write it back out to 
+            # disk so it will be picked up by the commit.
+            newConaryState.setSourceState(newState)
+            newConaryState.write(shadowSourceDir + '/CONARY')
 
         if message is None and compat.ConaryVersion().supportsCloneCallback():
             message = 'Automated rMake commit'
@@ -240,7 +275,7 @@ def _shadowAndCommit(conaryclient, recipeDir, stateFile, message):
             raise errors.RmakeError("Could not commit changes to build"
                                  " local file %s/%s" % (recipeDir, troveName))
 
-        newState = state.ConaryStateFromFile(shadowSourceDir + '/CONARY')
+        newState = state.ConaryStateFromFile(shadowSourceDir + '/CONARY', **kw)
         return newState.getSourceState().getNameVersionFlavor()
     finally:
         os.chdir(cwd)
@@ -249,6 +284,7 @@ def _shadowAndCommit(conaryclient, recipeDir, stateFile, message):
 def _commitRecipe(conaryclient, recipePath, message):
     cfg = conaryclient.cfg
     repos = conaryclient.getRepos()
+    conaryCompat = compat.ConaryVersion()
 
     recipeClass, pathList = _getPathList(repos, cfg, recipePath)
     sourceName = recipeClass.name + ':source'
@@ -260,6 +296,7 @@ def _commitRecipe(conaryclient, recipePath, message):
     recipeDir = tempfile.mkdtemp()
     log.resetErrorOccurred()
     try:
+        fileNames = []
         # Create a source trove that matches the recipe we're trying to cook
         cfg.buildLabel = cfg.getTargetLabel(cfg.buildLabel)
         if repos.getTroveLeavesByLabel(
@@ -283,17 +320,22 @@ def _commitRecipe(conaryclient, recipePath, message):
 
             for baseName, path in fileNames.iteritems():
                 shutil.copyfile(path, os.path.join(recipeDir, baseName))
-            checkin.addFiles(fileNames)
         else:
             checkin.newTrove(repos, cfg, recipeClass.name, dir=recipeDir)
             os.chdir(recipeDir)
             cfg.recipeTemplate = None
-            fileList = []
             for path in pathList:
                 newFile = os.path.basename(path)
-                fileList.append(newFile)
+                fileNames.append(newFile)
                 shutil.copyfile(path, os.path.join(recipeDir, newFile))
-            checkin.addFiles(fileList)
+
+        if conaryCompat.stateFileVersion() > 0:
+            # mark all the files as binary - this this version can
+            # never be checked in, it doesn't really matter, but
+            # conary likes us to give a value.
+            checkin.addFiles(fileNames, binary=True)
+        else:
+            checkin.addFiles(fileNames)
 
         checkin.commit(repos, cfg, 'Temporary recipe build for rmake')
 
@@ -301,7 +343,8 @@ def _commitRecipe(conaryclient, recipePath, message):
             raise errors.RmakeError("Could not commit changes to build"
                                     " local recipe '%s'" % (recipePath))
 
-        newState = state.ConaryStateFromFile(recipeDir + '/CONARY')
+        newState = conaryCompat.ConaryStateFromFile(recipeDir + '/CONARY',
+                                                    repos=repos)
         return newState.getSourceState().getNameVersionFlavor()
     finally:
         os.chdir(cwd)

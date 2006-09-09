@@ -16,6 +16,7 @@ Tracks compatibility with versions of integrated software for backwards
 compatibility checks.
 """
 from conary import constants
+from conary import state
 
 class ConaryVersion(object):
     def __init__(self, conaryVersion=None):
@@ -25,6 +26,18 @@ class ConaryVersion(object):
         self.majorVersion = self.conaryVersion[0:2]
         self.minorVersion = self.conaryVersion[2]
         self.isOneOne = self.majorVersion == (1,1)
+
+    def stateFileVersion(self):
+        if not hasattr(state.ConaryState, 'stateVersion'):
+            return 0
+        return state.ConaryState.stateVersion
+
+    def ConaryStateFromFile(self, path, repos=None, parseSource=True):
+        if self.stateFileVersion() == 0: 
+            return state.ConaryStateFromFile(path)
+        else: # support added in 1.0.31 and 1.1.4
+            return state.ConaryStateFromFile(path, repos=repos,
+                                             parseSource=parseSource)
 
     def supportsCloneCallback(self):
         # support added in 1.0.30 and 1.1.3
