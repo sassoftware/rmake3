@@ -55,6 +55,8 @@ Changes in @NEW@:
       gracefully (RMK-181).
     * rMake will now fail cooks when it runs into an internal error, in the
       cook checking code.  The cook will be stopped at that point (RMK-179).
+    * When a needed file cannot be copied into the chroot, rMake will now
+      fail with a user-friendly error (RMK-156).
 
 Changes in 0.5 (BETA):
   We are now calling this the BETA of rMake 1.
