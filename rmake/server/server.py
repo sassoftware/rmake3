@@ -404,8 +404,16 @@ class rMakeServer(apirpc.XMLApiServer):
             # an odd case, the child process should have handled its own
             # logging.
             exitRc = os.WEXITSTATUS(status)
-            if exitRc:
-                log.warning('pid %s exited with exit status %s' % (pid, exitRc))
+            signalRc = os.WTERMSIG(status)
+            if exitRc or signalRc:
+                if exitRc:
+                    log.warning('pid %s exited with exit status %s' % (pid, exitRc))
+                else:
+                    log.warning('pid %s killed with signal %s' % (pid, signalRc))
+                if pid == self.repositoryPid:
+                    log.error('Internal Repository died - shutting down rMake')
+                    self._halt = 1
+                    self.repositoryPid = None
 
     def _stopJob(self, job):
         if job.isQueued(): # job isn't started yet, just stop it.
@@ -503,9 +511,10 @@ class rMakeServer(apirpc.XMLApiServer):
         for logger in loggers:
             logger.uncork()
 
-    def __init__(self, uri, cfg):
+    def __init__(self, uri, cfg, repositoryPid):
         self.uri = uri
         self.cfg = cfg
+        self.repositoryPid = repositoryPid
         self.db = database.Database(cfg.getDbPath(),
                                     cfg.getDbContentsPath())
 
@@ -638,7 +647,6 @@ class rMakeDaemon(daemon.Daemon):
 
     def __init__(self, *args, **kw):
         daemon.Daemon.__init__(self, *args, **kw)
-        self.reposPid = None
 
     def getConfigFile(self, argv):
         cfg = daemon.Daemon.getConfigFile(self, argv)
@@ -649,30 +657,27 @@ class rMakeDaemon(daemon.Daemon):
         cfg = self.cfg
         cfg.sanityCheck()
         if not cfg.isExternalRepos():
-            self.reposPid = repos.startRepository(cfg, fork=True)
+            reposPid = repos.startRepository(cfg, fork=True)
         else:
-            self.reposId = None
+            reposPid = None
         misc.removeIfExists(cfg.socketPath)
-        server = rMakeServer('unix://%s' % cfg.socketPath, cfg)
+        server = rMakeServer('unix://%s' % cfg.socketPath, cfg, 
+                             repositoryPid=reposPid)
         signal.signal(signal.SIGTERM, server._signalHandler)
         signal.signal(signal.SIGINT, server._signalHandler)
         try:
             server.serve_forever()
         finally:
-            self.killRepos()
+            if server.repositoryPid is not None:
+                self.killRepos(server.repositoryPid)
 
-    def killRepos(self):
-        if self.reposPid:
-            log.info('killing repository at %s' % self.reposPid)
-            try:
-                os.kill(self.reposPid, signal.SIGKILL)
-            except Exception, e:
-                log.warning(
-                'Could not kill repository at pid %s: %s' % (self.reposPid, e))
-            self.reposPid = None
-
-    def __del__(self):
-        self.killRepos()
+    def killRepos(self, pid):
+        log.info('killing repository at %s' % pid)
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except Exception, e:
+            log.warning(
+            'Could not kill repository at pid %s: %s' % (pid, e))
 
 def main(argv):
     try:
