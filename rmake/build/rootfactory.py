@@ -530,17 +530,17 @@ class ChrootFactory(object):
 
     def cleanRoot(self, pid):
         root, client = self.chroots[pid]
-        self.killChild(pid)
+        self.killRoot(pid)
         root.clean()
 
     def __del__(self):
-        self.killChildren()
+        self.killAllRoots()
 
-    def killChildren(self):
+    def killAllRoots(self):
         for pid in list(self.chroots): # make copy since is modified
-            self.killChild(pid)
+            self.killRoot(pid)
 
-    def killChild(self, pid):
+    def killRoot(self, pid):
         root, client = self.chroots[pid]
         try:
             client.stop()

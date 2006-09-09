@@ -160,22 +160,29 @@ class Builder(object):
 
     def _checkForResults(self):
         for chrootFactory, chroot, trove in list(self._buildingTroves):
-            buildResult = chroot.checkResults(*trove.getNameVersionFlavor())
-            if not buildResult:
-                continue
+            try:
+                buildResult = chroot.checkResults(*trove.getNameVersionFlavor())
+                if not buildResult:
+                    continue
+                self._buildingTroves.remove((chrootFactory, chroot, trove))
 
-            self._buildingTroves.remove((chrootFactory, chroot, trove))
+                if buildResult.isBuildSuccess():
+                    csFile = buildResult.getChangeSetFile()
+                    cs = changeset.ChangeSetFromFile(csFile)
+                    self.repos.commitChangeSet(cs)
+                    trove.troveBuilt(cs)
+                    del cs # this makes sure the changeset closes the fd.
+                    chrootFactory.cleanRoot(chroot.getPid())
 
-            if buildResult.isBuildSuccess():
-                csFile = buildResult.getChangeSetFile()
-                cs = changeset.ChangeSetFromFile(csFile)
-                self.repos.commitChangeSet(cs)
-                trove.troveBuilt(cs)
-                del cs # this makes sure the changeset closes the fd.
-                chrootFactory.cleanRoot(chroot.getPid())
-            else:
-                trove.troveFailed(buildResult.getFailureReason())
-
+                    return
+                else:
+                    reason = buildResult.getFailureReason()
+                    trove.troveFailed(reason)
+                    # passes through to killRoot at the bottom.
+            except Exception, e:
+                reason = failure.InternalError(e, traceback.format_exc())
+                trove.troveFailed(reason)
+            chrootFactory.killRoot(chroot.getPid())
 
     def getChrootFactory(self):
         return rootfactory.ChrootFactory(self.job, self.serverCfg.buildDir,
