@@ -164,20 +164,29 @@ class AbstractChroot:
     def _copyFiles(self):
         for (sourceFile, targetFile) in self.filesToCopy:
             log.debug("copying file %s into chroot:%s", sourceFile, targetFile)
-            util.mkdirChain(os.path.dirname(self.root + targetFile))
-            shutil.copy(sourceFile, self.root + targetFile)
+            try:
+                util.mkdirChain(os.path.dirname(self.root + targetFile))
+                shutil.copy(sourceFile, self.root + targetFile)
+            except (IOError, OSError), e:
+                raise errors.OpenError(
+                    'Could not copy in file %s to %s: %s' % (sourceFile, 
+                                                             targetFile, e))
 
     def _copyDirs(self):
         for (sourceDir, targetDir) in self.dirsToCopy:
             targetDir = self.root + targetDir
-            try:
+            if os.path.exists(targetDir):
                 util.rmtree(targetDir)
-            except:
-                pass
 
             util.mkdirChain(os.path.dirname(targetDir))
             log.debug("copying dir %s into chroot:%s", sourceDir, targetDir)
-            shutil.copytree(sourceDir, targetDir)
+            try:
+                shutil.copytree(sourceDir, targetDir)
+            except shutil.Error, e:
+                errorList = '\n'.join('cannot copy %s to %s: %s' % x 
+                                    for x in e.args[0])
+                raise errors.OpenError(
+                'Could not copy in directory %s:\n%s' % (sourceDir, errorList))
 
     def _supportGroups(self):
         if not self.groupsToSupport:
@@ -296,6 +305,13 @@ class ConaryBasedRoot(AbstractChroot):
             self.copyDir(conaryDir)
             self.copyDir(conaryDir,
                          '/usr/lib/python2.4/site-packages/conary')
+            if conaryDir.endswith('site-packages/conary'):
+                self.copyFile('/usr/bin/conary')
+                self.copyFile('/usr/bin/cvc')
+            elif os.path.exists(conaryDir + '../commands'):
+                commandDir = os.path.realpath(conaryDir + '../commands')
+                self.copyFile(commandDir + '/cvc', '/usr/bin/cvc')
+                self.copyFile(commandDir + '/conary', '/usr/bin/cvc')
 
     def _copyInRmake(self):
         # should this be controlled by strict mode too?
