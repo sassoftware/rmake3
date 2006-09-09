@@ -28,7 +28,7 @@ from conary import conaryclient
 from conary import versions
 from conary.deps.deps import ThawFlavor
 
-from rmake.build.failure import BuildFailed
+from rmake.build.failure import BuildFailed, FailureReason
 from rmake.lib import flavorutil
 from rmake.lib import logfile
 from rmake.lib import recipeutil
@@ -43,9 +43,22 @@ class CookResults(object):
         self.csFile = ''
         self.pid = 0
         self.failureReason = None
+        self.signal = ''
+
+    def exitedNormally(self):
+        return not self.signal
 
     def setExitStatus(self, status):
         self.status = status
+
+    def setExitSignal(self, signal):
+        self.signal = signal
+
+    def getExitSignal(self):
+        return self.signal
+
+    def getExitStatus(self):
+        return self.status
 
     def setChangeSetFile(self, csFile):
         self.csFile = csFile
@@ -60,7 +73,7 @@ class CookResults(object):
         return self.failureReason
 
     def isBuildSuccess(self):
-        return not self.status
+        return self.exitedNormally() and not self.status
 
     def __freeze__(self):
         d = self.__dict__.copy()
@@ -134,9 +147,16 @@ def getResults(results, pid, inF, csFile):
     if not gotResult:
         return None
 
-    results.setExitStatus(os.WEXITSTATUS(status))
+    if os.WIFSIGNALED(status):
+        results.setExitSignal(os.WTERMSIG(status))
+    else:
+        assert(os.WIFEXITED(status))
+        results.setExitStatus(os.WEXITSTATUS(status))
+
     if results.isBuildSuccess():
         results.setChangeSetFile(csFile)
+    elif results.getExitSignal():
+        results.setFailureReason(BuildFailed('Build exited with signal %s' % results.getExitSignal()))
     else:
         errReason = []
         buffer = os.read(inF, 1024)
