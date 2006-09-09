@@ -37,6 +37,7 @@ from rmake.cmdline import commit
 from rmake.cmdline import monitor
 from rmake.server import servercfg
 from rmake.server import server
+from rmake import compat
 from rmake import plugins
 
 class rMakeHelper(object):
@@ -88,7 +89,8 @@ class rMakeHelper(object):
             return context
         context = cfg.context
         if os.path.exists('CONARY'):
-            conaryState = state.ConaryStateFromFile('CONARY')
+            conaryState = compat.ConaryVersion().ConaryStateFromFile('CONARY',
+                                                           parseSource=False)
             if conaryState.hasContext():
                 context = conaryState.getContext()
 
