@@ -24,6 +24,8 @@ Changes in @NEW@:
       (RMK-149).
     * rMake client config is now renamed to rmakerc, and reads
       /etc/rmakerc, ~/.rmakerc, and ./rmakerc on startup.
+    * rMake now supports the CONARY file format used in conary 
+      1.0.31 and forward (RMK-176).
 
   o Server Changes:
     * Added 'rmake-server reset' command, to delete the entire contents
@@ -47,6 +49,12 @@ Changes in @NEW@:
     * In some cases rMake must choose between x86 and x86_64 troves that
       both solve intraTrove dependencies but conflict.  In this case,
       conary should pick one using normal dep resolution rules.
+    * If the rMake internal repository cannot start or if it dies, the
+      rMake server will shut down (RMK-185).
+    * rMake now handles cooks that die due a signal (a segfault, e.g.)
+      gracefully (RMK-181).
+    * rMake will now fail cooks when it runs into an internal error, in the
+      cook checking code.  The cook will be stopped at that point (RMK-179).
 
 Changes in 0.5 (BETA):
   We are now calling this the BETA of rMake 1.
