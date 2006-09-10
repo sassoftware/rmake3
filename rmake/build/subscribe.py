@@ -18,7 +18,6 @@ from conary.lib import log
 from rmake import constants
 from rmake import errors
 from rmake import plugins
-from rmake.lib import localrpc
 from rmake.lib import apirpc
 from rmake.lib import apiutils
 from rmake.lib.apiutils import thaw, freeze
