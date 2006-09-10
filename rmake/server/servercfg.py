@@ -121,7 +121,7 @@ class rMakeConfiguration(daemon.DaemonConfig):
         if self.getServerUri().startswith('unix://'):
             if os.path.exists(self.socketPath):
                 cfgPaths.append('socketPath')
-            elif not os.access(os.path.dirname(self.socketPath), os.W_OK) and :
+            elif not os.access(os.path.dirname(self.socketPath), os.W_OK):
                 log.error('cannot write to socketPath directory at %s - cannot start server' % os.path.dirname(self.socketPath))
                 sys.exit(1)
         for path in cfgPaths:
