@@ -114,7 +114,7 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
 
     _strictOptions = [ 'buildFlavor', 'buildLabel', 'entitlementDirectory',
                        'flavor', 'installLabelPath', 'repositoryMap', 'root',
-                       'user' ]
+                       'user', 'name', 'contact' ]
 
     def __init__(self, readConfigFiles=False, root='', conaryConfig=None,
                  serverConfig=None):
