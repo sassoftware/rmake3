@@ -62,7 +62,13 @@ class rMakeConfiguration(daemon.DaemonConfig):
             self.read(path, False)
 
     def isExternalRepos(self):
-        return self.serverUrl
+        return bool(self.serverUrl)
+
+    def getServerUri(self):
+        if '://' in self.socketPath:
+            return self.socketPath
+        else:
+            return 'unix://' + self.socketPath
 
     def getDbPath(self):
         return self.serverDir + '/jobs.db'
@@ -112,12 +118,12 @@ class rMakeConfiguration(daemon.DaemonConfig):
         if self.serverPort != self.getDefaultValue('serverPort'):
             if self.serverUrl:
                 log.error('Cannot specify both serverPort and serverUrl')
-
-        if os.path.exists(self.socketPath):
-            cfgPaths.append('socketPath')
-        elif not os.access(os.path.dirname(self.socketPath), os.W_OK):
-            log.error('cannot write to socketPath directory at %s - cannot start server' % os.path.dirname(self.socketPath))
-            sys.exit(1)
+        if self.getServerUri().startswith('unix://'):
+            if os.path.exists(self.socketPath):
+                cfgPaths.append('socketPath')
+            elif not os.access(os.path.dirname(self.socketPath), os.W_OK) and :
+                log.error('cannot write to socketPath directory at %s - cannot start server' % os.path.dirname(self.socketPath))
+                sys.exit(1)
         for path in cfgPaths:
             if not os.path.exists(self[path]):
                 log.error('%s does not exist, expected at %s - cannot start server' % (path, self[path]))

@@ -60,7 +60,7 @@ class rMakeHelper(object):
         buildConfig.repositoryMap.update(rmakeConfig.getRepositoryMap())
 
         if uri is None:
-            uri = 'unix:%s' % rmakeConfig.socketPath
+            uri = rmakeConfig.getServerUri()
 
         self.client = server.rMakeClient(uri)
 
