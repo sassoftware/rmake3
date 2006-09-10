@@ -1,4 +1,4 @@
-Changes in @NEW@:
+Changes in 0.9:
 
   o Client Changes:
     * Add an explicit error message for redirect and group recipes, which 

@@ -12,7 +12,7 @@
 # full details.
 #
 
-VERSION=0.5
+VERSION=0.9
 # the uid/gid the rmake server runs as
 export RMAKE_USER=rmake
 export RMAKE_GROUP=rmake
