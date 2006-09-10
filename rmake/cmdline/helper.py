@@ -72,8 +72,12 @@ class rMakeHelper(object):
         use.setBuildFlagsFromFlavor(None, buildConfig.buildFlavor, error=False)
 
         if guiPassword:
-            from rmake.cmdline import password
-            pwPrompt = password.PasswordPrompter(buildConfig).getPassword
+            try:
+                from rmake.cmdline import password
+                pwPrompt = password.PasswordPrompter(buildConfig).getPassword
+            except ImportError, err:
+                log.error('Could not load gtk password prompter - %s', err)
+                pwPrompt = None
         else:
             pwPrompt = None
 

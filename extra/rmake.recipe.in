@@ -35,5 +35,9 @@ class RmakeRecipe(CPackageRecipe):
 
         r.SetModes('%(libexecdir)s/rmake/chroothelper', 04755)
         r.Requires(exceptDeps='python: epdb')
+        r.Requires(exceptDeps='python: rmake.cmdline.password')
+        r.ComponentSpec('gtk', 'password.py(|c|o)')
+        # make gtk require rmake:runtime
+        r.ComponentRequires({'runtime' : ['gtk']})
         r.UtilizeUser('rmake-chroot', '%(libexecdir)s/rmake/chroothelper')
         r.UtilizeGroup('rmake-chroot', '%(libexecdir)s/rmake/chroothelper')

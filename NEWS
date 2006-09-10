@@ -25,7 +25,8 @@ Changes in @NEW@:
     * rMake client config is now renamed to rmakerc, and reads
       /etc/rmakerc, ~/.rmakerc, and ./rmakerc on startup.
     * rMake now supports the CONARY file format used in conary 
-      1.0.31 and forward (RMK-176).
+      1.0.31 and forward. (RMK-176)
+    * rMake's pygtk dependencies are split out into a :gtk component. (RMK-177)
 
   o Server Changes:
     * Added 'rmake-server reset' command, to delete the entire contents
