@@ -66,7 +66,7 @@ class JobLogDisplay(xmlrpc.BasicXMLRPCStatusSubscriber):
 
         moreData, data = self.client.getTroveBuildLog(jobId, troveTuple, mark)
         mark += len(data)
-        self.out.write(data.encode('utf-8'))
+        self.out.write(data)
         if not moreData:
             self.buildingTrove = None
         else:

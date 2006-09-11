@@ -24,6 +24,7 @@ import signal
 import sys
 import time
 import traceback
+import xmlrpclib
 
 from conary.deps import deps
 from conary.lib import log, misc, options
@@ -116,10 +117,10 @@ class rMakeServer(apirpc.XMLApiServer):
         jobId = self.db.convertToJobId(jobId)
         trove = self.db.getTrove(jobId, *troveTuple)
         if not self.db.hasTroveBuildLog(trove):
-            return False, ''
+            return False, xmlrpclib.Binary('')
         f = self.db.openTroveBuildLog(trove)
         f.seek(mark)
-        return trove.isBuilding(), f.read()
+        return trove.isBuilding(), xmlrpclib.Binary(f.read())
 
     @api(version=1)
     @api_parameters(1, None)
@@ -574,7 +575,9 @@ class rMakeClient(object):
         return self.proxy.getTroveLogs(jobId, troveTuple, mark)
 
     def getTroveBuildLog(self, jobId, troveTuple, mark=0):
-        return self.proxy.getTroveBuildLog(jobId, troveTuple, mark)
+        isBuilding, wrappedData = self.proxy.getTroveBuildLog(jobId,
+                                                              troveTuple, mark)
+        return isBuilding, wrappedData.data
 
     def getJob(self, jobId, withTroves=True):
         return self.getJobs([jobId], withTroves)[0]

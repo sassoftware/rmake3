@@ -1,3 +1,8 @@
+Changes in @NEW@:
+  o Bug Fixes:
+    * rMake now encodes all text logs when transmitting them over xmlrpc so that any unicode
+      or other characters do not get interpreted. (RMK-137)
+
 Changes in 0.9:
 
   o Client Changes:
