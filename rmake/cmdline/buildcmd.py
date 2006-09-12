@@ -21,6 +21,7 @@ from conary.build.cook import signAbsoluteChangeset
 from conary.conaryclient import cmdline
 from conary.lib import log
 from conary import checkin
+from conary import errors as conaryerrors
 from conary import state
 from conary import versions
 
@@ -165,7 +166,10 @@ def _getPathList(repos, cfg, recipePath):
     log.info("Getting relevant path information from %s..." % recipeClass.name)
     srcdirs = [ os.path.dirname(recipeClass.filename) ]
     recipeObj = recipeClass(cfg, None, srcdirs, cfg.macros, lightInstance=True)
-    cook._callSetup(cfg, recipeObj)
+    try:
+        cook._callSetup(cfg, recipeObj)
+    except (conaryerrors.ConaryError, conaryerrors.CvcError), msg:
+        raise errors.RmakeError("could not initialize recipe: %s" % (msg))
     pathList = recipeObj.fetchLocalSources() + [recipePath ]
     return recipeClass, pathList
 
@@ -270,16 +274,25 @@ def _shadowAndCommit(conaryclient, recipeDir, stateFile, message):
         if message is None and compat.ConaryVersion().supportsCloneCallback():
             message = 'Automated rMake commit'
 
-        checkin.commit(repos, cfg, message)
-        if log.errorOccurred():
-            raise errors.RmakeError("Could not commit changes to build"
-                                 " local file %s/%s" % (recipeDir, troveName))
+        _doCommit('%s/%s' % (recipeDir, troveName), repos, cfg, message)
 
         newState = state.ConaryStateFromFile(shadowSourceDir + '/CONARY', **kw)
         return newState.getSourceState().getNameVersionFlavor()
     finally:
         os.chdir(cwd)
         shutil.rmtree(shadowSourceDir)
+
+def _doCommit(recipePath, repos, cfg, message):
+    try:
+        rv = checkin.commit(repos, cfg, message)
+    except (conaryerrors.CvcError, conaryerrors.ConaryError), msg:
+        raise errors.RmakeError("Could not commit changes to build"
+                                " recipe %s: %s" % (recipePath, msg))
+
+    if log.errorOccurred():
+        raise errors.RmakeError("Could not commit changes to build"
+                                " local file %s" % recipePath)
+    return rv
 
 def _commitRecipe(conaryclient, recipePath, message):
     cfg = conaryclient.cfg
@@ -337,11 +350,7 @@ def _commitRecipe(conaryclient, recipePath, message):
         else:
             checkin.addFiles(fileNames)
 
-        checkin.commit(repos, cfg, 'Temporary recipe build for rmake')
-
-        if log.errorOccurred():
-            raise errors.RmakeError("Could not commit changes to build"
-                                    " local recipe '%s'" % (recipePath))
+        _doCommit(recipePath, repos, cfg, 'Temporary recipe build for rmake')
 
         newState = conaryCompat.ConaryStateFromFile(recipeDir + '/CONARY',
                                                     repos=repos)

@@ -1,7 +1,10 @@
 Changes in @NEW@:
   o Bug Fixes:
-    * rMake now encodes all text logs when transmitting them over xmlrpc so that any unicode
-      or other characters do not get interpreted. (RMK-137)
+    * rMake now transmits all text logs encoded in base-64 when transmitting 
+       them over xmlrpc so no attempt is made to encode non-utf8 character as
+       utf8. (RMK-137)
+    *  CvcErrors and ConaryErrors found when calling setup or commit for local 
+       cooks are now wrapped. (RMK-191)
 
 Changes in 0.9:
 
