@@ -89,7 +89,7 @@ fi
 %attr(775,rmake,rmake) %dir %{_localstatedir}/lib/rmake
 %attr(775,rmake,rmake) %dir %{_localstatedir}/log/rmake
 %attr(775,rmake,rmake) %dir %{_localstatedir}/run/rmake
-%attr(750,rmake,rmake) %dir %{_localstatedir}/rmake
+%attr(700,rmake,rmake) %dir %{_localstatedir}/rmake
 %attr(775,rmake,rmake) %dir /srv/rmake
 %dir %{_sysconfdir}/rmake
 %dir %{_libexecdir}/rmake
@@ -103,6 +103,8 @@ fi
 %{_initrddir}/rmake
 
 %changelog
+* Wed Sep 13 2006 Cristian Gafton <gafton@gmail.com>
+- fix permissions for /var/rmake
+
 * Wed Jun 28 2006 Cristian Gafton <gafton@rpath.com>
 - initial creation
-
