@@ -82,8 +82,17 @@ tag:
 clean: clean-subdirs default-clean
 
 test: all
-	sudo chown root.root commands/chroothelper
-	sudo chmod 4755 commands/chroothelper
+	if [ `id -u` ] ; then \
+		if [ -f /usr/bin/sudo ] ; then \
+			SUDO="sudo bash -c"; \
+		else \
+			SUDO="su -c" ;\
+		fi; \
+	else \
+		SUDO=bash -c ;\
+	fi ;\
+	$${SUDO} 'chown root.root commands/chroothelper; \
+		  chmod 4755 commands/chroothelper'
 
 include Make.rules
 include Make.defs
