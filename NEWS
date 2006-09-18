@@ -7,6 +7,11 @@ Changes in @NEW@:
        cooks are now wrapped. (RMK-191)
     * Don't copy in entitlements, they should not generally be used when
       building, instead, username and passwords should be used (RMK-196).
+    * Fixed a bug when internal errors cause a build to fail - conary will now
+      store that internal error correctly (RMK-203).
+  o Build Changes:
+    * rMake now supports the cleanAfterCook configuration - if set to False,
+      the build root will not be cleaned after a successful build.  (RMK-194)
 
 Changes in 0.9:
 
