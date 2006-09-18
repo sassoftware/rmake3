@@ -172,8 +172,10 @@ class Builder(object):
                     self.repos.commitChangeSet(cs)
                     trove.troveBuilt(cs)
                     del cs # this makes sure the changeset closes the fd.
-                    chrootFactory.cleanRoot(chroot.getPid())
-
+                    if self.buildCfg.cleanAfterCook:
+                        chrootFactory.cleanRoot(chroot.getPid())
+                    else:
+                        chrootFactory.killRoot(chroot.getPid())
                     return
                 else:
                     reason = buildResult.getFailureReason()
