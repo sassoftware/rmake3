@@ -137,7 +137,7 @@ class CommitCommand(rMakeCommand):
     paramHelp = '<jobId>'
 
     def runCommand(self, client, cfg, argSet, args):
-        if len(args) > 2:
+        if len(args) != 2:
             return self.usage()
         jobId = _getJobIdOrUUId(args[1])
         client.commitJob(jobId)
