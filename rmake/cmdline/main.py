@@ -335,7 +335,8 @@ def main(argv):
         return RmakeMain().main(argv, debuggerException=debuggerException)
     except debuggerException, err:
         raise
-    except (errors.RmakeError, conaryerrors.ConaryError, cfg.ParseError), err:
+    except (errors.RmakeError, conaryerrors.ConaryError, cfg.ParseError,
+            conaryerrors.CvcError), err:
         log.error(err)
         sys.exit(1)
     except IOError, e:
