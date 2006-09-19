@@ -161,7 +161,7 @@ class rMakeHelper(object):
         self.repos.createChangeSetFile(jobList, path, recurse=False, 
                                        primaryTroveList=primaryTroveList)
 
-    def commitJob(self, jobId, message=None):
+    def commitJob(self, jobId, message=None, commitOutdatedSources=False):
         job = self.client.getJob(jobId)
         if not list(job.iterBuiltTroves()):
             log.error('This job has no built troves to commit')
@@ -169,7 +169,8 @@ class rMakeHelper(object):
         self.client.startCommit(jobId)
         try:
             succeeded, data = commit.commitJob(self.conaryclient, job,
-                                               self.rmakeConfig, message)
+                                   self.rmakeConfig, message,
+                                   commitOutdatedSources=commitOutdatedSources)
             if succeeded:
                 self.client.commitSucceeded(jobId, data)
                 print 'Committed:\n',

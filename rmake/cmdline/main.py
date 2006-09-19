@@ -136,11 +136,19 @@ class CommitCommand(rMakeCommand):
     commands = ['commit', 'ci']
     paramHelp = '<jobId>'
 
+    docs = {'commit-outdated-sources' : ("Allow commits of source components when another"
+                                         " commit has been made upstream") }
+
+    def addParameters(self, argDef):
+        argDef['commit-outdated-sources'] = NO_PARAM
+        rMakeCommand.addParameters(self, argDef)
+
     def runCommand(self, client, cfg, argSet, args):
+        commitOutdated = argSet.pop('commit-outdated-sources', False)
         if len(args) != 2:
             return self.usage()
         jobId = _getJobIdOrUUId(args[1])
-        client.commitJob(jobId)
+        client.commitJob(jobId, commitOutdatedSources=commitOutdated)
 
 register(CommitCommand)
 

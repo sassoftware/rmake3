@@ -9,9 +9,12 @@ Changes in @NEW@:
       building, instead, username and passwords should be used (RMK-196).
     * Fixed a bug when internal errors cause a build to fail - conary will now
       store that internal error correctly (RMK-203).
+
   o Build Changes:
     * rMake now supports the cleanAfterCook configuration - if set to False,
       the build root will not be cleaned after a successful build.  (RMK-194)
+    * rMake now complains if you try to commit a source component when a 
+      commit to the upstream version has been done (RMK-157).
 
 Changes in 0.9:
 

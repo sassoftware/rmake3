@@ -97,7 +97,11 @@ This command is exactly like running several
 \fIconary clone <branch> <packages>\fP commands, where branch is the branch
 that the packages are built from.  Note that if you cooked from a recipe, then 
 the source components are also committed upstream.
-
+.RS 4
+.TP 4
+.B \-\-commit-outdated-sources
+By default, rMake will not let you commit a change to a source component if it has 
+been modified by someone else upstream.  This overrides that constraint.
 .TP
 .B config
 Displays the configuration settings for the rmake client, including build 
