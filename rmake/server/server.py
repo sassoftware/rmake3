@@ -484,7 +484,7 @@ class rMakeServer(apirpc.XMLApiServer):
                 try:
                     pid, status = os.waitpid(pid, os.WNOHANG)
                 except OSError, err:
-                    if err.errno in (errno.ESRCH, errno.ECHLD):
+                    if err.errno in (errno.ESRCH, errno.ECHILD):
                         jobId = self._buildPids.pop(pid)
                         killed.append(jobId)
                         continue
