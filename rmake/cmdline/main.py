@@ -85,13 +85,16 @@ class BuildCommand(rMakeCommand):
     docs = {'flavor' : "flavor to build with",
             'host'   : "host to limit build to",
             'poll'   : "show build status as it is updated",
-            'quiet'  : "show less build info - don't tail logs"}
+            'quiet'  : "show less build info - don't tail logs",
+            'commit' : "commit job when it is done",
+            }
 
     def addParameters(self, argDef):
         argDef['flavor'] = ONE_PARAM
         argDef['host'] = MULT_PARAM
         argDef['quiet'] = NO_PARAM
         argDef['poll'] = NO_PARAM
+        argDef['commit'] = NO_PARAM
         rMakeCommand.addParameters(self, argDef)
 
     def runCommand(self, client, cfg, argSet, args):
@@ -108,15 +111,23 @@ class BuildCommand(rMakeCommand):
             client.buildConfig.flavor = [newFlavor]
         hosts = argSet.pop('host', [])
         quiet = argSet.pop('quiet', False)
+        commit  = argSet.pop('commit', False)
         if not troveSpecs:
             return self.usage()
         recurseGroups = args[0] == 'buildgroup'
+        monitorJob = argSet.pop('poll', False)
         jobId = client.buildTroves(troveSpecs,
-                                   monitorJob=argSet.pop('poll', False),
                                    limitToHosts=hosts,
-                                   showTroveLogs = not quiet,
-                                   showBuildLogs = not quiet,
                                    recurseGroups=recurseGroups)
+        if monitorJob:
+            client.poll(jobId, showTroveLogs=not quiet,
+                        showBuildLogs=not quiet,
+                        commit=commit)
+        elif commit:
+            client.commitJob(jobId, commitWithFailures=False,
+                             waitForJob=True)
+        return jobId
+
 register(BuildCommand)
 
 
@@ -148,7 +159,8 @@ class CommitCommand(rMakeCommand):
         if len(args) != 2:
             return self.usage()
         jobId = _getJobIdOrUUId(args[1])
-        client.commitJob(jobId, commitOutdatedSources=commitOutdated)
+        client.commitJob(jobId, commitOutdatedSources=commitOutdated,
+                         commitWithFailures=True, waitForJob=True)
 
 register(CommitCommand)
 
@@ -206,6 +218,7 @@ class PollCommand(rMakeCommand):
     def addParameters(self, argDef):
         rMakeCommand.addParameters(self, argDef)
         argDef['quiet'] = NO_PARAM
+        argDef['commit'] = NO_PARAM
 
     def runCommand(self, client, cfg, argSet, args):
         if len(args) != 2:
@@ -214,9 +227,11 @@ class PollCommand(rMakeCommand):
             return 1
         log.setVerbosity(log.INFO)
         quiet = argSet.pop('quiet', False)
+        commit = argSet.pop('commit', False)
         jobId = _getJobIdOrUUId(args[1])
         client.poll(jobId, showBuildLogs = not quiet,
-                    showTroveLogs = not quiet)
+                    showTroveLogs = not quiet,
+                    commit = commit)
 register(PollCommand)
 
 class StopCommand(rMakeCommand):

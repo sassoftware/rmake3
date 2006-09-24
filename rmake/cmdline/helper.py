@@ -106,13 +106,11 @@ class rMakeHelper(object):
                                            prettyPrint=prettyPrint)
         self.buildConfig.display()
 
-    def buildTroves(self, troveSpecList, monitorJob=False,
-                    limitToHosts=None, showTroveLogs=False,
-                    showBuildLogs=False, message=None, recurseGroups=False):
+    def buildTroves(self, troveSpecList,
+                    limitToHosts=None, recurseGroups=False):
         toBuild = buildcmd.getTrovesToBuild(self.conaryclient,
                                             troveSpecList,
-                                            limitToHosts=limitToHosts,
-                                            message=message)
+                                            limitToHosts=limitToHosts)
 
         jobId = self.client.buildTroves(toBuild, self.buildConfig)
         print 'Added Job %s' % jobId
@@ -123,11 +121,7 @@ class rMakeHelper(object):
                 f = ''
             print '  %s=%s/%s%s' % (n, v.trailingLabel(), v.trailingRevision(), f)
 
-        if monitorJob:
-            self.poll(jobId, showTroveLogs=showTroveLogs,
-                      showBuildLogs=showBuildLogs)
-        else:
-            return jobId
+        return jobId
 
     def stopJob(self, jobId):
         stopped = self.client.stopJob(jobId)
@@ -161,8 +155,23 @@ class rMakeHelper(object):
         self.repos.createChangeSetFile(jobList, path, recurse=False, 
                                        primaryTroveList=primaryTroveList)
 
-    def commitJob(self, jobId, message=None, commitOutdatedSources=False):
+    def commitJob(self, jobId, message=None, commitOutdatedSources=False,
+                  commitWithFailures=True, waitForJob=False):
         job = self.client.getJob(jobId)
+        if not job.isFinished() and waitForJob:
+            print "Waiting for job %s to complete before committing" % jobId
+            try:
+                self.waitForJob(jobId)
+            except Exception, err:
+                print "Wait interrupted, not committing"
+                print "You can restart commit by running 'rmake commit %s'" % jobId
+                raise
+        if not job.isFinished():
+            log.error('This job is not yet finished')
+            return False
+        if job.isFailed() and not commitWithFailures:
+            log.error('This job has failures, not committing')
+            return False
         if not list(job.iterBuiltTroves()):
             log.error('This job has no built troves to commit')
             return False
@@ -189,13 +198,31 @@ class rMakeHelper(object):
         deleted = self.client.deleteJobs(jobIdList)
         print 'deleted %d jobs' % len(deleted)
 
-    def poll(self, jobId, showTroveLogs = False, showBuildLogs = False):
+    def waitForJob(self, jobId):
         fd, tmpPath = tempfile.mkstemp()
         os.close(fd)
         uri = 'unix:' + tmpPath
         try:
-            jobMonitor = monitor.monitorJob(self.client, jobId, uri,
+            jobMonitor = monitor.waitForJob(self.client, jobId, uri)
+        finally:
+            os.remove(tmpPath)
+
+    def poll(self, jobId, showTroveLogs = False, showBuildLogs = False,
+             commit = False):
+        fd, tmpPath = tempfile.mkstemp()
+        os.close(fd)
+        uri = 'unix:' + tmpPath
+        try:
+            try:
+                jobMonitor = monitor.monitorJob(self.client, jobId, uri,
                                             showTroveLogs = showTroveLogs,
                                             showBuildLogs = showBuildLogs)
+            except Exception, err:
+                if commit:
+                    print "Poll interrupted, not committing"
+                    print "You can restart commit by running 'rmake poll %s --commit'" % jobId
+                raise
+            else:
+                self.commitJob(jobId, commitWithFailures=False)
         finally:
             os.remove(tmpPath)

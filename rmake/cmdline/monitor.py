@@ -30,14 +30,16 @@ def monitorJob(client, jobId, uri, showTroveLogs=False, showBuildLogs=False):
     receiver.subscribe(jobId)
     receiver.serve_forever()
 
+def waitForJob(client, jobId, uri):
+    receiver = XMLRPCJobLogReceiver(uri, client, displayClass=SilentDisplay)
+    receiver.subscribe(jobId)
+    receiver.serve_forever()
 
-class JobLogDisplay(xmlrpc.BasicXMLRPCStatusSubscriber):
-
+class _AbstractDisplay(xmlrpc.BasicXMLRPCStatusSubscriber):
     def __init__(self, client, showBuildLogs=True, out=None):
         self.client = client
-        self.showBuildLogs = showBuildLogs
-        self.buildingTrove = None
         self.finished = False
+        self.showBuildLogs = showBuildLogs
         if not out:
             out = sys.stdout
         self.out = out
@@ -46,15 +48,37 @@ class JobLogDisplay(xmlrpc.BasicXMLRPCStatusSubscriber):
         self.out.write('[%s] %s\n' % (time.strftime('%X'), msg))
         self.out.flush()
 
+    def _jobStateUpdated(self, jobId, state, status):
+        isFinished = (state in (buildjob.JOB_STATE_FAILED,
+                                buildjob.JOB_STATE_BUILT))
+        if isFinished:
+            self._setFinished()
+
     def _setFinished(self):
         self.finished = True
 
     def _isFinished(self):
         return self.finished
 
+    def _primeOutput(self, client, jobId):
+        job = client.getJob(jobId, withTroves=False)
+        if job.isFinished():
+            self._setFinished()
+
+class SilentDisplay(_AbstractDisplay):
+    def _updateBuildLog(self):
+        pass
+
+class JobLogDisplay(_AbstractDisplay):
+
+    def __init__(self, client, showBuildLogs=True, out=None):
+        _AbstractDisplay.__init__(self, client, out)
+        self.showBuildLogs = showBuildLogs
+        self.buildingTrove = None
+
     def _tailBuildLog(self, jobId, troveTuple):
-        self.out.write('Tailing %s build log:\n\n' % troveTuple[0])
         self.buildingTrove = (jobId, troveTuple, 0)
+        self.out.write('Tailing %s build log:\n\n' % troveTuple[0])
 
     def _updateBuildLog(self):
         if not self.buildingTrove:
@@ -76,14 +100,11 @@ class JobLogDisplay(xmlrpc.BasicXMLRPCStatusSubscriber):
         self._msg('[%d] - job troves set' % jobId)
 
     def _jobStateUpdated(self, jobId, state, status):
-        isFinished = (state in (buildjob.JOB_STATE_FAILED,
-                                buildjob.JOB_STATE_BUILT))
+        _AbstractDisplay._jobStateUpdated(self, jobId, state, status)
         state = buildjob._getStateName(state)
         self._msg('[%d] - State: %s' % (jobId, state))
         if status:
             self._msg('[%d] - %s' % (jobId, status))
-        if isFinished:
-            self._setFinished()
 
     def _jobLogUpdated(self, jobId, state, status):
         self._msg('[%d] %s' % (jobId, status))
@@ -116,9 +137,7 @@ class JobLogDisplay(xmlrpc.BasicXMLRPCStatusSubscriber):
         for troveTuple in troveTups:
             self._tailBuildLog(jobId, troveTuple)
 
-        job = client.getJob(jobId, withTroves=False)
-        if job.isFinished():
-            self._setFinished()
+        _AbstractDisplay._primeOutput(self, client, jobId)
 
 class XMLRPCJobLogReceiver(object):
     def __init__(self, uri=None, client=None, displayClass=JobLogDisplay,
@@ -153,7 +172,8 @@ class XMLRPCJobLogReceiver(object):
                 serverObj = uri
 
         self.server = serverObj
-        self.display = displayClass(self.client, showBuildLogs=showBuildLogs, out=out)
+        self.display = displayClass(self.client, showBuildLogs=showBuildLogs, 
+                                    out=out)
 
         if serverObj:
             serverObj.register_instance(self)
