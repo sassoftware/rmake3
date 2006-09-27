@@ -222,7 +222,7 @@ class rMakeHelper(object):
                     print "Poll interrupted, not committing"
                     print "You can restart commit by running 'rmake poll %s --commit'" % jobId
                 raise
-            else:
+            elif commit:
                 self.commitJob(jobId, commitWithFailures=False)
         finally:
             os.remove(tmpPath)
