@@ -182,7 +182,7 @@ class Builder(object):
                     trove.troveFailed(reason)
                     # passes through to killRoot at the bottom.
             except Exception, e:
-                reason = failure.InternalError(e, ''.join(traceback.format_exc()))
+                reason = failure.InternalError(str(e), traceback.format_exc())
                 trove.troveFailed(reason)
             chrootFactory.killRoot(chroot.getPid())
 
