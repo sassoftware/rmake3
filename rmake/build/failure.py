@@ -69,10 +69,10 @@ class FailureWithException(FailureReason):
 
     def __init__(self, error='', traceback=''):
         if isinstance(error, (list, tuple)):
-            assert(isinstance(error[0], str)
+            assert(isinstance(error[0], str))
             FailureReason.__init__(self, list(error))
         else:
-            assert(isinstance(error, str)
+            assert(isinstance(error, str))
             FailureReason.__init__(self, [error, traceback])
 
     def getErrorMessage(self):
