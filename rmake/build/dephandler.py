@@ -352,8 +352,6 @@ class DependencyHandler(object):
 
         jobSet.update((x[0], (None, None), (x[1], x[2]), False) 
                       for x in itertools.chain(*suggMap.itervalues()))
-        log.setVerbosity(oldVerbosity)
-
         if cannotResolve or depList:
             log.debug('Failed - unresolved deps - took %s seconds' % (time.time() - start))
             return False, ([], depList + cannotResolve)
