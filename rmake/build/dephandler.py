@@ -219,6 +219,8 @@ class DependencyHandler(object):
             @param newlyAvail - troves that are newly available, and should
             therefore be considered for satisfying build requirements.
         """
+        oldVerbosity = log.getVerbosity()
+        log.setVerbosity(log.DEBUG)
         log.debug('updating set of buildable troves')
 
         packageNames = set(x[0].split(':')[0] for x in newlyAvail)
@@ -238,6 +240,7 @@ class DependencyHandler(object):
                 else:
                     assert(failedDeps)
                     trv.troveMissingDependencies(failedDeps)
+        log.setVerbosity(oldVerbosity)
 
     def _resolveBuildReqs(self, client, trv, searchSource):
         """
@@ -341,13 +344,12 @@ class DependencyHandler(object):
 
         uJob = database.UpdateJob(None)
         uJob.setSearchSource(searchSource)
-        oldVerbosity = log.getVerbosity()
-        log.setVerbosity(log.DEBUG)
         jobSet = client._updateChangeSet(itemList, uJob, useAffinity=False)
         (depList, suggMap, cannotResolve, splitJob, keepList) = \
             client.resolver.resolveDependencies(uJob, jobSet, resolveDeps=True,
                                               useRepos=False, split=False,
                                               resolveSource=self.resolveSource)
+
         jobSet.update((x[0], (None, None), (x[1], x[2]), False) 
                       for x in itertools.chain(*suggMap.itervalues()))
         log.setVerbosity(oldVerbosity)
@@ -360,7 +362,7 @@ class DependencyHandler(object):
         return True, jobSet
 
     def _addResolutionDeps(self, trv, jobSet):
-        found = False
+        found = []
         for name, oldInfo, newInfo, isAbs in jobSet:
             providingTroves = self.depState.getTrovesByPackage(name.split(':')[0])
             if not providingTroves:
@@ -372,7 +374,7 @@ class DependencyHandler(object):
                 if self.depState.isUnbuilt(provTrove):
                     # FIXME: we need to have the actual dependency name!
                     self.depState.dependsOn(trv, provTrove, (trv.getNameVersionFlavor(), deps.parseDep('trove: %s' % name)))
-                    found = True
+                    found.append(provTrove)
         return found
 
     def _updateBuildableTroves(self, client, depGraph, searchSource, 
@@ -399,14 +401,28 @@ class DependencyHandler(object):
             skipped = [ x for x in buildable if x in skipTroves ]
             buildable = [ x for x in buildable if x not in skipTroves ]
             log.debug('buildable: %s - attempting to resolve buildreqs' % buildable)
-            for trv in sorted(buildable):
+            buildable = sorted(buildable, reverse=True)
+            while buildable:
+                trv = buildable.pop()
+                log.debug('attempting to resolve buildreqs for %s=%s[%s]' % trv.getNameVersionFlavor())
                 success, data = self._resolveBuildReqs(client, trv,
                                                        searchSource)
                 if success:
-                    if not self._addResolutionDeps(trv, data):
+                    newDeps = self._addResolutionDeps(trv, data)
+                    if not newDeps:
                         buildReqs[trv] = data
                         if limit and len(buildReqs) >= limit:
                             break
+                    else:
+                        # there are runtime reqs that are being
+                        # rebuild.
+                        # Try rebuilding those first, it is possible
+                        # it will be needed by a lot of things so trying
+                        # to build it now might help.
+                        for trv in newDeps:
+                            if trv in buildable:
+                                buildable.remove(trv)
+                                buildable.append(trv)
                 else:
                     failedReqs[trv] = data
 

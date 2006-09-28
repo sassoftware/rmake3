@@ -13,6 +13,10 @@ Changes in @NEW@:
       will fail.  In that case, make sure rMake finds that case earlier, so
       that after all rogue rMake processes are cleaned up, rMake can clean
       up the root.
+    * Prioritize troves that are runtime reqs of buildreqs for other packages
+      that are being built - this should avoid some of the waiting that can
+      occur when many packages depend on the same runtime req of
+      buildreqs.  (RMK-218)
 
   o Build Changes:
     * rMake now supports the cleanAfterCook configuration - if set to False,
@@ -21,6 +25,7 @@ Changes in @NEW@:
       commit to the upstream version has been done (RMK-157).
     * Added a --commit option to build and poll.  "rmake commit" also waits
       for the build to complete if it has not already. (RMK-146)
+    * add some verbosity to buildlogs during dep resolution
 
 Changes in 0.9:
 
