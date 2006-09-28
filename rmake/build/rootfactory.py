@@ -247,15 +247,26 @@ class AbstractChroot:
     def clean(self):
         self.unmount()
         log.debug("removing old chroot tree: %s", self.root)
-        os.system('rm -rf %s' % self.root)
-        if os.path.exists(self.root):
+        os.system('rm -rf %s/tmp' % self.root)
+        removeFailed = False
+        if os.path.exists(self.root + '/tmp'):
+            # attempt to remove just the /tmp dir first.
+            # that's where the chroot process should have had all
+            # of its files.  Doing this makes sure we don't remove
+            # /bin/rm while it might still be needed the next time around.
+            removeFailed = True
+        else:
+            os.system('rm -rf %s' % self.root)
+            if os.path.exists(self.root):
+                removeFailed = True
+        if removeFailed:
             raise errors.OpenError(
-            'Cannot create chroot - old root at %s could not be removed.'
-            '  This may happen due to permissions problems such as root'
-            ' owned files, or earlier build processes that have not'
-            ' completely died.  Please remove the old root by hand.' \
-            % self.root)
-
+                'Cannot create chroot - old root at %s could not be removed.'
+                '  This may happen due to permissions problems such as root'
+                ' owned files, or earlier build processes that have not'
+                ' completely died.  Please shut down rmake, kill any remaining'
+                ' rmake processes, and then retry.  If that does not work,'
+                ' please remove the old root by hand.' % self.root)
 
     def unmount(self):
         for m in self.mounts.values():

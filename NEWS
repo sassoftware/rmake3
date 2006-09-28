@@ -9,6 +9,10 @@ Changes in @NEW@:
       building, instead, username and passwords should be used (RMK-196).
     * Fixed a bug when internal errors cause a build to fail - conary will now
       store that internal error correctly (RMK-203).
+    * Sometimes chroot processes will not die nicely, and so chroot cleanups
+      will fail.  In that case, make sure rMake finds that case earlier, so
+      that after all rogue rMake processes are cleaned up, rMake can clean
+      up the root.
 
   o Build Changes:
     * rMake now supports the cleanAfterCook configuration - if set to False,
