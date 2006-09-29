@@ -88,6 +88,9 @@ class DependencyBasedBuildState(AbstractBuildState):
     def troveBuildable(self, trove, buildReqs):
         self.buildReqTroves[trove] = buildReqs
 
+    def hasBuildableTroves(self):
+        return bool(self.buildReqTroves)
+
     def getSolutionsForBuildReq(self, trove, buildReq):
         for childTrove, reason in self.depGraph.getChildren(trove,
                                                              withEdges=True):
@@ -163,6 +166,9 @@ class DependencyHandler(object):
     def troveStateUpdated(self, trove, state, status):
         self.depState._setState(trove, trove.state)
 
+    def hasBuildableTroves(self):
+        return self.depState.hasBuildableTroves()
+
     def troveFailed(self, trove, *args):
         statusLogger = trove.getStatusLogger()
         statusLogger.unsubscribe(statusLogger.TROVE_FAILED, self.troveFailed)
@@ -170,7 +176,6 @@ class DependencyHandler(object):
         self._troveFailed(trove)
         statusLogger.subscribe(statusLogger.TROVE_FAILED, self.troveFailed)
         statusLogger.uncork()
-        self.updateBuildableTroves()
 
     def _troveFailed(self, trove):
         depState = self.depState
@@ -211,9 +216,8 @@ class DependencyHandler(object):
 
     def troveBuilt(self, trove, changeset):
         self.depState.troveBuilt(trove, changeset)
-        self.updateBuildableTroves([x[0] for x in changeset.getPrimaryTroveList()])
 
-    def updateBuildableTroves(self, newlyAvail=[], limit=1):
+    def updateBuildableTroves(self, limit=1, callback=None):
         """
             Update the set of troves that are buildable
             @param newlyAvail - troves that are newly available, and should
@@ -223,23 +227,9 @@ class DependencyHandler(object):
         log.setVerbosity(log.DEBUG)
         log.debug('updating set of buildable troves')
 
-        packageNames = set(x[0].split(':')[0] for x in newlyAvail)
-
-        success, data = self._updateBuildableTroves(self.client,
-                                            self.depState.getDependencyGraph(), 
-                                            self.searchSource, limit=limit)
-        depState = self.depState
-        if success:
-            for trv, buildReqs in data.iteritems():
-                trv.troveBuildable()
-                self.depState.troveBuildable(trv, buildReqs)
-        else:
-            for trv, (failedReqs, failedDeps) in data.iteritems():
-                if failedReqs:
-                    trv.troveMissingBuildReqs(failedReqs)
-                else:
-                    assert(failedDeps)
-                    trv.troveMissingDependencies(failedDeps)
+        self._updateBuildableTroves(self.client,
+                                    self.depState.getDependencyGraph(), 
+                                    self.searchSource, limit=limit)
         log.setVerbosity(oldVerbosity)
 
     def _resolveBuildReqs(self, client, trv, searchSource):
@@ -278,7 +268,7 @@ class DependencyHandler(object):
             return result
 
         if not trv.getBuildRequirements():
-            return True, set()
+            return True, set(), None, None
 
         finalToInstall = {}
 
@@ -333,7 +323,7 @@ class DependencyHandler(object):
 
         if not okay:
             log.debug('could not find all buildreqs')
-            return False, (missingBuildReqs, None)
+            return False, None, missingBuildReqs, None
 
         log.debug('   resolving deps for %s...' % trv.getName())
         start = time.time()
@@ -354,10 +344,10 @@ class DependencyHandler(object):
                       for x in itertools.chain(*suggMap.itervalues()))
         if cannotResolve or depList:
             log.debug('Failed - unresolved deps - took %s seconds' % (time.time() - start))
-            return False, ([], depList + cannotResolve)
+            return False, None, [], depList + cannotResolve
 
         log.debug('   took %s seconds' % (time.time() - start))
-        return True, jobSet
+        return True, jobSet, None, None
 
     def _addResolutionDeps(self, trv, jobSet):
         found = []
@@ -392,9 +382,8 @@ class DependencyHandler(object):
 
         buildable = sorted(depGraph.getLeaves())
         skipped = []
+        found = []
 
-        buildReqs = {}
-        failedReqs = {}
         if buildable:
             skipped = [ x for x in buildable if x in skipTroves ]
             buildable = [ x for x in buildable if x not in skipTroves ]
@@ -403,13 +392,17 @@ class DependencyHandler(object):
             while buildable:
                 trv = buildable.pop()
                 log.debug('attempting to resolve buildreqs for %s=%s[%s]' % trv.getNameVersionFlavor())
-                success, data = self._resolveBuildReqs(client, trv,
-                                                       searchSource)
+                trv.troveResolvingBuildReqs()
+                success, buildReqs, failedReqs, failedDeps \
+                                = self._resolveBuildReqs(client, trv,
+                                                         searchSource)
                 if success:
-                    newDeps = self._addResolutionDeps(trv, data)
+                    newDeps = self._addResolutionDeps(trv, buildReqs)
                     if not newDeps:
-                        buildReqs[trv] = data
-                        if limit and len(buildReqs) >= limit:
+                        trv.troveBuildable()
+                        found.append(trv)
+                        self.depState.troveBuildable(trv, buildReqs)
+                        if limit and len(found) >= limit:
                             break
                     else:
                         # there are runtime reqs that are being
@@ -417,26 +410,25 @@ class DependencyHandler(object):
                         # Try rebuilding those first, it is possible
                         # it will be needed by a lot of things so trying
                         # to build it now might help.
-                        for trv in newDeps:
-                            if trv in buildable:
-                                buildable.remove(trv)
-                                buildable.append(trv)
+                        for depTrv in newDeps:
+                            if depTrv in buildable:
+                                buildable.remove(depTrv)
+                                buildable.append(depTrv)
+                        trv.troveResolvedButDelayed(newDeps)
                 else:
-                    failedReqs[trv] = data
-
-        if buildReqs or skipped:
-            return True, buildReqs
-        if depGraph.isEmpty():
-            return True, {}
+                    if failedReqs:
+                        trv.troveMissingBuildReqs(failedReqs)
+                    else:
+                        assert(failedDeps)
+                        trv.troveMissingDependencies(failedDeps)
+        if self.hasBuildableTroves() or depGraph.isEmpty():
+            return True
 
         # no leaves in the dep graph at this point - we've got to break a dep
         # cycle.  There's no great way to break a cycle, unless you have some 
         # external knowledge about what packages are more 'basic'.
         checkedTroves = {}
-        if failedReqs:
-            log.debug('could not resolve deps for currently buildable troves')
-        else:
-            log.debug('cycle detected!')
+        log.debug('cycle detected!')
 
         while True:
             start = time.time()
@@ -455,17 +447,24 @@ class DependencyHandler(object):
                         continue
 
                     checkedSomething = True
-                    succeeded, data = self._resolveBuildReqs(client, trv,
+                    trv.troveResolvingBuildReqs()
+                    success, buildReqs, failedReqs, failedDeps \
+                                    = self._resolveBuildReqs(client, trv,
                                                              searchSource)
-                    if succeeded:
+                    if success:
+                        trv.troveBuildable()
+                        self.depState.troveBuildable(trv, buildReqs)
                         log.debug('Removing edge %s' % trv)
                         depGraph.deleteEdges(trv)
-                        return True, { trv : data }
+                        return True
+                    elif failedReqs:
+                        trv.troveMissingBuildReqs(failedReqs)
                     else:
-                        checkedTroves[trv] = data
+                        assert(failedDeps)
+                        trv.troveMissingDependencies(failedDeps)
 
             if not checkedSomething:
-                return False, checkedTroves
+                return False
 
 class DepHandlerSource(trovesource.TroveSourceStack):
     def __init__(self, builtTroveSource, troveListList, repos,

@@ -91,13 +91,19 @@ class _AbstractBuildTrove(object):
     def getStatusLogger(self):
         return self._statusLogger
 
-    def troveBuildable(self, message=''):
-        if message:
-            self.status = message
+    def troveBuildable(self, message=None):
+        self.status = ''
         self._setStatus(TROVE_STATE_BUILDABLE)
 
+    def troveResolvingBuildReqs(self):
+        self.log('Resolving build requirements')
+
+    def troveResolvedButDelayed(self, newDeps):
+        self.log('Resolved buildreqs include %s other troves scheduled to be built - delaying' % (len(newDeps),))
+        self.status = '' # don't reprint this message ever
+
     def prepChroot(self, message):
-        self.status = message
+        self.status = 'Preparing Chroot'
         self._setStatus(TROVE_STATE_BUILDABLE)
 
     def troveBuilding(self, logPath='', pid=0):
@@ -151,6 +157,7 @@ class _AbstractBuildTrove(object):
         self.status = message
         if self._statusLogger:
             self._statusLogger.troveLogUpdated(self, message)
+        self.status = ''
 
     def _setStatus(self, state, *args):
         oldState = self.state

@@ -107,7 +107,8 @@ class Builder(object):
             while True:
 
                 if self.job.hasBuildingTroves():
-                    self._checkForResults()
+                    if self._checkForResults():
+                        self.dh.updateBuildableTroves()
                 elif self.job.hasBuildableTroves():
                     self._buildTrove(self.job.iterBuildableTroves().next())
                 else:
@@ -159,11 +160,13 @@ class Builder(object):
 
 
     def _checkForResults(self):
+        foundResult = False
         for chrootFactory, chroot, trove in list(self._buildingTroves):
             try:
                 buildResult = chroot.checkResults(*trove.getNameVersionFlavor())
                 if not buildResult:
                     continue
+                foundResult = True
                 self._buildingTroves.remove((chrootFactory, chroot, trove))
 
                 if buildResult.isBuildSuccess():
@@ -176,7 +179,7 @@ class Builder(object):
                         chrootFactory.cleanRoot(chroot.getPid())
                     else:
                         chrootFactory.killRoot(chroot.getPid())
-                    return
+                    continue
                 else:
                     reason = buildResult.getFailureReason()
                     trove.troveFailed(reason)
@@ -185,6 +188,7 @@ class Builder(object):
                 reason = failure.InternalError(str(e), traceback.format_exc())
                 trove.troveFailed(reason)
             chrootFactory.killRoot(chroot.getPid())
+        return foundResult
 
     def getChrootFactory(self):
         return rootfactory.ChrootFactory(self.job, self.serverCfg.buildDir,

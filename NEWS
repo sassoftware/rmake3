@@ -21,6 +21,8 @@ Changes in @NEW@:
       cleaning up the chroot. (RMK-216).
     * Don't bother cleaning up the chroot for group cooks that are using a
       fake chroot. (also part of RMK-216)
+    * Fully mark troves as built/failed before beginning dep resolution 
+      for the next set of troves. (RMK-217)
 
   o Build Changes:
     * rMake now supports the cleanAfterCook configuration - if set to False,
@@ -30,6 +32,8 @@ Changes in @NEW@:
     * Added a --commit option to build and poll.  "rmake commit" also waits
       for the build to complete if it has not already. (RMK-146)
     * add some verbosity to buildlogs during dep resolution
+    * Rmake now prints out a message for each trove it tries to resolve 
+      deps for when resolving build req dependencies. (RMK-219)
 
 Changes in 0.9:
 
