@@ -242,7 +242,8 @@ int clean(const char * chrootDir) {
             }
             pid = fork();
             if (pid == 0) {
-                execl("/bin/rm", "/bin/rm", "-rf", childPath, NULL);
+                execl("/sbin/busybox", "/sbin/busybox", "rm", "-rf", 
+                      childPath, NULL);
                 /* this will not return unless error */
                 perror("execl");
                 _exit(1);

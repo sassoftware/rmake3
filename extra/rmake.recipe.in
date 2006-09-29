@@ -34,6 +34,8 @@ class RmakeRecipe(CPackageRecipe):
         r.ExcludeDirectories(exceptions='%(sysconfdir)s/rmake')
 
         r.SetModes('%(libexecdir)s/rmake/chroothelper', 04755)
+        r.Requires('busybox:runtime', 
+                   '%(libexecdir)s/rmake/chroothelper')
         r.Requires(exceptDeps='python: epdb')
         r.Requires(exceptDeps='python: rmake.cmdline.password')
         r.ComponentSpec('gtk', 'password.py(|c|o)')
