@@ -337,6 +337,7 @@ class ConaryBasedRoot(AbstractChroot):
             return
         if self.canChroot():
             log.info('Running chroot helper to unmount...')
+            util.mkdirChain(self.cfg.root + '/sbin')
             shutil.copy('/sbin/busybox', self.cfg.root + '/sbin/busybox')
             rc = os.system('%s %s --clean' % (self.chrootHelperPath, 
                             self.cfg.root))
