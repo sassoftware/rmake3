@@ -23,6 +23,8 @@ Changes in @NEW@:
       fake chroot. (also part of RMK-216)
     * Fully mark troves as built/failed before beginning dep resolution 
       for the next set of troves. (RMK-217)
+    * Dep resolution when no resolveTroves are set now uses the same intraTrove
+      dependency resolution algorithm as the resolveTroves code (RMK-220).
 
   o Build Changes:
     * rMake now supports the cleanAfterCook configuration - if set to False,

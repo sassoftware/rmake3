@@ -157,8 +157,7 @@ class DependencyHandler(object):
             self.resolveSource = DepResolutionByTroveLists(cfg, None,
                                                            searchSourceTroves)
         else:
-            self.resolveSource = resolve.DepResolutionByLabelPath(cfg, None,
-                                                           cfg.installLabelPath)
+            self.resolveSource = DepResolutionByTroveLists(cfg, None, [])
             self.searchSource = DepHandlerSource(
                                                depState.getBuiltTrovesSource(),
                                                [], searchSource)
@@ -525,7 +524,7 @@ class BuiltTroveSource(trovesource.SimpleTroveSource):
             suggMap[depSet] = newSolListList
         return suggMap
 
-class DepResolutionByTroveLists(resolve.DepResolutionByTroveList):
+class DepResolutionByTroveLists(resolve.DepResolutionMethod):
     """ 
         Resolve by trove list first and then resort back to label
         path.  Also respects intra-trove deps.  If foo:runtime
@@ -536,7 +535,8 @@ class DepResolutionByTroveLists(resolve.DepResolutionByTroveList):
         self.searchByLabelPath = False
         self.troveListIndex = 0
         self.troveLists = troveLists
-        resolve.DepResolutionByTroveList.__init__(self, cfg, db, troveLists)
+        self.depList = None
+        resolve.DepResolutionMethod.__init__(self, cfg, db)
 
     def setLabelPath(self, labelPath):
         self.installLabelPath = labelPath
@@ -574,11 +574,14 @@ class DepResolutionByTroveLists(resolve.DepResolutionByTroveList):
                     self.troveListsIndex = 0
                     return False
         else:
-            self.searchByLabelPath = False
+            self.searchByLabelPath = not self.troveLists
             self.troveListsIndex = 0
+            self.index = 0
 
         self.depList = newDepList
 
+        # need to get intratrove deps while we still have the full dependency
+        # request information - including what trove the dep arises from.
         intraDeps = self._getIntraTroveDeps(depList)
         self.intraDeps = intraDeps
         return True
