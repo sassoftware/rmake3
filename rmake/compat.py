@@ -17,12 +17,20 @@ compatibility checks.
 """
 from conary import constants
 from conary import state
+from conary.lib import log
 
 class ConaryVersion(object):
     def __init__(self, conaryVersion=None):
         if conaryVersion is None:
             conaryVersion = constants.version
-        self.conaryVersion = [int(x) for x in conaryVersion.split('.')]
+
+        try:
+            self.conaryVersion = [int(x) for x in conaryVersion.split('.')]
+        except ValueError, err:
+            log.warning('nonstandard conary version "%s".  Assuming latest "%s".' % (conaryVersion, constants.version))
+            self.conaryVersion = [ int(x)
+                                    for x in constants.version.split('.') ]
+
         self.majorVersion = self.conaryVersion[0:2]
         self.minorVersion = self.conaryVersion[2]
         self.isOneOne = self.majorVersion == (1,1)
