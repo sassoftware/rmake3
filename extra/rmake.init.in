@@ -97,7 +97,7 @@ case "$1" in
         reset
         ;;
     *)
-        echo $"Usage: $0 {start|stop|debug|status|restart|config|delete}"
+        echo $"Usage: $0 {start|stop|debug|status|restart|reload|config|reset}"
         exit 1
 esac
 
