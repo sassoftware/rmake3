@@ -29,7 +29,7 @@ from conary.conarycfg import ParseError
 from conary.lib import sha1helper
 
 from rmake.lib import apiutils, daemon
-from rmake import plugins
+from rmake import compat, plugins
 
 class CfgTroveSpec(CfgType):
     def parseString(self, val):
@@ -137,7 +137,10 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
                     continue
                 if strictMode and key not in self._strictOptions:
                     continue
-                if conaryConfig[key] is not conaryConfig.getDefaultValue(key):
+                if compat.ConaryVersion().supportsConfigIsDefault():
+                    if not conaryConfig.isDefault(key):
+                        self[key] = conaryConfig[key]
+                elif conaryConfig[key] is not conaryConfig.getDefaultValue(key):
                     self[key] = conaryConfig[key]
 
         if readConfigFiles:

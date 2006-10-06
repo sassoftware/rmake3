@@ -51,6 +51,10 @@ class ConaryVersion(object):
         # support added in 1.0.30 and 1.1.3
         return self.checkVersion(30, 3)
 
+    def supportsConfigIsDefault(self):
+        # support added in 1.0.33 and 1.1.6
+        return self.checkVersion(33, 6)
+
     def supportsCloneNonRecursive(self):
         # support added in 1.0.30 and 1.1.3
         return self.checkVersion(30, 3)
