@@ -140,7 +140,7 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
                 if compat.ConaryVersion().supportsConfigIsDefault():
                     if not conaryConfig.isDefault(key):
                         self[key] = conaryConfig[key]
-                elif conaryConfig[key] is not conaryConfig.getDefaultValue(key):
+                if conaryConfig[key] is not conaryConfig.getDefaultValue(key):
                     self[key] = conaryConfig[key]
 
         if readConfigFiles:
