@@ -116,32 +116,11 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
                        'flavor', 'installLabelPath', 'repositoryMap', 'root',
                        'user', 'name', 'contact' ]
 
-    def __init__(self, readConfigFiles=False, root='', conaryConfig=None,
+    def __init__(self, readConfigFiles=False, root='', conaryConfig=None, 
                  serverConfig=None):
         # we default the value of these items to whatever they
         # are set to on the local system's conaryrc.
         conarycfg.ConaryConfiguration.__init__(self)
-
-        if conaryConfig and readConfigFiles:
-            # ugh.  Read config files once _just_ for strictMode value.
-            rmakeConfig = BuildConfiguration(True, root=root)
-            strictMode = rmakeConfig.strictMode
-        else:
-            strictMode = self.strictMode
-
-        if conaryConfig:
-            # copy in conary config values that we haven't
-            # overrided from the rmake config
-            for key in self.iterkeys():
-                if key not in conaryConfig:
-                    continue
-                if strictMode and key not in self._strictOptions:
-                    continue
-                if compat.ConaryVersion().supportsConfigIsDefault():
-                    if not conaryConfig.isDefault(key):
-                        self[key] = conaryConfig[key]
-                if conaryConfig[key] is not conaryConfig.getDefaultValue(key):
-                    self[key] = conaryConfig[key]
 
         if readConfigFiles:
             if os.path.exists(root + '/etc/rmake/clientrc'):
@@ -154,7 +133,7 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
                           exception=False)
             self.read('rmakerc', exception=False)
 
-        if strictMode:
+        if self.strictMode:
             self.enforceManagedPolicy = True
 
         # these values are not set based on 
@@ -166,7 +145,33 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
         for option in self._hiddenOptions:
             del self._lowerCaseMap[option.lower()]
 
+        self.useConaryConfig(conaryConfig)
         self.setServerConfig(serverConfig)
+
+    def useConaryConfig(self, conaryConfig):
+        if not conaryConfig:
+            return
+
+        # copy in conary config values that we haven't
+        # overrided from the rmake config
+        for key in self.iterkeys():
+            if key not in conaryConfig:
+                continue
+            if self.strictMode and key not in self._strictOptions:
+                continue
+            if compat.ConaryVersion().supportsConfigIsDefault():
+                if (self.isDefault(key) and
+                    self[key] == self.getDefaultValue(key) and
+                    (not conaryConfig.isDefault(key) or
+                     not conaryConfig[key] is self.getDefaultValue(key))):
+                    self[key] = conaryConfig[key]
+            elif self[key] is self.getDefaultValue(key):
+                self[key] = conaryConfig[key]
+        for contextName in conaryConfig.iterSectionNames():
+            self._addSection(contextName,
+                             conaryConfig.getSection(contextName))
+        if self.strictMode:
+            self.enforceManagedPolicy = True
 
     def setServerConfig(self, serverCfg):
         self.serverCfg = serverCfg
@@ -176,6 +181,8 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
             # right order.
             for entry in reversed(serverCfg.user):
                 self.user.append(entry)
+        if serverCfg:
+            self.repositoryMap.update(serverCfg.getRepositoryMap())
 
 
     def getTargetLabel(self, versionOrLabel):

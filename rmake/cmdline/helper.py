@@ -43,21 +43,14 @@ from rmake import plugins
 class rMakeHelper(object):
 
     def __init__(self, uri=None, rmakeConfig=None, buildConfig=None, root='/',
-                 context=None, guiPassword=False):
+                 guiPassword=False):
         if not rmakeConfig:
             rmakeConfig = servercfg.rMakeConfiguration()
 
         if not buildConfig:
-            conaryConfig = conarycfg.ConaryConfiguration(True)
-            conaryConfig.initializeFlavors()
-            context = self._getContext(conaryConfig, context)
-            if context:
-                conaryConfig.setContext(context)
-            buildConfig = buildcfg.BuildConfiguration(True, root, conaryConfig)
-            for contextName in conaryConfig.iterSectionNames():
-                buildConfig._addSection(contextName,
-                                        conaryConfig.getSection(contextName))
-        buildConfig.repositoryMap.update(rmakeConfig.getRepositoryMap())
+            buildConfig = buildcfg.BuildConfiguration(True, root)
+            if conaryConfig:
+                buildConfig.useConaryConfig(conaryConfig)
 
         if uri is None:
             uri = rmakeConfig.getServerUri()
@@ -88,18 +81,7 @@ class rMakeHelper(object):
         self.rmakeConfig = rmakeConfig
         self.buildConfig.setServerConfig(rmakeConfig)
 
-    def _getContext(self, cfg, context):
-        if context:
-            return context
-        context = cfg.context
-        if os.path.exists('CONARY'):
-            conaryState = compat.ConaryVersion().ConaryStateFromFile('CONARY',
-                                                           parseSource=False)
-            if conaryState.hasContext():
-                context = conaryState.getContext()
 
-        context = os.environ.get('CONARY_CONTEXT', context)
-        return context
 
     def displayConfig(self, hidePasswords=True, prettyPrint=True):
         self.buildConfig.setDisplayOptions(hidePasswords=hidePasswords,

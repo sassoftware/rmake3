@@ -50,8 +50,11 @@ from rmake.server import server
 
 class rMakeCommand(options.AbstractCommand):
     docs = {'config'             : ("Set config KEY to VALUE", "'KEY VALUE'"),
-            'context'            : ("Set the conary context to build in"),
             'config-file'        : ("Read PATH config file", "PATH"),
+            'context'            : ("Set the conary context to build in"),
+            'server-config-file' : ("Read PATH config file", "PATH"),
+            'build-config-file'  : ("Read PATH config file", "PATH"),
+            'rmake-config-file'  : ("Read PATH config file", "PATH"),
             'skip-default-config': "Don't read default configs",
            }
 
@@ -59,10 +62,57 @@ class rMakeCommand(options.AbstractCommand):
         d = {}
         d["context"] = ONE_PARAM
         d["config"] = MULT_PARAM
-        d["config-file"] = MULT_PARAM
+        d["server-config"] = MULT_PARAM
+        d["server-config-file"] = MULT_PARAM
+        d["build-config-file"] = MULT_PARAM
+        d["conary-config-file"] = MULT_PARAM
         d["skip-default-config"] = NO_PARAM
         argDef[self.defaultGroup] = d
 
+    def processConfigOptions(self, (buildConfig, serverConfig, conaryConfig),
+                             cfgMap, argSet):
+        """
+            Manage any config maps we've set up, converting 
+            assigning them to the config object.
+        """ 
+        configFileList = argSet.pop('build-config-file', [])
+        if not isinstance(configFileList, list):
+            configFileList = list(configFileList)
+
+        configFileList.extend(argSet.pop('config-file', []))
+
+        for path in configFileList:
+            buildConfig.read(path, exception=True)
+
+
+        configFileList = argSet.pop('server-config-file', [])
+        if not isinstance(configFileList, list):
+            configFileList = list(configFileList)
+        for path in configFileList:
+            serverConfig.read(path, exception=True)
+
+        configFileList = argSet.pop('conary-config-file', [])
+        if not isinstance(configFileList, list):
+            configFileList = list(configFileList)
+        if configFileList and not conaryConfig:
+            conaryConfig = conarycfg.ConaryConfiguration(readConfigFiles=False)
+        for path in configFileList:
+            conaryConfig.read(path, exception=True)
+
+        for (arg, data) in cfgMap.items():
+            cfgName, paramType = data[0:2]
+            value = argSet.pop(arg, None)
+            if value is not None:
+                if arg.startswith('no-'):
+                    value = not value
+
+                buildConfig.configLine("%s %s" % (cfgName, value))
+
+        for line in argSet.pop('config', []):
+            buildConfig.configLine(line)
+
+        for line in argSet.pop('server-config', []):
+            serverConfig.configLine(line)
 
 # helper function to get list of commands we support
 _commands = []
@@ -319,7 +369,7 @@ class RmakeMain(options.MainHandler):
     version = constants.version
 
     abstractCommand = rMakeCommand
-    configClass = servercfg.rMakeConfiguration
+    configClass = buildcfg.BuildConfiguration
 
     commandList = _commands
 
@@ -340,9 +390,43 @@ class RmakeMain(options.MainHandler):
         print '  stop jobId       - stop job'
         return rc
 
-    def runCommand(self, thisCommand, cfg, argSet, args):
-        client = helper.rMakeHelper(rmakeConfig = cfg, context=argSet.pop('context', None))
-        options.MainHandler.runCommand(self, thisCommand, client, cfg, argSet, 
+    def getConfigFile(self, argv):
+        if '--skip-default-config' in argv:
+            argv.remove('--skip-default-config')
+            read = False
+        else:
+            read = True
+
+        serverConfig = servercfg.rMakeConfiguration(readConfigFiles=read)
+        buildConfig = buildcfg.BuildConfiguration(readConfigFiles=read)
+        conaryConfig = conarycfg.ConaryConfiguration(readConfigFiles=read)
+        return buildConfig, serverConfig, conaryConfig
+
+    def _getContext(self, cfg, argSet):
+        context = cfg.context
+        if os.path.exists('CONARY'):
+            conaryState = compat.ConaryVersion().ConaryStateFromFile('CONARY',
+                                                           parseSource=False)
+            if conaryState.hasContext():
+                context = conaryState.getContext()
+
+        context = os.environ.get('CONARY_CONTEXT', context)
+        context = argSet.get('context', context)
+        return context
+
+    def runCommand(self, thisCommand, (buildConfig, serverConfig, conaryConfig),
+                   argSet, args):
+        if conaryConfig:
+            context = self._getContext(conaryConfig, argSet)
+            if context:
+                conaryConfig.setContext(context)
+
+        buildConfig.useConaryConfig(conaryConfig)
+        buildConfig.initializeFlavors()
+
+        client = helper.rMakeHelper(buildConfig=buildConfig,
+                                    rmakeConfig=serverConfig)
+        options.MainHandler.runCommand(self, thisCommand, client, cfg, argSet,
                                        args[1:])
 
 def main(argv):

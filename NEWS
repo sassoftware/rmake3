@@ -28,6 +28,8 @@ Changes in @NEW@:
     * rMake now handles --flavor correctly on x86_64 boxes - by just overriding
       the flavors specified in the installLabelPath with the given flavor,
       not reducing the flavor list to one. (RMK-228)
+    * rMake now handles --config to specify a change to the build configuration.
+      (RMK-192)
 
   o Build Changes:
     * rMake now supports the cleanAfterCook configuration - if set to False,
@@ -39,6 +41,9 @@ Changes in @NEW@:
     * add some verbosity to buildlogs during dep resolution
     * Rmake now prints out a message for each trove it tries to resolve 
       deps for when resolving build req dependencies. (RMK-219)
+    * rMake now takes a --build-config-file, --server-config-file, and 
+      --conary-config-file to specify the config files to read for the 
+      build, server, and conary config files. (RMK-192)
 
 Changes in 0.9:
 
