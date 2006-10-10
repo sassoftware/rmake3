@@ -25,6 +25,9 @@ Changes in @NEW@:
       for the next set of troves. (RMK-217)
     * Dep resolution when no resolveTroves are set now uses the same intraTrove
       dependency resolution algorithm as the resolveTroves code (RMK-220).
+    * rMake now handles --flavor correctly on x86_64 boxes - by just overriding
+      the flavors specified in the installLabelPath with the given flavor,
+      not reducing the flavor list to one. (RMK-228)
 
   o Build Changes:
     * rMake now supports the cleanAfterCook configuration - if set to False,

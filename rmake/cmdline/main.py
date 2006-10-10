@@ -108,7 +108,10 @@ class BuildCommand(rMakeCommand):
             newFlavor = deps.overrideFlavor(client.buildConfig.buildFlavor, 
                                             flavor)
             client.buildConfig.buildFlavor = newFlavor
-            client.buildConfig.flavor = [newFlavor]
+            newFlavors = []
+            for oldFlavor in client.buildConfig.flavor:
+                newFlavors.append(deps.overrideFlavor(oldFlavor, flavor))
+            client.buildConfig.flavor = newFlavors
         hosts = argSet.pop('host', [])
         quiet = argSet.pop('quiet', False)
         commit  = argSet.pop('commit', False)
