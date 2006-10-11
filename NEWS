@@ -1,4 +1,7 @@
-Changes in @NEW@:
+Changes in 0.9.5:
+  This is a release candidate version of rMake.  If this version does not have
+  major bugs in it, it will be rereleased as rMake version 1.0.
+
   o Bug Fixes:
     * rMake now transmits all text logs encoded in base-64 when transmitting 
        them over xmlrpc so no attempt is made to encode non-utf8 character as
