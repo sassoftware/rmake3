@@ -14,6 +14,7 @@
 from email import MIMEText
 import smtplib
 
+from rmake.build import buildjob,buildtrove
 from rmake.build.subscribe import StatusSubscriber
 
 
@@ -48,13 +49,18 @@ class EmailJobLogger(StatusSubscriber):
         s.sendmail(self['from'], [self.uri], msg.as_string())
         s.close()
 
-    def jobStateUpdated(self, job):
-        pass
+    def jobStateUpdated(self, jobId, state, status):
+        if state == buildjob.JOB_STATE_BUILT:
+            self._sendEmail('Job %s Built' % jobId,
+                            'Job %s Built' % jobId)
+        if state == buildjob.JOB_STATE_FAILED:
+            self._sendEmail('Job %s Failed' % jobId,
+                            'Job %s Failed' % jobId)
 
-    def troveStateUpdated(self, job, trove):
-        if trove.isBuilt():
-            self._sendEmail('%s Built' % trove.getName(),
-                            '%s Built' % trove.getName())
-        elif trove.isFailed():
-            self._sendEmail('%s Failed' % trove.getName(),
-                            '%s Failed' % trove.getName())
+    def troveStateUpdated(self, (jobId, troveTuple), state, status):
+        if state == buildtrove.TROVE_STATE_BUILT:
+            self._sendEmail('%s Built' % troveTuple[0],
+                            '%s Built' % troveTuple[0])
+        if state == buildtrove.TROVE_STATE_FAILED:
+            self._sendEmail('%s Failed' % troveTuple[0],
+                            '%s Failed' % troveTuple[0])

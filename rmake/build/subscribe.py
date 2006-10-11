@@ -153,7 +153,7 @@ class _Subscriber(object):
             getattr(self, self.listeners[event[0]])(*data)
 
     def watchEvent(self, state, substates=set()):
-        self.events.setdefault(state, {}).update(substates)
+        self.events.setdefault(state, set()).update(substates)
 
 
 class StatusSubscriber(_Subscriber):
@@ -238,7 +238,7 @@ class StatusSubscriber(_Subscriber):
             if len(fields) == 1:
                 self.watchEvent(event)
             else:
-                self.addEvent(event[0], event[1].split(','))
+                self.watchEvent(fields[0], fields[1].split(','))
 
 apiutils.register(apiutils.api_freezable(StatusSubscriber), name='Subscriber')
 
