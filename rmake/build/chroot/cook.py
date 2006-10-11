@@ -271,7 +271,8 @@ def _cookTrove(cfg, name, version, flavor, targetLabel, csFile, failureFd):
                                 changeSetFile=csFile,
                                 alwaysBumpCount=False,
                                 ignoreDeps=False,
-                                logBuild=True, crossCompile=None)
+                                logBuild=True, crossCompile=None,
+                                requireCleanSources=True)
     except Exception, msg:
         errMsg = 'Error building recipe %s=%s[%s]: %s' % (name, version,
                                                           flavor, str(msg))
