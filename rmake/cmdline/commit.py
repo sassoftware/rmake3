@@ -24,7 +24,7 @@ from conary.deps.deps import Flavor
 from rmake import compat
 
 def commitJob(conaryclient, job, rmakeConfig, message=None,
-              commitOutdatedSources=False):
+              commitOutdatedSources=False, sourceOnly = False):
     trovesByBranch = {}
 
 
@@ -58,14 +58,18 @@ def commitJob(conaryclient, job, rmakeConfig, message=None,
         for trove in troves:
             builtTroves = list(trove.iterBuiltTroves())
             if builtTroves:
-                cloneTroves.extend(builtTroves)
+                if not sourceOnly:
+                    cloneTroves.extend(builtTroves)
                 if trove.getVersion().branch() != targetBranch:
                     sourceTup = (trove.getName(), trove.getVersion(),
                                  Flavor())
                     cloneTroves.append(sourceTup)
                     sourcesToCheck.append(sourceTup)
         if not cloneTroves:
-            err = 'Can only commit built troves, this job has none'
+            if sourceOnly:
+                err = 'This job has no sources to commit'
+            else:
+                err = 'Can only commit built troves, this job has none'
             return False, err
         if sourcesToCheck and not commitOutdatedSources:
             outdated = _checkOutdatedSources(repos, sourcesToCheck)

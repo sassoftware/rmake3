@@ -138,7 +138,8 @@ class rMakeHelper(object):
                                        primaryTroveList=primaryTroveList)
 
     def commitJob(self, jobId, message=None, commitOutdatedSources=False,
-                  commitWithFailures=True, waitForJob=False):
+                  commitWithFailures=True, waitForJob=False,
+                  sourceOnly=False):
         job = self.client.getJob(jobId)
         if not job.isFinished() and waitForJob:
             print "Waiting for job %s to complete before committing" % jobId
@@ -161,7 +162,8 @@ class rMakeHelper(object):
         try:
             succeeded, data = commit.commitJob(self.conaryclient, job,
                                    self.rmakeConfig, message,
-                                   commitOutdatedSources=commitOutdatedSources)
+                                   commitOutdatedSources=commitOutdatedSources,
+                                   sourceOnly=sourceOnly)
             if succeeded:
                 self.client.commitSucceeded(jobId, data)
                 print 'Committed:\n',

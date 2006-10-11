@@ -51,6 +51,8 @@ Changes in @NEW@:
       contexts will override values in conary contexts (RMK-58).
     * rMake now displays trove counts when displaying the trove lists in
       query output. (RMK-144)
+    * Added --source-only flag to "rmake commit", to commit only sources
+      from a successful build.
 
 Changes in 0.9:
 

@@ -201,19 +201,23 @@ class CommitCommand(rMakeCommand):
     paramHelp = '<jobId>'
 
     docs = {'commit-outdated-sources' : ("Allow commits of source components when another"
-                                         " commit has been made upstream") }
+                                         " commit has been made upstream"),
+            'source-only'             : "Only commit the source changes" }
 
     def addParameters(self, argDef):
+        argDef['source-only'] = NO_PARAM
         argDef['commit-outdated-sources'] = NO_PARAM
         rMakeCommand.addParameters(self, argDef)
 
     def runCommand(self, client, cfg, argSet, args):
         commitOutdated = argSet.pop('commit-outdated-sources', False)
+        sourceOnly = argSet.pop('source-only', False)
         if len(args) != 2:
             return self.usage()
         jobId = _getJobIdOrUUId(args[1])
         client.commitJob(jobId, commitOutdatedSources=commitOutdated,
-                         commitWithFailures=True, waitForJob=True)
+                         commitWithFailures=True, waitForJob=True,
+                         sourceOnly=sourceOnly)
 
 register(CommitCommand)
 

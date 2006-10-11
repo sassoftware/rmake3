@@ -102,6 +102,10 @@ the source components are also committed upstream.
 .B \-\-commit-outdated-sources
 By default, rMake will not let you commit a change to a source component if it has 
 been modified by someone else upstream.  This overrides that constraint.
+.TP 4
+.B \-\-source-only
+Commit any changes made to sources by building *.recipe files, without 
+committing the resulting binaries.
 .TP
 .B config
 Displays the configuration settings for the rmake client, including build 
