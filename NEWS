@@ -3,8 +3,8 @@ Changes in @NEW@:
     * rMake now transmits all text logs encoded in base-64 when transmitting 
        them over xmlrpc so no attempt is made to encode non-utf8 character as
        utf8. (RMK-137)
-    *  CvcErrors and ConaryErrors found when calling setup or commit for local
-       cooks are now wrapped. (RMK-191)
+    * CvcErrors and ConaryErrors found when calling setup or commit for local
+      cooks are now wrapped. (RMK-191)
     * Don't copy in entitlements, they should not generally be used when
       building, instead, username and passwords should be used (RMK-196).
     * Fixed a bug when internal errors cause a build to fail - conary will now
@@ -31,6 +31,8 @@ Changes in @NEW@:
     * rMake now handles --config to specify a change to the build configuration.
       (RMK-192)
     * Only one job is dequeued at once now. (RMK-227)
+    * rMake now handles building a recipe with no CONARY file when a recipe 
+      template is used (RMK-233).
 
   o Build Changes:
     * rMake now supports the cleanAfterCook configuration - if set to False,

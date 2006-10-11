@@ -312,35 +312,29 @@ def _commitRecipe(conaryclient, recipePath, message):
         fileNames = []
         # Create a source trove that matches the recipe we're trying to cook
         cfg.buildLabel = cfg.getTargetLabel(cfg.buildLabel)
-        if repos.getTroveLeavesByLabel(
+        if not repos.getTroveLeavesByLabel(
             { sourceName : { cfg.buildLabel : None } }).get(sourceName, None):
-            # see if this package exists on our build branch
-
-            checkin.checkout(repos, cfg, recipeDir, [sourceName])
-            os.chdir(recipeDir)
-
-            sourceState = state.ConaryStateFromFile(recipeDir + '/CONARY').getSourceState()
-            fileNames = dict((os.path.basename(x), x) for x in pathList)
-
-            for (pathId, baseName, fileId, version) in list(sourceState.iterFileList()):
-                # update or remove any currently existing files
-                if baseName not in fileNames:
-                    sourceState.removeFilePath(baseName)
-                else:
-                    shutil.copyfile(fileNames[baseName],
-                                    os.path.join(recipeDir, baseName))
-                    del fileNames[baseName]
-
-            for baseName, path in fileNames.iteritems():
-                shutil.copyfile(path, os.path.join(recipeDir, baseName))
-        else:
             checkin.newTrove(repos, cfg, recipeClass.name, dir=recipeDir)
-            os.chdir(recipeDir)
-            cfg.recipeTemplate = None
-            for path in pathList:
-                newFile = os.path.basename(path)
-                fileNames.append(newFile)
-                shutil.copyfile(path, os.path.join(recipeDir, newFile))
+        else:
+            # see if this package exists on our build branch
+            checkin.checkout(repos, cfg, recipeDir, [sourceName])
+
+        os.chdir(recipeDir)
+
+        sourceState = state.ConaryStateFromFile(recipeDir + '/CONARY').getSourceState()
+        fileNames = dict((os.path.basename(x), x) for x in pathList)
+
+        for (pathId, baseName, fileId, version) in list(sourceState.iterFileList()):
+            # update or remove any currently existing files
+            if baseName not in fileNames:
+                sourceState.removeFilePath(baseName)
+            else:
+                shutil.copyfile(fileNames[baseName],
+                                os.path.join(recipeDir, baseName))
+                del fileNames[baseName]
+
+        for baseName, path in fileNames.iteritems():
+            shutil.copyfile(path, os.path.join(recipeDir, baseName))
 
         if conaryCompat.stateFileVersion() > 0:
             # mark all the files as binary - this this version can
