@@ -38,6 +38,7 @@ from rmake import errors
 
 sys.excepthook = errors.genExcepthook()
 
+from rmake import compat
 from rmake.build import buildcfg
 from rmake.build import buildjob
 from rmake.cmdline import helper
