@@ -186,11 +186,17 @@ for conary configuration, and also supports configuration contexts
 (see conary(1) for information about contexts).  Note that for
 simplicity, rMake reads in all conary configuration values. The currently
 documented conary configuration values affect rMake operation.
- 
+
+Contexts can be defined in rMake configuration files as well.  Values set
+in an rmake context will override those set in a conary context.  The context
+is applied _after_ reading in all rmakerc values, so that a buildLabel
+set in a conary context will override that set in an rmake configuration file,
+but a buildLabel set in an rmake context will override that.
+
 Configuration values can also be specified via command line options,
 including the \fB\-\-config\fR option, which allows you to override
-one line in the config file, and the \-\-config-file option, which 
-reads in an additional, supplied config file) override all 
+one line in the config file, and the \-\-build-config-file option, which 
+reads in an additional, supplied config file) override all build
 configuration files. 
 
 Note you can always use \fIrmake config\fR to see the current value of a
