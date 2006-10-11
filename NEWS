@@ -52,7 +52,9 @@ Changes in @NEW@:
     * rMake now displays trove counts when displaying the trove lists in
       query output. (RMK-144)
     * Added --source-only flag to "rmake commit", to commit only sources
-      from a successful build.
+      from a successful build.  (RMK-151)
+    * Added --no-clean and --macro flags to "rmake build" to match 
+      cvc. (RMK-212)
 
 Changes in 0.9:
 

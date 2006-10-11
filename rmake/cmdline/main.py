@@ -137,6 +137,9 @@ class BuildCommand(rMakeCommand):
             'poll'   : "show build status as it is updated",
             'quiet'  : "show less build info - don't tail logs",
             'commit' : "commit job when it is done",
+            'macro'   : ('set macro NAME to VALUE', "'NAME VALUE'"),
+            'no-clean': 'do not remove build directory even if build is'
+                        ' successful',
             }
 
     def addParameters(self, argDef):
@@ -145,6 +148,8 @@ class BuildCommand(rMakeCommand):
         argDef['quiet'] = NO_PARAM
         argDef['poll'] = NO_PARAM
         argDef['commit'] = NO_PARAM
+        argDef['macro'] = MULT_PARAM
+        argDef['no-clean'] = NO_PARAM
         rMakeCommand.addParameters(self, argDef)
 
     def runCommand(self, client, cfg, argSet, args):
@@ -162,11 +167,21 @@ class BuildCommand(rMakeCommand):
             for oldFlavor in client.buildConfig.flavor:
                 newFlavors.append(deps.overrideFlavor(oldFlavor, flavor))
             client.buildConfig.flavor = newFlavors
+
+        if 'no-clean' in argSet:
+            client.buildConfig.cleanAfterCook = False
+            del argSet['no-clean']
+
+        macros = argSet.pop('macro', [])
+        for macro in macros:
+            client.buildConfig.configLine('macros ' + macro)
+
         hosts = argSet.pop('host', [])
         quiet = argSet.pop('quiet', False)
         commit  = argSet.pop('commit', False)
         if not troveSpecs:
             return self.usage()
+
         recurseGroups = args[0] == 'buildgroup'
         monitorJob = argSet.pop('poll', False)
         jobId = client.buildTroves(troveSpecs,

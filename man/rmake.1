@@ -66,10 +66,19 @@ Specify the flavor to build with.  For example, rMake uses this parameter to
 support building x86 packages on x86_64 systems.  To build x86 troves on an
 x86_64 system, type rmake build foo --flavor 'is:x86(~cmov,~i486,~i586,~i686)'
 .TP
+.B \-\-no-clean
+Do not clean chroots after builds finish successfully.  Note that only the 
+final package built can actually be left around - the rest must be removed to 
+make room for the new troves.
+.TP
 .B \-\-host=HOST
 Can be used multiple times.  Limits a build to the given host(s).  This
 command is useful when building groups using rmake, when you only have
 control over commit access to a few labels.
+.TP
+.B \-\-macro="NAME VALUE"
+Uses the value VALUE for macro NAME for each recipe.  Equivalent to the same
+option for cvc cook.
 .TP
 .B \-\-poll
 Runs \fIrmake poll\fP immediately after starting the build.
