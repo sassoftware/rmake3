@@ -69,10 +69,11 @@ class RmakeXMLCommandParser(object):
                 configLines.setdefault(name, []).append(value)
 
         conaryConfig = conarycfg.ConaryConfiguration(True)
-        conaryConfig.initializeFlavors()
-        if conaryConfig.context:
-            conaryConfig.setContext(conaryConfig.context)
-        buildConfig = buildcfg.BuildConfiguration(True, self.root, conaryConfig)
+        buildConfig = buildcfg.BuildConfiguration(True, self.root,
+                                                  conaryConfig=conaryConfig)
+        buildConfig.initializeFlavors()
+        if buildConfig.context:
+            buildConfig.setContext(buildConfig.context)
 
         for key, values in configLines.iteritems():
             # FIXME: add an API for config file to get this info out

@@ -47,6 +47,8 @@ Changes in @NEW@:
     * rMake now takes a --build-config-file, --server-config-file, and 
       --conary-config-file to specify the config files to read for the 
       build, server, and conary config files. (RMK-192)
+    * You can now set contexts in rmake config files.  Values set in rmake
+      contexts will override values in conary contexts (RMK-58).
 
 Changes in 0.9:
 

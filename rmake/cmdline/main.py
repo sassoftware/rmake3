@@ -416,12 +416,13 @@ class RmakeMain(options.MainHandler):
 
     def runCommand(self, thisCommand, (buildConfig, serverConfig, conaryConfig),
                    argSet, args):
-        if conaryConfig:
-            context = self._getContext(conaryConfig, argSet)
-            if context:
-                conaryConfig.setContext(context)
-
+ 
         buildConfig.useConaryConfig(conaryConfig)
+        if conaryConfig:
+            context = self._getContext(buildConfig, argSet)
+            if context:
+                buildConfig.setContext(context)
+
         buildConfig.initializeFlavors()
 
         client = helper.rMakeHelper(buildConfig=buildConfig,

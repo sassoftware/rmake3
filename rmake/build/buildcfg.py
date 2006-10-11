@@ -18,15 +18,16 @@ a superset of a conarycfg file.
 import os
 import re
 
+from conary import conarycfg
+from conary import versions
+from conary.lib import cfg
+from conary.lib import log
+from conary.lib import sha1helper
+from conary.conarycfg import CfgLabel
+from conary.conarycfg import ParseError
 from conary.conaryclient import cmdline
 from conary.lib.cfgtypes import (CfgBool, CfgPath, CfgList, CfgDict, CfgString,
                                  CfgInt, CfgType, CfgQuotedLineList)
-from conary import conarycfg
-from conary import versions
-from conary.lib import log
-from conary.conarycfg import CfgLabel
-from conary.conarycfg import ParseError
-from conary.lib import sha1helper
 
 from rmake.lib import apiutils, daemon
 from rmake import compat, plugins
@@ -84,7 +85,7 @@ class CfgUUID(CfgType):
     def toStrings(self, val, displayOptions):
         return [ val ]
 
-class BuildConfiguration(conarycfg.ConaryConfiguration):
+class RmakeBuildContext(cfg.ConfigSection):
 
     defaultBuildReqs     = (CfgList(CfgString),
                             ['bash:runtime',
@@ -101,26 +102,41 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
     strictMode           = (CfgBool, False)
     subscribe            = (CfgSubscriberDict(CfgSubscriber), {})
     targetLabel          = (CfgLabel, versions.Label('NONE@LOCAL:NONE'))
+    uuid                 = (CfgUUID, '')
+
+
+    def __init__(self, parent, doc=None):
+        cfg.ConfigSection.__init__(self, parent, doc=None)
+
+        for info in conarycfg.ConaryContext._getConfigOptions():
+            if info[0] not in self:
+                self.addConfigOption(*info)
+
+class BuildConfiguration(conarycfg.ConaryConfiguration):
+
+    buildTroveSpecs      = CfgList(CfgTroveSpec)
+    resolveTroveTups     = CfgList(CfgQuotedLineList(CfgTroveTuple))
 
     # Here are options that are not visible from the command-line
     # and should not be displayed.  They are job-specific.  However,
     # they must be stored with the job, parsed with the job, etc.
-
-    buildTroveSpecs      = CfgList(CfgTroveSpec)
-    resolveTroveTups     = CfgList(CfgQuotedLineList(CfgTroveTuple))
-    uuid                 = (CfgUUID, '')
 
     _hiddenOptions = [ 'buildTroveSpecs', 'resolveTroveTups' ]
 
     _strictOptions = [ 'buildFlavor', 'buildLabel',
                        'flavor', 'installLabelPath', 'repositoryMap', 'root',
                        'user', 'name', 'contact' ]
+    _defaultSectionType   =  RmakeBuildContext
 
     def __init__(self, readConfigFiles=False, root='', conaryConfig=None, 
                  serverConfig=None):
         # we default the value of these items to whatever they
         # are set to on the local system's conaryrc.
-        conarycfg.ConaryConfiguration.__init__(self)
+
+        conarycfg.ConaryConfiguration.__init__(self, readConfigFiles=False)
+        for info in RmakeBuildContext._getConfigOptions():
+            if info[0] not in self:
+                self.addConfigOption(*info)
 
         if readConfigFiles:
             if os.path.exists(root + '/etc/rmake/clientrc'):
@@ -149,6 +165,17 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
         self.setServerConfig(serverConfig)
 
     def useConaryConfig(self, conaryConfig):
+        def _shouldOverwrite(current, new):
+            if compat.ConaryVersion().supportsConfigIsDefault():
+                if (current.isDefault(key) and
+                    current[key] == current.getDefaultValue(key) and
+                    (not new.isDefault(key) or
+                     not new[key] is new.getDefaultValue(key))):
+                    return True
+            elif current[key] is current.getDefaultValue(key):
+                return True
+            return False
+
         if not conaryConfig:
             return
 
@@ -168,8 +195,18 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
             elif self[key] is self.getDefaultValue(key):
                 self[key] = conaryConfig[key]
         for contextName in conaryConfig.iterSectionNames():
-            self._addSection(contextName,
-                             conaryConfig.getSection(contextName))
+            oldContextName = self._sectionName
+            newContext = self.setSection(contextName)
+            conaryContext = conaryConfig.getSection(contextName)
+
+            for key in newContext.iterkeys():
+                if key not in conaryContext:
+                    continue
+                if self.strictMode and key not in self._strictOptions:
+                    continue
+                if  _shouldOverwrite(newContext, conaryContext):
+                    newContext[key] = conaryContext[key]
+
         if self.strictMode:
             self.enforceManagedPolicy = True
 
