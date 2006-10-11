@@ -34,7 +34,7 @@ Changes in @NEW@:
     * rMake now handles building a recipe with no CONARY file when a recipe 
       template is used (RMK-233).
 
-  o Build Changes:
+  o Client Changes:
     * rMake now supports the cleanAfterCook configuration - if set to False,
       the build root will not be cleaned after a successful build.  (RMK-194)
     * rMake now complains if you try to commit a source component when a 
@@ -49,6 +49,8 @@ Changes in @NEW@:
       build, server, and conary config files. (RMK-192)
     * You can now set contexts in rmake config files.  Values set in rmake
       contexts will override values in conary contexts (RMK-58).
+    * rMake now displays trove counts when displaying the trove lists in
+      query output. (RMK-144)
 
 Changes in 0.9:
 

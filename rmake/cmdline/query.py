@@ -232,7 +232,8 @@ def displayTrovesByState(dcfg, job, trove, indent='     '):
         if not troves:
             continue
         print
-        print '%s%s Troves:' % (indent,troves[0].getStateName())
+        print '%s%s Troves [%s]:' % (indent,troves[0].getStateName(), 
+                                      len(troves))
         txt = '  '.join(x.name.split(':')[0] for x in troves)
         lines, cols = getTerminalSize()
         if not cols:
