@@ -193,18 +193,26 @@ is applied _after_ reading in all rmakerc values, so that a buildLabel
 set in a conary context will override that set in an rmake configuration file,
 but a buildLabel set in an rmake context will override that.
 
-Configuration values can also be specified via command line options,
-including the \fB\-\-config\fR option, which allows you to override
-one line in the config file, and the \-\-build-config-file option, which 
-reads in an additional, supplied config file) override all build
-configuration files. 
+Configuration values can also be specified via command line options, including
+the \fB\-\-config\fR option, which allows you to override one line in the
+config file, and the \fB\-\-build-config-file\fR option, which reads in an
+additional, supplied config file) override all build configuration files.  
+
+You may also use \fB\-\-conary-config-file\fR to point rmake to a particular
+conary config file you wish rmake to read, and \fB\-\-server-config-file\fR to
+tell it to read the default server configuration values for a particular
+location.  (The server configuration file is read to determine how to
+communicate with the server, see the rmake-server man page for details on those
+configuration values).  The \fB\-\-server-config\fR option can be used to
+specify individual server config values, like the \fB\-\-config\fR option for
+build configuration values.
 
 Note you can always use \fIrmake config\fR to see the current value of a
 configuration item.  This is the best way to determine what rmake has
 actually interpreted for the configuration value.
  
  Make configuration items can be strings,
-booleans (\fBTrue\fP or \fBFalse\fP), or mappings (\f(BIto from\fP) and
+booleans (\fBTrue\fP or \fBFalse\fP), or mappings (\f(BIfrom to\fP) and
 can include:
 .PD
 .RS 4
