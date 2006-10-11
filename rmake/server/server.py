@@ -261,6 +261,7 @@ class rMakeServer(apirpc.XMLApiServer):
                 buildCfg = self.db.getJobConfig(job.jobId)
                 buildCfg.setServerConfig(self.cfg)
                 self._startBuild(job, buildCfg)
+                break
         self._emitEvents()
         self._collectChildren()
 

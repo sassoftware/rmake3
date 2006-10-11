@@ -30,6 +30,7 @@ Changes in @NEW@:
       not reducing the flavor list to one. (RMK-228)
     * rMake now handles --config to specify a change to the build configuration.
       (RMK-192)
+    * Only one job is dequeued at once now. (RMK-227)
 
   o Build Changes:
     * rMake now supports the cleanAfterCook configuration - if set to False,
