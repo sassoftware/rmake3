@@ -42,6 +42,12 @@ from rmake.lib import daemon
 from rmake.server import repos
 from rmake.server import servercfg
 
+# the following imports are done so that rMake actually loads
+# the module even with lazy importing turned on.
+# With lazy imports turned on, rmake waits until an object in the
+# module is actually loaded to load the function.
+from rmake.build.failure import FailureReason
+
 class rMakeServer(apirpc.XMLApiServer):
 
     _CLASS_API_VERSION = 1
