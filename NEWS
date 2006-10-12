@@ -3,6 +3,11 @@ Changes in @NEW@:
     * rMake no longer uses RMAKE_PATH and CONARY_PATH when loaded.  If you
       wish to make rmake use a particular rMake and Conary, you 
       must instead put them in the PYTHONPATH environment variable.
+    * rMake now merges conary configuration files better.  Before, if you
+      were using a conary earlier than 1.0.33 (or 1.1.6), it might for example
+      think you were overriding installLabelPath in your rmakerc when you 
+      weren't.
+    * Fix rMake behavior when dealing with unparseable conary version strings.
 
 Changes in 0.9.5:
   This is a release candidate version of rMake.  If this version does not have

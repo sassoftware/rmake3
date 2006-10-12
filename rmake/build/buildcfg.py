@@ -165,14 +165,19 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
         self.setServerConfig(serverConfig)
 
     def useConaryConfig(self, conaryConfig):
-        def _shouldOverwrite(current, new):
+        def _shouldOverwrite(key, current, new):
+            if key not in new:
+                return False
             if compat.ConaryVersion().supportsConfigIsDefault():
                 if (current.isDefault(key) and
                     current[key] == current.getDefaultValue(key) and
-                    (not new.isDefault(key) or
-                     not new[key] is new.getDefaultValue(key))):
+                   (not new.isDefault(key) or
+                    new[key] != new.getDefaultValue(key))):
                     return True
-            elif current[key] is current.getDefaultValue(key):
+            elif (current[key] is current.getDefaultValue(key) or
+                  current[key] == current.getDefaultValue(key)
+                  and (not new[key] is new.getDefaultValue(key)
+                       and not new[key] == new.getDefaultValue(key))):
                 return True
             return False
 
@@ -182,17 +187,9 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
         # copy in conary config values that we haven't
         # overrided from the rmake config
         for key in self.iterkeys():
-            if key not in conaryConfig:
-                continue
             if self.strictMode and key not in self._strictOptions:
                 continue
-            if compat.ConaryVersion().supportsConfigIsDefault():
-                if (self.isDefault(key) and
-                    self[key] == self.getDefaultValue(key) and
-                    (not conaryConfig.isDefault(key) or
-                     not conaryConfig[key] is self.getDefaultValue(key))):
-                    self[key] = conaryConfig[key]
-            elif self[key] is self.getDefaultValue(key):
+            if  _shouldOverwrite(key, self, conaryConfig):
                 self[key] = conaryConfig[key]
         for contextName in conaryConfig.iterSectionNames():
             oldContextName = self._sectionName
@@ -200,11 +197,9 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
             conaryContext = conaryConfig.getSection(contextName)
 
             for key in newContext.iterkeys():
-                if key not in conaryContext:
-                    continue
                 if self.strictMode and key not in self._strictOptions:
                     continue
-                if  _shouldOverwrite(newContext, conaryContext):
+                if  _shouldOverwrite(key, newContext, conaryContext):
                     newContext[key] = conaryContext[key]
 
         if self.strictMode:
