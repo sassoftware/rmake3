@@ -16,13 +16,11 @@
 import os
 import sys
 
-if 'CONARY_PATH' in os.environ:
-    sys.path.insert(0, os.environ['CONARY_PATH'])
-if 'RMAKE_PATH' in os.environ:
-    sys.path.insert(0, os.environ['RMAKE_PATH'])
-
 from rmake.cmdline import main
 
 
 if __name__ == "__main__":
+   if '--debug-all' not in sys.argv:
+        from conary.lib import importer
+        importer.install()
    sys.exit(main.main(sys.argv))
