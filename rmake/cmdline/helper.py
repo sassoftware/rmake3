@@ -149,6 +149,7 @@ class rMakeHelper(object):
                 print "Wait interrupted, not committing"
                 print "You can restart commit by running 'rmake commit %s'" % jobId
                 raise
+            job = self.client.getJob(jobId)
         if not job.isFinished():
             log.error('This job is not yet finished')
             return False
