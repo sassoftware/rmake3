@@ -20,6 +20,9 @@ from conary import state
 from conary.lib import log
 
 class ConaryVersion(object):
+    maxKnownVersion = "1.1.7"
+    _warnedUser = False
+
     def __init__(self, conaryVersion=None):
         if conaryVersion is None:
             conaryVersion = constants.version
@@ -27,9 +30,11 @@ class ConaryVersion(object):
         try:
             self.conaryVersion = [int(x) for x in conaryVersion.split('.')]
         except ValueError, err:
-            log.warning('nonstandard conary version "%s".  Assuming latest "%s".' % (conaryVersion, constants.version))
+            if not self._warnedUser:
+                log.warning('nonstandard conary version "%s".  Assuming latest "%s".' % (conaryVersion, self.maxKnownVersion))
+                ConaryVersion._warnedUser = True
             self.conaryVersion = [ int(x)
-                                    for x in constants.version.split('.') ]
+                                    for x in self.maxKnownVersion.split('.') ]
 
         self.majorVersion = self.conaryVersion[0:2]
         self.minorVersion = self.conaryVersion[2]
