@@ -422,8 +422,10 @@ class RmakeMain(options.MainHandler):
         conaryConfig = conarycfg.ConaryConfiguration(readConfigFiles=read)
         return buildConfig, serverConfig, conaryConfig
 
-    def _getContext(self, cfg, argSet):
-        context = cfg.context
+    def _getContext(self, buildConfig, conaryConfig, argSet):
+        context = conaryConfig.context
+        if buildConfig.context:
+            context = buildConfig.context
         if os.path.exists('CONARY'):
             conaryState = compat.ConaryVersion().ConaryStateFromFile('CONARY',
                                                            parseSource=False)
@@ -437,11 +439,13 @@ class RmakeMain(options.MainHandler):
     def runCommand(self, thisCommand, (buildConfig, serverConfig, conaryConfig),
                    argSet, args):
  
+        context = self._getContext(buildConfig, conaryConfig, argSet)
+        if conaryConfig and context:
+            conaryConfig.setContext(context)
+
         buildConfig.useConaryConfig(conaryConfig)
-        if conaryConfig:
-            context = self._getContext(buildConfig, argSet)
-            if context:
-                buildConfig.setContext(context)
+        if context:
+            buildConfig.setContext(context)
 
         buildConfig.initializeFlavors()
 

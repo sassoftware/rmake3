@@ -191,16 +191,6 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
                 continue
             if  _shouldOverwrite(key, self, conaryConfig):
                 self[key] = conaryConfig[key]
-        for contextName in conaryConfig.iterSectionNames():
-            oldContextName = self._sectionName
-            newContext = self.setSection(contextName)
-            conaryContext = conaryConfig.getSection(contextName)
-
-            for key in newContext.iterkeys():
-                if self.strictMode and key not in self._strictOptions:
-                    continue
-                if  _shouldOverwrite(key, newContext, conaryContext):
-                    newContext[key] = conaryContext[key]
 
         if self.strictMode:
             self.enforceManagedPolicy = True
