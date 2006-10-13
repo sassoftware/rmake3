@@ -1,4 +1,4 @@
-Changes in @NEW@:
+Changes in 0.9.6:
   o Bug Fixes:
     * rMake no longer uses RMAKE_PATH and CONARY_PATH when loaded.  If you
       wish to make rmake use a particular rMake and Conary, you 
