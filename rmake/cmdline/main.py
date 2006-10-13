@@ -447,8 +447,8 @@ class RmakeMain(options.MainHandler):
 
         client = helper.rMakeHelper(buildConfig=buildConfig,
                                     rmakeConfig=serverConfig)
-        options.MainHandler.runCommand(self, thisCommand, client, cfg, argSet,
-                                       args[1:])
+        options.MainHandler.runCommand(self, thisCommand, client, buildConfig, 
+                                       argSet, args[1:])
 
 def main(argv):
     log.setVerbosity(log.INFO)
