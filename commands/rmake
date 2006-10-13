@@ -19,8 +19,8 @@ import sys
 
 
 if __name__ == "__main__":
-    if '--debug-all' not in sys.argv:
-        from conary.lib import importer
-        importer.install()
+    #if '--debug-all' not in sys.argv:
+    #    from conary.lib import importer
+    #    importer.install()
     from rmake.cmdline import main
     sys.exit(main.main(sys.argv))
