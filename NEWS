@@ -5,6 +5,8 @@ Changes in @NEW@:
       its components). (RMK-259)
     * rmake config output can now be used untouched as an input for
       rmake, now that the default uuid output can be parsed. (RMK-247)
+    * chrooting into the build root and running conary will work out 
+      of the box even if your context is None. (RMK-246)
 
 Changes in 0.9.6 (Release candidate 2):
   o Bug Fixes:
