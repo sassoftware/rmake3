@@ -382,6 +382,8 @@ class ConaryBasedRoot(AbstractChroot):
         conaryrc = open('%s/etc/conaryrc' % self.root, 'w')
         conaryCfg = conarycfg.ConaryConfiguration(False)
         for key, value in self.cfg.iteritems():
+            if self.cfg.isDefault(key):
+                continue
             if key in conaryCfg:
                 conaryCfg[key] = value
         try:
