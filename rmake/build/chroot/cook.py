@@ -219,9 +219,9 @@ def _cookTrove(cfg, name, version, flavor, targetLabel, csFile, failureFd):
         log.debug('Cooking %s=%s[%s] to %s (stored in %s)' % \
                   (name, version, flavor, targetLabel, csFile))
         repos = conaryclient.ConaryClient(cfg).getRepos()
-
         (loader, recipeClass, localFlags, usedFlags)  = \
-            recipeutil.loadRecipeClass(repos, name, version, flavor)
+            recipeutil.loadRecipeClass(repos, name, version, flavor,
+                                       ignoreInstalled=False, root=cfg.root)
     except Exception, msg:
         errMsg = 'Error loading recipe %s=%s[%s]: %s' % \
                                         (name, version, flavor, str(msg))

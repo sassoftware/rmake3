@@ -1,3 +1,8 @@
+Changes in @NEW@:
+  o Bug Fixes:
+    * loadInstalled in the root will now work correctly (as long as
+      the package for the trove in question is installed, not just
+      its components). (RMK-259)
 Changes in 0.9.6 (Release candidate 2):
   o Bug Fixes:
     * rMake no longer uses RMAKE_PATH and CONARY_PATH when loaded.  If you

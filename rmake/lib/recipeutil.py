@@ -155,9 +155,12 @@ def getRecipeObj(repos, name, version, flavor, recipeFile=None):
         raise RuntimeError, 'Unknown class type %s for recipe %s' % (recipeClass, name)
     return recipeObj, loader
 
-def loadRecipeClass(repos, name, version, flavor, recipeFile=None):
+def loadRecipeClass(repos, name, version, flavor, recipeFile=None,
+                    ignoreInstalled=True, root=None):
     cfg = conarycfg.ConaryConfiguration(False)
     cfg.initializeFlavors()
+    if root:
+        cfg.root = root
     branch = version.branch()
     label = version.branch().label()
     cfg.installLabelPath = [label]
@@ -179,7 +182,7 @@ def loadRecipeClass(repos, name, version, flavor, recipeFile=None):
         loader = loadrecipe.recipeLoaderFromSourceComponent(name + ':source',
                                                cfg, repos, version.asString(),
                                                labelPath=[label],
-                                               ignoreInstalled=True)
+                                               ignoreInstalled=ignoreInstalled)
         recipeClass = loader[0].getRecipe()
 
     use.track(False)
