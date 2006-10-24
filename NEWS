@@ -3,6 +3,9 @@ Changes in @NEW@:
     * loadInstalled in the root will now work correctly (as long as
       the package for the trove in question is installed, not just
       its components). (RMK-259)
+    * rmake config output can now be used untouched as an input for
+      rmake, now that the default uuid output can be parsed. (RMK-247)
+
 Changes in 0.9.6 (Release candidate 2):
   o Bug Fixes:
     * rMake no longer uses RMAKE_PATH and CONARY_PATH when loaded.  If you

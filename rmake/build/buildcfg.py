@@ -77,6 +77,8 @@ class CfgSubscriber(CfgType):
 class CfgUUID(CfgType):
 
     def parseString(self, val):
+        if not val:
+            return ''
         newVal = val.replace('-', '').lower()
         if not re.match('^[0-9a-f]{32}$', newVal):
             raise ParseError, "Invalid UUID: '%s'" % val
