@@ -26,6 +26,9 @@ from rmake import compat
 def commitJob(conaryclient, job, rmakeConfig, message=None,
               commitOutdatedSources=False, sourceOnly = False):
     trovesByBranch = {}
+    if job.isCommitted():
+         err = 'Job already committed'
+         return False, err
 
 
     for troveTup in job.iterTroveList():

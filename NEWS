@@ -7,6 +7,7 @@ Changes in @NEW@:
       rmake, now that the default uuid output can be parsed. (RMK-247)
     * chrooting into the build root and running conary will work out 
       of the box even if your context is None. (RMK-246)
+    * recommitting already committed builds does not revert state (RMK-252)
 
 Changes in 0.9.6 (Release candidate 2):
   o Bug Fixes:
