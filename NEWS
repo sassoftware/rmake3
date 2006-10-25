@@ -8,6 +8,8 @@ Changes in @NEW@:
     * chrooting into the build root and running conary will work out 
       of the box even if your context is None. (RMK-246)
     * recommitting already committed builds does not revert state (RMK-252)
+    * Don't error unnecessarily when setting flavors when cooking (for 
+      example, when setting flags that are unknown).
 
 Changes in 0.9.6 (Release candidate 2):
   o Bug Fixes:

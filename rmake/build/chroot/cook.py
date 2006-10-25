@@ -240,8 +240,7 @@ def _cookTrove(cfg, name, version, flavor, targetLabel, csFile, failureFd):
         flavorutil.setLocalFlags(localFlags)
         packageName = name.split(':')[0]
         cfg.buildFlavor = deps.overrideFlavor(cfg.buildFlavor, flavor)
-        use.setBuildFlagsFromFlavor(packageName, cfg.buildFlavor)
-
+        use.setBuildFlagsFromFlavor(packageName, cfg.buildFlavor, error=False)
         use.resetUsed()
         use.setUsed(usedFlags)
 

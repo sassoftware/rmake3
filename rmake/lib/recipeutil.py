@@ -115,7 +115,7 @@ def getRecipeObj(repos, name, version, flavor, recipeFile=None):
     name = name.split(':')[0]
     use.LocalFlags._clear()
     assert(flavorutil.getArch(flavor))
-    use.setBuildFlagsFromFlavor(name, flavor)
+    use.setBuildFlagsFromFlavor(name, flavor, error=False)
     use.resetUsed()
     use.track(True)
     if recipeFile:
@@ -168,7 +168,7 @@ def loadRecipeClass(repos, name, version, flavor, recipeFile=None,
     name = name.split(':')[0]
 
     use.LocalFlags._clear()
-    use.setBuildFlagsFromFlavor(name, flavor)
+    use.setBuildFlagsFromFlavor(name, flavor, error=False)
     use.resetUsed()
     use.track(True)
 
