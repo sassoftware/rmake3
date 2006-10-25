@@ -1,3 +1,6 @@
+Changes in 1.0:
+  o Changed name to 1.0
+
 Changes in 0.9.7 (Release candidate 3):
   o Bug Fixes:
     * loadInstalled in the root will now work correctly (as long as
