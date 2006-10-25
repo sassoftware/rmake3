@@ -533,7 +533,7 @@ class DepResolutionByTroveLists(resolve.DepResolutionMethod):
     def __init__(self, cfg, db, troveLists):
         self.installLabelPath = cfg.installLabelPath
         self.searchByLabelPath = False
-        self.troveListIndex = 0
+        self.troveListsIndex = 0
         self.troveLists = troveLists
         self.depList = None
         resolve.DepResolutionMethod.__init__(self, cfg, db)
@@ -606,14 +606,13 @@ class DepResolutionByTroveLists(resolve.DepResolutionMethod):
 
     def resolveDependencies(self):
         intraDepSuggs = self._resolveIntraTroveDeps(self.intraDeps)
-
         if self.searchByLabelPath:
             sugg = self.troveSource.resolveDependencies(
                                           self.installLabelPath[self.index],
                                           self.depList)
         else:
             sugg = self.troveSource.resolveDependenciesByGroups(
-                                        self.troveLists[self.troveListIndex],
+                                        self.troveLists[self.troveListsIndex],
                                         self.depList)
 
         for depSet, intraDeps in self.intraDeps.iteritems():
