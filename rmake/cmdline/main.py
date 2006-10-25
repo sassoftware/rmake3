@@ -49,7 +49,14 @@ from rmake.server import server
 (NO_PARAM,  ONE_PARAM)  = (options.NO_PARAM, options.ONE_PARAM)
 (OPT_PARAM, MULT_PARAM) = (options.OPT_PARAM, options.MULT_PARAM)
 
+CG_MISC = 'Miscellaneous Commands'
+CG_BUILD = 'Job Manipulation'
+CG_INFO = 'Information Display'
+
 class rMakeCommand(options.AbstractCommand):
+    defaultGroup = 'Common Options'
+    commandGroup = CG_MISC
+
     docs = {'config'             : ("Set config KEY to VALUE", "'KEY VALUE'"),
             'config-file'        : ("Read PATH config file", "PATH"),
             'context'            : ("Set the conary context to build in"),
@@ -115,6 +122,42 @@ class rMakeCommand(options.AbstractCommand):
         for line in argSet.pop('server-config', []):
             serverConfig.configLine(line)
 
+    def requireParameters(self, args, expected=None, allowExtra=False,
+                          appendExtra=False, maxExtra=None):
+        args = args[1:] # cut off argv[0]
+        command = repr(args[0])
+        if isinstance(expected, str):
+            expected = [expected]
+        if expected is None:
+            expected = ['command']
+        else:
+            expected = ['command'] + expected
+        if expected:
+            missing = expected[len(args):]
+            if missing:
+                raise errors.BadParameters('%s missing %s command'
+                                           ' parameter(s): %s' % (
+                                            command, len(missing),
+                                            ', '.join(missing)))
+        extra = len(args) - len(expected)
+        if not allowExtra and not appendExtra:
+            maxExtra = 0
+        if maxExtra is not None and extra > maxExtra:
+            if maxExtra:
+                numParams = '%s-%s' % (len(expected)-1,
+                                       len(expected) + maxExtra - 1)
+            else:
+                 numParams = '%s' % (len(expected)-1)
+            raise errors.BadParameters('%s takes %s arguments, received %s' % (command, numParams, len(args)-1))
+
+        if appendExtra:
+            # final parameter is list 
+            return args[:len(expected)-1] + [args[len(expected)-1:]]
+        elif allowExtra:
+            return args[:len(expected)] + [args[len(expected):]]
+        else:
+            return args
+
 # helper function to get list of commands we support
 _commands = []
 def register(cmd):
@@ -131,7 +174,13 @@ def _getJobIdOrUUId(val):
 
 class BuildCommand(rMakeCommand):
     commands = ['build', 'buildgroup']
-    paramHelp = '<troveSpec> [<troveSpec>]*'
+    commandGroup = CG_BUILD
+    paramHelp = '''\
+<troveSpec> [<troveSpec>]*
+
+Builds the specified packages or recipes.
+'''
+    help = 'Build packages or recipes'
 
     docs = {'flavor' : "flavor to build with",
             'host'   : "host to limit build to",
@@ -155,7 +204,8 @@ class BuildCommand(rMakeCommand):
 
     def runCommand(self, client, cfg, argSet, args):
         log.setVerbosity(log.INFO)
-        troveSpecs = args[1:]
+        command, troveSpecs = self.requireParameters(args, 'troveSpec',
+                                                     appendExtra=True)
         flavorSpec = argSet.pop('flavor', None)
         if flavorSpec:
             flavor = deps.parseFlavor(flavorSpec)
@@ -180,10 +230,7 @@ class BuildCommand(rMakeCommand):
         hosts = argSet.pop('host', [])
         quiet = argSet.pop('quiet', False)
         commit  = argSet.pop('commit', False)
-        if not troveSpecs:
-            return self.usage()
-
-        recurseGroups = args[0] == 'buildgroup'
+        recurseGroups = command == 'buildgroup'
         monitorJob = argSet.pop('poll', False)
         jobId = client.buildTroves(troveSpecs,
                                    limitToHosts=hosts,
@@ -202,19 +249,29 @@ register(BuildCommand)
 
 class ChangeSetCommand(rMakeCommand):
     commands = ['changeset']
-    paramHelp = '<jobId> path'
+    hidden = True
+    paramHelp = '''\
+<jobId> <outfile>
+
+Creates a changeset with the troves from the job <jobId> and stores in outFile'
+'''
+    help = 'Create a changeset file from the packages in a job'
 
     def runCommand(self, client, cfg, argSet, args):
-        if len(args) != 3:
-            return self.usage()
-        jobId = _getJobIdOrUUId(args[1])
-        path = args[2]
+        command, jobId, path = self.requireParameters(args, ['jobId', 'path'])
+        jobId = _getJobIdOrUUId(jobId)
         client.createChangeSetFile(jobId, path)
 register(ChangeSetCommand)
 
 class CommitCommand(rMakeCommand):
     commands = ['commit', 'ci']
-    paramHelp = '<jobId>'
+    commandGroup = CG_BUILD
+    paramHelp = '''<jobId>
+
+Commits the build packages from a job moving them from rMake's internal 
+repository back into the repository where their source package came from.
+'''
+    help = 'Commit a job'
 
     docs = {'commit-outdated-sources' : ("Allow commits of source components when another"
                                          " commit has been made upstream"),
@@ -226,11 +283,10 @@ class CommitCommand(rMakeCommand):
         rMakeCommand.addParameters(self, argDef)
 
     def runCommand(self, client, cfg, argSet, args):
+        command, jobId = self.requireParameters(args, ['jobId'])
         commitOutdated = argSet.pop('commit-outdated-sources', False)
         sourceOnly = argSet.pop('source-only', False)
-        if len(args) != 2:
-            return self.usage()
-        jobId = _getJobIdOrUUId(args[1])
+        jobId = _getJobIdOrUUId(jobId)
         client.commitJob(jobId, commitOutdatedSources=commitOutdated,
                          commitWithFailures=True, waitForJob=True,
                          sourceOnly=sourceOnly)
@@ -239,6 +295,8 @@ register(CommitCommand)
 
 class ConfigCommand(rMakeCommand):
     commands = ['config']
+    commandGroup = CG_INFO
+    help = 'Display the current configuration'
     docs = {'show-passwords' : 'do not mask passwords'}
 
     def addParameters(self, argDef):
@@ -246,8 +304,7 @@ class ConfigCommand(rMakeCommand):
          argDef["show-passwords"] = NO_PARAM
 
     def runCommand(self, client, cfg, argSet, args):
-        if len(args) > 1:
-            return self.usage()
+        self.requireParameters(args)
 
         showPasswords = argSet.pop('show-passwords', False)
         try:
@@ -260,11 +317,15 @@ register(ConfigCommand)
 
 class DeleteCommand(rMakeCommand):
     commands = ['delete']
+    commandGroup = CG_BUILD
     paramHelp = '<jobId>[-<jobId>]+'
+    help = 'Delete jobs from rmake\'s history'
 
     def runCommand(self, client, cfg, argSet, args):
         toDelete = []
-        for arg in args[1:]:
+        command, jobList = self.requireParameters(args, 'jobId',
+                                                  appendExtra=True)
+        for arg in jobList:
             values = arg.split(',')
             for value in values:
                 range = value.split('-', 1)
@@ -281,10 +342,36 @@ class DeleteCommand(rMakeCommand):
         client.deleteJobs(toDelete)
 register(DeleteCommand)
 
+class HelpCommand(rMakeCommand):
+    commands = ['help']
+    help = 'Display help information'
+    commandGroup = CG_INFO
+
+    def runCommand(self, client, cfg, argSet, args):
+        command, subCommands = self.requireParameters(args, allowExtra=True,
+                                                      maxExtra=1)
+        if subCommands:
+            command = subCommands[0]
+            commands = self.mainHandler._supportedCommands
+            if not command in commands:
+                print "%s: no such command: '%s'" % (self.mainHandler.name,
+                                                     command)
+                sys.exit(1)
+            commands[command].usage()
+        else:
+            self.mainHandler.usage(showAll=True)
+            return 0
+register(HelpCommand)
+
 
 class PollCommand(rMakeCommand):
     commands = ['poll']
-    paramHelp = '<jobId>'
+    commandGroup = CG_INFO
+    paramHelp = '''<jobId>
+
+Watch the progress of job <jobId> as it builds its packages
+'''
+    help = 'Watch a job build'
 
     docs = { 'quiet'  : 'Only display major job status changes' }
 
@@ -294,14 +381,11 @@ class PollCommand(rMakeCommand):
         argDef['commit'] = NO_PARAM
 
     def runCommand(self, client, cfg, argSet, args):
-        if len(args) != 2:
-            self.usage()
-            log.error("missing jobId")
-            return 1
+        command, jobId = self.requireParameters(args, 'jobId')
         log.setVerbosity(log.INFO)
         quiet = argSet.pop('quiet', False)
         commit = argSet.pop('commit', False)
-        jobId = _getJobIdOrUUId(args[1])
+        jobId = _getJobIdOrUUId(jobId)
         client.poll(jobId, showBuildLogs = not quiet,
                     showTroveLogs = not quiet,
                     commit = commit)
@@ -309,22 +393,29 @@ register(PollCommand)
 
 class StopCommand(rMakeCommand):
     commands = ['stop']
-    paramHelp = '<jobId>'
+    commandGroup = CG_BUILD
+    help = 'Stop job from building'
+    paramHelp = '''<jobId>
+
+Stops job <jobId> from building.
+'''
 
     def runCommand(self, client, cfg, argSet, args):
-        if len(args) != 2:
-            self.usage()
-            log.error("missing jobId")
-            return 1
+        command, jobId = self.requireParameters(args, 'jobId')
         log.setVerbosity(log.INFO)
-        jobId = _getJobIdOrUUId(args[1])
+        jobId = _getJobIdOrUUId(jobId)
         client.stopJob(jobId)
 register(StopCommand)
 
-
 class QueryCommand(rMakeCommand):
     commands = ['query', 'q']
-    paramHelp = '[<jobId> <troveSpec>*]'
+    commandGroup = CG_INFO
+    help = 'Display information about a job'
+    paramHelp = '''[<jobId> <troveSpec>*]
+
+    Display information about the job <jobId> (limited to <troveSpec> 
+    if specified)
+'''
 
     docs = {'troves'          : 'Display troves for this job',
             'info'            : 'Display details',
@@ -349,9 +440,10 @@ class QueryCommand(rMakeCommand):
         rMakeCommand.addParameters(self, argDef)
 
     def runCommand(self, client, cfg, argSet, args):
-        if len(args) > 1:
-            jobId = _getJobIdOrUUId(args[1])
-            troveSpecs = args[2:]
+        command, args = self.requireParameters(args, allowExtra=True)
+        if args:
+            jobId = _getJobIdOrUUId(args[0])
+            troveSpecs = args[1:]
             try:
                 jobId = int(jobId)
             except ValueError:
@@ -393,22 +485,12 @@ class RmakeMain(options.MainHandler):
 
     commandList = _commands
 
-    @classmethod
-    def usage(class_, rc=1):
-        print 'rmake: client to communicate with rmake server'
-        print ''
-        print 'usage:'
-        print '  build troveSpec+ - build specified packages'
-        print '  changeset jobId  - create a changeset from built packages in a job'
-        print '  commit jobId     - commit job to real repository'
-        print '  config           - display client configuration information'
-        print '  delete jobId[-jobId]+'
-        print '                   - delete job(s)'
-        print '  poll jobId       - continuously poll for build logs for jobId'
-        print '  query/q [jobId] [troveSpec]*'
-        print '                   - display information about jobs/troves'
-        print '  stop jobId       - stop job'
-        return rc
+    def usage(self, rc=1, showAll=False):
+        print 'rmake: front end to rMake build tool'
+        if not showAll:
+            print
+            print 'Common Commands (use "rmake help" for the full list)'
+        return options.MainHandler.usage(self, rc, showAll=showAll)
 
     def getConfigFile(self, argv):
         if '--skip-default-config' in argv:
@@ -451,8 +533,12 @@ class RmakeMain(options.MainHandler):
 
         client = helper.rMakeHelper(buildConfig=buildConfig,
                                     rmakeConfig=serverConfig)
-        options.MainHandler.runCommand(self, thisCommand, client, buildConfig, 
-                                       argSet, args[1:])
+        try:
+            options.MainHandler.runCommand(self, thisCommand, client, 
+                                           buildConfig, argSet, args)
+        except errors.BadParameters:
+            thisCommand.usage()
+            raise
 
 def main(argv):
     log.setVerbosity(log.INFO)
@@ -473,10 +559,11 @@ def main(argv):
     except (errors.RmakeError, conaryerrors.ConaryError, cfg.ParseError,
             conaryerrors.CvcError), err:
         log.error(err)
-        sys.exit(1)
+        return 1
     except IOError, e:
         # allow broken pipe to exit
         if e.errno != errno.EPIPE:
             raise
     except KeyboardInterrupt:
         pass
+    return 0

@@ -33,6 +33,8 @@ class RmakeError(Exception):
         return self.args[0]
 apiutils.register(RmakeError)
 
+class BadParameters(RmakeError):
+    pass
 
 class JobNotFound(RmakeError):
     def __str__(self):
@@ -71,6 +73,7 @@ class ServerError(RmakeError):
 
 class OpenError(ServerError):
     pass
+
 
 
 errorMessage = '''
