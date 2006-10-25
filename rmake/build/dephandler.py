@@ -562,15 +562,20 @@ class DepResolutionByTroveLists(resolve.DepResolutionMethod):
             self.troveListsIndex = 0
             return False
         if newDepList == self.depList:
+            # no new dep resolution matches, increment counters
+            # if lists are exhausted, return False.
             if not self.searchByLabelPath:
                 self.troveListsIndex += 1
                 if self.troveListsIndex == len(self.troveLists):
+                    if not self.installLabelPath:
+                        self.troveListsIndex = 0
+                        return False
                     self.searchByLabelPath = True
                     self.index = 0
             else:
                 self.index += 1
                 if self.index == len(self.installLabelPath):
-                    self.index = 0 
+                    self.index = 0
                     self.troveListsIndex = 0
                     return False
         else:

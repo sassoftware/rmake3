@@ -12,6 +12,8 @@ Changes in @NEW@:
       example, when setting flags that are unknown). (RMK-243)
     * Fix rMake behavior with multiple resolveTroves entries (before it would
       only use the first one). (RMK-269)
+    * Rmake no longer tracebacks when resolveTrovesOnly is True and a dep 
+      resolution failure occurs. (RMK-261)
 
 Changes in 0.9.6 (Release candidate 2):
   o Bug Fixes:
