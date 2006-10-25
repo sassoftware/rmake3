@@ -14,6 +14,10 @@ Changes in @NEW@:
       only use the first one). (RMK-269)
     * Rmake no longer tracebacks when resolveTrovesOnly is True and a dep 
       resolution failure occurs. (RMK-261)
+    * rMake no longer delays building itself if the only potential dependency
+      it has is circular, e.g. if avahi requires itself be installed to 
+      build.  It also accurately displays the number of troves causing the
+      delay. (RMK-245)
 
 Changes in 0.9.6 (Release candidate 2):
   o Bug Fixes:

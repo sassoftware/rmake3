@@ -349,7 +349,7 @@ class DependencyHandler(object):
         return True, jobSet, None, None
 
     def _addResolutionDeps(self, trv, jobSet):
-        found = []
+        found = set()
         for name, oldInfo, newInfo, isAbs in jobSet:
             providingTroves = self.depState.getTrovesByPackage(name.split(':')[0])
             if not providingTroves:
@@ -359,9 +359,13 @@ class DependencyHandler(object):
 
             for provTrove in providingTroves:
                 if self.depState.isUnbuilt(provTrove):
+                    if provTrove == trv:
+                        # no point in delaying this trove if the only
+                        # dependency is on ourselves!
+                        continue
+                    found.add(provTrove)
                     # FIXME: we need to have the actual dependency name!
                     self.depState.dependsOn(trv, provTrove, (trv.getNameVersionFlavor(), deps.parseDep('trove: %s' % name)))
-                    found.append(provTrove)
         return found
 
     def _updateBuildableTroves(self, client, depGraph, searchSource, 
