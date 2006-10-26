@@ -30,18 +30,24 @@ from rmake.build import failure
 from rmake.build import rootfactory
 from rmake.build import dephandler
 from rmake.lib import logfile, recipeutil
+from rmake.lib import repocache
 
 class Builder(object):
     def __init__(self, serverCfg, buildCfg, job):
         self.serverCfg = serverCfg
         self.buildCfg = buildCfg
-        self.repos = conaryclient.ConaryClient(buildCfg).getRepos()
         self.logFile = logfile.LogFile(
                             serverCfg.getBuildLogPath(job.jobId))
+        self.repos = self.getRepos()
         self.job = job
         self.jobId = job.jobId
         self._buildingTroves = []
         self._chroots = []
+
+    def getRepos(self):
+        repos = conaryclient.ConaryClient(self.buildCfg).getRepos()
+        return repocache.CachingTroveSource(repos,
+                                        self.serverCfg.getCacheDir())
 
     def info(self, state, message):
         log.info('[%s] [jobId %s] B: %s', time.strftime('%x %X'), self.jobId, message)
@@ -81,7 +87,8 @@ class Builder(object):
         self.job.log('Build started - loading troves')
 
         buildTroves = recipeutil.getSourceTrovesFromJob(self.job,
-                                                        self.buildCfg)
+                                                        self.buildCfg,
+                                                        self.repos)
 
         self.job.setBuildTroves(buildTroves)
 

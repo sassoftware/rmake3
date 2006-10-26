@@ -73,6 +73,9 @@ class rMakeConfiguration(daemon.DaemonConfig):
     def getDbPath(self):
         return self.serverDir + '/jobs.db'
 
+    def getCacheDir(self):
+        return self.buildDir + '/cscache'
+
     def getDbContentsPath(self):
         return self.serverDir + '/jobcontents'
 
@@ -88,7 +91,7 @@ class rMakeConfiguration(daemon.DaemonConfig):
     def getReposConfigPath(self):
         return self.serverDir + '/repos/serverrc'
 
-    def getCachePath(self):
+    def getReposCachePath(self):
         return self.serverDir + '/repos/cachedb'
 
     def getReposLogPath(self):

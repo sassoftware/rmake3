@@ -33,10 +33,10 @@ from conary.repository import changeset
 #rmake
 from rmake import constants
 from rmake import errors
-from rmake.build import changesetcache
 from rmake.build.chroot import server as chrootserver
 from rmake.db import database
 from rmake.lib import flavorutil
+from rmake.lib import repocache
 
 class ChrootCallback(callbacks.UpdateCallback):
     def __init__(self, buildTrove):
@@ -512,7 +512,7 @@ class ChrootFactory(object):
         self.chrootHelperPath = chrootHelperPath
         cacheDir = self.baseDir + '/cscache'
         util.mkdirChain(cacheDir)
-        self.csCache = changesetcache.ChangeSetCache(cacheDir)
+        self.csCache = repocache.RepositoryCache(cacheDir)
         self.chroots = {}
 
     def createRoot(self, jobList, buildTrove):

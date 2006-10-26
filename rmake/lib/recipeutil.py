@@ -237,9 +237,8 @@ def loadSourceTroves(job, repos, troveTupleList):
                 os.remove(recipeFile)
     return buildTroves
 
-def getSourceTrovesFromJob(job, conaryCfg):
+def getSourceTrovesFromJob(job, conaryCfg, repos):
     troveList = list(job.iterTroveList())
-    repos = conaryclient.ConaryClient(conaryCfg).getRepos()
     buildFlavor = conaryCfg.buildFlavor
     sourceTroveTups = [ (x[0], x[1],
                          deps.overrideFlavor(buildFlavor, x[2]))
