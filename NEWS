@@ -4,6 +4,8 @@ Changes in @NEW@:
        (RMK-268)
      * rMake now installs the packages for buildreqs, as well as for dep 
        resolution. (RMK-189)
+     * rMake now cleans up temporary recipe downloads that used to be 
+       left in /tmp. (RMK-270)
 
 Changes in 1.0:
   o Changed name to 1.0

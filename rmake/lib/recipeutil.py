@@ -203,32 +203,38 @@ def loadSourceTroves(job, repos, troveTupleList):
     recipes, troves = getRecipes(repos, troveTupleList)
 
     buildTroves = []
-    for idx, ((n,v,f), recipeFile, trove) in enumerate(itertools.izip(
-                                                       troveTupleList, recipes,
-                                                       troves)):
-        job.log('Loading %s out of %s: %s' % (idx + 1, total, n))
-        relevantFlavor = None
-        try:
-            (loader, recipeObj, relevantFlavor) = loadRecipe(repos,
-                                                         n, v, f,
-                                                         (recipeFile, trove))
-            recipeType = buildtrove.getRecipeType(recipeObj)
-            buildTrove = buildtrove.BuildTrove(None, n, v, relevantFlavor,
-                                               recipeType=recipeType)
-            buildTrove.setBuildRequirements(getattr(recipeObj, 'buildRequires', []))
-            buildTrove.setDerivedPackages(getattr(recipeObj, 'packages', [recipeObj.name]))
-        except Exception, err:
-            if relevantFlavor is None:
-                relevantFlavor = f
-            buildTrove = buildtrove.BuildTrove(None, n, v, relevantFlavor)
-            if isinstance(err, errors.RmakeError):
-                # we assume our internal errors have enough info
-                # to determine what the bug is.
-                fail = failure.LoadFailed(str(err))
-            else:
-                fail = failure.LoadFailed(str(err), traceback.format_exc())
-            buildTrove.troveFailed(fail)
-        buildTroves.append(buildTrove)
+    try:
+        for idx, ((n,v,f), recipeFile, trove) in enumerate(itertools.izip(
+                                                           troveTupleList, recipes,
+                                                           troves)):
+            job.log('Loading %s out of %s: %s' % (idx + 1, total, n))
+            relevantFlavor = None
+            try:
+                (loader, recipeObj, relevantFlavor) = loadRecipe(repos,
+                                                             n, v, f,
+                                                             (recipeFile, trove))
+                recipeType = buildtrove.getRecipeType(recipeObj)
+                buildTrove = buildtrove.BuildTrove(None, n, v, relevantFlavor,
+                                                   recipeType=recipeType)
+                buildTrove.setBuildRequirements(getattr(recipeObj, 'buildRequires', []))
+                buildTrove.setDerivedPackages(getattr(recipeObj, 'packages', [recipeObj.name]))
+            except Exception, err:
+                if relevantFlavor is None:
+                    relevantFlavor = f
+                buildTrove = buildtrove.BuildTrove(None, n, v, relevantFlavor)
+                if isinstance(err, errors.RmakeError):
+                    # we assume our internal errors have enough info
+                    # to determine what the bug is.
+                    fail = failure.LoadFailed(str(err))
+                else:
+                    fail = failure.LoadFailed(str(err), traceback.format_exc())
+                buildTrove.troveFailed(fail)
+            buildTroves.append(buildTrove)
+            os.remove(recipeFile)
+    finally:
+        for recipeFile in recipes:
+            if os.path.exists(recipeFile):
+                os.remove(recipeFile)
     return buildTroves
 
 def getSourceTrovesFromJob(job, conaryCfg):
