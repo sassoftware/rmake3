@@ -348,6 +348,22 @@ class DependencyHandler(object):
         log.debug('   took %s seconds' % (time.time() - start))
         return True, jobSet, None, None
 
+    def _addPackages(self, searchSource, jobSet):
+        """
+            Adds packages for buildReqs we're installing (if they're
+            not already added)
+        """
+        neededPackages = set((x[0].split(':')[0], x[2][0], x[2][1])
+                             for x in jobSet)
+        neededPackages.difference_update((x[0], x[2][0], x[2][1])
+                                         for x in jobSet)
+        hasTroves = searchSource.hasTroves(neededPackages)
+        if isinstance(hasTroves, list):
+            hasTroves = dict(itertools.izip(neededPackages, hasTroves))
+        jobSet.update([(x[0][0], (None, None), (x[0][1], x[0][2]), False)
+                       for x in hasTroves.items() if x[1]])
+
+
     def _addResolutionDeps(self, trv, jobSet):
         found = set()
         for name, oldInfo, newInfo, isAbs in jobSet:
@@ -400,6 +416,7 @@ class DependencyHandler(object):
                                 = self._resolveBuildReqs(client, trv,
                                                          searchSource)
                 if success:
+                    self. _addPackages(searchSource, buildReqs)
                     newDeps = self._addResolutionDeps(trv, buildReqs)
                     if not newDeps:
                         trv.troveBuildable()
