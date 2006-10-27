@@ -48,6 +48,7 @@ from rmake.server import server
 
 (NO_PARAM,  ONE_PARAM)  = (options.NO_PARAM, options.ONE_PARAM)
 (OPT_PARAM, MULT_PARAM) = (options.OPT_PARAM, options.MULT_PARAM)
+(NORMAL_HELP, VERBOSE_HELP)  = (options.NORMAL_HELP, options.VERBOSE_HELP)
 
 CG_MISC = 'Miscellaneous Commands'
 CG_BUILD = 'Job Manipulation'
@@ -57,13 +58,23 @@ class rMakeCommand(options.AbstractCommand):
     defaultGroup = 'Common Options'
     commandGroup = CG_MISC
 
-    docs = {'config'             : ("Set config KEY to VALUE", "'KEY VALUE'"),
-            'config-file'        : ("Read PATH config file", "PATH"),
-            'context'            : ("Set the conary context to build in"),
-            'server-config-file' : ("Read PATH config file", "PATH"),
-            'build-config-file'  : ("Read PATH config file", "PATH"),
-            'rmake-config-file'  : ("Read PATH config file", "PATH"),
-            'skip-default-config': "Don't read default configs",
+    docs = {'config'             : (VERBOSE_HELP,
+                                    "Set config KEY to VALUE", "'KEY VALUE'"),
+            'server-config'      : (VERBOSE_HELP,
+                            "Set server config KEY to VALUE", "'KEY VALUE'"),
+            'config-file'        : (VERBOSE_HELP,
+                                    "Read PATH config file", "PATH"),
+            'context'            : ("Set the configuration context to use"),
+            'server-config-file' : (VERBOSE_HELP,
+                                    "Read PATH config file", "PATH"),
+            'conary-config-file'  : (VERBOSE_HELP,
+                                    "Read PATH conary config file", "PATH"),
+            'build-config-file'  : (VERBOSE_HELP,
+                                    "Read PATH config file", "PATH"),
+            'rmake-config-file'  : (VERBOSE_HELP,
+                                    "Read PATH config file", "PATH"),
+            'skip-default-config': (VERBOSE_HELP,
+                                    "Don't read default configs"),
            }
 
     def addParameters(self, argDef):
@@ -373,7 +384,8 @@ Watch the progress of job <jobId> as it builds its packages
 '''
     help = 'Watch a job build'
 
-    docs = { 'quiet'  : 'Only display major job status changes' }
+    docs = { 'quiet'  : 'Only display major job status changes',
+             'commit' : "Commit job when it is done"}
 
     def addParameters(self, argDef):
         rMakeCommand.addParameters(self, argDef)
