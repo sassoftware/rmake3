@@ -271,11 +271,7 @@ Creates a changeset with the troves from the job <jobId> and stores in outFile'
     def runCommand(self, client, cfg, argSet, args):
         command, jobId, path = self.requireParameters(args, ['jobId', 'path'])
         jobId = _getJobIdOrUUId(jobId)
-        try:
-            client.createChangeSetFile(jobId, path)
-        except conaryerrors.FilesystemError, e:
-            sys.stderr.write("Error writing to file %s: %s\n" % (e[1], e[2]))
-            return 1
+        client.createChangeSetFile(jobId, path)
 register(ChangeSetCommand)
 
 class CommitCommand(rMakeCommand):
