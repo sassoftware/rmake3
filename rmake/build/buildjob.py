@@ -207,6 +207,10 @@ class BuildJob(_AbstractBuildJob, trovesource.SearchableTroveSource):
     def iterTroves(self):
         return self.troves.itervalues()
 
+    def getTrovesByName(self, name):
+        name = name.split(':')[0] + ':source'
+        return [ x for x in self.troves if x[0] == name ]
+
     def iterFailedTroves(self):
         return (x for x in self.troves.itervalues() if x.isFailed())
 
