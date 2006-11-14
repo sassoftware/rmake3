@@ -89,7 +89,6 @@ class CfgUUID(CfgType):
 
 class RmakeBuildContext(cfg.ConfigSection):
 
-    commitRelativeChangeset = (CfgBool, False)
     defaultBuildReqs     = (CfgList(CfgString),
                             ['bash:runtime',
                              'coreutils:runtime', 'filesystem',

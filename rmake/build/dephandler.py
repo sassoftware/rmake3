@@ -532,7 +532,6 @@ class BuiltTroveSource(trovesource.SimpleTroveSource):
 
     def addChangeSet(self, cs):
         for idx, trvCs in enumerate(cs.iterNewTroveList()):
-            assert(trvCs.isAbsolute())
             self.addTrove(trvCs.getNewNameVersionFlavor(), trvCs.getProvides(),
                           trvCs.getRequires())
 
