@@ -1,9 +1,8 @@
 Changes in @NEW@:
   o Bug Fixes:
      * Conary's new ability to commit relative changesets caused
-       rMake to fail because it expected absolute changesets.
-       As an initial workaround, rMake now asks Conary to make
-       absolute changesets instead of relative changesets. (RMK-277)
+       rMake to fail because it expected absolute changesets.  rMake
+       will now handle relative changesets. (RMK-277)
 
 Changes in 1.0.1:
   o Client Changes:
