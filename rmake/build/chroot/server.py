@@ -41,7 +41,7 @@ class ChrootServer(apirpc.XMLApiServer):
         buildCfg.root = self.cfg.root
         buildCfg.buildPath = self.cfg.root + '/tmp/rmake/builds'
         buildCfg.lookaside = self.cfg.root + '/tmp/rmake/cache'
-        buildCfg.dbPath = self.cfg.root + '/var/lib/conarydb'
+        buildCfg.dbPath = '/var/lib/conarydb'
 
         logPath, pid, buildInfo = cook.cookTrove(buildCfg,
                                                  name, version, flavor,
