@@ -25,6 +25,7 @@ from conary.lib import sha1helper
 from conary.lib import util
 from conary.repository import changeset
 from conary.repository import datastore
+from conary.repository import errors
 from conary.repository import filecontents
 from conary.repository import trovesource
 
@@ -40,7 +41,13 @@ class CachingTroveSource:
     def getTroves(self, troveList, withFiles=False, callback = None):
         return self._cache.getTroves(self._troveSource, troveList,
                                      withFiles=withFiles, callback = None)
-    getTrove = trovesource.AbstractTroveSource.getTrove
+
+    def getTrove(self, name, version, flavor, withFiles=False, callback=None):
+        trv = self.getTroves([(name, version, flavor)], withFiles=withFiles,
+                              callback=callback)[0]
+        if trv is None:
+            raise errors.TroveMissing(name, version)
+        return trv
 
     def getFileContents(self, fileList, callback = None):
         return self._cache.getFileContents(self._troveSource,
