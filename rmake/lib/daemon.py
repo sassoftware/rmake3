@@ -57,14 +57,14 @@ class ConfigCommand(DaemonCommand):
     commands = ['config']
 
     def runCommand(self, daemon, cfg, argSet, args):
-        cfg.display()
+        return cfg.display()
 _register(ConfigCommand)
 
 class StopCommand(DaemonCommand):
     commands = ['stop', 'kill']
 
     def runCommand(self, daemon, cfg, argSet, args):
-        daemon.kill()
+        return daemon.kill()
 _register(StopCommand)
 
 class StartCommand(DaemonCommand):
@@ -77,7 +77,7 @@ class StartCommand(DaemonCommand):
         argDef["no-daemon"] = '-n', NO_PARAM
 
     def runCommand(self, daemon, cfg, argSet, args):
-        daemon.start(fork=not argSet.pop('no-daemon', False))
+        return daemon.start(fork=not argSet.pop('no-daemon', False))
 _register(StartCommand)
 
 class Daemon(options.MainHandler):
@@ -249,13 +249,14 @@ class Daemon(options.MainHandler):
                 pid, status = os.waitpid(pid, 0)
                 if os.WIFEXITED(status):
                     rc = os.WEXITSTATUS(status)
-                    os._exit(rc)
+                    return rc
                 else:
                     log.error('process killed with signal %s' % os.WTERMSIG(status))
-                    os._exit(1)
+                    return 1
         else:
             sys.excepthook = util.genExcepthook()
             self.daemonize()
+            return 0
 
 
     def daemonize(self):
@@ -276,8 +277,8 @@ class Daemon(options.MainHandler):
     def runCommand(self, thisCommand, cfg, argSet, otherArgs, **kw):
         self.cfg = cfg
         log.setVerbosity(log.INFO)
-        options.MainHandler.runCommand(self, thisCommand, self, cfg, argSet, 
-                                       otherArgs, **kw)
+        return options.MainHandler.runCommand(self, thisCommand, self, cfg, 
+                                             argSet, otherArgs, **kw)
 
     def usage(self, rc=1):
         print '%s usage:' % self.name
