@@ -114,7 +114,7 @@ class _ApiMethod(xmlrpclib._Method):
         if passed:
             return _thawReturn(self.__methodApi, rv, methodVersion)
         else:
-            raise apiutils.thaw(rv[0], rv[1:])
+            raise apiutils.thaw(rv[0], rv[1])
 
 class XMLApiServer:
     """ API-aware server wrapper for XMLRPC. """
