@@ -14,6 +14,7 @@
 """
 SQL schema for the persistent DB store for rmake
 """
+from rmake import errors
 
 # NOTE: this schema is sqlite-specific
 
