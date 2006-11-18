@@ -247,13 +247,15 @@ Builds the specified packages or recipes.
                                    limitToHosts=hosts,
                                    recurseGroups=recurseGroups)
         if monitorJob:
-            client.poll(jobId, showTroveLogs=not quiet,
-                        showBuildLogs=not quiet,
-                        commit=commit)
+            if not client.poll(jobId, showTroveLogs=not quiet,
+                               showBuildLogs=not quiet,
+                               commit=commit):
+                return 1
         elif commit:
-            client.commitJob(jobId, commitWithFailures=False,
-                             waitForJob=True)
-        return jobId
+            if not client.commitJob(jobId, commitWithFailures=False,
+                                    waitForJob=True):
+                return 1
+        return 0
 
 register(BuildCommand)
 
@@ -298,9 +300,13 @@ repository back into the repository where their source package came from.
         commitOutdated = argSet.pop('commit-outdated-sources', False)
         sourceOnly = argSet.pop('source-only', False)
         jobId = _getJobIdOrUUId(jobId)
-        client.commitJob(jobId, commitOutdatedSources=commitOutdated,
-                         commitWithFailures=True, waitForJob=True,
-                         sourceOnly=sourceOnly)
+        success = client.commitJob(jobId, commitOutdatedSources=commitOutdated,
+                                   commitWithFailures=True, waitForJob=True,
+                                   sourceOnly=sourceOnly)
+        if success:
+            return 0
+        else:
+            return 1
 
 register(CommitCommand)
 
@@ -398,9 +404,13 @@ Watch the progress of job <jobId> as it builds its packages
         quiet = argSet.pop('quiet', False)
         commit = argSet.pop('commit', False)
         jobId = _getJobIdOrUUId(jobId)
-        client.poll(jobId, showBuildLogs = not quiet,
-                    showTroveLogs = not quiet,
-                    commit = commit)
+        success = client.poll(jobId, showBuildLogs = not quiet,
+                       showTroveLogs = not quiet,
+                       commit = commit)
+        if success:
+            return 0
+        else:
+            return 1
 register(PollCommand)
 
 class StopCommand(rMakeCommand):

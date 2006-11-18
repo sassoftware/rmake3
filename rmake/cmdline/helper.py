@@ -208,6 +208,7 @@ class rMakeHelper(object):
                     print "You can restart commit by running 'rmake poll %s --commit'" % jobId
                 raise
             if commit:
-                self.commitJob(jobId, commitWithFailures=False)
+                return self.commitJob(jobId, commitWithFailures=False)
+            return True
         finally:
             os.remove(tmpPath)
