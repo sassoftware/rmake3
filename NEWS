@@ -5,6 +5,7 @@ Changes in @NEW@:
        will now handle relative changesets. (RMK-277)
      * The repository cache now works with loadInstalled, which would 
        cause the cache to break earlier. (RMK-276, RMK-278)
+     * rMake will now return a non-zero exit value if a commit fails.
 
 Changes in 1.0.1:
   o Client Changes:
