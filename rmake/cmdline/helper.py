@@ -36,7 +36,7 @@ from rmake.cmdline import buildcmd
 from rmake.cmdline import commit
 from rmake.cmdline import monitor
 from rmake.server import servercfg
-from rmake.server import server
+from rmake.server import client
 from rmake import compat
 from rmake import plugins
 
@@ -55,7 +55,7 @@ class rMakeHelper(object):
         if uri is None:
             uri = rmakeConfig.getServerUri()
 
-        self.client = server.rMakeClient(uri)
+        self.client = client.rMakeClient(uri)
 
         # this should use extend but extend used to be broken when
         # there were multiple entries

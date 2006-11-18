@@ -13,7 +13,7 @@
 # full details.
 #
 """
-Daemon process that waits for commands to build.
+rMake Backend server
 """
 import errno
 import itertools
@@ -27,9 +27,8 @@ import traceback
 import xmlrpclib
 
 from conary.deps import deps
-from conary.lib import log, misc, options
+from conary.lib import log
 
-from rmake import constants
 from rmake import errors
 from rmake.build import builder
 from rmake.build import buildcfg
@@ -38,15 +37,6 @@ from rmake.build import subscribe
 from rmake.db import database
 from rmake.lib.apiutils import api, api_parameters, api_return, freeze, thaw
 from rmake.lib import apirpc
-from rmake.lib import daemon
-from rmake.server import repos
-from rmake.server import servercfg
-
-# the following imports are done so that rMake actually loads
-# the module even with lazy importing turned on.
-# With lazy imports turned on, rmake waits until an object in the
-# module is actually loaded to load the function.
-from rmake.build.failure import FailureReason
 
 class rMakeServer(apirpc.XMLApiServer):
 
@@ -546,154 +536,3 @@ class rMakeServer(apirpc.XMLApiServer):
         self._buildPids = {}         # forked jobs that are currently active
         self._halt = False
         self._haltSignal = None
-
-# ------ client implementation
-
-class rMakeClient(object):
-    def __init__(self, uri):
-        self.uri = uri
-        self.proxy = apirpc.ApiProxy(rMakeServer, uri)
-
-    def buildTroves(self, sourceTroveTups, buildEnv):
-        return self.proxy.buildTroves(sourceTroveTups, buildEnv)
-
-    def stopJob(self, jobId):
-        return self.proxy.stopJob(jobId)
-
-    def deleteJobs(self, jobIdList):
-        return self.proxy.deleteJobs(jobIdList)
-
-    def listJobs(self):
-        return self.proxy.listJobs()
-
-    def listTrovesByState(self, jobId, state=None):
-        if state is None:
-            state = ''
-        results = self.proxy.listTrovesByState(jobId, state)
-        return dict((x[0], thaw('troveTupleList', x[1])) for x in results)
-
-    def getStatus(self, jobId):
-        return self.proxy.getStatus(jobId)
-
-    def getJobLogs(self, jobId, mark = 0):
-        return self.proxy.getJobLogs(jobId, mark)
-
-    def getTroveLogs(self, jobId, troveTuple, mark = 0):
-        return self.proxy.getTroveLogs(jobId, troveTuple, mark)
-
-    def getTroveBuildLog(self, jobId, troveTuple, mark=0):
-        isBuilding, wrappedData = self.proxy.getTroveBuildLog(jobId,
-                                                              troveTuple, mark)
-        return isBuilding, wrappedData.data
-
-    def getJob(self, jobId, withTroves=True):
-        return self.getJobs([jobId], withTroves)[0]
-
-    def getJobs(self, jobIds, withTroves=True):
-        return [ thaw('BuildJob', x)
-                 for x in self.proxy.getJobs(jobIds, withTroves) ]
-
-    def listSubscribers(self, jobId):
-        return [ thaw('Subscriber', x)
-                  for x in self.proxy.listSubscribers(jobId) ]
-
-    def listSubscribersByUri(self, jobId, uri):
-        return [ thaw('Subscriber', x)
-                  for x in self.proxy.listSubscribersByUri(jobId, uri) ]
-
-    def subscribe(self, jobId, subscriber):
-        subscriberId = self.proxy.subscribe(jobId, subscriber)
-        subscriber.subscriberId = subscriberId
-
-    def unsubscribe(self, subscriberId):
-        self.proxy.unsubscribe(subscriberId)
-
-    def startCommit(self, jobId):
-        self.proxy.startCommit(jobId)
-
-    def commitFailed(self, jobId, message):
-        self.proxy.commitFailed(jobId, message)
-
-    def commitSucceeded(self, jobId, troveTupleList):
-        self.proxy.commitSucceeded(jobId, troveTupleList)
-
-    def ping(self, seconds=5, hook=None, sleep=0.1):
-        timeSlept = 0
-        while timeSlept < seconds:
-            try:
-                return self.proxy.ping()
-            except:
-                if timeSlept < seconds:
-                    if hook:
-                        hook()
-                    time.sleep(sleep)
-                    timeSlept += sleep
-                else:
-                    raise
-
-
-# ----- daemon
-
-class ResetCommand(daemon.DaemonCommand):
-    commands = ['reset']
-
-    def runCommand(self, daemon, cfg, argSet, args):
-        for dir in (cfg.getReposDir(), cfg.getBuildLogDir(),
-                    cfg.getDbContentsPath()):
-            if os.path.exists(dir):
-                print "Deleting %s" % dir
-                shutil.rmtree(dir)
-        for path in (cfg.getDbPath(),):
-            if os.path.exists(path):
-                print "Deleting %s" % path
-                os.remove(path)
-
-class rMakeDaemon(daemon.Daemon):
-    name = 'rmake'
-    version = constants.version
-    configClass = servercfg.rMakeConfiguration
-    user = constants.rmakeuser
-    commandList = list(daemon.Daemon.commandList) + [ResetCommand]
-
-    def __init__(self, *args, **kw):
-        daemon.Daemon.__init__(self, *args, **kw)
-
-    def getConfigFile(self, argv):
-        cfg = daemon.Daemon.getConfigFile(self, argv)
-        cfg.sanityCheck() 
-        return cfg
-
-    def doWork(self):
-        cfg = self.cfg
-        cfg.sanityCheck()
-        if not cfg.isExternalRepos():
-            reposPid = repos.startRepository(cfg, fork=True)
-        else:
-            reposPid = None
-        misc.removeIfExists(cfg.socketPath)
-        server = rMakeServer(cfg.getServerUri(), cfg, 
-                             repositoryPid=reposPid)
-        signal.signal(signal.SIGTERM, server._signalHandler)
-        signal.signal(signal.SIGINT, server._signalHandler)
-        try:
-            server.serve_forever()
-        finally:
-            if server.repositoryPid is not None:
-                self.killRepos(server.repositoryPid)
-
-    def killRepos(self, pid):
-        log.info('killing repository at %s' % pid)
-        try:
-            os.kill(pid, signal.SIGKILL)
-        except Exception, e:
-            log.warning(
-            'Could not kill repository at pid %s: %s' % (pid, e))
-
-def main(argv):
-    try:
-        rc = rMakeDaemon().main(argv)
-        sys.exit(rc)
-    except options.OptionError, err:
-        rMakeDaemon().usage()
-        log.error(err)
-        sys.exit(1)

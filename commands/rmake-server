@@ -21,7 +21,7 @@ if 'CONARY_PATH' in os.environ:
 if 'RMAKE_PATH' in os.environ:
     sys.path.insert(0, os.environ['RMAKE_PATH'])
 
-from rmake.server import server
+from rmake.server import daemon
 
 if __name__ == "__main__":
-    sys.exit(server.main(sys.argv))
+    sys.exit(daemon.main(sys.argv))
