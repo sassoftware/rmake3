@@ -15,6 +15,8 @@
 """
 rMake server daemon
 """
+import sys
+
 from conary.lib import misc, options, log
 
 from rmake import constants
