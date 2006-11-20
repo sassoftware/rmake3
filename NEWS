@@ -1,9 +1,9 @@
-Changes in @NEW@:
+Changes in 1.0.2:
   o Bug Fixes:
      * Conary's new ability to commit relative changesets caused
        rMake to fail because it expected absolute changesets.  rMake
        will now handle relative changesets. (RMK-277)
-     * The repository cache now works with loadInstalled, which would 
+     * The repository cache now works with loadInstalled, which would
        cause the cache to break earlier. (RMK-276, RMK-278)
      * rMake will now return a non-zero exit value if a commit fails.
 
