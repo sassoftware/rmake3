@@ -23,7 +23,8 @@ extra_files = \
 	Make.rules 		\
 	Makefile		\
 	Make.defs		\
-	NEWS
+	NEWS			\
+	LICENSE
 
 dist_files = $(extra_files)
 
