@@ -63,8 +63,8 @@ class rMakeDaemon(daemon.Daemon):
         else:
             reposPid = None
         misc.removeIfExists(cfg.socketPath)
-        server = rMakeServer(cfg.getServerUri(), cfg, 
-                             repositoryPid=reposPid)
+        server = server.rMakeServer(cfg.getServerUri(), cfg,
+                                    repositoryPid=reposPid)
         signal.signal(signal.SIGTERM, server._signalHandler)
         signal.signal(signal.SIGINT, server._signalHandler)
         try:
