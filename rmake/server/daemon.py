@@ -16,6 +16,7 @@
 rMake server daemon
 """
 import os
+import shutil
 import sys
 
 from conary.lib import misc, options, log
