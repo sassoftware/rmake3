@@ -33,7 +33,8 @@ from rmake import errors
 from rmake.build import builder
 from rmake.build import buildcfg
 from rmake.build import buildjob
-from rmake.build import subscribe
+from rmake.build import subscriber
+from rmake.server import publish
 from rmake.db import database
 from rmake.lib.apiutils import api, api_parameters, api_return, freeze, thaw
 from rmake.lib import apirpc
@@ -283,10 +284,10 @@ class rMakeServer(apirpc.XMLApiServer):
                     os._exit(1)
 
     def _subscribeToJob(self, job):
-        subscribe._RmakeServerPublisherProxy(self.uri).attach(job)
+        subscriber._RmakeServerPublisherProxy(self.uri).attach(job)
 
     def _subscribeToJobInternal(self, job):
-        subscribe._RmakeServerPublisherProxy(self).attach(job)
+        subscriber._RmakeServerPublisherProxy(self).attach(job)
 
     def _emitEvents(self):
         if not self._events or self._emitPid:
@@ -367,15 +368,15 @@ class rMakeServer(apirpc.XMLApiServer):
             for job in jobs:
                 self._subscribeToJob(job)
                 self.db.subscribeToJob(job)
-                logger = job.getStatusLogger()
-                logger.cork()
+                publisher = job.getPublisher()
+                publisher.cork()
 
                 for trove in job.iterTroves():
                     if not (trove.isFailed() or trove.isBuilt()):
                         trove.troveFailed(reason)
                 job.jobFailed(reason)
 
-                logger.uncork()
+                publisher.uncork()
             os._exit(0)
         finally:
             os._exit(1)
@@ -501,19 +502,19 @@ class rMakeServer(apirpc.XMLApiServer):
             time.sleep(.5)
             timeSlept += .5
 
-        loggers = []
+        publishers = []
         jobs = self.db.getJobs(killed)
         for job in jobs:
             self._subscribeToJobInternal(job)
             self.db.subscribeToJob(job)
-            logger = job.getStatusLogger()
-            logger.cork()
-            loggers.append(logger)
+            publisher = job.getPublisher()
+            publisher.cork()
+            publishers.append(publisher)
             job.jobFailed('Halted by external event')
 
         # make all db and emit events at the same time.
-        for logger in loggers:
-            logger.uncork()
+        for publisher in publishers:
+            publisher.uncork()
 
     def __init__(self, uri, cfg, repositoryPid):
         self.uri = uri
@@ -523,7 +524,7 @@ class rMakeServer(apirpc.XMLApiServer):
                                     cfg.getDbContentsPath())
 
         # any jobs that were running before are not running now
-        self._publisher = subscribe._RmakeServerPublisher()
+        self._publisher = publish._RmakeServerPublisher()
         apirpc.XMLApiServer.__init__(self, uri, logRequests=False)
         self.queue = []
         self._initialized = False

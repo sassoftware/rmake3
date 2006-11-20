@@ -12,7 +12,7 @@
 # full details.
 #
 
-from rmake.build import subscribe
+from rmake.build import subscriber
 from rmake.lib.apiutils import thaw
 
 class SubscriberData(object):

@@ -169,12 +169,12 @@ class DependencyHandler(object):
         return self.depState.hasBuildableTroves()
 
     def troveFailed(self, trove, *args):
-        statusLogger = trove.getStatusLogger()
-        statusLogger.unsubscribe(statusLogger.TROVE_FAILED, self.troveFailed)
-        statusLogger.cork()
+        publisher = trove.getPublisher()
+        publisher.unsubscribe(publisher.TROVE_FAILED, self.troveFailed)
+        publisher.cork()
         self._troveFailed(trove)
-        statusLogger.subscribe(statusLogger.TROVE_FAILED, self.troveFailed)
-        statusLogger.uncork()
+        publisher.subscribe(publisher.TROVE_FAILED, self.troveFailed)
+        publisher.uncork()
 
     def _troveFailed(self, trove):
         depState = self.depState

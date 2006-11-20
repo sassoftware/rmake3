@@ -123,7 +123,7 @@ class Builder(object):
         self.buildState = dephandler.DependencyBasedBuildState(
                                                 buildTroves,
                                                 self.buildCfg)
-        self.dh = dephandler.DependencyHandler(self.job.getStatusLogger(),
+        self.dh = dephandler.DependencyHandler(self.job.getPublisher(),
                                                self.buildCfg, self.repos,
                                                self.buildState)
 

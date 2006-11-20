@@ -17,7 +17,7 @@ import socket
 
 from rmake.build import buildjob
 from rmake.build import buildtrove
-from rmake.build.subscribe import StatusSubscriber
+from rmake.lib.subscriber import StatusSubscriber
 
 
 class IRCJobLogger(StatusSubscriber):

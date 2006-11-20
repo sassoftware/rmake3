@@ -18,7 +18,7 @@ from conary.lib.sha1helper import md5FromString
 from conary import dbstore
 
 from rmake import errors
-from rmake.build import subscribe
+from rmake.build.subscriber import _JobDbLogger
 from rmake.db import schema
 from rmake.db import jobstore
 from rmake.db import logstore
@@ -46,7 +46,7 @@ class Database(object):
             Watches updates to this job object and will record them
             in the db.
         """
-        subscribe._JobDbLogger(self).attach(job)
+        _JobDbLogger(self).attach(job)
 
     def _getOne(self, cu, key):
         try:

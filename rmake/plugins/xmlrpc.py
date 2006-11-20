@@ -14,7 +14,7 @@
 from rmake.lib import localrpc
 from rmake.lib.apiutils import freeze, thaw
 
-from rmake.build.subscribe import StatusSubscriber
+from rmake.lib.subscriber import StatusSubscriber
 
 # To use the xmlrpc proxy:
 # Subscribe using xmlrpc http://<youraddress>

@@ -21,7 +21,7 @@ from rmake.lib import apiutils
 from rmake.lib.apiutils import thaw, freeze
 
 from rmake.build import failure
-from rmake.build import subscribe
+from rmake.build import publisher
 
 jobStates = {
     'JOB_STATE_INIT'        : 0,
@@ -50,95 +50,17 @@ stateNames.update({
 def _getStateName(state):
     return stateNames[state]
 
-class _AbstractBuildJob(object):
-    def __init__(self):
-        self.status = ''
-        self.state = None
-        self.failureReason = None
-        self._statusLogger = subscribe.JobStatusPublisher()
+class _AbstractBuildJob(trovesource.SearchableTroveSource):
+    """
+        Abstract BuildJob.
 
-    def getStatusLogger(self):
-        return self._statusLogger
-
-    def jobQueued(self):
-        self._setStatus(JOB_STATE_QUEUED, 'Job Queued')
-
-    def jobStarted(self, message, pid=0):
-        self.start = time.time()
-        self.pid = pid
-        self._setStatus(JOB_STATE_STARTED, message)
-
-    def jobBuilding(self, message):
-        self._setStatus(JOB_STATE_BUILD, message)
-
-    def jobPassed(self, message):
-        self.finish = time.time()
-        self._setStatus(JOB_STATE_BUILT, message)
-
-    def jobFailed(self, failureReason=''):
-        self.finish = time.time()
-        if isinstance(failureReason, str):
-            failureReason = failure.BuildFailed(failureReason)
-        self.failureReason = failureReason
-        self.getStatusLogger().cork()
-
-        self._setStatus(JOB_STATE_FAILED, str(failureReason))
-        for trove in self.iterTroves():
-            if trove.isUnbuilt() or trove.isBuilding():
-                trove.troveFailed(failureReason)
-        self.getStatusLogger().uncork()
-
-    def jobStopped(self, failureReason=''):
-        # right now jobStopped is an alias for job failed.
-        # but I think we may wish to give it its own state
-        # at some point so I'm distinguishing it here.
-        self.jobFailed(failure.JobStopped(failureReason))
-
-    def jobCommitting(self):
-        self._setStatus(JOB_STATE_COMMITTING, '')
-
-    def jobCommitFailed(self, message=''):
-        if self.failureReason:
-            # this job was previously failed, so revert to its failed state.
-            self._setStatus(JOB_STATE_FAILED, str(self.failureReason))
-        self._setStatus(JOB_STATE_BUILT, 'Commit failed: %s' % message)
-
-    def jobCommitted(self, troveTupleList):
-        self._setStatus(JOB_STATE_COMMITTED, '')
-        logger = self.getStatusLogger()
-        logger.jobCommitted(self, troveTupleList)
-
-    def exceptionOccurred(self, err, tb):
-        failureReason = failure.InternalError(str(err), tb)
-        self.finish = time.time()
-        self.failureReason = failureReason
-        self._setStatus(JOB_STATE_FAILED, str(failureReason))
-
-    def log(self, message):
-        self.status = message
-        self._statusLogger.jobLogUpdated(self, message)
-
-    def _setStatus(self, state, status, *args):
-        self.state = state
-        self.status = status
-        self._statusLogger.jobStateUpdated(self, state, status, args)
-
-class BuildJob(_AbstractBuildJob, trovesource.SearchableTroveSource):
-
-    attrTypes = {'jobId'          : 'int',
-                 'pid'            : 'int',
-                 'uuid'           : 'str',
-                 'state'          : 'int',
-                 'status'         : 'str',
-                 'start'          : 'float',
-                 'finish'         : 'float',
-                 'failureReason'  : 'FailureReason',
-                 'troves'         : 'manual'}
-
+        Contains basic data for a build job and methods for accessing that
+        data.  Most setting of this data (after creation) should be through 
+        methods that are defined in BuildJob subclass.
+    """
     def __init__(self, jobId=None, troveList=[], state=JOB_STATE_INIT,
                  start=0, status='', finish=0, failureReason=None,
                  uuid='', pid=0):
-        _AbstractBuildJob.__init__(self)
         trovesource.SearchableTroveSource.__init__(self)
         self.jobId = jobId
         self.uuid = uuid
@@ -154,6 +76,12 @@ class BuildJob(_AbstractBuildJob, trovesource.SearchableTroveSource):
             self.addTrove(*troveTup)
 
     def trovesByName(self, name):
+        """
+            Method required for Searchable trovesource.
+
+            Takes a name and returns sources or binaries associated
+            with this job.
+        """
         if name.endswith(':source'):
             return [ x for x in self.troves if x[0] == name ]
         else:
@@ -165,6 +93,9 @@ class BuildJob(_AbstractBuildJob, trovesource.SearchableTroveSource):
             return troveTups
 
     def getStateName(self):
+        """
+            Returns human-readable name for current state
+        """
         return _getStateName(self.state)
 
     def getFailureReason(self):
@@ -243,16 +174,32 @@ class BuildJob(_AbstractBuildJob, trovesource.SearchableTroveSource):
 
     def addTrove(self, name, version, flavor, buildTrove=None):
         if buildTrove:
-            buildTrove.setStatusLogger(self.getStatusLogger())
+            buildTrove.setPublisher(self.getPublisher())
         self.troves[name, version, flavor] = buildTrove
 
     def setBuildTroves(self, buildTroves):
         self.troves = {}
         for trove in buildTroves:
             trove.jobId = self.jobId
-            trove.setStatusLogger(self.getStatusLogger())
             self.troves[trove.getNameVersionFlavor()] = trove
-        self._statusLogger.buildTrovesSet(self)
+
+
+class _FreezableBuildJob(_AbstractBuildJob):
+    """
+        Adds freeze methods to build job.  Allows the build job
+        to be sent over xmlrpc.
+    """
+
+    attrTypes = {'jobId'          : 'int',
+                 'pid'            : 'int',
+                 'uuid'           : 'str',
+                 'state'          : 'int',
+                 'status'         : 'str',
+                 'start'          : 'float',
+                 'finish'         : 'float',
+                 'failureReason'  : 'FailureReason',
+                 'troves'         : 'manual'}
+
 
     def __freeze__(self):
         d = {}
@@ -279,9 +226,103 @@ class BuildJob(_AbstractBuildJob, trovesource.SearchableTroveSource):
                             for x in new.troves)
         return new
 
+
+class BuildJob(_FreezableBuildJob):
+    """
+        Buildjob object with "publisher" methods.  The methods below
+        are used to make state changes to the job and then publish 
+        those changes to the job to subscribers.
+    """
+
+    def __init__(self, *args, **kwargs):
+        _FreezableBuildJob.__init__(self, *args, **kwargs)
+        self._publisher = publisher.JobStatusPublisher()
+
+    def getPublisher(self):
+        return self._publisher
+
+    def log(self, message):
+        """
+            Publish log message "message" to trove subscribers.
+        """
+        self._publisher.jobLogUpdated(self, message)
+
+    def setBuildTroves(self, buildTroves):
+        """
+            Sets the give 
+        """
+        _FreezableBuildJob.setBuildTroves(self, buildTroves)
+        publisher = self.getPublisher()
+        for trove in buildTroves:
+            trove.setPublisher(publisher)
+        self._publisher.buildTrovesSet(self)
+
+    def jobQueued(self):
+        self._setState(JOB_STATE_QUEUED, 'Job Queued')
+
+    def jobStarted(self, message, pid=0):
+        self.start = time.time()
+        self.pid = pid
+        self._setState(JOB_STATE_STARTED, message)
+
+    def jobBuilding(self, message):
+        self._setState(JOB_STATE_BUILD, message)
+
+    def jobPassed(self, message):
+        self.finish = time.time()
+        self._setState(JOB_STATE_BUILT, message)
+
+    def jobFailed(self, failureReason=''):
+        self.finish = time.time()
+        if isinstance(failureReason, str):
+            failureReason = failure.BuildFailed(failureReason)
+        self.failureReason = failureReason
+        self.getPublisher().cork()
+
+        self._setState(JOB_STATE_FAILED, str(failureReason))
+        for trove in self.iterTroves():
+            if trove.isUnbuilt() or trove.isBuilding():
+                trove.troveFailed(failureReason)
+        self.getPublisher().uncork()
+
+    def jobStopped(self, failureReason=''):
+        # right now jobStopped is an alias for job failed.
+        # but I think we may wish to give it its own state
+        # at some point so I'm distinguishing it here.
+        self.jobFailed(failure.JobStopped(failureReason))
+
+    def jobCommitting(self):
+        self._setState(JOB_STATE_COMMITTING, '')
+
+    def jobCommitFailed(self, message=''):
+        if self.failureReason:
+            # this job was previously failed, so revert to its failed state.
+            self._setState(JOB_STATE_FAILED, str(self.failureReason))
+        self._setState(JOB_STATE_BUILT, 'Commit failed: %s' % message)
+
+    def jobCommitted(self, troveTupleList):
+        self._setState(JOB_STATE_COMMITTED, '')
+        publisher = self.getPublisher()
+        publisher.jobCommitted(self, troveTupleList)
+
+    def exceptionOccurred(self, err, tb):
+        self.jobFailed(failure.InternalError(str(err), tb))
+
+    def _setState(self, state, status, *args):
+        self.state = state
+        self.status = status
+        self._publisher.jobStateUpdated(self, state, status, args)
+
 apiutils.register(apiutils.api_freezable(BuildJob))
 
 def NewBuildJob(db, troveTups, jobConfig=None, state=JOB_STATE_INIT, uuid=''):
+    """
+        Create a new build job that is attached to the database - i.e.
+        that will send notifications to the database when it is updated.
+
+        Note this is the preferred way to create a BuildJob, since it gives
+        the job a jobId.
+    """
     job = BuildJob(None, troveTups, state=state, uuid=uuid)
     db.addJob(job, jobConfig)
     db.subscribeToJob(job)

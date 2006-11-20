@@ -11,6 +11,14 @@
 # or fitness for a particular purpose. See the Common Public License for
 # full details.
 #
+"""
+    Failure reasons for rMake jobs.
+
+    Freezable failure reasons with arbitrary data.
+
+    NOTE: to make a new failure reason available it must be added to the 
+    list at the bottom of this page.
+"""
 from conary.conaryclient import cmdline
 from conary.deps import deps
 from conary import versions

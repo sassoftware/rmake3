@@ -15,7 +15,8 @@ from email import MIMEText
 import smtplib
 
 from rmake.build import buildjob,buildtrove
-from rmake.build.subscribe import StatusSubscriber
+
+from rmake.lib.subscriber import StatusSubscriber
 
 
 class EmailJobLogger(StatusSubscriber):

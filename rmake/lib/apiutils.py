@@ -277,7 +277,7 @@ def api_freezable(itemType):
     return _api_freezable
 
 def _thawException(val):
-    return RuntimeError('Exception from server:\n%s: %s\n%s' % tuple(val[0]))
+    return RuntimeError('Exception from server:\n%s: %s\n%s' % tuple(val))
 
 def _freezeException(err):
     return str(err.__class__), str(err), traceback.format_exc()

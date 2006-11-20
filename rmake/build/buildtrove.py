@@ -77,119 +77,17 @@ def getRecipeType(recipeClass):
 
 TROVE_STATE_LIST = sorted(troveStates.values())
 
-class _AbstractBuildTrove(object):
-    def __init__(self):
-        self.recipeType = RECIPE_TYPE_UNKNOWN
-        self.state = None
-        self.status = ''
-        self._statusLogger = None
-        self.failureReason = None
 
-    def setStatusLogger(self, statusLogger):
-        self._statusLogger = statusLogger
-
-    def getStatusLogger(self):
-        return self._statusLogger
-
-    def troveBuildable(self, message=None):
-        self.status = ''
-        self._setStatus(TROVE_STATE_BUILDABLE)
-
-    def troveResolvingBuildReqs(self):
-        self.log('Resolving build requirements')
-
-    def troveResolvedButDelayed(self, newDeps):
-        self.log('Resolved buildreqs include %s other troves scheduled to be built - delaying' % (len(newDeps),))
-        self.status = '' # don't reprint this message ever
-
-    def prepChroot(self, message):
-        self.status = 'Preparing Chroot'
-        self._setStatus(TROVE_STATE_BUILDABLE)
-
-    def troveBuilding(self, logPath='', pid=0):
-        self.status = 'Trove Building'
-        self.pid = pid
-        self.start = time.time()
-        self.logPath = logPath
-        self._setStatus(TROVE_STATE_BUILDING)
-
-    def troveBuilt(self, changeSet):
-        self.finish = time.time()
-        self.pid = 0
-        self.status = 'Trove Built'
-        self.setBuiltTroves([x.getNewNameVersionFlavor() for
-                             x in changeSet.iterNewTroveList() ])
-        self._setStatus(TROVE_STATE_BUILT, changeSet)
-
-    def troveFailed(self, failureReason):
-        self.finish = time.time()
-        self.pid = 0
-        if isinstance(failureReason, str):
-            failureReason = failure.BuildFailed(failureReason)
-        self.setFailureReason(failureReason)
-        self.status = str(self.getFailureReason())
-        self._setStatus(TROVE_STATE_FAILED)
-
-    def troveMissingBuildReqs(self, buildReqs):
-        self.finish = time.time()
-        self.pid = 0
-        self.setFailureReason(failure.MissingBuildreqs(buildReqs))
-        self.status = str(str(self.getFailureReason()))
-        self._setStatus(TROVE_STATE_FAILED)
-
-    def troveMissingDependencies(self, troveAndDepSets):
-        self.finish = time.time()
-        self.pid = 0
-        self.setFailureReason(failure.MissingDependencies(troveAndDepSets))
-        self.status = str(str(self.getFailureReason()))
-        self._setStatus(TROVE_STATE_FAILED)
-
-    def getFailureReason(self):
-        return self.failureReason
-
-    def setFailureReason(self, failureReason):
-        self.failureReason = failureReason
-
-    def getStateName(self):
-        return _getStateName(self.state)
-
-    def log(self, message):
-        self.status = message
-        if self._statusLogger:
-            self._statusLogger.troveLogUpdated(self, message)
-        self.status = ''
-
-    def _setStatus(self, state, *args):
-        oldState = self.state
-        self.state = state
-        if self._statusLogger:
-            self._statusLogger.troveStateUpdated(self, state, oldState, *args)
-
-class BuildTrove(_AbstractBuildTrove):
-
-    attrTypes = {'jobId'             : 'int',
-                 'name'              : 'str',
-                 'version'           : 'version',
-                 'flavor'            : 'flavor',
-                 'buildRequirements' : 'troveSpecList',
-                 'builtTroves'       : 'troveTupleList',
-                 'failureReason'     : 'FailureReason',
-                 'packages'          : None,
-                 'pid'               : 'int',
-                 'state'             : 'int',
-                 'status'            : 'str',
-                 'logPath'           : 'str',
-                 'start'             : 'float',
-                 'finish'            : 'float',
-                 }
-
+class _AbstractBuildTrove:
+    """
+        Base class for the trove object.
+    """
 
     def __init__(self, jobId, name, version, flavor,
                  state=TROVE_STATE_INIT, status='',
-                 failureReason=None, logPath='', start=0, finish=0, 
+                 failureReason=None, logPath='', start=0, finish=0,
                  pid=0, recipeType=RECIPE_TYPE_PACKAGE):
         assert(name.endswith(':source'))
-        _AbstractBuildTrove.__init__(self)
         self.jobId = jobId
         self.name = name
         self.version = version
@@ -293,6 +191,15 @@ class BuildTrove(_AbstractBuildTrove):
     def getBinaryTroves(self):
         return self.builtTroves
 
+    def getFailureReason(self):
+        return self.failureReason
+
+    def setFailureReason(self, failureReason):
+        self.failureReason = failureReason
+
+    def getStateName(self):
+        return _getStateName(self.state)
+
     def __hash__(self):
         return hash(self.getNameVersionFlavor())
 
@@ -301,6 +208,27 @@ class BuildTrove(_AbstractBuildTrove):
 
     def __cmp__(self, other):
         return cmp(self.getNameVersionFlavor(), other.getNameVersionFlavor())
+
+class _FreezableBuildTrove(_AbstractBuildTrove):
+    """
+        "Freezable" build trove can be frozen and unfrozen into a dictionary
+        of low-level objects in order to be sent via xmlrpc.
+    """
+    attrTypes = {'jobId'             : 'int',
+                 'name'              : 'str',
+                 'version'           : 'version',
+                 'flavor'            : 'flavor',
+                 'buildRequirements' : 'troveSpecList',
+                 'builtTroves'       : 'troveTupleList',
+                 'failureReason'     : 'FailureReason',
+                 'packages'          : None,
+                 'pid'               : 'int',
+                 'state'             : 'int',
+                 'status'            : 'str',
+                 'logPath'           : 'str',
+                 'start'             : 'float',
+                 'finish'            : 'float',
+                 }
 
     def __freeze__(self):
         d = {}
@@ -322,5 +250,145 @@ class BuildTrove(_AbstractBuildTrove):
         for attr, value in d.iteritems():
             setattr(new, attr, thaw(types[attr], value))
         return new
+
+
+class BuildTrove(_FreezableBuildTrove):
+    """
+        BuildTrove object with "publisher" methods.  The methods below
+        are used to make state changes to the trove and then publish 
+        those changes to the trove to subscribers. 
+    """
+
+    def __init__(self, *args, **kwargs):
+        self._publisher = None
+        _FreezableBuildTrove.__init__(self, *args, **kwargs)
+ 
+    def setPublisher(self, publisher):
+        """
+            Set the publisher for all events emitted from this trove.
+        """
+        self._publisher = publisher
+
+    def getPublisher(self):
+        """
+            Get the publisher for all events emitted from this trove.
+        """
+        return self._publisher
+
+    def log(self, message):
+        """
+            Publish log message "message" to trove subscribers.
+        """
+        if self._publisher:
+            self._publisher.troveLogUpdated(self, message)
+
+    def troveBuildable(self):
+        """
+            Set trove as buildable.
+
+            Publishes state change.
+        """
+        self._setState(TROVE_STATE_BUILDABLE, status='')
+
+    def troveResolvingBuildReqs(self):
+        """
+            Log step in dep resolution.
+
+            Publishes log message.
+        """
+        self.log('Resolving build requirements')
+
+    def troveResolvedButDelayed(self, newDeps):
+        """
+            Log step in dep resolution.
+
+            Publishes log message.
+        """
+        self.log('Resolved buildreqs include %s other troves scheduled to be built - delaying' % (len(newDeps),))
+
+    def prepChroot(self):
+        """
+            Log step in building.
+
+            Publishes log message.
+        """
+        self.log('Preparing Chroot')
+
+    def troveBuilding(self, logPath='', pid=0):
+        """
+            Set state to BUILDING.
+
+            Publishes state change.
+
+            @param logPath: path to build log on the filesystem.
+            @param pid: pid of build process.
+        """
+
+        self.pid = pid
+        self.start = time.time()
+        self.logPath = logPath
+        self._setState(TROVE_STATE_BUILDING, status='')
+
+    def troveBuilt(self, changeSet):
+        """
+            Sets the trove state to built.
+
+            Publishes this change.
+
+            @param changeSet: changeset created for this trove.
+        """
+        self.finish = time.time()
+        self.pid = 0
+        self.setBuiltTroves([x.getNewNameVersionFlavor() for
+                             x in changeSet.iterNewTroveList() ])
+        self._setState(TROVE_STATE_BUILT, '', changeSet)
+
+    def troveFailed(self, failureReason):
+        """
+            Sets the trove state to failed.
+
+            Publishes this change.
+
+            @param failureReason: reason for failure.
+            @type failureReason: build.failure.FailureReason or string.
+        """
+        self.finish = time.time()
+        self.pid = 0
+        if isinstance(failureReason, str):
+            failureReason = failure.BuildFailed(failureReason)
+        self.setFailureReason(failureReason)
+        self._setState(TROVE_STATE_FAILED, status=str(self.getFailureReason()))
+
+    def troveMissingBuildReqs(self, buildReqs):
+        """
+            Sets the trove state to failed, sets failure reason to missing 
+            buildreqs.
+
+            Publishes this change.
+
+            @param buildReqs: missing build reqs
+            @type buildReqs: list of strings that are the missing buildreqs.
+        """
+        self.troveFailed(failure.MissingBuildreqs(buildReqs))
+
+    def troveMissingDependencies(self, troveAndDepSets):
+        """
+            Sets the trove state to failed, sets failure reason to missing 
+            dependencies.
+
+            Publishes this change.
+
+            @param troveAndDepSets: missing dependencies
+            @type troveAndDepSets: (trove, depSet) list.
+        """
+        self.troveFailed(failure.MissingDependencies(troveAndDepSets))
+
+    def _setState(self, state, status=None, *args):
+        oldState = self.state
+        self.state = state
+        if status is not None:
+            self.status = status
+        if self._publisher:
+            self._publisher.troveStateUpdated(self, state, oldState, *args)
 
 apiutils.register(apiutils.api_freezable(BuildTrove))
