@@ -42,7 +42,7 @@ class rMakeConfiguration(daemon.DaemonConfig):
     useTmpfs          = (CfgBool, False)
     user              = CfgUserInfo
 
-    def __init__(self, readConfigFiles = True):
+    def __init__(self, readConfigFiles = False):
         daemon.DaemonConfig.__init__(self)
         self.readFiles()
 

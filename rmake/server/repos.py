@@ -134,5 +134,5 @@ def addUser(cfg, name, password=None, write=False):
 
 if __name__ == '__main__':
     sys.excepthook = util.genExcepthook()
-    rmakeConfig = servercfg.rMakeConfiguration()
+    rmakeConfig = servercfg.rMakeConfiguration(True)
     startRepository(rmakeConfig, fork=False)
