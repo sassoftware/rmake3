@@ -17,6 +17,7 @@ rMake server daemon
 """
 import os
 import shutil
+import signal
 import sys
 
 from conary.lib import misc, options, log
@@ -25,6 +26,7 @@ from rmake import constants
 from rmake.lib import daemon
 from rmake.server import servercfg
 from rmake.server import repos
+from rmake.server import server
 
 class ResetCommand(daemon.DaemonCommand):
     commands = ['reset']
@@ -63,15 +65,15 @@ class rMakeDaemon(daemon.Daemon):
         else:
             reposPid = None
         misc.removeIfExists(cfg.socketPath)
-        server = server.rMakeServer(cfg.getServerUri(), cfg,
+        rMakeServer = server.rMakeServer(cfg.getServerUri(), cfg,
                                     repositoryPid=reposPid)
-        signal.signal(signal.SIGTERM, server._signalHandler)
-        signal.signal(signal.SIGINT, server._signalHandler)
+        signal.signal(signal.SIGTERM, rMakeServer._signalHandler)
+        signal.signal(signal.SIGINT, rMakeServer._signalHandler)
         try:
-            server.serve_forever()
+            rMakeServer.serve_forever()
         finally:
-            if server.repositoryPid is not None:
-                self.killRepos(server.repositoryPid)
+            if rMakeServer.repositoryPid is not None:
+                self.killRepos(rMakeServer.repositoryPid)
 
     def killRepos(self, pid):
         log.info('killing repository at %s' % pid)
