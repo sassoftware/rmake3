@@ -59,11 +59,10 @@ class rMakeClient(object):
 
     def deleteJobs(self, jobIdList):
         """
-            Stops the given job.
+            Deletes the given jobs.
 
-            @param jobId: jobId to stop
-            @type jobId: int or uuid
-            @raise: rMakeError: If job is already stopped.
+            @param jobIdList: list of jobIds to delete
+            @type jobIdList: int or uuid list
         """
         return self.proxy.deleteJobs(jobIdList)
 
