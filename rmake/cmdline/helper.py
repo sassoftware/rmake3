@@ -12,7 +12,10 @@
 # full details.
 #
 """
-Simple client that communicates with rMake.
+Client that contains most of the behavior available from the command line.
+
+This client wraps around the low-level rMake Server client to provide
+functionality that crosses client/server boundaries.
 """
 
 import itertools
@@ -41,11 +44,41 @@ from rmake import compat
 from rmake import plugins
 
 class rMakeHelper(object):
+    """
+    Client that contains most of the behavior available from the command line.
+
+    This client wraps around the low-level rMake Server client to provide
+    functionality that crosses client/server boundaries.
+
+    example:
+        > rmakeConfig = servercfg.rMakeConfiguration(readConfigFiles=True)
+        > h = rMakeHelper(rmakeConfig.getServerUri(), rmakeConfig=rmakeConfig);
+        > jobId = h.buildTroves('foo.recipe')
+        > h.waitForJob(jobId)
+        > if h.getJob(jobId).isPassed(): print "Foo recipe built!"
+        > h.commitJob(jobId, message='Updated foo source component')
+
+    @param uri: location to rmake server or rMake Server instance object.
+    @type uri: string that starts with http, https, or unix://, or rMakeServer
+    instance.
+    @param rmakeConfig: Server Configuration
+    @type rmakeConfig: rmake.server.servercfg.rMakeConfiguration instance
+    (or None to read from filesystem)
+    @param buildConfig: rMake Build Configuration
+    @type buildConfig: rmake.build.buildcfg.BuildConfiguration instance
+    (or None to read from filesystem)
+    @param root: Root directory to search for configuration files under.
+    @type root: string
+    @param guiPassword: If True, pop up a gui window for password prompts
+    needed for accessing conary repositories.
+    @type guiPassword: boolean
+    """
+
 
     def __init__(self, uri=None, rmakeConfig=None, buildConfig=None, root='/',
                  guiPassword=False):
         if not rmakeConfig:
-            rmakeConfig = servercfg.rMakeConfiguration()
+            rmakeConfig = servercfg.rMakeConfiguration(True)
 
         if not buildConfig:
             buildConfig = buildcfg.BuildConfiguration(True, root)
@@ -84,12 +117,31 @@ class rMakeHelper(object):
 
 
     def displayConfig(self, hidePasswords=True, prettyPrint=True):
+        """
+            Display the current build configuration for this helper.
+
+            @param hidePasswords: If True, display <pasword> instead of
+            the password in the output.
+            @param prettyPrint: If True, print output in human-readable format
+            that may not be parsable by a config reader.  If False, the
+            configuration output should be valid as input.
+        """
         self.buildConfig.setDisplayOptions(hidePasswords=hidePasswords,
                                            prettyPrint=prettyPrint)
         self.buildConfig.display()
 
     def buildTroves(self, troveSpecList,
                     limitToHosts=None, recurseGroups=False):
+        """
+            Display the current build configuration for this helper.
+
+            @param hidePasswords: If True, display <pasword> instead of
+            the password in the output.
+            @param prettyPrint: If True, print output in human-readable format
+            that may not be parsable by a config reader.  If False, the
+            configuration output should be valid as input for a configuration
+            reader.
+        """
         toBuild = buildcmd.getTrovesToBuild(self.conaryclient,
                                             troveSpecList,
                                             limitToHosts=limitToHosts)
@@ -106,10 +158,25 @@ class rMakeHelper(object):
         return jobId
 
     def stopJob(self, jobId):
+        """
+            Stops the given job.
+
+            @param jobId: jobId to stop
+            @type jobId: int or uuid
+            @raise: rMakeError: If job is already stopped.
+        """
         stopped = self.client.stopJob(jobId)
 
-
     def createChangeSet(self, jobId):
+        """
+            Creates a changeset object with all the built troves for a job.
+
+            @param jobId: jobId or uuid for a given job.
+            @type jobId: int or uuid
+            @return: conary changeset object
+            @rtype: conary.repository.changeset.ReadOnlyChangeSet
+            @raise: JobNotFound: If job does not exist
+        """
         job = self.client.getJob(jobId)
         binTroves = []
         for troveTup in job.iterTroveList():
@@ -117,6 +184,7 @@ class rMakeHelper(object):
             binTroves.extend(trove.iterBuiltTroves())
         if not binTroves:
             log.error('No built troves associated with this job')
+            return None
         jobList = [(x[0], (None, None), (x[1], x[2]), True) for x in binTroves]
         primaryTroveList = [ x for x in binTroves if ':' not in x[0]]
         cs = self.repos.createChangeSet(jobList, recurse=False,
@@ -124,6 +192,14 @@ class rMakeHelper(object):
         return cs
 
     def createChangeSetFile(self, jobId, path):
+        """
+            Creates a changeset file with all the built troves for a job.
+
+            @param jobId: jobId or uuid for a given job.
+            @type jobId: int or uuid
+            @return: False if changeset not created, True if it was.
+            @raise: JobNotFound: If job does not exist
+        """
         job = self.client.getJob(jobId)
         binTroves = []
         for troveTup in job.iterTroveList():
@@ -131,15 +207,39 @@ class rMakeHelper(object):
             binTroves.extend(trove.iterBuiltTroves())
         if not binTroves:
             log.error('No built troves associated with this job')
-            return
+            return False
         jobList = [(x[0], (None, None), (x[1], x[2]), True) for x in binTroves]
         primaryTroveList = [ x for x in binTroves if ':' not in x[0]]
         self.repos.createChangeSetFile(jobList, path, recurse=False, 
                                        primaryTroveList=primaryTroveList)
+        return True
 
     def commitJob(self, jobId, message=None, commitOutdatedSources=False,
                   commitWithFailures=True, waitForJob=False,
                   sourceOnly=False):
+        """
+            Commits a job.
+
+            Committing in rMake is slightly different from committing in 
+            conary.  rMake uses the conary "clone" command to move the binary
+            stored in its internal repository out into the repository the
+            source component came from.
+
+            @param jobId: jobId or uuid for a given job.
+            @type jobId: int or uuid
+            @param message: Message to use for source commits.
+            @type message: str
+            @param commitOutdatedSources: if True, allow commit of sources
+            even if someone else has changed the source component outside
+            of rMake before you.
+            @param commitWithFailures: if True, allow commit of this job
+            even if parts of the job have failed.
+            @param waitForJob: if True, wait for the job to finish if necessary
+            before committing.
+            @param sourceOnly: if True, only commit the source component.
+            @return: False if job failed to commit, True if it succeeded.
+            @raise: JobNotFound: If job does not exist
+        """
         job = self.client.getJob(jobId)
         if not job.isFinished() and waitForJob:
             print "Waiting for job %s to complete before committing" % jobId
@@ -180,10 +280,22 @@ class rMakeHelper(object):
             return False
 
     def deleteJobs(self, jobIdList):
+        """
+            Deletes the given jobs.
+
+            @param jobIdList: list of jobIds to delete
+            @type jobIdList: int or uuid list
+        """
         deleted = self.client.deleteJobs(jobIdList)
         print 'deleted %d jobs' % len(deleted)
 
     def waitForJob(self, jobId):
+        """
+            Waits for the given job to complete.
+
+            Creates a silent subscriber that returns when the job is finished.
+            @rtype: None
+        """
         fd, tmpPath = tempfile.mkstemp()
         os.close(fd)
         uri = 'unix:' + tmpPath
@@ -194,6 +306,20 @@ class rMakeHelper(object):
 
     def poll(self, jobId, showTroveLogs = False, showBuildLogs = False,
              commit = False):
+        """
+            Displays information about a currently running job.  Always displays
+            high-level information like "Job building", "Job stopped".  Displays
+            state and log information for troves based on options.
+
+            @param jobId: jobId or uuid for a given job.
+            @type jobId: int or uuid
+            @param showTroveLogs: If True, display trove state log information
+            @param showBuildLogs: If True, display build log for troves.
+            @param commit: If True, commit job upon completion.
+            @return: True if poll returns normally (and commit succeeds, if
+            commit requested).
+            @rtype: bool
+        """
         fd, tmpPath = tempfile.mkstemp()
         os.close(fd)
         uri = 'unix:' + tmpPath
