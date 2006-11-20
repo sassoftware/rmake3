@@ -1,6 +1,7 @@
 #
 # Copyright (c) 2006 rPath, Inc.
-# All rights reserved
+# This file is distributed under the terms of the MIT License.
+# A copy is available at http://www.rpath.com/permanent/mit-license.html
 #
 
 class RmakeRecipe(CPackageRecipe):
@@ -9,7 +10,8 @@ class RmakeRecipe(CPackageRecipe):
 
     buildRequires = [ 'conary:python', 'chkconfig:runtime',
                       'info-rmake:user',  'libcap:devel',
-                      'conary-repository:python', 'desktop-file-utils:runtime']
+                      'conary-repository:python', 'desktop-file-utils:runtime',
+                      'pygtk:python', ]
 
     def setup(r):
         r.addArchive('rmake-@version@.tar.bz2')
