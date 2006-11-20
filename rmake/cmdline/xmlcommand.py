@@ -83,7 +83,7 @@ class RmakeXMLCommandParser(object):
                     assert(value.startswith('http://') or value.startswith('https://'))
             else:
                 key = buildConfig._lowerCaseMap[key.lower()]
-                buildConfig[key] = buildConfig.getDefaultValue(key)
+                buildConfig.resetToDefault(key)
 
             for value in values:
                 buildConfig.configLine('%s %s' % (key, value))
