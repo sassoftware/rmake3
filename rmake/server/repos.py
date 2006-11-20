@@ -55,7 +55,6 @@ def startRepository(cfg = None, fork = True):
     util.mkdirChain('%s/contents' % baseDir)
 
 
-    os.chdir(cfg.getReposDir())
     serverCfg = server.ServerConfig(os.path.join(cfg.getReposDir(), 'serverrc'))
     serverCfg.repositoryDB = ('sqlite', cfg.getReposPath())
     serverCfg.cacheDB = ('sqlite', cfg.getReposCachePath())
@@ -89,6 +88,7 @@ def startRepository(cfg = None, fork = True):
                                                             pid))
             return pid
     try:
+        os.chdir(cfg.getReposDir())
         serverrc = open(cfg.getReposConfigPath(), 'w')
         serverCfg.store(serverrc, includeDocs=False)
         util.mkdirChain(os.path.dirname(cfg.getReposLogPath()))
