@@ -39,6 +39,11 @@ from rmake.lib.apiutils import api, api_parameters, api_return, freeze, thaw
 from rmake.lib import apirpc
 
 class rMakeServer(apirpc.XMLApiServer):
+    """
+        rMake server.
+
+        See rMake client for documentation of API.
+    """
 
     _CLASS_API_VERSION = 1
 
@@ -348,6 +353,7 @@ class rMakeServer(apirpc.XMLApiServer):
                 os._exit(2)
 
     def _failCurrentJobs(self, jobs, reason):
+        from rmake.server.client import rMakeClient
         pid = os.fork()
         if pid:
             log.info('Fail current jobs forked pid %d' % pid)
