@@ -25,15 +25,28 @@ class RmakeInternalError(Exception):
     pass
 
 class RmakeError(Exception):
+    """
+        RmakeError - superclass for all well-defined rMake errors.
+
+        If you create an error in rMake, it should derive from this class,
+        and have a str() that is acceptable output for the command line,
+        with an "error: " prompt before it.
+
+        Any relevant data for this error should be stored outside of the
+        string so it can be accessed from non-command-line interfaces.
+    """
     @classmethod
     def __thaw__(class_, data):
         return class_(*data)
 
     def __freeze__(self):
-        return self.args[0]
+        return self.args
 apiutils.register(RmakeError)
 
 class BadParameters(RmakeError):
+    """
+        Raised when a command is given bad parameters at the command line.
+    """
     pass
 
 class JobNotFound(RmakeError):
@@ -69,13 +82,21 @@ class DatabaseSchemaTooNew(RmakeError):
 
 
 class ServerError(RmakeError):
+    """
+        Generic error for communicating with the rMakeServer.
+    """
     pass
 
 class OpenError(ServerError):
+    """
+        Generic error for starting communication with the rMakeServer.
+    """
     pass
 
 
 
+# error that gets output when a Python exception makes it to the command 
+# line.
 errorMessage = '''
 *******************************************************************
 *** An error has occurred in rmake:
