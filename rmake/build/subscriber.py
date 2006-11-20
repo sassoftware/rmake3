@@ -11,8 +11,23 @@
 # or fitness for a particular purpose. See the Common Public License for
 # full details.
 #
-import traceback
+"""
+    Internal subscribers for jobs.  Internal subscribers are within the same
+    process as the BuildJob, and have their messages sent immediately after
+    the publishing method is called.  External subscribers are sent an event
+    list by the rMake Server.
 
+    Subscribers listen to a job and its troves for particular state changes.
+    When such events are received, the events are passed to functions
+    based on the event type.
+
+    Currently, there are 2 Internal Subscribers:
+     * _JobDBLogger: listens to state changes and records them in the database.
+     * _RmakeServerPublisherProxy: listens to events and passes them off to
+       the rMake Server.
+
+    NOTE: there is one other internal subscriber, the dependency handler.
+"""
 from conary.lib import log
 
 from rmake.lib import apirpc
@@ -130,7 +145,21 @@ class _RmakeServerPublisherProxy(_InternalSubscriber):
 
         self.proxy.emitEvents(self.job.jobId, newEventList)
 
-class EventListFreezer(object):
+class _EventListFreezer(object):
+    """
+        Internal method to freeze event lists for sending over xmlrpc.
+
+        In their frozn format, events are 
+
+        For job events:
+            (event, jobId, *eventData)
+        For trove events:
+            (event,  (jobId, troveTuple), *eventData)
+
+        This class is automatically registered as the freezer/thawer for 
+        EventList items passed over xmlrpc.
+    """
+
     name = 'EventList'
     # FIXME: Events should be thin object wrappers
     # so that we can abstract away some of this crap and put versioning
@@ -179,4 +208,4 @@ class EventListFreezer(object):
             newEventList.append(((event, subevent), data))
         return apiVer, newEventList
 
-apiutils.register(EventListFreezer)
+apiutils.register(_EventListFreezer)
