@@ -11,6 +11,7 @@
 # without any warranty; without even the implied warranty of merchantability
 # or fitness for a particular purpose. See the Common Public License for
 # full details.
+import time
 
 from rmake.lib import apirpc
 from rmake.lib.apiutils import thaw
@@ -20,7 +21,7 @@ from rmake.server import server
 class rMakeClient(object):
     def __init__(self, uri):
         self.uri = uri
-        self.proxy = apirpc.ApiProxy(rMakeServer, uri)
+        self.proxy = apirpc.ApiProxy(server.rMakeServer, uri)
 
     def buildTroves(self, sourceTroveTups, buildEnv):
         return self.proxy.buildTroves(sourceTroveTups, buildEnv)
