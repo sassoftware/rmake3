@@ -33,6 +33,35 @@ from rmake.lib import logfile, recipeutil
 from rmake.lib import repocache
 
 class Builder(object):
+    """
+        Build manager for rMake.
+
+        Basically:
+            * get a set of troves in init.
+            * load the troves to determine what packages they create,
+              while flavors they use, and what build requirements they have.
+            * while buildable troves left:
+                * build one trove.
+                * commit to internal repos if successful.
+
+        Almost all passing of information from the builder is done through 
+        subscription.  Instances register to listen to particular events on 
+        the trove and job objects.  Those events are triggered by changing the
+        states of the trove objects.
+
+        Instances that listen on this side of the rMake server are called
+        "Internal subscribers" - the database is one, the message passer that
+        lets the rmake server know about status updates is another.
+
+        See build/subscribe.py for more information.
+
+        @param serverCfg: rmake server Configuration.  Used to determine 
+        location to commit troves.
+        @type serverCfg: rmake.server.servercfg.rMakeConfiguration
+        @param buildCfg: build configuration, describes all parameters for 
+        build.
+        @type buildCfg: rmake.build.buildcfg.BuildConfiguration instance.
+    """
     def __init__(self, serverCfg, buildCfg, job):
         self.serverCfg = serverCfg
         self.buildCfg = buildCfg
@@ -89,7 +118,6 @@ class Builder(object):
         buildTroves = recipeutil.getSourceTrovesFromJob(self.job,
                                                         self.buildCfg,
                                                         self.repos)
-
         self.job.setBuildTroves(buildTroves)
 
         self.buildState = dephandler.DependencyBasedBuildState(
@@ -107,6 +135,7 @@ class Builder(object):
         return True
 
     def build(self):
+        # main loop is here.
         if not self.initializeBuild():
             return False
 
@@ -140,6 +169,7 @@ class Builder(object):
             err = ('group, redirect, and fileset packages must'
                    ' be alone in their own job')
             for trove in delayed:
+                # publish failed status
                 trove.troveFailed(failure.FailureReason('Trove failed sanity check: %s' % err))
             troveNames = ', '.join(x.getName().split(':')[0] for x in delayed)
             self.job.jobFailed(failure.FailureReason("Job failed sanity check: %s: %s" % (err, troveNames)))
@@ -156,12 +186,14 @@ class Builder(object):
             self._chroots.append(chroot)
         except Exception, err:
             f = failure.ChrootFailed(str(err), traceback.format_exc())
+            # sends off messages to all listeners that this trove failed.
             troveToBuild.troveFailed(f)
             return
 
         n,v,f = troveToBuild.getNameVersionFlavor()
         targetLabel = self.buildCfg.getTargetLabel(v)
         logPath, pid = chroot.buildTrove(self.buildCfg, targetLabel, n, v, f)
+        # sends off message that this trove is building.
         troveToBuild.troveBuilding(logPath, pid)
         self._buildingTroves.append((chrootFactory, chroot, troveToBuild))
 
@@ -180,6 +212,7 @@ class Builder(object):
                     csFile = buildResult.getChangeSetFile()
                     cs = changeset.ChangeSetFromFile(csFile)
                     self.repos.commitChangeSet(cs)
+                    # sends off message that this trove built successfully
                     trove.troveBuilt(cs)
                     del cs # this makes sure the changeset closes the fd.
                     if self.buildCfg.cleanAfterCook:
