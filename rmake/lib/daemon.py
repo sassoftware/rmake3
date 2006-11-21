@@ -219,7 +219,7 @@ class Daemon(options.MainHandler):
                 # redirect stdout and stderr to <name>.log
                 logFile = self.getLogFile()
                 logFile.redirectOutput(close=True)
-                null = os.open("/dev/null", os.O_WRONLY)
+                null = os.open("/dev/null", os.O_RDONLY)
                 os.dup2(null, sys.stdin.fileno())
                 os.close(null)
 
