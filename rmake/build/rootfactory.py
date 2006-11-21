@@ -46,6 +46,13 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
         self.callback = None
         self.csCache = csCache
 
+        self.addDir('/tmp', mode=01777)
+        self.addDir('/var/tmp', mode=01777)
+        self.addDir('/etc')
+        self.addDir('/etc/rmake')
+        self.addDir('/etc/conary')
+        self.addDir(self.cfg.tmpDir, mode=01777)
+
     def install(self):
         if not self.jobList:
             # should only be true in debugging situations
@@ -107,6 +114,8 @@ class rMakeChroot(ConaryBasedChroot):
 
         if copyInConary:
             self._copyInConary()
+        self._copyInRmake()
+
 
     def install(self):
         self.buildTrove.log('Creating Chroot')
@@ -198,13 +207,6 @@ class FullRmakeChroot(rMakeChroot):
 
     def __init__(self, *args, **kw):
         rMakeChroot.__init__(self, *args, **kw)
-        self.addDir('/tmp', mode=01777)
-        self.addDir('/var/tmp', mode=01777)
-        self.addDir('/etc')
-        self.addDir('/etc/rmake')
-        self.addDir('/etc/conary')
-        self.addDir(self.cfg.tmpDir, mode=01777)
-
         self.addMount('/proc', '/proc', type='proc')
         self.addMount('/dev/pts', '/dev/pts', type='devpts')
         self.addDeviceNode('urandom') # needed for ssl and signing
@@ -218,8 +220,6 @@ class FullRmakeChroot(rMakeChroot):
             self.copyFile('/etc/localtime')
         if os.path.exists('/etc/nsswitch.conf'):
             self.copyFile('/etc/nsswitch.conf')
-
-        self._copyInRmake()
 
         # ********
         # NOTE:

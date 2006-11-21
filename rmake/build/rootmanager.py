@@ -14,6 +14,7 @@
 import errno
 import copy
 import os
+import sys
 import time
 
 #conary
@@ -21,6 +22,7 @@ from conary.lib import util, log
 
 #rmake
 from rmake import constants
+from rmake import errors
 from rmake.build.chroot import server as chrootserver
 from rmake.build import rootfactory
 from rmake.lib import flavorutil
