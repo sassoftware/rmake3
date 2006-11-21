@@ -11,6 +11,11 @@
 # or fitness for a particular purpose. See the Common Public License for
 # full details.
 #
+"""
+    Creates chroots to be used for building.
+
+    Uses the chroothelper program to do final processing and chrooting.
+"""
 
 import copy
 import errno
@@ -39,6 +44,11 @@ from rmake.lib import flavorutil
 from rmake.lib import repocache
 
 class ChrootCallback(callbacks.UpdateCallback):
+    """
+        Callback to update trove log as the chroot is created.
+        @param buildTrove: trove we're creating a chroot for
+        @type: build.buildtrove.BuildTrove
+    """
     def __init__(self, buildTrove):
         callbacks.UpdateCallback.__init__(self)
         self.hunk = (0,0)
@@ -86,7 +96,7 @@ class ChrootCallback(callbacks.UpdateCallback):
 
 class AbstractChroot:
     """
-        The root manages a root environment, creating and installing
+        The root instance manages a root environment, creating and installing
         the necessary files for the root to be usuable, and cleaning up
         after itself as much as possible.
     """

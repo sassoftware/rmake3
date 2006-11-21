@@ -11,6 +11,12 @@
 # or fitness for a particular purpose. See the Common Public License for
 # full details.
 #
+"""
+    Internal publisher for jobs and troves.  See build/subscriber.py for
+    subscribers.  Jobs and troves trigger this publisher when their state
+    changes.
+"""
+
 import traceback
 
 from conary.lib import log
