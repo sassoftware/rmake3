@@ -101,6 +101,7 @@ class RmakeBuildContext(cfg.ConfigSection):
     resolveTroves        = (CfgList(CfgQuotedLineList(CfgTroveSpec)),
                             [[('group-dist', None, None)]])
     resolveTrovesOnly    = (CfgBool, False)
+    reuseRoots           = (CfgBool, False)
     strictMode           = (CfgBool, False)
     subscribe            = (CfgSubscriberDict(CfgSubscriber), {})
     targetLabel          = (CfgLabel, versions.Label('NONE@LOCAL:NONE'))

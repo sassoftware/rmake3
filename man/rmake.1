@@ -89,8 +89,12 @@ See \fIpoll\fP for more information.
 .B \-\-quiet
 Modifier to --poll to limit the amount of output printed when polling.
 See \fIpoll\fP for more information.
+.TP
+.B \-\-reuse
+Triggers the reuseRoots config option, useful for iterative test builds.
+See reuseRoots config option for more information. (--no-reuse turns off this
+functionality if it's turned on from the config file).
 .RE
-
 .TP
 .B changeset \fI<jobId>\fP \fI<path>\fP 
 
@@ -256,6 +260,7 @@ these groups, then rmake will use those troves to resolve dependencies.
 This allows you to build troves in the context of a preexisting group,
 for example, instead of just using what is latest on the label.
 
+
 The resolveTroves list is ordered into "buckets".  One bucket is given for 
 each resolveTrove line.  For example, if the two resolveTrove lines:
 
@@ -270,6 +275,18 @@ To disable resolveTroves, add the line 'resolveTroves []'
 .B resolveTrovesOnly
 resolveTrovesOnly turns off the use of the installLabelPath by conary, limiting
 conary to only including troves that are referenced in resolveTroves.
+.TP
+.B reuseRoots
+reuseReoots causes the rMake chroot builder to reuse any chroot that exists,
+modifying it so that the troves installed in the chroot matches the required
+trove for building the package.
+
+Note that this option is most useful for iterative \fItest\fP builds.  It 
+creates packages that may not be as clean as builds created with this option
+turned off.  This is because erasing packages from a root may leave behind
+unowned or modified files, create unnessary users, and so on.  In general, use
+this option for iterative test builds of a single package, and leave it off 
+otherwise.
 .TP
 .B strictMode
 Strict mode disables the copying in of configuration files from your system.

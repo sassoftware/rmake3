@@ -27,7 +27,7 @@ from conary.repository import changeset
 
 from rmake.build import buildjob
 from rmake.build import failure
-from rmake.build import rootfactory
+from rmake.build import rootmanager
 from rmake.build import dephandler
 from rmake.lib import logfile, recipeutil
 from rmake.lib import repocache
@@ -177,12 +177,12 @@ class Builder(object):
         return True
 
     def _buildTrove(self, troveToBuild):
-        chrootFactory = self.getChrootFactory()
+        chrootManager = self.getChrootManager()
         self.job.log('Building %s' % troveToBuild.getName())
         buildReqs = self.buildState.getBuildReqTroves(troveToBuild)
 
         try:
-            chroot = chrootFactory.createRoot(buildReqs, troveToBuild)
+            chroot = chrootManager.createRoot(buildReqs, troveToBuild)
             self._chroots.append(chroot)
         except Exception, err:
             f = failure.ChrootFailed(str(err), traceback.format_exc())
@@ -195,18 +195,18 @@ class Builder(object):
         logPath, pid = chroot.buildTrove(self.buildCfg, targetLabel, n, v, f)
         # sends off message that this trove is building.
         troveToBuild.troveBuilding(logPath, pid)
-        self._buildingTroves.append((chrootFactory, chroot, troveToBuild))
+        self._buildingTroves.append((chrootManager, chroot, troveToBuild))
 
 
     def _checkForResults(self):
         foundResult = False
-        for chrootFactory, chroot, trove in list(self._buildingTroves):
+        for chrootManager, chroot, trove in list(self._buildingTroves):
             try:
                 buildResult = chroot.checkResults(*trove.getNameVersionFlavor())
                 if not buildResult:
                     continue
                 foundResult = True
-                self._buildingTroves.remove((chrootFactory, chroot, trove))
+                self._buildingTroves.remove((chrootManager, chroot, trove))
 
                 if buildResult.isBuildSuccess():
                     csFile = buildResult.getChangeSetFile()
@@ -216,9 +216,9 @@ class Builder(object):
                     trove.troveBuilt(cs)
                     del cs # this makes sure the changeset closes the fd.
                     if self.buildCfg.cleanAfterCook:
-                        chrootFactory.cleanRoot(chroot.getPid())
+                        chrootManager.cleanRoot(chroot.getPid())
                     else:
-                        chrootFactory.killRoot(chroot.getPid())
+                        chrootManager.killRoot(chroot.getPid())
                     continue
                 else:
                     reason = buildResult.getFailureReason()
@@ -227,10 +227,10 @@ class Builder(object):
             except Exception, e:
                 reason = failure.InternalError(str(e), traceback.format_exc())
                 trove.troveFailed(reason)
-            chrootFactory.killRoot(chroot.getPid())
+            chrootManager.killRoot(chroot.getPid())
         return foundResult
 
-    def getChrootFactory(self):
-        return rootfactory.ChrootFactory(self.job, self.serverCfg.buildDir,
+    def getChrootManager(self):
+        return rootmanager.ChrootManager(self.job, self.serverCfg.buildDir,
                                          self.serverCfg.chrootHelperPath,
                                          self.buildCfg, self.serverCfg)

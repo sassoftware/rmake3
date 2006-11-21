@@ -201,7 +201,8 @@ Builds the specified packages or recipes.
             'macro'   : ('set macro NAME to VALUE', "'NAME VALUE'"),
             'no-clean': 'do not remove build directory even if build is'
                         ' successful',
-            }
+            'reuse':    ('reuse old chroot if possible instead of removing'
+                         ' and recreating')}
 
     def addParameters(self, argDef):
         argDef['flavor'] = ONE_PARAM
@@ -212,6 +213,11 @@ Builds the specified packages or recipes.
         argDef['macro'] = MULT_PARAM
         argDef['no-clean'] = NO_PARAM
         rMakeCommand.addParameters(self, argDef)
+
+    def addConfigOptions(self, cfgMap, argDef):
+        cfgMap['reuse'] = 'reuseRoots', NO_PARAM
+        rMakeCommand.addConfigOptions(self, cfgMap, argDef)
+
 
     def runCommand(self, client, cfg, argSet, args):
         log.setVerbosity(log.INFO)
