@@ -336,10 +336,13 @@ int enter_chroot(const char * chrootDir, int useTmpfs) {
         }
 	if (opt_verbose)
 	    printf("creating device %s\n", tempPath);
+
         if (-1 == mknod(tempPath, device.type | device.mode,
                         makedev(device.major, device.minor))) {
-            perror("mknod");
-            return 1;
+            if (errno != EEXIST) {
+                perror("mknod");
+                return 1;
+            }
         }
     }
     /* restore sane umask */
@@ -357,6 +360,7 @@ int enter_chroot(const char * chrootDir, int useTmpfs) {
         }
 	if (opt_verbose)
 	    printf("creating symlink: %s -> %s\n", tempPath, symlinks[i].to);
+        unlink(tempPath);
         if(-1 == symlink(symlinks[i].to, tempPath)) {
             perror("symlink");
             return 1;
