@@ -251,7 +251,9 @@ def _cookTrove(cfg, name, version, flavor, targetLabel, csFile, failureFd):
 
         # add extra buildreqs manually added for this trove
         # by the builder.
-        recipeClass.buildRequires += cfg.defaultBuildReqs
+        if (hasattr(recipeClass, 'buildRequires')
+            and hasattr(cfg, 'defaultBuildReqs')):
+            recipeClass.buildRequires += cfg.defaultBuildReqs
 
         # if we're already on the target label, we'll assume no targeting 
         # is necessary
