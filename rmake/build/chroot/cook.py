@@ -250,7 +250,9 @@ def _cookTrove(cfg, name, version, flavor, targetLabel, csFile, failureFd):
         cfg.signatureKey = None
 
         # add extra buildreqs manually added for this trove
-        # by the builder.
+        # by the builder.  Only add them if the recipe is of the
+        # right type, and the cfg file we're passed in understands them
+        # (it might be a simple conary cfg file).
         if (hasattr(recipeClass, 'buildRequires')
             and hasattr(cfg, 'defaultBuildReqs')):
             recipeClass.buildRequires += cfg.defaultBuildReqs
