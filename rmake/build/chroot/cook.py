@@ -249,6 +249,10 @@ def _cookTrove(cfg, name, version, flavor, targetLabel, csFile, failureFd):
         cfg.signatureKeyMap = {}
         cfg.signatureKey = None
 
+        # add extra buildreqs manually added for this trove
+        # by the builder.
+        recipeClass.buildRequires += cfg.defaultBuildReqs
+
         # if we're already on the target label, we'll assume no targeting 
         # is necessary
         if targetLabel == version.trailingLabel():

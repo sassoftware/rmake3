@@ -3,6 +3,9 @@ Changes in @NEW@:
      * rMake now supports reusable chroots. Use the --reuse option or the
        reuseRoots config option to cause rMake to modify roots instead of
        starting from scratch when performing builds. (RMK-201)
+     * rMake now adds default build requirements to the build requirements 
+       recorded for a package when it is built, even if those requirements
+       are not listed explicitly in the recipe.
 
 Changes in 1.0.2:
   o Bug Fixes:
