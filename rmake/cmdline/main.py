@@ -584,6 +584,8 @@ def main(argv):
         return RmakeMain().main(argv, debuggerException=debuggerException)
     except debuggerException, err:
         raise
+    except errors.OpenError, err:
+        log.error(str(err) + ' -- check to see that the server is running.')
     except (errors.RmakeError, conaryerrors.ConaryError, cfg.ParseError,
             conaryerrors.CvcError), err:
         log.error(err)
