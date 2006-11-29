@@ -104,7 +104,7 @@ class RmakeBuildContext(cfg.ConfigSection):
     reuseRoots           = (CfgBool, False)
     strictMode           = (CfgBool, False)
     subscribe            = (CfgSubscriberDict(CfgSubscriber), {})
-    targetLabel          = (CfgLabel, versions.Label('NONE@LOCAL:NONE'))
+    targetLabel          = (CfgLabel, versions.Label('NONE@local:NONE'))
     uuid                 = (CfgUUID, '')
 
 
