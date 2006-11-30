@@ -7,6 +7,10 @@ Changes in @NEW@:
        recorded for a package when it is built, even if those requirements
        are not listed explicitly in the recipe.
 
+  o Client Changes:
+     * poll has been renamed "watch".  Poll should continue to work in order 
+       to provide backwards compatibility.
+
   o Bug Fixes:
      * --tracebacks now actually displays tracebacks for failures.
 
