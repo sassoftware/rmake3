@@ -10,6 +10,8 @@ Changes in @NEW@:
   o Client Changes:
      * poll has been renamed "watch".  Poll should continue to work in order 
        to provide backwards compatibility.
+     * added read-only repository cache support, as well as a way to get the
+       paths to the files in the content store.
 
   o Bug Fixes:
      * --tracebacks now actually displays tracebacks for failures.
