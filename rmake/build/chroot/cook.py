@@ -24,7 +24,6 @@ from conary.build import cook,use
 from conary.deps import deps
 from conary.lib import epdb
 from conary.lib import log,util
-from conary import conaryclient
 from conary import versions
 from conary.deps.deps import ThawFlavor
 
@@ -94,7 +93,7 @@ class CookResults(object):
         return new
 
 
-def cookTrove(cfg, name, version, flavor, targetLabel):
+def cookTrove(cfg, repos, name, version, flavor, targetLabel):
     util.mkdirChain(cfg.root + '/tmp')
     fd, csFile = tempfile.mkstemp(dir=cfg.root + '/tmp',
                                   prefix='rmake-%s-' % name,
@@ -125,8 +124,8 @@ def cookTrove(cfg, name, version, flavor, targetLabel):
                 resource.setrlimit(resource.RLIMIT_CORE, (0,0))
                 logFile.redirectOutput()
 
-                _cookTrove(cfg, name, version, flavor, targetLabel, csFile,
-                           failureFd=outF)
+                _cookTrove(cfg, repos, name, version, flavor, targetLabel, 
+                           csFile, failureFd=outF)
             except Exception, msg:
                 errMsg = 'Error cooking %s=%s[%s]: %s' % \
                                         (name, version, flavor, str(msg))
@@ -204,8 +203,6 @@ def stopBuild(results, pid, inF, csFile):
     log.info('pid %s killed' % pid)
 
 def _buildFailed(failureFd, errMsg, traceBack):
-    #if sys.stdin.isatty():
-    #    epdb.post_mortem(sys.exc_info()[2])
     log.error(errMsg)
     frz = '\002'.join(str(x) for x in freeze('FailureReason',
                                 BuildFailed(errMsg, traceBack)))
@@ -214,11 +211,11 @@ def _buildFailed(failureFd, errMsg, traceBack):
         os.close(failureFd)
     os._exit(1)
 
-def _cookTrove(cfg, name, version, flavor, targetLabel, csFile, failureFd):
+def _cookTrove(cfg, repos, name, version, flavor, targetLabel, csFile, 
+               failureFd):
     try:
         log.debug('Cooking %s=%s[%s] to %s (stored in %s)' % \
                   (name, version, flavor, targetLabel, csFile))
-        repos = conaryclient.ConaryClient(cfg).getRepos()
         (loader, recipeClass, localFlags, usedFlags)  = \
             recipeutil.loadRecipeClass(repos, name, version, flavor,
                                        ignoreInstalled=False, root=cfg.root)

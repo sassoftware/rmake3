@@ -115,11 +115,30 @@ class rMakeChroot(ConaryBasedChroot):
         if copyInConary:
             self._copyInConary()
         self._copyInRmake()
+        self._cacheBuildFiles()
 
 
     def install(self):
         self.buildTrove.log('Creating Chroot')
         ConaryBasedChroot.install(self)
+        # copy in the tarball files needed for building this package from
+        # the cache.
+        self._cacheBuildFiles()
+
+    def _cacheBuildFiles(self):
+        client = conaryclient.ConaryClient(self.cfg)
+        sourceTup = self.buildTrove.getNameVersionFlavor()
+        sourceTup = (sourceTup[0], sourceTup[1], deps.parseFlavor(''))
+        trv = self.csCache.getTroves(client.getRepos(), [sourceTup],
+                                     withFiles=True)[0]
+        allFiles = list(trv.iterFileList())
+        fileContents = [(x[2], x[3]) for x in allFiles]
+        oldRootLen = len(self.csCache.root)
+        for path in self.csCache.getFileContentsPaths(client.getRepos(),
+                                                      fileContents):
+            newPath = path[oldRootLen:]
+            self.copyFile(path, '/var/rmake/cscache/' + newPath)
+
 
     def _copyInRmake(self):
         # should this be controlled by strict mode too?
