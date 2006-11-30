@@ -7,6 +7,9 @@ Changes in @NEW@:
        recorded for a package when it is built, even if those requirements
        are not listed explicitly in the recipe.
 
+  o Bug Fixes:
+     * --tracebacks now actually displays tracebacks for failures.
+
 Changes in 1.0.2:
   o Bug Fixes:
      * Conary's new ability to commit relative changesets caused
