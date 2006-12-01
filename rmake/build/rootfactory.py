@@ -89,11 +89,17 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
         if conaryDir.endswith('site-packages/conary'):
             self.copyFile('/usr/bin/conary')
             self.copyFile('/usr/bin/cvc')
-        elif os.path.exists(conaryDir + '../commands'):
-            commandDir = os.path.realpath(conaryDir + '../commands')
-            self.copyFile(commandDir + '/cvc', '/usr/bin/cvc')
-            self.copyFile(commandDir + '/conary', '/usr/bin/cvc')
-
+        elif os.path.exists(os.path.join(conaryDir, '../commands')):
+            commandDir = os.path.realpath(os.path.join(conaryDir,'../commands'))
+            for fname in ['cvc', 'conary']:
+                self.copyFile(os.path.join(commandDir, fname),
+                              os.path.join('/usr/bin', fname))
+            # Need to copy perlreqs.pl too
+            scriptsDir = os.path.realpath(os.path.join(conaryDir,'../scripts'))
+            if os.path.exists(scriptsDir):
+                self.copyDir(scriptsDir)
+                self.copyFile(os.path.join(scriptsDir, 'perlreqs.pl'),
+                    '/usr/libexec/conary/perlreqs.pl')
 
 class rMakeChroot(ConaryBasedChroot):
 
