@@ -19,13 +19,14 @@ import time
 import traceback
 
 from conary.lib import log, misc, options, util
+from conary import conaryclient
 
 from rmake.build.chroot import cook
 
 from rmake import constants
 from rmake.build import buildcfg
 from rmake.lib.apiutils import *
-from rmake.lib import apirpc, daemon
+from rmake.lib import apirpc, daemon, repocache
 
 class ChrootServer(apirpc.XMLApiServer):
 
@@ -43,7 +44,11 @@ class ChrootServer(apirpc.XMLApiServer):
         buildCfg.lookaside = self.cfg.root + '/tmp/rmake/cache'
         buildCfg.dbPath = '/var/lib/conarydb'
 
-        logPath, pid, buildInfo = cook.cookTrove(buildCfg,
+        repos = conaryclient.ConaryClient(buildCfg).getRepos()
+        repos = repocache.CachingTroveSource(repos,
+                                        self.cfg.root + '/var/rmake/cscache',
+                                        readOnly=True)
+        logPath, pid, buildInfo = cook.cookTrove(buildCfg, repos,
                                                  name, version, flavor,
                                                  targetLabel)
         pid = buildInfo[1]

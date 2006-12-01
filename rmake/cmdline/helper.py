@@ -304,7 +304,7 @@ class rMakeHelper(object):
         finally:
             os.remove(tmpPath)
 
-    def poll(self, jobId, showTroveLogs = False, showBuildLogs = False,
+    def watch(self, jobId, showTroveLogs = False, showBuildLogs = False,
              commit = False):
         """
             Displays information about a currently running job.  Always displays
@@ -316,7 +316,7 @@ class rMakeHelper(object):
             @param showTroveLogs: If True, display trove state log information
             @param showBuildLogs: If True, display build log for troves.
             @param commit: If True, commit job upon completion.
-            @return: True if poll returns normally (and commit succeeds, if
+            @return: True if watch returns normally (and commit succeeds, if
             commit requested).
             @rtype: bool
         """
@@ -331,10 +331,11 @@ class rMakeHelper(object):
             except Exception, err:
                 if commit:
                     print "Poll interrupted, not committing"
-                    print "You can restart commit by running 'rmake poll %s --commit'" % jobId
+                    print "You can restart commit by running 'rmake watch %s --commit'" % jobId
                 raise
             if commit:
                 return self.commitJob(jobId, commitWithFailures=False)
             return True
         finally:
             os.remove(tmpPath)
+    poll = watch # backwards compatibility
