@@ -30,10 +30,10 @@ from conary.repository import filecontents
 from conary.repository import trovesource
 
 class CachingTroveSource:
-    def __init__(self, troveSource, cacheDir):
+    def __init__(self, troveSource, cacheDir, readOnly=False):
         self._troveSource = troveSource
         util.mkdirChain(cacheDir)
-        self._cache = RepositoryCache(cacheDir)
+        self._cache = RepositoryCache(cacheDir, readOnly=readOnly)
 
     def __getattr__(self, key):
         return getattr(self._troveSource, key)
@@ -58,8 +58,10 @@ class RepositoryCache(object):
         We cache changeset files by component.  When conary is fixed, we'll
         be able to combine the download of these troves.
     """
-    def __init__(self, cacheDir):
+    def __init__(self, cacheDir, readOnly=False):
+        self.root = cacheDir
         self.store = DataStore(cacheDir)
+        self.readOnly = readOnly
 
     def hashFile(self, fileId, fileVersion):
         # we add extra delimiters here because we can be sure they they
@@ -121,6 +123,9 @@ class RepositoryCache(object):
 
             cs = repos.createChangeSet([job], recurse=False,
                                        callback=callback)
+            if self.readOnly:
+                changesets.append(cs)
+                continue
 
             tmpFd, tmpName = tempfile.mkstemp()
             os.close(tmpFd)
@@ -155,10 +160,21 @@ class RepositoryCache(object):
                                             callback=callback)
         itemList = itertools.izip(newContents, needed)
         for content, (idx, (fileId, fileVersion), fileHash) in itemList:
-            self.store.addFile(content.get(), fileHash, integrityCheck=False)
+            if not self.readOnly:
+                self.store.addFile(content.get(), fileHash,
+                                   integrityCheck=False)
             contents[idx] = content
 
         return contents
+
+    def getFileContentsPaths(self, repos, fileList, callback=None):
+        self.getFileContents(repos, fileList, callback=None)
+        paths = []
+        for idx, item in enumerate(fileList):
+            fileId, fileVersion = item[0:2]
+            fileHash = str(self.hashFile(fileId, fileVersion))
+            paths.append(self.store.hashToPath(fileHash))
+        return paths
 
 class DataStore(datastore.DataStore):
     def addFileFromTemp(self, hash, tmpPath):

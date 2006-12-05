@@ -195,7 +195,8 @@ Builds the specified packages or recipes.
 
     docs = {'flavor' : "flavor to build with",
             'host'   : "host to limit build to",
-            'poll'   : "show build status as it is updated",
+            'no-watch'  : "show build status as it is updated",
+            'poll'   : (options.VERBOSE_HELP, 'backwards compatibility option'),
             'quiet'  : "show less build info - don't tail logs",
             'commit' : "commit job when it is done",
             'macro'   : ('set macro NAME to VALUE', "'NAME VALUE'"),
@@ -208,9 +209,10 @@ Builds the specified packages or recipes.
         argDef['flavor'] = ONE_PARAM
         argDef['host'] = MULT_PARAM
         argDef['quiet'] = NO_PARAM
-        argDef['poll'] = NO_PARAM
         argDef['commit'] = NO_PARAM
         argDef['macro'] = MULT_PARAM
+        argDef['no-watch'] = NO_PARAM
+        argDef['poll'] = NO_PARAM
         argDef['no-clean'] = NO_PARAM
         rMakeCommand.addParameters(self, argDef)
 
@@ -248,12 +250,12 @@ Builds the specified packages or recipes.
         quiet = argSet.pop('quiet', False)
         commit  = argSet.pop('commit', False)
         recurseGroups = command == 'buildgroup'
-        monitorJob = argSet.pop('poll', False)
+        monitorJob = not argSet.pop('no-watch', False)
         jobId = client.buildTroves(troveSpecs,
                                    limitToHosts=hosts,
                                    recurseGroups=recurseGroups)
         if monitorJob:
-            if not client.poll(jobId, showTroveLogs=not quiet,
+            if not client.watch(jobId, showTroveLogs=not quiet,
                                showBuildLogs=not quiet,
                                commit=commit):
                 return 1
@@ -388,7 +390,7 @@ register(HelpCommand)
 
 
 class PollCommand(rMakeCommand):
-    commands = ['poll']
+    commands = ['poll', 'watch']
     commandGroup = CG_INFO
     paramHelp = '''<jobId>
 
@@ -410,9 +412,9 @@ Watch the progress of job <jobId> as it builds its packages
         quiet = argSet.pop('quiet', False)
         commit = argSet.pop('commit', False)
         jobId = _getJobIdOrUUId(jobId)
-        success = client.poll(jobId, showBuildLogs = not quiet,
-                       showTroveLogs = not quiet,
-                       commit = commit)
+        success = client.watch(jobId, showBuildLogs = not quiet,
+                               showTroveLogs = not quiet,
+                               commit = commit)
         if success:
             return 0
         else:
@@ -448,7 +450,7 @@ class QueryCommand(rMakeCommand):
     docs = {'troves'          : 'Display troves for this job',
             'info'            : 'Display details',
             'logs'            : 'Display logs associated with jobs/troves',
-            'poll'            : 'Continually update status while job builds',
+            'watch'            : 'Continually update status while job builds',
             'full-versions'   : 'Show full versions',
             'labels'          : 'Show labels',
             'flavors'         : 'Show full flavors',
@@ -464,7 +466,7 @@ class QueryCommand(rMakeCommand):
         argDef['labels']     = NO_PARAM
         argDef['flavors']    = NO_PARAM
         argDef['logs']       = NO_PARAM
-        argDef['poll']       = NO_PARAM
+        argDef['watch']       = NO_PARAM
         rMakeCommand.addParameters(self, argDef)
 
     def runCommand(self, client, cfg, argSet, args):
@@ -488,7 +490,7 @@ class QueryCommand(rMakeCommand):
         showLabels = argSet.pop('labels', False)
         showTracebacks = argSet.pop('tracebacks', False)
         showLogs       = argSet.pop('logs', False)
-        pollJob       = argSet.pop('poll', False)
+        watchJob       = argSet.pop('watch', False)
         query.displayJobInfo(client, jobId, troveSpecs,
                                     displayTroves=displayTroves,
                                     displayDetails=displayDetails,
@@ -498,8 +500,8 @@ class QueryCommand(rMakeCommand):
                                     showFullFlavors=showFullFlavors,
                                     showLabels=showLabels,
                                     showTracebacks=showTracebacks)
-        if pollJob:
-            client.poll(jobId, showBuildLogs = True, showTroveLogs = True)
+        if watchJob:
+            client.watch(jobId, showBuildLogs = True, showTroveLogs = True)
 
 register(QueryCommand)
 

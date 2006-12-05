@@ -82,13 +82,13 @@ control over commit access to a few labels.
 Uses the value VALUE for macro NAME for each recipe.  Equivalent to the same
 option for cvc cook.
 .TP
-.B \-\-poll
-Runs \fIrmake poll\fP immediately after starting the build.
-See \fIpoll\fP for more information.
+.B \-\-no-watch
+Do not runs \fIrmake watch\fP immediately after starting the build.
+See \fIwatch\fP for more information.
 .TP
 .B \-\-quiet
-Modifier to --poll to limit the amount of output printed when polling.
-See \fIpoll\fP for more information.
+Modifier to limit the amount of output printed when watching a job.
+See \fIwatch\fP for more information.
 .TP
 .B \-\-reuse
 Triggers the reuseRoots config option, useful for iterative test builds.
@@ -141,13 +141,13 @@ Deletes the given jobs and all associated data from your system.
 With now argument, displays all commands for rMake, including less commonly used commands that are not displayed in the main message.  With a command, displays detailed help for that command.
 .RE
 .TP
-.B poll \fI<jobId>\fP
+.B watch \fI<jobId>\fP
 Monitors the given jobId, printing out updates as they happen.  Will also tail 
 any build logs.
 .RS 4
 .TP 4
 .B \-\-quiet
-Decreases the output of poll significantly, limiting it to critical
+Decreases the output of watch significantly, limiting it to critical
 notifications, such as when a trove is building and when it has built or failed
 to build.
 .RE
@@ -179,9 +179,9 @@ Full version strings are displayed instead of abbreviated version numbers
 Label plus version numbers are displayed instead of abbreviated version
 numbers
 .TP
-.B \-\-poll
-Runs \fIrmake poll\fP immediately after querying.  Convenience function.
-See \fIpoll\fP for more information.
+.B \-\-watch
+Runs \fIrmake watch\fP immediately after querying.  Convenience function.
+See \fIwatch\fP for more information.
 .TP
 .B \-\-tracebacks
 If a traceback is associated with a trove or job, that traceback is
