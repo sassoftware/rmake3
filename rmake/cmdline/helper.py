@@ -144,7 +144,8 @@ class rMakeHelper(object):
         """
         toBuild = buildcmd.getTrovesToBuild(self.conaryclient,
                                             troveSpecList,
-                                            limitToHosts=limitToHosts)
+                                            limitToHosts=limitToHosts,
+                                            recurseGroups=recurseGroups)
 
         jobId = self.client.buildTroves(toBuild, self.buildConfig)
         print 'Added Job %s' % jobId
