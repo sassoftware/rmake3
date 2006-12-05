@@ -335,6 +335,6 @@ class rMakeHelper(object):
                 raise
             if commit:
                 return self.commitJob(jobId, commitWithFailures=False)
-            return True
+            return not self.client.getJob(jobId, withTroves=False).isFailed()
         finally:
             os.remove(tmpPath)

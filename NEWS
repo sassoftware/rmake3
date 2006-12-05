@@ -6,6 +6,8 @@ Changes in @NEW@:
      * rMake now adds default build requirements to the build requirements 
        recorded for a package when it is built, even if those requirements
        are not listed explicitly in the recipe.
+  o Bug Fixes:
+     * rMake will now return a non-zero exit value if a build fails when polling and not committing.
 
 Changes in 1.0.2:
   o Bug Fixes:
