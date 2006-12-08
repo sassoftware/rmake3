@@ -61,7 +61,7 @@ dist:
 	$(MAKE) forcedist
 
 
-forcedist: $(dist_files)
+archive: $(dist_files)
 	rm -rf $(DISTDIR)
 	mkdir $(DISTDIR)
 	for d in $(SUBDIRS); do make -C $$d DIR=$$d dist || exit 1; done
@@ -70,12 +70,16 @@ forcedist: $(dist_files)
 		cp -a $$f $(DISTDIR)/$$f; \
 	done; \
 	tar cjf $(DISTDIR).tar.bz2 `basename $(DISTDIR)`
+
+sanitycheck: archive
 	@echo "=== sanity building/testing rmake ==="; \
 	cd $(DISTDIR); \
-	make > /dev/null; \
-	./bin/rmake --version > /dev/null || echo "RMAKE DOES NOT WORK"; \
+	make > /dev/null || exit 1; \
+	./bin/rmake --version > /dev/null || echo "RMAKE DOES NOT WORK" || exit 1; \
 	cd -; \
 	rm -rf $(DISTDIR)
+
+forcedist: archive sanitycheck
 
 tag:
 	hg tag rmake-$(VERSION)
