@@ -74,13 +74,13 @@ class AbstractChroot(object):
             targetDir = sourceDir
         self.dirsToCopy.append((sourceDir, targetDir))
 
-    def copyFile(self, sourceFile, targetFile=None):
+    def copyFile(self, sourceFile, targetFile=None, mode=None):
         """
             Adds file to be copied in when root is instantiated
         """
         if targetFile is None:
             targetFile = sourceFile
-        self.filesToCopy.append((sourceFile, targetFile))
+        self.filesToCopy.append((sourceFile, targetFile, mode))
 
     def addUser(self, name, uid, gid=None, home=None, shell='/bin/bash'):
         """
@@ -146,15 +146,19 @@ class BasicChroot(AbstractChroot):
                 os.chown(dir, uid, gid)
 
     def _copyFiles(self):
-        for (sourceFile, targetFile) in self.filesToCopy:
+        for (sourceFile, targetFile, mode) in self.filesToCopy:
             log.debug("copying file %s into chroot:%s", sourceFile, targetFile)
             try:
-                util.mkdirChain(os.path.dirname(self.root + targetFile))
-                shutil.copy(sourceFile, self.root + targetFile)
+                target = self.root + targetFile
+                util.mkdirChain(os.path.dirname(target))
+                shutil.copy(sourceFile, target)
+                if mode is not None:
+                    os.chmod(target, mode)
             except (IOError, OSError), e:
                 raise errors.OpenError(
                     'Could not copy in file %s to %s: %s' % (sourceFile, 
                                                              targetFile, e))
+
 
     def _copyDirs(self):
         for (sourceDir, targetDir) in self.dirsToCopy:
