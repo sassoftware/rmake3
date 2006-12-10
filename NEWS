@@ -1,4 +1,4 @@
-Changes in @NEW@:
+Changes in 1.0.3:
   o Server Changes:
      * rMake now supports reusable chroots. Use the --reuse option or the
        reuseRoots config option to cause rMake to modify roots instead of
