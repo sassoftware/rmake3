@@ -25,7 +25,7 @@ import sys
 
 from conary.lib import log, cfg
 from conary.lib.cfgtypes import CfgPath, CfgList, CfgString, CfgInt, CfgType
-from conary.lib.cfgtypes import CfgBool
+from conary.lib.cfgtypes import CfgBool, CfgPathList, CfgDict
 from conary.conarycfg import CfgLabel, CfgUserInfo
 from rmake.lib import daemon
 
@@ -40,10 +40,14 @@ class rMakeConfiguration(daemon.DaemonConfig):
     serverName        = socket.getfqdn()
     socketPath        = (CfgPath, '/var/lib/rmake/socket')
     useTmpfs          = (CfgBool, False)
+    pluginDirs        = (CfgPathList, ['/etc/rmake/plugins.d'])
+    usePlugins        = (CfgBool, True)
+    usePlugin         = CfgDict(CfgBool)
     user              = CfgUserInfo
 
-    def __init__(self, readConfigFiles = False):
+    def __init__(self, readConfigFiles = False, ignoreErrors=False):
         daemon.DaemonConfig.__init__(self)
+        self.setIgnoreErrors(ignoreErrors)
         self.readFiles()
 
         if not self.user and not self.isExternalRepos():
@@ -116,17 +120,21 @@ class rMakeConfiguration(daemon.DaemonConfig):
     def sanityCheck(self):
         currUser = pwd.getpwuid(os.getuid()).pw_name
 
-        cfgPaths = ['buildDir', 'logDir', 'lockDir', 'serverDir']
-
         if self.serverPort != self.getDefaultValue('serverPort'):
             if self.serverUrl:
                 log.error('Cannot specify both serverPort and serverUrl')
+                sys.exit(1)
+
+    def sanityCheckForStart(self):
+        cfgPaths = ['buildDir', 'logDir', 'lockDir', 'serverDir']
         if self.getServerUri().startswith('unix://'):
             if os.path.exists(self.socketPath):
                 cfgPaths.append('socketPath')
             elif not os.access(os.path.dirname(self.socketPath), os.W_OK):
                 log.error('cannot write to socketPath directory at %s - cannot start server' % os.path.dirname(self.socketPath))
                 sys.exit(1)
+
+        cfgPaths = ['buildDir', 'logDir', 'lockDir', 'serverDir']
         for path in cfgPaths:
             if not os.path.exists(self[path]):
                 log.error('%s does not exist, expected at %s - cannot start server' % (path, self[path]))
@@ -134,7 +142,3 @@ class rMakeConfiguration(daemon.DaemonConfig):
             if not os.access(self[path], os.W_OK):
                 log.error('user "%s" cannot write to %s at %s - cannot start server' % (currUser, path, self[path]))
                 sys.exit(1)
-        if not (os.stat(self.buildDir)[stat.ST_MODE] & 07777) == 0700:
-            log.error('buildDir at %s must be mode 0700 and owned by rmake.' % (self.buildDir))
-            sys.exit(1)
-

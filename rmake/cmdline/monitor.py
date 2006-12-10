@@ -20,8 +20,8 @@ from conary.lib import util
 from rmake.build import buildjob, buildtrove
 from rmake.lib.apiutils import thaw, freeze
 from rmake.lib import auth, localrpc
-from rmake import plugins
-from rmake.plugins import xmlrpc
+from rmake import subscribers
+from rmake.subscribers import xmlrpc
 
 
 def monitorJob(client, jobId, uri, showTroveLogs=False, showBuildLogs=False):
@@ -179,7 +179,7 @@ class XMLRPCJobLogReceiver(object):
             serverObj.register_instance(self)
 
     def subscribe(self, jobId):
-        subscriber = plugins.SubscriberFactory('monitor_', 'xmlrpc', self.uri)
+        subscriber = subscribers.SubscriberFactory('monitor_', 'xmlrpc', self.uri)
         subscriber.watchEvent('JOB_STATE_UPDATED')
         subscriber.watchEvent('JOB_LOG_UPDATED')
         if self.showTroveLogs:

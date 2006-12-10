@@ -56,6 +56,8 @@ class DaemonCommand(options.AbstractCommand):
 class ConfigCommand(DaemonCommand):
     commands = ['config']
 
+    help = 'Display configuration for this service'
+
     def runCommand(self, daemon, cfg, argSet, args):
         return cfg.display()
 _register(ConfigCommand)
@@ -63,12 +65,16 @@ _register(ConfigCommand)
 class StopCommand(DaemonCommand):
     commands = ['stop', 'kill']
 
+    help = 'Stop the service'
+
     def runCommand(self, daemon, cfg, argSet, args):
         return daemon.kill()
 _register(StopCommand)
 
 class StartCommand(DaemonCommand):
     commands = ['start']
+
+    help = 'Start the service'
 
     docs = {'no-daemon': "Do not run as a daemon"}
 
@@ -86,6 +92,7 @@ class Daemon(options.MainHandler):
     '''
     abstractCommand = DaemonCommand
     name = 'daemon'
+    commandName = 'daemon'
     commandList = _commands
     user   = None
 
@@ -280,8 +287,10 @@ class Daemon(options.MainHandler):
         return options.MainHandler.runCommand(self, thisCommand, self, cfg, 
                                              argSet, otherArgs, **kw)
 
-    def usage(self, rc=1):
-        print '%s usage:' % self.name
-        print '   config - Display configuration values'
-        print '   stop   - Kill the current daemon'
-        print '   start  - Start the daemon'
+    def usage(self, rc=1, showAll=False):
+        print '%s: back end to rMake build tool' % self.commandName
+        if not showAll:
+            print
+            print 'Common Commands (use "%s help" for the full list)' % self.commandName
+        return options.MainHandler.usage(self, rc, showAll=showAll)
+
