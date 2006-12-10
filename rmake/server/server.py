@@ -30,6 +30,7 @@ from conary.deps import deps
 from conary.lib import log
 
 from rmake import errors
+from rmake import plugins
 from rmake.build import builder
 from rmake.build import buildcfg
 from rmake.build import buildjob
@@ -99,7 +100,7 @@ class rMakeServer(apirpc.XMLApiServer):
     def getJobLogs(self, callData, jobId, mark):
         jobId = self.db.convertToJobId(jobId)
         if not self.db.jobExists(jobId):
-            log.warning("%s tried to obtain logs for invlid JobId %s" % (
+            self.warning("%s tried to obtain logs for invlid JobId %s" % (
                         str(callData.auth), jobId))
             return []
         return [ tuple(str(x) for x in data) 
@@ -175,7 +176,7 @@ class rMakeServer(apirpc.XMLApiServer):
         job = self.db.getJob(jobId)
         pid = os.fork()
         if pid:
-            log.info('jobCommitting forked pid %d' % pid)
+            self.info('jobCommitting forked pid %d' % pid)
             return
         else:
             try:
@@ -193,7 +194,7 @@ class rMakeServer(apirpc.XMLApiServer):
         job = self.db.getJob(jobId)
         pid = os.fork()
         if pid:
-            log.info('commitFailed forked pid %d' % pid)
+            self.info('commitFailed forked pid %d' % pid)
             return
         else:
             try:
@@ -211,7 +212,7 @@ class rMakeServer(apirpc.XMLApiServer):
         job = self.db.getJob(jobId)
         pid = os.fork()
         if pid:
-            log.info('commitSucceeded forked pid %d' % pid)
+            self.info('commitSucceeded forked pid %d' % pid)
             return
         else:
             try:
@@ -241,7 +242,9 @@ class rMakeServer(apirpc.XMLApiServer):
         return job
 
     def getBuilder(self, job, buildConfig):
-        return builder.Builder(self.cfg, buildConfig, job)
+        b = builder.Builder(self.cfg, buildConfig, job)
+        self.plugins.callServerHook('server_builderInit', self, b)
+        return b
 
     def updateBuildConfig(self, buildConfig):
         buildConfig.repositoryMap.update(self.cfg.getRepositoryMap())
@@ -266,9 +269,11 @@ class rMakeServer(apirpc.XMLApiServer):
                 break
         self._emitEvents()
         self._collectChildren()
+        self.plugins.callServerHook('server_loop', self)
 
         if self._halt:
-            log.info('Shutting down server')
+            self.plugins.callServerHook('server_shutDown', self)
+            self.info('Shutting down server')
             try:
                 # we've gotten a request to halt, kill all jobs (they've run
                 # setpgrp) and then kill ourselves
@@ -278,7 +283,7 @@ class rMakeServer(apirpc.XMLApiServer):
                 raise
             except Exception, err:
                 try:
-                    log.error('Halt failed: %s\n%s', err, 
+                    self.error('Halt failed: %s\n%s', err, 
                               traceback.format_exc())
                 finally:
                     os._exit(1)
@@ -302,7 +307,7 @@ class rMakeServer(apirpc.XMLApiServer):
             self._numEvents = 0
             self._lastEmit = time.time()
             self._emitPid = pid
-            log.info('_emitEvents forked pid %d' % pid)
+            self.info('_emitEvents forked pid %d' % pid)
             return
         try:
             try:
@@ -311,8 +316,8 @@ class rMakeServer(apirpc.XMLApiServer):
                     self._publisher.emitEvents(self.db, jobId, eventList)
                 os._exit(0)
             except Exception, err:
-                log.error('Emit Events failed: %s\n%s', err, 
-                          traceback.format_exc())
+                self.error('Emit Events failed: %s\n%s', err, 
+                           traceback.format_exc())
                 os._exit(1)
         finally:
             os._exit(1)
@@ -357,7 +362,7 @@ class rMakeServer(apirpc.XMLApiServer):
         from rmake.server.client import rMakeClient
         pid = os.fork()
         if pid:
-            log.info('Fail current jobs forked pid %d' % pid)
+            self.info('Fail current jobs forked pid %d' % pid)
             return
         try:
             client = rMakeClient(self.uri)
@@ -405,20 +410,63 @@ class rMakeServer(apirpc.XMLApiServer):
             if pid == self._emitPid: # rudimentary locking for emits
                 self._emitPid = 0    # only allow one emitEvent process 
                                      # at a time.
-            # We may want to check for failure here, but that is really
-            # an odd case, the child process should have handled its own
-            # logging.
+            self._pidDied(pid, status)
+
+    def _pidDied(self, pid, status):
+        # We may want to check for failure here, but that is really
+        # an odd case, the child process should have handled its own
+        # logging.
+        exitRc = os.WEXITSTATUS(status)
+        signalRc = os.WTERMSIG(status)
+        if exitRc or signalRc:
+            if exitRc:
+                self.warning('pid %s exited with exit status %s' % (pid, exitRc))
+            else:
+                self.warning('pid %s killed with signal %s' % (pid, signalRc))
+        if pid == self.repositoryPid:
+            self.error('Internal Repository died - shutting down rMake')
+            self._halt = 1
+            self.repositoryPid = None
+        self.plugins.callServerHook('server_pidDied', self, pid, status)
+
+    def _killPid(self, pid, name, sig=signal.SIGTERM):
+        if not pid:
+            return
+        try:
+            os.kill(pid, sig)
+        except OSError, err:
+            if err.errno in errno.ESRCH:
+                # the process is already dead!
+                return
+            raise
+        timeSlept = 0
+        while timeSlept < 20:
+            found, status = os.waitpid(pid, os.WNOHANG)
+            if found:
+                break
+            else:
+                time.sleep(.5)
+                timeSlept += .5
+
+        if not found:
+            if sig != signal.SIGKILL:
+                self.warning('%s (pid %s) would not die, killing harder...' % (name, pid))
+                self._killPid(pid, name, signal.SIGKILL)
+            else:
+                self.error('%s (pid %s) would not die.' % (name, pid))
+            return
+
+        # yay, our kill worked.
+        if os.WIFEXITED(status):
             exitRc = os.WEXITSTATUS(status)
-            signalRc = os.WTERMSIG(status)
-            if exitRc or signalRc:
-                if exitRc:
-                    log.warning('pid %s exited with exit status %s' % (pid, exitRc))
-                else:
-                    log.warning('pid %s killed with signal %s' % (pid, signalRc))
-                if pid == self.repositoryPid:
-                    log.error('Internal Repository died - shutting down rMake')
-                    self._halt = 1
-                    self.repositoryPid = None
+            if exitRc:
+                self.warning('%s (pid %s) exited with'
+                            ' exit status %s' % (name, pid, exitRc))
+        else:
+            sigNum = os.WTERMSIG(status)
+            if sigNum != sig:
+                self.warning('%s (pid %s) exited with'
+                            ' signal %s' % (name, pid, sigNum))
 
     def _stopJob(self, job):
         if job.isQueued(): # job isn't started yet, just stop it.
@@ -432,7 +480,7 @@ class rMakeServer(apirpc.XMLApiServer):
                                     ' already stopped' % job.jobId)
 
         if job.pid not in self._buildPids:
-            log.warning('job %s is not in active job list')
+            self.warning('job %s is not in active job list')
             return
         else:
             try:
@@ -455,18 +503,18 @@ class rMakeServer(apirpc.XMLApiServer):
                 if os.WIFEXITED(status):
                     exitRc = os.WEXITSTATUS(status)
                     if exitRc:
-                        log.warning('job %s (pid %s) exited with'
+                        self.warning('job %s (pid %s) exited with'
                                     ' exit status %s' % (job.jobId, pid, exitRc))
                 else:
                     sigNum = os.WTERMSIG(status)
-                    log.warning('job %s (pid %s) exited with'
+                    self.warning('job %s (pid %s) exited with'
                                 ' signal %s' % (job.jobId, pid, sigNum))
                 return
 
             if timeSlept >= 20:
                 # we need to SIGKILL this guy, he did not respond to our
                 # request.
-                log.warning('job %s (pid %s) did not exit, trying harder') 
+                self.warning('job %s (pid %s) did not exit, trying harder') 
                 try:
                     os.kill(-job.pid, signal.SIGTERM)
                 except OSError, err:
@@ -516,12 +564,24 @@ class rMakeServer(apirpc.XMLApiServer):
         for publisher in publishers:
             publisher.uncork()
 
-    def __init__(self, uri, cfg, repositoryPid):
+    def info(self, *args, **kw):
+        log.info(*args, **kw)
+
+    def error(self, *args, **kw):
+        log.error(*args, **kw)
+
+    def warning(self, *args, **kw):
+        log.warning(*args, **kw)
+
+    def __init__(self, uri, cfg, repositoryPid, pluginMgr=None):
         self.uri = uri
         self.cfg = cfg
         self.repositoryPid = repositoryPid
         self.db = database.Database(cfg.getDbPath(),
                                     cfg.getDbContentsPath())
+        if pluginMgr is None:
+            pluginMgr = plugins.PluginManager([])
+        self.plugins = pluginMgr
 
         # any jobs that were running before are not running now
         self._publisher = publish._RmakeServerPublisher()
@@ -543,3 +603,4 @@ class rMakeServer(apirpc.XMLApiServer):
         self._buildPids = {}         # forked jobs that are currently active
         self._halt = False
         self._haltSignal = None
+        self.plugins.callServerHook('server_postInit', self)

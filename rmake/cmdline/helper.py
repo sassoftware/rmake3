@@ -76,7 +76,7 @@ class rMakeHelper(object):
 
 
     def __init__(self, uri=None, rmakeConfig=None, buildConfig=None, root='/',
-                 guiPassword=False):
+                 guiPassword=False, plugins=None):
         if not rmakeConfig:
             rmakeConfig = servercfg.rMakeConfiguration(True)
 
@@ -113,8 +113,7 @@ class rMakeHelper(object):
         self.buildConfig = buildConfig
         self.rmakeConfig = rmakeConfig
         self.buildConfig.setServerConfig(rmakeConfig)
-
-
+        self.plugins = plugins
 
     def displayConfig(self, hidePasswords=True, prettyPrint=True):
         """

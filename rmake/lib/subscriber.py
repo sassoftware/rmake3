@@ -13,7 +13,7 @@
 #
 from rmake.lib import apiutils
 from rmake import constants
-from rmake import plugins
+from rmake import subscribers
 
 class Subscriber(object):
 
@@ -86,7 +86,7 @@ class FreezableStatusSubscriberMixin(object):
     def __thaw__(frz):
         subscriberId, data = frz
         protocol, uri = data[0].split(None, 1)
-        new = plugins.SubscriberFactory(subscriberId, protocol, uri)
+        new = subscribers.SubscriberFactory(subscriberId, protocol, uri)
         for line in data[1:]:
             field, val = line.split(None, 1)
             new.parse(field, val)

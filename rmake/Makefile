@@ -16,7 +16,7 @@ python_files = __init__.py errors.py compat.py
 
 dist_files = Makefile constants.py.in $(python_files)
 
-SUBDIRS = build cmdline db lib server plugins
+SUBDIRS = build cmdline db lib server plugins subscribers
 
 all: default-subdirs default-all constants.py
 
