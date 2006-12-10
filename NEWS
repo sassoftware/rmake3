@@ -1,3 +1,7 @@
+Changes in @NEW@:
+  o Architecture Changes:
+     * rMake now supports plugins, located in /etc/rmake/plugins.d (RMK-186).
+
 Changes in 1.0.3:
   o Server Changes:
      * rMake now supports reusable chroots. Use the --reuse option or the

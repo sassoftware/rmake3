@@ -249,6 +249,22 @@ The default value is bash:runtime, coreutils:runtime conary:runtime,
 conary-build:runtime, epdb (a debugging utility), dev:runtime, grep:runtime,
 procps:runtime, sed:runtime, findutils:runtime, and gawk:runtime.
 .TP
+.B pluginDirs
+Directories in which rMake plugins can be found.  Defaults to /etc/rmake/plugins.d, ~/.rmake/plugins.d.  See PLUGINS section for more information.
+NOTE: All plugin loading related options, such as this one, cannot be included in contexts, and cannot be overridden with --config command line options, because plugins can affect the behavior of the command line and must be read in before command line processing is done.
+
+Plugin directories can be specified by the plugin-dirs command line option, in this format: --plugin-dirs=<dir>,<dir>.  Note that the = is not optional.
+.TP
+.B enablePlugins
+Whether or not to enable plugins.  Defaults to True.  Can also be specified by 
+the --disable-plugins command line option.
+
+NOTE: All plugin loading related options, such as this one, cannot be included in contexts, and cannot be overridden with --config command line options, because plugins can affect the behavior of the command line and must be read in before command line processing is done.
+.B enablePlugin <name> <bool>
+Enables or disables a particular plugin.  By default all plugins are enabled.
+
+NOTE: All plugin loading related options, such as this one, cannot be included in contexts, and cannot be overridden with --config command line options, because plugins can affect the behavior of the command line and must be read in before command line processing is done.
+.TP
 .B subscribe
 Subscribe is an experimental option, and should not be used except by
 developers. Documentation is forthcoming for this option.
@@ -343,6 +359,12 @@ conary(1) for more information.
 .B includeConfigFile
 Immediately reads the listed configuration file.  The file name may include
 shell globs, in which case all files matching the glob will be read in.
+.\"
+.\"
+.\"
+.SH PLUGINS
+Plugin support is still under development.   More documentation will come as 
+the plugin API stabilizes and plugins are written.
 .\"
 .\"
 .\"
