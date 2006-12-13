@@ -66,7 +66,7 @@ class ServerPlugin(Plugin):
         """
         pass
 
-    def server_pidDied(self, pid, status):
+    def server_pidDied(self, server, pid, status):
         """
             Called when the server collects a child process that has died.
         """
