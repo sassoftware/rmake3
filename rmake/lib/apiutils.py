@@ -246,6 +246,19 @@ class api_flavor:
         return ThawFlavor(flavorStr)
 register(api_flavor)
 
+class api_set:
+    name = 'set'
+
+    @staticmethod
+    def __freeze__(item):
+        return [ x for x in item ]
+
+    @staticmethod
+    def __thaw__(item):
+        return set(item)
+register(api_set)
+
+
 class api_manual:
     name = 'manual'
 
