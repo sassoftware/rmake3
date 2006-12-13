@@ -271,22 +271,12 @@ class rMakeServer(apirpc.XMLApiServer):
         self._collectChildren()
         self.plugins.callServerHook('server_loop', self)
 
-        if self._halt:
-            self.plugins.callServerHook('server_shutDown', self)
-            self.info('Shutting down server')
-            try:
-                # we've gotten a request to halt, kill all jobs (they've run
-                # setpgrp) and then kill ourselves
-                self._stopAllJobs()
-                sys.exit(0)
-            except (SystemExit, KeyboardInterrupt), err:
-                raise
-            except Exception, err:
-                try:
-                    self.error('Halt failed: %s\n%s', err, 
-                              traceback.format_exc())
-                finally:
-                    os._exit(1)
+    def _shutDown(self):
+        self.plugins.callServerHook('server_shutDown', self)
+        # we've gotten a request to halt, kill all jobs (they've run
+        # setpgrp) and then kill ourselves
+        self._stopAllJobs()
+        sys.exit(0)
 
     def _subscribeToJob(self, job):
         subscriber._RmakeServerPublisherProxy(self.uri).attach(job)
@@ -374,99 +364,24 @@ class rMakeServer(apirpc.XMLApiServer):
                 self._subscribeToJob(job)
                 self.db.subscribeToJob(job)
                 publisher = job.getPublisher()
-                publisher.cork()
-
-                for trove in job.iterTroves():
-                    if not (trove.isFailed() or trove.isBuilt()):
-                        trove.troveFailed(reason)
                 job.jobFailed(reason)
-
-                publisher.uncork()
             os._exit(0)
         finally:
             os._exit(1)
 
-    def _signalHandler(self, sigNum, frame):
-        # if they rekill, we just exit
-        if sigNum == signal.SIGINT:
-            signal.signal(sigNum, signal.default_int_handler)
-        else:
-            signal.signal(sigNum, signal.SIG_DFL)
-        self._halt = True
-        self._haltSignal = sigNum
-        return
-
-    def _collectChildren(self):
-        try:
-            pid, status = os.waitpid(-1, os.WNOHANG)
-        except OSError, err:
-            if err.errno != errno.ECHILD:
-                raise
-            else:
-                pid = None
-        if pid:
-            self._buildPids.pop(pid, None)
-
-            if pid == self._emitPid: # rudimentary locking for emits
-                self._emitPid = 0    # only allow one emitEvent process 
-                                     # at a time.
-            self._pidDied(pid, status)
-
     def _pidDied(self, pid, status):
-        # We may want to check for failure here, but that is really
-        # an odd case, the child process should have handled its own
-        # logging.
-        exitRc = os.WEXITSTATUS(status)
-        signalRc = os.WTERMSIG(status)
-        if exitRc or signalRc:
-            if exitRc:
-                self.warning('pid %s exited with exit status %s' % (pid, exitRc))
-            else:
-                self.warning('pid %s killed with signal %s' % (pid, signalRc))
+        apirpc.XMLApiServer._pidDied(self, pid, status)
+        self._buildPids.pop(pid, None)
+
+        if pid == self._emitPid: # rudimentary locking for emits
+            self._emitPid = 0    # only allow one emitEvent process 
+                                 # at a time.
+
         if pid == self.repositoryPid:
             self.error('Internal Repository died - shutting down rMake')
             self._halt = 1
             self.repositoryPid = None
         self.plugins.callServerHook('server_pidDied', self, pid, status)
-
-    def _killPid(self, pid, name, sig=signal.SIGTERM):
-        if not pid:
-            return
-        try:
-            os.kill(pid, sig)
-        except OSError, err:
-            if err.errno in errno.ESRCH:
-                # the process is already dead!
-                return
-            raise
-        timeSlept = 0
-        while timeSlept < 20:
-            found, status = os.waitpid(pid, os.WNOHANG)
-            if found:
-                break
-            else:
-                time.sleep(.5)
-                timeSlept += .5
-
-        if not found:
-            if sig != signal.SIGKILL:
-                self.warning('%s (pid %s) would not die, killing harder...' % (name, pid))
-                self._killPid(pid, name, signal.SIGKILL)
-            else:
-                self.error('%s (pid %s) would not die.' % (name, pid))
-            return
-
-        # yay, our kill worked.
-        if os.WIFEXITED(status):
-            exitRc = os.WEXITSTATUS(status)
-            if exitRc:
-                self.warning('%s (pid %s) exited with'
-                            ' exit status %s' % (name, pid, exitRc))
-        else:
-            sigNum = os.WTERMSIG(status)
-            if sigNum != sig:
-                self.warning('%s (pid %s) exited with'
-                            ' signal %s' % (name, pid, sigNum))
 
     def _stopJob(self, job):
         if job.isQueued(): # job isn't started yet, just stop it.
@@ -564,14 +479,6 @@ class rMakeServer(apirpc.XMLApiServer):
         for publisher in publishers:
             publisher.uncork()
 
-    def info(self, *args, **kw):
-        log.info(*args, **kw)
-
-    def error(self, *args, **kw):
-        log.error(*args, **kw)
-
-    def warning(self, *args, **kw):
-        log.warning(*args, **kw)
 
     def __init__(self, uri, cfg, repositoryPid, pluginMgr=None):
         self.uri = uri
@@ -601,6 +508,4 @@ class rMakeServer(apirpc.XMLApiServer):
 
 
         self._buildPids = {}         # forked jobs that are currently active
-        self._halt = False
-        self._haltSignal = None
         self.plugins.callServerHook('server_postInit', self)

@@ -48,6 +48,7 @@ from conary.lib import coveragehook
 from rmake import errors
 from rmake.lib import apiutils
 from rmake.lib import localrpc
+from rmake.lib import server
 from rmake.lib import auth
 from rmake.lib.apiutils import api, api_parameters, api_return
 
@@ -116,7 +117,7 @@ class _ApiMethod(xmlrpclib._Method):
         else:
             raise apiutils.thaw(rv[0], rv[1])
 
-class XMLApiServer:
+class XMLApiServer(server.Server):
     """ API-aware server wrapper for XMLRPC. """
 
     # if set to True, will try to send exceptions to a debug prompt on 
@@ -128,6 +129,7 @@ class XMLApiServer:
             the _dispatch method.  If None, caller is responsible for 
             giving information to be dispatched.
         """
+        server.Server.__init__(self)
         self.uri = uri
         if uri:
             if isinstance(uri, str):
@@ -156,24 +158,6 @@ class XMLApiServer:
 
         if serverObj:
             serverObj.register_instance(self)
-
-
-    def serve_forever(self):
-        try:
-            while True:
-                try:
-                    self._serveLoopHook()
-                except (SystemExit, KeyboardInterrupt):
-                    raise
-                except Exception, err:
-                    if isinstance(err, SystemExit):
-                        raise
-                    log.error('Error in loop hook: %s' % err)
-                    traceback.print_exc()
-                self.handleRequestIfReady(.1)
-        finally:
-            coveragehook.save()
-
 
     def handleRequestIfReady(self, sleepTime):
         try:
