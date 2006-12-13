@@ -121,3 +121,5 @@ errorMessage = '''
 def genExcepthook(*args, **kw):
     return util.genExcepthook(error=errorMessage,
                               prefix='rmake-error-', *args, **kw)
+
+uncatchableExceptions = (KeyboardInterrupt, SystemExit)
