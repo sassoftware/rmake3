@@ -34,10 +34,10 @@ class ChrootServer(apirpc.XMLApiServer):
 
     @api(version=1)
     @api_parameters(1, 'BuildConfiguration', 'label',
-                       'str', 'version', 'flavor')
+                       'str', 'version', 'flavor', 'str', 'int')
     @api_return(1, None)
     def buildTrove(self, callData, buildCfg, targetLabel,
-                   name, version, flavor):
+                   name, version, flavor, logHost, logPort):
 
         buildCfg.root = self.cfg.root
         buildCfg.buildPath = self.cfg.root + '/tmp/rmake/builds'
@@ -50,7 +50,7 @@ class ChrootServer(apirpc.XMLApiServer):
                                         readOnly=True)
         logPath, pid, buildInfo = cook.cookTrove(buildCfg, repos,
                                                  name, version, flavor,
-                                                 targetLabel)
+                                                 targetLabel, logHost, logPort)
         pid = buildInfo[1]
         self._buildInfo[name, version, flavor] = buildInfo
         return logPath, pid
@@ -129,9 +129,11 @@ class ChrootClient(object):
     def getPid(self):
         return self.pid
 
-    def buildTrove(self, buildCfg, targetLabel, name, version, flavor):
+    def buildTrove(self, buildCfg, targetLabel, name, version, flavor,
+                   logHost='', logPort=0):
         logPath, pid = self.proxy.buildTrove(buildCfg, targetLabel,
-                                             name, version, flavor)
+                                             name, version, flavor,
+                                             logHost, logPort)
         logPath = self.root + logPath
         return logPath, pid
 

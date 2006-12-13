@@ -93,7 +93,8 @@ class CookResults(object):
         return new
 
 
-def cookTrove(cfg, repos, name, version, flavor, targetLabel):
+def cookTrove(cfg, repos, name, version, flavor, targetLabel, logHost='', 
+              logPort=0):
     util.mkdirChain(cfg.root + '/tmp')
     fd, csFile = tempfile.mkstemp(dir=cfg.root + '/tmp',
                                   prefix='rmake-%s-' % name,
@@ -122,7 +123,10 @@ def cookTrove(cfg, repos, name, version, flavor, targetLabel):
                 os.umask(0022)
                 # don't allow us to create core dumps
                 resource.setrlimit(resource.RLIMIT_CORE, (0,0))
-                logFile.redirectOutput()
+                if logHost:
+                    logFile.logToPort(logHost, logPort)
+                else:
+                    logFile.redirectOutput()
 
                 _cookTrove(cfg, repos, name, version, flavor, targetLabel, 
                            csFile, failureFd=outF)
@@ -211,7 +215,7 @@ def _buildFailed(failureFd, errMsg, traceBack):
         os.close(failureFd)
     os._exit(1)
 
-def _cookTrove(cfg, repos, name, version, flavor, targetLabel, csFile, 
+def _cookTrove(cfg, repos, name, version, flavor, targetLabel, csFile,
                failureFd):
     try:
         log.debug('Cooking %s=%s[%s] to %s (stored in %s)' % \
