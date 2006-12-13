@@ -91,6 +91,12 @@ class PluginManager(object):
         self.loader = PluginImporter(self.pluginDirs, self.pluginPrefix,
                                      logger=self)
 
+    def installImporter(self):
+        self.loader.install()
+
+    def uninstallImporter(self):
+        self.loader.uninstall()
+
     def getPluginsByType(self, pluginType):
         return sorted(self.pluginsByType.get(pluginType, []), 
                       key=lambda x: x.name)
@@ -146,7 +152,7 @@ class PluginManager(object):
         return fileName.split('.', 1)[0]
 
     def validatePlugin(self, plugin):
-        pass
+        return plugin
 
     def loadPluginFromFileName(self, dir, fileName):
         name = self.getPluginNameFromFile(fileName)
@@ -167,7 +173,7 @@ class PluginManager(object):
             return None
         plugin = self.getPluginFromModule(pluginModule, name)
         if plugin is not None:
-            self.validatePlugin(plugin)
+            plugin = self.validatePlugin(plugin)
         return plugin
 
     def getPluginFromModule(self, pluginModule, name):
@@ -243,7 +249,8 @@ class PluginImporter(object):
             return None
 
         head, fullname = fullname.split('.', 1)
-        assert(head == self.pluginPrefix)
+        if head != self.pluginPrefix:
+            return None
         if not self.find_plugin(fullname):
             return None
         return self
@@ -266,7 +273,10 @@ class PluginImporter(object):
             return m
         except Exception, err:
             self.logger.loadFailed(path, '%s\n%s' % (err, traceback.format_exc()))
-            return None
+            if isinstance(err, ImportError):
+                raise
+            else:
+                raise ImportError(str(err))
 
     def find_plugin(self, name):
         """
