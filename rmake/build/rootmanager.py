@@ -29,9 +29,8 @@ from rmake.lib import flavorutil
 from rmake.lib import repocache
 
 class ChrootManager(object):
-    def __init__(self, job, baseDir, chrootHelperPath, buildCfg, serverCfg):
-        self.job = job
-        self.jobId = job.jobId
+    def __init__(self, jobId, baseDir, chrootHelperPath, buildCfg, serverCfg):
+        self.jobId = jobId
         self.cfg = buildCfg
         self.serverCfg = serverCfg
         self.cfg = copy.deepcopy(self.cfg)

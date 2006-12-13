@@ -37,13 +37,14 @@ class DependencyBasedBuildState(AbstractBuildState):
         are buildable and also, there dependency relationships.
     """
 
-    def __init__(self, sourceTroves, cfg):
+    def __init__(self, searchSource, sourceTroves, cfg):
         self.trovesByPackage = {}
         self.buildReqTroves = {}
 
         self.depGraph = graph.DirectedGraph()
         self.builtSource = BuiltTroveSource()
 
+        self.searchSource = searchSource
         self._defaultBuildReqs = cfg.defaultBuildReqs
 
         AbstractBuildState.__init__(self, sourceTroves)
@@ -76,8 +77,12 @@ class DependencyBasedBuildState(AbstractBuildState):
     def dependsOn(self, trove, provTrove, req):
         self.depGraph.addEdge(trove, provTrove, req)
 
-    def troveBuilt(self, trove, cs):
-        self.builtSource.addChangeSet(cs)
+    def troveBuilt(self, trove, binaryTroveList):
+        binaryTroves = self.searchSource.getTroves(binaryTroveList)
+        for binTrove in binaryTroves:
+            self.builtSource.addTrove(binTrove.getNameVersionFlavor(),
+                                      binTrove.getProvides(),
+                                      binTrove.getRequires())
         self.buildReqTroves.pop(trove, False)
         self.depGraph.delete(trove)
 
@@ -118,8 +123,9 @@ class DependencyHandler(object):
     """
         Updates what troves are buildable based on dependency information.
     """
-    def __init__(self, statusLog, cfg, searchSource, depState):
-        self.depState = depState
+    def __init__(self, statusLog, cfg, searchSource, buildTroves):
+        self.depState = DependencyBasedBuildState(searchSource, buildTroves,
+                                                  cfg)
         self.client = conaryclient.ConaryClient(cfg)
         if cfg.resolveTrovesOnly:
             self.installLabelPath = None
@@ -149,7 +155,7 @@ class DependencyHandler(object):
                 searchSourceTroves.append(resolveTroves)
 
             self.searchSource = DepHandlerSource(
-                               depState.getBuiltTrovesSource(),
+                               self.depState.getBuiltTrovesSource(),
                                searchSourceTroves,
                                searchSource,
                                useInstallLabelPath=not cfg.resolveTrovesOnly)
@@ -159,14 +165,17 @@ class DependencyHandler(object):
         else:
             self.resolveSource = DepResolutionByTroveLists(cfg, None, [])
             self.searchSource = DepHandlerSource(
-                                               depState.getBuiltTrovesSource(),
-                                               [], searchSource)
+                                           self.depState.getBuiltTrovesSource(),
+                                           [], searchSource)
 
     def troveStateUpdated(self, trove, state, status):
         self.depState._setState(trove, trove.state)
 
     def hasBuildableTroves(self):
         return self.depState.hasBuildableTroves()
+
+    def getBuildReqTroves(self, trove):
+        return self.depState.getBuildReqTroves(trove)
 
     def troveFailed(self, trove, *args):
         publisher = trove.getPublisher()
@@ -213,8 +222,11 @@ class DependencyHandler(object):
         # FIXME: should move trove off of buildable lists at this point
         pass
 
-    def troveBuilt(self, trove, changeset):
-        self.depState.troveBuilt(trove, changeset)
+    def jobPassed(self):
+        return self.depState.jobPassed()
+
+    def troveBuilt(self, trove, troveList):
+        self.depState.troveBuilt(trove, troveList)
 
     def updateBuildableTroves(self, limit=1, callback=None):
         """

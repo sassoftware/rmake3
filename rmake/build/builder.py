@@ -26,8 +26,8 @@ from conary.lib import log
 from conary.repository import changeset
 
 from rmake.build import buildjob
+from rmake.build import dispatcher
 from rmake.build import failure
-from rmake.build import rootmanager
 from rmake.build import dephandler
 from rmake.lib import logfile, recipeutil
 from rmake.lib import repocache
@@ -70,8 +70,13 @@ class Builder(object):
         self.repos = self.getRepos()
         self.job = job
         self.jobId = job.jobId
-        self._buildingTroves = []
-        self._chroots = []
+        self.dispatcher = dispatcher.Dispatcher(serverCfg)
+
+    def setDispatcher(self, dispatcher):
+        self.dispatcher = dispatcher
+
+    def getJob(self):
+        return self.job
 
     def getRepos(self):
         repos = conaryclient.ConaryClient(self.buildCfg).getRepos()
@@ -120,12 +125,9 @@ class Builder(object):
                                                         self.repos)
         self.job.setBuildTroves(buildTroves)
 
-        self.buildState = dephandler.DependencyBasedBuildState(
-                                                buildTroves,
-                                                self.buildCfg)
         self.dh = dephandler.DependencyHandler(self.job.getPublisher(),
                                                self.buildCfg, self.repos,
-                                               self.buildState)
+                                               buildTroves)
 
         if not self._checkBuildSanity(buildTroves):
             return False
@@ -143,21 +145,28 @@ class Builder(object):
             while True:
 
                 if self.job.hasBuildingTroves():
-                    if self._checkForResults():
+                    if self.dispatcher._checkForResults(self.buildCfg):
                         self.dh.updateBuildableTroves()
                 elif self.job.hasBuildableTroves():
-                    self._buildTrove(self.job.iterBuildableTroves().next())
+                    self.buildTrove(self.job.iterBuildableTroves().next())
                 else:
                     break
                 time.sleep(1)
 
-            if self.buildState.jobPassed():
+            if self.dh.jobPassed():
                 self.job.jobPassed("build job finished successfully")
                 return True
             self.job.jobFailed("build job had failures")
         else:
             self.job.jobFailed('Did not find any buildable troves')
         return False
+
+    def buildTrove(self, troveToBuild):
+        buildReqs = self.dh.getBuildReqTroves(troveToBuild)
+        self.job.log('Building %s' % troveToBuild.getName())
+        targetLabel = self.buildCfg.getTargetLabel(troveToBuild.getVersion())
+        self.dispatcher.buildTrove(self.buildCfg, troveToBuild, buildReqs,
+                                   targetLabel)
 
     def _checkBuildSanity(self, buildTroves):
         def _referencesOtherTroves(trv):
@@ -175,62 +184,3 @@ class Builder(object):
             self.job.jobFailed(failure.FailureReason("Job failed sanity check: %s: %s" % (err, troveNames)))
             return False
         return True
-
-    def _buildTrove(self, troveToBuild):
-        chrootManager = self.getChrootManager()
-        self.job.log('Building %s' % troveToBuild.getName())
-        buildReqs = self.buildState.getBuildReqTroves(troveToBuild)
-
-        try:
-            chroot = chrootManager.createRoot(buildReqs, troveToBuild)
-            self._chroots.append(chroot)
-        except Exception, err:
-            f = failure.ChrootFailed(str(err), traceback.format_exc())
-            # sends off messages to all listeners that this trove failed.
-            troveToBuild.troveFailed(f)
-            return
-
-        n,v,f = troveToBuild.getNameVersionFlavor()
-        targetLabel = self.buildCfg.getTargetLabel(v)
-        logPath, pid = chroot.buildTrove(self.buildCfg, targetLabel, n, v, f)
-        # sends off message that this trove is building.
-        troveToBuild.troveBuilding(logPath, pid)
-        self._buildingTroves.append((chrootManager, chroot, troveToBuild))
-
-
-    def _checkForResults(self):
-        foundResult = False
-        for chrootManager, chroot, trove in list(self._buildingTroves):
-            try:
-                buildResult = chroot.checkResults(*trove.getNameVersionFlavor())
-                if not buildResult:
-                    continue
-                foundResult = True
-                self._buildingTroves.remove((chrootManager, chroot, trove))
-
-                if buildResult.isBuildSuccess():
-                    csFile = buildResult.getChangeSetFile()
-                    cs = changeset.ChangeSetFromFile(csFile)
-                    self.repos.commitChangeSet(cs)
-                    # sends off message that this trove built successfully
-                    trove.troveBuilt(cs)
-                    del cs # this makes sure the changeset closes the fd.
-                    if self.buildCfg.cleanAfterCook:
-                        chrootManager.cleanRoot(chroot.getPid())
-                    else:
-                        chrootManager.killRoot(chroot.getPid())
-                    continue
-                else:
-                    reason = buildResult.getFailureReason()
-                    trove.troveFailed(reason)
-                    # passes through to killRoot at the bottom.
-            except Exception, e:
-                reason = failure.InternalError(str(e), traceback.format_exc())
-                trove.troveFailed(reason)
-            chrootManager.killRoot(chroot.getPid())
-        return foundResult
-
-    def getChrootManager(self):
-        return rootmanager.ChrootManager(self.job, self.serverCfg.buildDir,
-                                         self.serverCfg.chrootHelperPath,
-                                         self.buildCfg, self.serverCfg)
