@@ -25,7 +25,9 @@ class PluginManager(pluginlib.PluginManager):
                                          supportedTypes=[TYPE_CLIENT,
                                                          TYPE_SERVER,
                                                          TYPE_SUBSCRIBER])
-        self.loadPlugins()
+
+    def loadPlugins(self):
+        pluginlib.PluginManager.loadPlugins(self)
         # make subscriber plugins available.
         subscribers.loadPlugins(self.getPluginsByType(TYPE_SUBSCRIBER))
 
@@ -77,4 +79,6 @@ def getPluginManager(argv, configClass):
         pluginDirs = cfg.pluginDirs
 
     disabledPlugins = [ x[0] for x in cfg.usePlugin.items() if not x[1] ]
-    return PluginManager(pluginDirs, disabledPlugins)
+    p = PluginManager(pluginDirs, disabledPlugins)
+    p.loadPlugins()
+    return p
