@@ -32,5 +32,3 @@ class TestCommand(command.rMakeCommand):
 
     def runCommand(self, client, cfg, argSet, args):
         print 'TEST!'
-"""
-
