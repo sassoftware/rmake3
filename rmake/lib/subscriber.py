@@ -24,6 +24,8 @@ class Subscriber(object):
 
     def _receiveEvents(self, apiVersion, eventList):
         for event, data in eventList:
+            if event[0] not in self.listeners:
+                continue
             getattr(self, self.listeners[event[0]])(*data)
 
     def watchEvent(self, state, substates=set()):
