@@ -143,12 +143,12 @@ class Builder(object):
 
         if self.job.hasBuildableTroves():
             while True:
-
-                if self.job.hasBuildingTroves():
-                    if self.dispatcher._checkForResults(self.buildCfg):
-                        self.dh.updateBuildableTroves()
+                if self.dispatcher._checkForResults(self.buildCfg):
+                    self.dh.updateBuildableTroves()
                 elif self.job.hasBuildableTroves():
                     self.buildTrove(self.job.iterBuildableTroves().next())
+                elif self.job.hasBuildingTroves():
+                    pass
                 else:
                     break
                 time.sleep(1)

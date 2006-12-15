@@ -51,6 +51,8 @@ class Dispatcher(object):
                                          self.serverCfg.chrootHelperPath,
                                          buildCfg, self.serverCfg)
     def _checkForResults(self, buildCfg):
+        if not self._buildingTroves:
+            return False
         repos = conaryclient.ConaryClient(buildCfg).getRepos()
         foundResult = False
         for chrootManager, chroot, trove in list(self._buildingTroves):
