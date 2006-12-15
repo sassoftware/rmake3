@@ -492,7 +492,9 @@ class rMakeServer(apirpc.XMLApiServer):
 
         # any jobs that were running before are not running now
         self._publisher = publish._RmakeServerPublisher()
-        apirpc.XMLApiServer.__init__(self, uri, logRequests=False)
+        self.xmlRpcLog = open(self.cfg.logDir + '/xmlrpc.log', 'w')
+        apirpc.XMLApiServer.__init__(self, uri, logRequests=False,
+                                     logStream=self.xmlRpcLog)
         self.queue = []
         self._initialized = False
 
