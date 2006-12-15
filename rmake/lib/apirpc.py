@@ -42,7 +42,6 @@ import time
 import traceback
 import xmlrpclib
 
-from conary.lib import log
 from conary.lib import coveragehook
 
 from rmake import errors
@@ -124,13 +123,16 @@ class XMLApiServer(server.Server):
     # the console before returning them across the wire
     debug = False
 
-    def __init__(self, uri=None, logRequests=True):
+    def __init__(self, uri=None, logRequests=True, logStream=None):
         """ @param serverObj: The XMLRPCServer that will serve data to 
             the _dispatch method.  If None, caller is responsible for 
             giving information to be dispatched.
         """
         server.Server.__init__(self)
         self.uri = uri
+        if logStream is None:
+            logStream = sys.stdout
+        self.logStream = logStream
         if uri:
             if isinstance(uri, str):
                 import urllib
@@ -221,8 +223,8 @@ class XMLApiServer(server.Server):
         args = list(_thawParams(method, args, methodVersion))
 
         timestr = time.strftime('%x %X')
-        log.info('[%s] method: %s\n    credentials: %s' % (timestr, methodname,
-                                                           auth))
+        self.logStream.write('[%s] method: %s\n    credentials: %s\n' \
+                                            % (timestr, methodname, auth))
         rv = method(callData, *args)
 
         if rv != None:
