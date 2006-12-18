@@ -28,6 +28,7 @@ import xmlrpclib
 
 from conary.deps import deps
 from conary.lib import log
+from conary.lib import util
 
 from rmake import errors
 from rmake import plugins
@@ -492,6 +493,8 @@ class rMakeServer(apirpc.XMLApiServer):
 
         # any jobs that were running before are not running now
         self._publisher = publish._RmakeServerPublisher()
+
+        util.mkdirChain(self.cfg.logDir)
         self.xmlRpcLog = open(self.cfg.logDir + '/xmlrpc.log', 'w')
         apirpc.XMLApiServer.__init__(self, uri, logRequests=False,
                                      logStream=self.xmlRpcLog)
