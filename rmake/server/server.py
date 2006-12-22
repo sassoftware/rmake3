@@ -67,7 +67,6 @@ class rMakeServer(apirpc.XMLApiServer):
         jobId = self.db.convertToJobId(jobId)
         job = self.db.getJob(jobId, withTroves=True)
         self._stopJob(job)
-        self.db.subscribeToJob(job)
         self._subscribeToJobInternal(job)
         job.jobStopped('User requested stop')
 
@@ -181,7 +180,6 @@ class rMakeServer(apirpc.XMLApiServer):
             return
         else:
             try:
-                self.db.subscribeToJob(job)
                 self._subscribeToJob(job)
                 job.jobCommitting()
                 os._exit(0)
@@ -199,7 +197,6 @@ class rMakeServer(apirpc.XMLApiServer):
             return
         else:
             try:
-                self.db.subscribeToJob(job)
                 self._subscribeToJob(job)
                 job.jobCommitFailed(message)
                 os._exit(0)
@@ -217,7 +214,6 @@ class rMakeServer(apirpc.XMLApiServer):
             return
         else:
             try:
-                self.db.subscribeToJob(job)
                 self._subscribeToJob(job)
                 job.jobCommitted(troveTupleList)
                 os._exit(0)
@@ -280,10 +276,12 @@ class rMakeServer(apirpc.XMLApiServer):
         sys.exit(0)
 
     def _subscribeToJob(self, job):
-        subscriber._RmakeServerPublisherProxy(self.uri).attach(job)
+        for subscriber in self._subscribers:
+            subscriber.attach(job)
 
     def _subscribeToJobInternal(self, job):
-        subscriber._RmakeServerPublisherProxy(self).attach(job)
+        for subscriber in self._internalSubscribers:
+            subscriber.attach(job)
 
     def _emitEvents(self):
         if not self._events or self._emitPid:
@@ -333,9 +331,6 @@ class rMakeServer(apirpc.XMLApiServer):
             # need to reinitialize the database in the forked child process
             self.db.reopen()
 
-            # note - we cannot call any callbacks before we fork 
-            # until we have a forking xmlrpc server
-            self.db.subscribeToJob(job)
             self._subscribeToJob(job)
 
             job.jobStarted("spawning process %s for build %s..." % (
@@ -363,7 +358,6 @@ class rMakeServer(apirpc.XMLApiServer):
             self.db.reopen()
             for job in jobs:
                 self._subscribeToJob(job)
-                self.db.subscribeToJob(job)
                 publisher = job.getPublisher()
                 job.jobFailed(reason)
             os._exit(0)
@@ -470,7 +464,6 @@ class rMakeServer(apirpc.XMLApiServer):
         jobs = self.db.getJobs(killed)
         for job in jobs:
             self._subscribeToJobInternal(job)
-            self.db.subscribeToJob(job)
             publisher = job.getPublisher()
             publisher.cork()
             publishers.append(publisher)
@@ -513,4 +506,12 @@ class rMakeServer(apirpc.XMLApiServer):
 
 
         self._buildPids = {}         # forked jobs that are currently active
+        dbLogger = subscriber._JobDbLogger(self.db)
+        self._subscribers = [dbLogger]
+        s = subscriber._RmakeServerPublisherProxy(self.uri)
+        self._subscribers.append(s)
+
+        self._internalSubscribers = [dbLogger]
+        s = subscriber._RmakeServerPublisherProxy(self)
+        self._internalSubscribers.append(s)
         self.plugins.callServerHook('server_postInit', self)
