@@ -14,6 +14,7 @@
 """
 Utility server that manages child processes.
 """
+import errno
 import os
 import signal
 import sys
