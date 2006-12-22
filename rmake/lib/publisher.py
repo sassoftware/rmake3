@@ -68,9 +68,11 @@ class Publisher(object):
             if state not in self.states:
                 raise ValueError("no such state '%s'" % state)
             if dispatcher:
-                self.dispatchers.setdefault(state, []).append(fn)
+                l = self.dispatchers.setdefault(state, [])
             else:
-                self.listeners.setdefault(state, []).append(fn)
+                l = self.listeners.setdefault(state, [])
+            if fn not in l:
+                l.append(fn)
 
     def unsubscribe(self, state, fn):
         self.listeners[state].remove(fn)
