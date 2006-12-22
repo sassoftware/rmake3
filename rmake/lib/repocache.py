@@ -38,11 +38,11 @@ class CachingTroveSource:
     def __getattr__(self, key):
         return getattr(self._troveSource, key)
 
-    def getTroves(self, troveList, withFiles=False, callback = None):
+    def getTroves(self, troveList, withFiles=True, callback = None):
         return self._cache.getTroves(self._troveSource, troveList,
                                      withFiles=withFiles, callback = None)
 
-    def getTrove(self, name, version, flavor, withFiles=False, callback=None):
+    def getTrove(self, name, version, flavor, withFiles=True, callback=None):
         trv = self.getTroves([(name, version, flavor)], withFiles=withFiles,
                               callback=callback)[0]
         if trv is None:
@@ -69,20 +69,24 @@ class RepositoryCache(object):
         return sha1helper.sha1ToString(
                     sha1helper.sha1String('[0]%s=%s' % (fileId, fileVersion)))
 
-    def hashTrove(self, name, version, flavor):
+    def hashTrove(self, name, version, flavor, withFiles, withFileContents):
         # we add extra delimiters here because we can be sure they they
         # will result in a unique string for each n,v,f
         return sha1helper.sha1ToString(
-                sha1helper.sha1String('%s=%s[%s]' % (name, version, flavor)))
+                sha1helper.sha1String('%s=%s[%s]%s%s' % (name, version, flavor, withFiles, withFileContents)))
 
-    def getChangeSetsForTroves(self, repos, troveList, callback=None):
+    def getChangeSetsForTroves(self, repos, troveList, withFiles=True,
+                               withFileContents=True, callback=None):
         return self.getChangeSets(repos,
                                   [(x[0], (None, None), (x[1], x[2]), False) 
                                    for x in troveList ],
+                                   withFiles, withFileContents,
                                    callback=callback)
 
-    def getTroves(self, repos, troveList, withFiles=True, callback=None):
-        csList = self.getChangeSetsForTroves(repos, troveList, callback)
+    def getTroves(self, repos, troveList, withFiles=True,
+                  withFileContents=False, callback=None):
+        csList = self.getChangeSetsForTroves(repos, troveList, withFiles,
+                                             withFileContents, callback)
         l = []
         for cs, info in itertools.izip(csList, troveList):
             try:
@@ -97,7 +101,8 @@ class RepositoryCache(object):
             l.append(t)
         return l
 
-    def getChangeSets(self, repos, jobList, callback=None):
+    def getChangeSets(self, repos, jobList, withFiles=True,
+                      withFileContents=True, callback=None):
         for job in jobList:
             if job[1][0]:
                 raise CacheError('can only cache install,'
@@ -108,7 +113,8 @@ class RepositoryCache(object):
         changesets = []
         needed = []
         for job in jobList:
-            csHash = str(self.hashTrove(job[0], *job[2]))
+            csHash = str(self.hashTrove(job[0], job[2][0], job[2][1],
+                                        withFiles, withFileContents))
             if self.store.hasFile(csHash):
                 outFile = self.store.openRawFile(csHash)
                 changesets.append(changeset.ChangeSetFromFile(outFile))
@@ -122,7 +128,8 @@ class RepositoryCache(object):
                 callback.setChangesetHunk(idx + 1, total)
 
             cs = repos.createChangeSet([job], recurse=False,
-                                       callback=callback)
+                                       callback=callback, withFiles=withFiles,
+                                       withFileContents=withFileContents)
             if self.readOnly:
                 changesets.append(cs)
                 continue
