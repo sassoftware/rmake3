@@ -62,8 +62,8 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
 
         if self.csCache:
             changeSetList = self.csCache.getChangeSets(client.getRepos(),
-                                                       self.jobList, 
-                                                       self.callback)
+                                                       self.jobList,
+                                                       callback=self.callback)
         else:
             changeSetList = []
 
