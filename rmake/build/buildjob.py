@@ -255,6 +255,7 @@ class BuildJob(_FreezableBuildJob):
         publisher = self.getPublisher()
         for trove in buildTroves:
             trove.setPublisher(publisher)
+            trove.own()
         self._publisher.buildTrovesSet(self)
 
     def jobQueued(self):
@@ -325,5 +326,4 @@ def NewBuildJob(db, troveTups, jobConfig=None, state=JOB_STATE_INIT, uuid=''):
     """
     job = BuildJob(None, troveTups, state=state, uuid=uuid)
     db.addJob(job, jobConfig)
-    db.subscribeToJob(job)
     return job

@@ -263,7 +263,23 @@ class BuildTrove(_FreezableBuildTrove):
 
     def __init__(self, *args, **kwargs):
         self._publisher = publisher.JobStatusPublisher()
+        self._amOwner = False
         _FreezableBuildTrove.__init__(self, *args, **kwargs)
+
+    def amOwner(self):
+        """
+            Returns True if this process owns this trove, otherwise
+            returns False.  Processes that don't own troves are not allowed
+            to update other processes about the trove's status (this avoids
+            message loops).
+        """
+        return self._amOwner
+
+    def own(self):
+        self._amOwner = True
+
+    def disown(self):
+        self._amOwner = False
  
     def setPublisher(self, publisher):
         """
@@ -325,7 +341,6 @@ class BuildTrove(_FreezableBuildTrove):
             @param logPath: path to build log on the filesystem.
             @param pid: pid of build process.
         """
-
         self.pid = pid
         self.start = time.time()
         self.logPath = logPath
