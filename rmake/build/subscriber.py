@@ -43,12 +43,9 @@ from rmake.lib.apiutils import thaw, freeze
 class _InternalSubscriber(subscriber.Subscriber):
 
     def __init__(self):
-        self.job = None
         subscriber.Subscriber.__init__(self)
 
     def attach(self, job):
-        assert(not self.job)
-        self.job = job
         publisher = job.getPublisher()
         publisher.subscribe(self.listeners, self._receiveEvents,
                             dispatcher=True)
@@ -135,6 +132,7 @@ class _RmakeServerPublisherProxy(_InternalSubscriber):
         from rmake.build import buildtrove
         newEventList = []
         for event, data in eventList:
+            jobId =  data[0].jobId
             if isinstance(data[0], buildjob.BuildJob):
                 newData = [ data[0].jobId ]
             if isinstance(data[0], buildtrove.BuildTrove):
@@ -143,7 +141,7 @@ class _RmakeServerPublisherProxy(_InternalSubscriber):
             newEventList.append((event, newData))
         newEventList = (apiVer, newEventList)
 
-        self.proxy.emitEvents(self.job.jobId, newEventList)
+        self.proxy.emitEvents(jobId, newEventList)
 
 class _EventListFreezer(object):
     """
