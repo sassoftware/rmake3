@@ -19,6 +19,7 @@ import time
 import traceback
 
 from conary.lib import log, misc, options, util
+from conary import conarycfg
 from conary import conaryclient
 
 from rmake.build.chroot import cook
@@ -38,12 +39,22 @@ class ChrootServer(apirpc.XMLApiServer):
     @api_return(1, None)
     def buildTrove(self, callData, buildCfg, targetLabel,
                    name, version, flavor, logHost, logPort):
-
         buildCfg.root = self.cfg.root
         buildCfg.buildPath = self.cfg.root + '/tmp/rmake/builds'
         buildCfg.lookaside = self.cfg.root + '/tmp/rmake/cache'
         buildCfg.dbPath = '/var/lib/conarydb'
 
+        if buildCfg.strictMode:
+            conaryCfg = conarycfg.ConaryConfiguration(True)
+            buildCfg.strictMode = False
+            buildCfg.useConaryConfig(conaryCfg)
+            buildCfg.strictMode = True
+        path = '%s/tmp/conaryrc' % self.cfg.root
+        conaryrc = open(path, 'w')
+        conaryrc.write('# This is the actual conary configuration used when\n'
+                       '# building.')
+        buildCfg.storeConaryCfg(conaryrc)
+        conaryrc.close()
         repos = conaryclient.ConaryClient(buildCfg).getRepos()
         repos = repocache.CachingTroveSource(repos,
                                         self.cfg.root + '/var/rmake/cscache',

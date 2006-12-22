@@ -1,8 +1,12 @@
 Changes in @NEW@:
   o Architecture Changes:
      * rMake now supports plugins, located in /etc/rmake/plugins.d (RMK-186).
-     * The builder has been split out into builder and dispatcher to enable 
+     * The builder has been split out into builder and dispatcher to enable
        support for multiple build nodes.
+  o Bug Fixes:
+     * StrictMode now allows signatureKeys.
+     * StrictMode now reads in conary configuration files that are
+       installed in the root and uses them for buildcfg (RMK-295).
 
 Changes in 1.0.3:
   o Server Changes:

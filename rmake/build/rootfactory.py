@@ -159,21 +159,19 @@ class rMakeChroot(ConaryBasedChroot):
         self.createConaryRc()
 
     def createConaryRc(self):
-        conaryrc = open('%s/etc/conaryrc' % self.cfg.root, 'w')
         conaryCfg = conarycfg.ConaryConfiguration(False)
-        for key, value in self.cfg.iteritems():
-            if self.cfg.isDefault(key):
-                continue
-            if key in conaryCfg:
-                conaryCfg[key] = value
         try:
             if self.canChroot(): # then we will be chrooting into this dir
+                conaryrc = open('%s/etc/conaryrc.prechroot' % self.cfg.root, 'w')
                 oldroot = self.cfg.root
-                conaryCfg.root = '/'
-                conaryCfg.store(conaryrc, includeDocs=False)
-                conaryCfg.root = oldroot
+                self.cfg.root = '/'
+                try:
+                    self.cfg.storeConaryCfg(conaryrc)
+                finally:
+                    self.cfg.root = oldroot
             else:
-                conaryCfg.store(conaryrc, includeDocs=False)
+                conaryrc = open('%s/etc/conaryrc.rmake' % self.cfg.root, 'w')
+                self.cfg.storeConaryCfg(conaryrc)
         except Exception, msg:
             print "Error writing conaryrc:", msg
         conaryrc.close()

@@ -133,14 +133,15 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
 
     _strictOptions = [ 'buildFlavor', 'buildLabel',
                        'flavor', 'installLabelPath', 'repositoryMap', 'root',
-                       'user', 'name', 'contact' ]
+                       'user', 'name', 'contact', 'signatureKey' ]
     _defaultSectionType   =  RmakeBuildContext
 
     def __init__(self, readConfigFiles=False, root='', conaryConfig=None, 
                  serverConfig=None, ignoreErrors=False):
         # we default the value of these items to whatever they
         # are set to on the local system's conaryrc.
-        self.setIgnoreErrors(ignoreErrors)
+        if hasattr(self, 'setIgnoreErrors'):
+            self.setIgnoreErrors(ignoreErrors)
 
         conarycfg.ConaryConfiguration.__init__(self, readConfigFiles=False)
         for info in RmakeBuildContext._getConfigOptions():
@@ -254,6 +255,15 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
             return targetLabel
         else:
             return version.getTrailingLabel()
+
+    def storeConaryCfg(self, out):
+        conaryCfg = conarycfg.ConaryConfiguration(False)
+        for key, value in self.iteritems():
+            if self.isDefault(key):
+                continue
+            if key in conaryCfg:
+                conaryCfg[key] = value
+        conaryCfg.store(out, includeDocs=False)
 
     def _writeKey(self, out, cfgItem, value, options):
         if cfgItem.name in self._hiddenOptions:
