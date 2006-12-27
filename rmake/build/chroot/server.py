@@ -13,13 +13,14 @@
 # full details.
 #
 import os
+import select
 import signal
+import socket
 import sys
 import time
 import traceback
 
 from conary.lib import log, misc, options, util
-from conary import conarycfg
 from conary import conaryclient
 
 from rmake.build.chroot import cook
@@ -39,23 +40,12 @@ class ChrootServer(apirpc.XMLApiServer):
     @api_return(1, None)
     def buildTrove(self, callData, buildCfg, targetLabel,
                    name, version, flavor, logHost, logPort):
+
         buildCfg.root = self.cfg.root
         buildCfg.buildPath = self.cfg.root + '/tmp/rmake/builds'
         buildCfg.lookaside = self.cfg.root + '/tmp/rmake/cache'
         buildCfg.dbPath = '/var/lib/conarydb'
 
-        if buildCfg.strictMode:
-            conaryCfg = conarycfg.ConaryConfiguration(True)
-            buildCfg.strictMode = False
-            buildCfg.useConaryConfig(conaryCfg)
-            buildCfg.strictMode = True
-        path = '%s/tmp/conaryrc' % self.cfg.root
-        util.mkdirChain(os.path.dirname(path))
-        conaryrc = open(path, 'w')
-        conaryrc.write('# This is the actual conary configuration used when\n'
-                       '# building.')
-        buildCfg.storeConaryCfg(conaryrc)
-        conaryrc.close()
         repos = conaryclient.ConaryClient(buildCfg).getRepos()
         repos = repocache.CachingTroveSource(repos,
                                         self.cfg.root + '/var/rmake/cscache',
@@ -71,21 +61,33 @@ class ChrootServer(apirpc.XMLApiServer):
     @api_parameters(1, 'str', 'version', 'flavor', 'float')
     @api_return(1, None)
     def checkResults(self, callData, name, version, flavor, wait):
-        timeSpent = 0
-        buildInfo = self._buildInfo[name, version, flavor]
-
-        while True:
-            results = cook.getResults(*buildInfo)
-            if results:
-                break
-            elif wait and timeSpent < wait:
-                time.sleep(.1)
-                timeSpent += .1
-            else:
-                return ''
-
-        del self._buildInfo[name, version, flavor]
+        if (name, version, flavor) in self._results:
+            results = self._results[name, version, flavor]
+        else:
+            timeSpent = 0
+            buildInfo = self._buildInfo[name, version, flavor]
+            while True:
+                results = cook.getResults(*buildInfo)
+                if results:
+                    break
+                elif wait and timeSpent < wait:
+                    time.sleep(.1)
+                    timeSpent += .1
+                else:
+                    return ''
+            del self._buildInfo[name, version, flavor]
         return freeze(cook.CookResults, results)
+
+    @api(version=1)
+    @api_parameters(1, 'str', 'version', 'flavor')
+    @api_return(1, 'int')
+    def subscribeToBuild(self, callData, name, version, flavor):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.bind(('', 0))
+        port = s.getsockname()[1]
+        s.listen(1)
+        self._unconnectedSubscribers[s] = name, version, flavor
+        return port
 
     @api(version=1)
     @api_parameters(1)
@@ -94,6 +96,21 @@ class ChrootServer(apirpc.XMLApiServer):
         self._results = []
         self._halt = True
         return
+
+    def _serveLoopHook(self):
+        ready = select.select(self._unconnectedSubscribers, [], [], 0.1)[0]
+        for socket in ready:
+            troveTup = self._unconnectedSubscribers.pop(socket)
+            socket, caddr = socket.accept()
+            self._subscribers.setdefault(troveTup, []).append(socket)
+        for troveInfo, buildInfo in self._buildInfo.items():
+            results = cook.getResults(*buildInfo)
+            if not results:
+                continue
+            self._results[troveInfo] = results
+            for socket in self._subscribers.get(troveInfo, []):
+                socket.close()
+            del self._buildInfo[troveInfo]
 
     def _signalHandler(self, sigNum, frame):
         # if they rekill, we just exit
@@ -107,25 +124,18 @@ class ChrootServer(apirpc.XMLApiServer):
         self._halt = False
         self._haltSignal = None
         self._buildInfo = {}
+        self._unconnectedSubscribers = {}
+        self._subscribers = {}
+        self._results = {}
         apirpc.XMLApiServer.__init__(self, uri)
 
-    def _serveLoopHook(self):
-        if self._halt:
-            try:
-                log.info('Stopping chroot server')
-                # we've gotten a request to halt, kill all jobs  
-                # and then kill ourselves
-                self._stopBuilds()
-                if self._haltSignal:
-                    os.kill(os.getpid(), self._haltSignal)
-            except Exception, err:
-                try:
-                    log.error('Halt failed: %s\n%s', err, 
-                              traceback.format_exc())
-                finally:
-                    os._exit(1)
-            else:
-                sys.exit(0)
+    def _shutDown(self):
+        # we've gotten a request to halt, kill all jobs
+        # and then kill ourselves
+        self._stopBuilds()
+        if self._haltSignal:
+            os.kill(os.getpid(), self._haltSignal)
+        sys.exit(0)
 
     def _stopBuilds(self):
         for troveNVF, buildInfo in self._buildInfo.items():
@@ -138,6 +148,23 @@ class ChrootClient(object):
         self.pid = pid
         self.proxy = apirpc.ApiProxy(ChrootServer, uri)
 
+    def subscribeToBuild(self, name, version, flavor):
+        port = self.proxy.subscribeToBuild(name, version, flavor)
+        s = socket.socket()
+        s.connect(('localhost', port))
+        self.resultsReadySocket = s
+
+    def checkSubscription(self):
+        ready = select.select([self.resultsReadySocket], [], [], 0.1)[0]
+        if ready:
+            done = self.resultsReadySocket.recv(1024)
+            assert(done == '')
+            self.resultsReadySocket.close()
+            del self.resultsReadySocket
+            return True
+        else:
+            return False
+
     def getPid(self):
         return self.pid
 
@@ -147,6 +174,7 @@ class ChrootClient(object):
                                              name, version, flavor,
                                              logHost, logPort)
         logPath = self.root + logPath
+        self.subscribeToBuild(name, version, flavor)
         return logPath, pid
 
     def checkResults(self, name, version, flavor, wait=False):

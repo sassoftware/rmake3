@@ -57,6 +57,8 @@ class Dispatcher(object):
         foundResult = False
         for chrootManager, chroot, trove in list(self._buildingTroves):
             try:
+                if not chroot.checkSubscription():
+                    continue
                 buildResult = chroot.checkResults(*trove.getNameVersionFlavor())
                 if not buildResult:
                     continue
