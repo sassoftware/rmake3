@@ -50,6 +50,7 @@ class ChrootServer(apirpc.XMLApiServer):
             buildCfg.useConaryConfig(conaryCfg)
             buildCfg.strictMode = True
         path = '%s/tmp/conaryrc' % self.cfg.root
+        util.mkdirChain(os.path.dirname(path))
         conaryrc = open(path, 'w')
         conaryrc.write('# This is the actual conary configuration used when\n'
                        '# building.')
