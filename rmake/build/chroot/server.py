@@ -46,11 +46,24 @@ class ChrootServer(apirpc.XMLApiServer):
         buildCfg.lookaside = self.cfg.root + '/tmp/rmake/cache'
         buildCfg.dbPath = '/var/lib/conarydb'
 
+        if buildCfg.strictMode:
+            conaryCfg = conarycfg.ConaryConfiguration(True)
+            buildCfg.strictMode = False
+            buildCfg.useConaryConfig(conaryCfg)
+            buildCfg.strictMode = True
+        path = '%s/tmp/conaryrc' % self.cfg.root
+        util.mkdirChain(os.path.dirname(path))
+        conaryrc = open(path, 'w')
+        conaryrc.write('# This is the actual conary configuration used when\n'
+                       '# building.')
+        buildCfg.storeConaryCfg(conaryrc)
+        conaryrc.close()
+
         repos = conaryclient.ConaryClient(buildCfg).getRepos()
         repos = repocache.CachingTroveSource(repos,
                                         self.cfg.root + '/var/rmake/cscache',
                                         readOnly=True)
-        logPath, pid, buildInfo = cook.cookTrove(buildCfg, repos,
+        logPath, pid, buildInfo = cook.cookTrove(buildCfg, repos, self._logger,
                                                  name, version, flavor,
                                                  targetLabel, logHost, logPort)
         pid = buildInfo[1]
