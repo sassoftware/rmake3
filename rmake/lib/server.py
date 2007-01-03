@@ -23,6 +23,7 @@ import traceback
 
 from conary.lib import coveragehook
 
+from rmake import errors
 from rmake.lib import logger as logger_
 
 class Server(object):
@@ -40,29 +41,17 @@ class Server(object):
         self._halt = False
         self._haltSignal = None
         try:
+            self._try('loop hook', self._serveLoopHook)
             while True:
-                try:
-                    self._serveLoopHook()
-                except (SystemExit, KeyboardInterrupt):
-                    raise
-                except Exception, err:
-                    self.error('Error in loop hook: %s' % err)
-                    traceback.print_exc()
                 if self._halt:
                     try:
                         self.info('Shutting down server')
-                        self._shutDown()
-                    except (SystemExit, KeyboardInterrupt), err:
-                        raise
-                    except Exception, err:
-                        try:
-                            self.error('Halt failed: %s\n%s', err,
-                                      traceback.format_exc())
-                        finally:
-                            os._exit(1)
+                        self._try('halt', self._shutDown)
+                    finally:
+                        os._exit(1)
                     assert(0)
-
-                self.handleRequestIfReady(.1)
+                self._try('request handling', self.handleRequestIfReady, .1)
+                self._try('loop hook', self._serveLoopHook)
         finally:
             coveragehook.save()
 
@@ -71,6 +60,17 @@ class Server(object):
 
     def _serveLoopHook(self):
         pass
+
+    def _try(self, name, fn, *args, **kw):
+        try:
+            return fn(*args, **kw)
+        except errors.uncatchableExceptions, err:
+            raise
+        except Exception, err:
+            self.error('Error in %s: %s\n%s', name, err,
+                      traceback.format_exc())
+            raise
+        assert(0)
 
     def _shutDown(self):
         sys.exit(0)

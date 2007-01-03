@@ -419,7 +419,7 @@ class rMakeServer(apirpc.XMLApiServer):
         else:
             try:
                 os.kill(-job.pid, signal.SIGTERM)
-            except OSError, err:
+            except jSError, err:
                 if err.errno == errno.ESRCH:
                     # the process is already dead!
                     return
@@ -499,23 +499,11 @@ class rMakeServer(apirpc.XMLApiServer):
 
 
     def __init__(self, uri, cfg, repositoryPid, pluginMgr=None):
-        self.uri = uri
-        self.cfg = cfg
-        self.repositoryPid = repositoryPid
-        self.db = database.Database(cfg.getDbPath(),
-                                    cfg.getDbContentsPath())
-        if pluginMgr is None:
-            pluginMgr = plugins.PluginManager([])
-        self.plugins = pluginMgr
-
-        # any jobs that were running before are not running now
-        self._publisher = publish._RmakeServerPublisher()
-
-        util.mkdirChain(self.cfg.logDir)
-        logPath = self.cfg.logDir + '/rmake.log'
-        rpcPath = self.cfg.logDir + '/xmlrpc.log'
+        util.mkdirChain(cfg.logDir)
+        logPath = cfg.logDir + '/rmake.log'
+        rpcPath = cfg.logDir + '/xmlrpc.log'
         serverLogger = ServerLogger()
-        if self.cfg.verbose:
+        if cfg.verbose:
             logLevel = logging.DEBUG
         else:
             logLevel = logging.INFO
@@ -523,32 +511,55 @@ class rMakeServer(apirpc.XMLApiServer):
         serverLogger.disableRPCConsole()
         serverLogger.logToFile(logPath)
         serverLogger.logRPCToFile(rpcPath)
+        serverLogger.info('*** Started rMake Server at pid %s' % os.getpid())
+        try:
+            self.uri = uri
+            self.cfg = cfg
+            self.repositoryPid = repositoryPid
+            self.db = database.Database(cfg.getDbPath(),
+                                        cfg.getDbContentsPath())
+            if pluginMgr is None:
+                pluginMgr = plugins.PluginManager([])
+            self.plugins = pluginMgr
 
-        apirpc.XMLApiServer.__init__(self, uri, logger=serverLogger)
-        self.queue = []
-        self._initialized = False
+            # any jobs that were running before are not running now
+            self._publisher = publish._RmakeServerPublisher()
 
-        # event queuing code - to eventually be moved to a separate process
-        self._events = {}
-        self._emitEventTimeThreshold = .2  # min length of time between emits
-        self._emitEventSizeThreshold = 10  # max # of issues to queue before
-                                           # emit (overrides time threshold)
+            apirpc.XMLApiServer.__init__(self, uri, logger=serverLogger)
+            self.queue = []
+            self._initialized = False
 
-        self._numEvents = 0                # number of queued events
-        self._lastEmit = time.time()       # time of last emit
-        self._emitPid = 0                  # pid for rudimentary locking
+            # event queuing code - to eventually be moved to a separate 
+            # process
+            self._events = {}
+            # min length of time between emits
+            self._emitEventTimeThreshold = .2
+            # max # of issues to queue before emit (overrides time threshold)
+            self._emitEventSizeThreshold = 10  
+            self._numEvents = 0                # number of queued events
+            self._lastEmit = time.time()       # time of last emit
+            self._emitPid = 0                  # pid for rudimentary locking
 
+            # forked jobs that are currently active
+            self._buildPids = {} 
+            dbLogger = subscriber._JobDbLogger(self.db)
+            # note - it's important that the db logger
+            # comes first, before the general publisher,
+            # so that whatever published is actually 
+            # recorded in the DB.
+            self._subscribers = [dbLogger]
+            s = subscriber._RmakeServerPublisherProxy(self.uri)
+            self._subscribers.append(s)
 
-        self._buildPids = {}         # forked jobs that are currently active
-        dbLogger = subscriber._JobDbLogger(self.db)
-        self._subscribers = [dbLogger] # note - it's important that the db logger
-                                       # comes first, before the general publisher,
-                                       # so that whatever published is actually 
-                                       # recorded in the DB.
-        s = subscriber._RmakeServerPublisherProxy(self.uri)
-        self._subscribers.append(s)
+            self._internalSubscribers = [dbLogger]
+            s = subscriber._RmakeServerPublisherProxy(self)
+            self._internalSubscribers.append(s)
+            self.plugins.callServerHook('server_postInit', self)
+        except errors.uncatchableExceptions:
+            raise
+        except Exception, err:
+            self.error('Error initializing rMake Server:\n  %s\n%s', err,
+                        traceback.format_exc())
+            self._try('halt', self._shutDown)
+            raise
 
-        self._internalSubscribers = [dbLogger]
-        s = subscriber._RmakeServerPublisherProxy(self)
-        self._internalSubscribers.append(s)
-        self.plugins.callServerHook('server_postInit', self)
