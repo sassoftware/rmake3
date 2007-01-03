@@ -27,14 +27,15 @@ from conary.deps.deps import ThawFlavor
 from rmake.lib import apiutils
 from rmake.lib.apiutils import freeze, thaw
 
-FAILURE_REASON_FAILED       = 0
-FAILURE_REASON_BUILD_FAILED = 1
-FAILURE_REASON_BUILDREQ     = 2
-FAILURE_REASON_DEP          = 3
-FAILURE_REASON_CHROOT       = 4 # installation error
-FAILURE_REASON_LOAD         = 5 # loadrecipe error
-FAILURE_REASON_INTERNAL     = 6 # error in rmake proper
-FAILURE_REASON_JOB_STOPPED  = 7 # stop request
+FAILURE_REASON_FAILED         = 0
+FAILURE_REASON_BUILD_FAILED   = 1
+FAILURE_REASON_BUILDREQ       = 2
+FAILURE_REASON_DEP            = 3
+FAILURE_REASON_CHROOT         = 4 # installation error
+FAILURE_REASON_LOAD           = 5 # loadrecipe error
+FAILURE_REASON_INTERNAL       = 6 # error in rmake proper
+FAILURE_REASON_JOB_STOPPED    = 7 # stop request
+FAILURE_REASON_COMMAND_FAILED = 8
 
 # FIXME: this should use streamSets for the data.
 
@@ -108,6 +109,18 @@ class BuildFailed(FailureWithException):
 
     def __str__(self):
         return 'Failed while building: %s' % self.data[0]
+
+class CommandFailed(FailureWithException):
+    tag = FAILURE_REASON_COMMAND_FAILED
+
+    def __init__(self, commandId, error='', exception=''):
+        if isinstance(commandId, (list, tuple)):
+            FailureWithException.__init__(self, commandId)
+        else:
+            FailureWithException.__init__(self, [error, exception, commandId])
+
+    def __str__(self):
+        return 'Failed while executing command %s: %s' % (self.data[2], self.data[0])
 
 class ChrootFailed(FailureWithException):
     tag = FAILURE_REASON_CHROOT
@@ -199,6 +212,7 @@ class JobStopped(FailureReason):
 classByTag = {}
 for class_ in (FailureReason,
                BuildFailed,
+               CommandFailed,
                ChrootFailed,
                MissingBuildreqs,
                MissingDependencies,
