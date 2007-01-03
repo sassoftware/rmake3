@@ -67,7 +67,7 @@ def getPluginManager(argv, configClass):
     # e.g. - we are only interested in the plugin dirs and usePlugins
     # options.
     cfg = configClass(readConfigFiles=read, ignoreErrors=True)
-    if not cfg.usePlugins:
+    if not getattr(cfg, 'usePlugins', True):
         return PluginManager([])
 
     pluginDirInfo = [ x for x in argv if x.startswith('--plugin-dirs=')]
