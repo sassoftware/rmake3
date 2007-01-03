@@ -167,6 +167,9 @@ class rMakeHelper(object):
         """
         stopped = self.client.stopJob(jobId)
 
+    def getJob(self, jobId, withTroves=True):
+        return self.client.getJob(jobId, withTroves=withTroves)
+
     def createChangeSet(self, jobId):
         """
             Creates a changeset object with all the built troves for a job.
