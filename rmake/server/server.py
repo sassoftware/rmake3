@@ -35,6 +35,7 @@ from rmake import plugins
 from rmake.build import builder
 from rmake.build import buildcfg
 from rmake.build import buildjob
+from rmake.build import failure
 from rmake.build import subscriber
 from rmake.server import publish
 from rmake.db import database
@@ -263,14 +264,20 @@ class rMakeServer(apirpc.XMLApiServer):
             self._initialized = True
         if not self.db.isJobBuilding():
             while True:
+                # start one job from the cue.  This loop should be
+                # exited after one successful start.
                 job = self.db.popJobFromQueue()
                 if job is None:
                     break
                 if job.isFailed():
                     continue
-                buildCfg = self.db.getJobConfig(job.jobId)
-                buildCfg.setServerConfig(self.cfg)
-                self._startBuild(job, buildCfg)
+                try:
+                    self._startBuild(job)
+                except Exception, err:
+                    self._subscribeToJob(job)
+                    job.jobFailed(failure.InternalError(
+                                            'Failed while initializing',
+                                            traceback.format_exc()))
                 break
         self._emitEvents()
         self._collectChildren()
@@ -326,7 +333,9 @@ class rMakeServer(apirpc.XMLApiServer):
         finally:
             os._exit(1)
 
-    def _startBuild(self, job, buildCfg):
+    def _startBuild(self, job):
+        buildCfg = self.db.getJobConfig(job.jobId)
+        buildCfg.setServerConfig(self.cfg)
         buildMgr = self.getBuilder(job, buildCfg)
         pid = os.fork()
         if pid:

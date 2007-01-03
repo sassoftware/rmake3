@@ -7,6 +7,8 @@ Changes in @NEW@:
      * StrictMode now allows signatureKeys.
      * StrictMode now reads in conary configuration files that are
        installed in the root and uses them for buildcfg (RMK-295).
+     * Add more error handling for the case when a build fails after
+       being removed from the queue but before starting. (RMK-312)
 
 Changes in 1.0.3:
   o Server Changes:
