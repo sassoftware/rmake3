@@ -45,11 +45,13 @@ import xmlrpclib
 from conary.lib import coveragehook
 
 from rmake import errors
+
 from rmake.lib import apiutils
 from rmake.lib import localrpc
 from rmake.lib import server
 from rmake.lib import auth
 from rmake.lib.apiutils import api, api_parameters, api_return
+from rmake.lib import logger
 
 # This version describes the current iteration of the API protocol.
 _API_VERSION = 1
@@ -116,29 +118,33 @@ class _ApiMethod(xmlrpclib._Method):
         else:
             raise apiutils.thaw(rv[0], rv[1])
 
+class BaseRPCLogger(logger.Logger):
+    def logRPCCall(self, callData, methodName, args):
+        pass
+
 class XMLApiServer(server.Server):
     """ API-aware server wrapper for XMLRPC. """
 
     # if set to True, will try to send exceptions to a debug prompt on 
     # the console before returning them across the wire
-    debug = False
+    _debug = False
 
-    def __init__(self, uri=None, logRequests=True, logStream=None):
+    def __init__(self, uri=None, logger=None):
         """ @param serverObj: The XMLRPCServer that will serve data to 
             the _dispatch method.  If None, caller is responsible for 
             giving information to be dispatched.
         """
-        server.Server.__init__(self)
+        if logger is None:
+            logger = BaseRPCLogger('server')
+        server.Server.__init__(self, logger)
         self.uri = uri
-        if logStream is None:
-            logStream = sys.stdout
-        self.logStream = logStream
         if uri:
             if isinstance(uri, str):
                 import urllib
                 type, url = urllib.splittype(uri)
                 if type == 'unix':
-                    serverObj = auth.AuthAwareUnixDomainXMLRPCServer(url, logRequests=logRequests)
+                    serverObj = auth.AuthAwareUnixDomainXMLRPCServer(url,
+                                                        logRequests=False)
                 elif type == 'http':
                     # path is ignored with simple server.
                     host, path = urllib.splithost(url)
@@ -148,7 +154,8 @@ class XMLApiServer(server.Server):
                     else:
                         port = 80
 
-                    serverObj = auth.AuthAwareXMLRPCServer((host, port), logRequests=logRequests)
+                    serverObj = auth.AuthAwareXMLRPCServer((host, port),
+                                                           logRequests=False)
                 elif type == 'https':
                     raise NotImplementedError
             else:
@@ -172,11 +179,11 @@ class XMLApiServer(server.Server):
     def _serveLoopHook(self):
         pass
 
-    def _dispatch(self, methodname, (auth, args)):
+    def _dispatch(self, methodName, (auth, args)):
         try:
-            rv = self._dispatch2(methodname, (auth, args))
+            rv = self._dispatch2(methodName, (auth, args))
         except Exception, err:
-            if self.debug:
+            if self._debug:
                 if sys.stdin.isatty() and sys.stdout.isatty():
                     import epdb
                     epdb.post_mortem(sys.exc_info()[2])
@@ -194,15 +201,15 @@ class XMLApiServer(server.Server):
             frzMethod = 'Exception'
         return frzMethod, apiutils.freeze(frzMethod, err)
 
-    def _dispatch2(self, methodname, (auth, args)):
-        """Dispatches call to methodname, unfreezing data in args, checking
+    def _dispatch2(self, methodName, (auth, args)):
+        """Dispatches call to methodName, unfreezing data in args, checking
            method version as well.
         """
-        method = getattr(self, methodname, None)
+        method = getattr(self, methodName, None)
         if not method:
-            raise NoSuchMethodError(methodname)
+            raise NoSuchMethodError(methodName)
 
-        callData = CallData(auth, args[0])
+        callData = CallData(auth, args[0], self._logger)
         args = args[1:]
         apiVersion    = callData.getApiVersion()
         clientVersion = callData.getClientVersion()
@@ -214,17 +221,16 @@ class XMLApiServer(server.Server):
 
         if clientVersion != self._CLASS_API_VERSION:
             raise RuntimeError(
-                    '%s: unsupported client version %s' % (methodname, version))
+                    '%s: unsupported client version %s' % (methodName, version))
 
         if methodVersion not in method.allowed_versions:
             raise RuntimeError(
-                    '%s: unsupported method version %s' % (methodname, version))
+                    '%s: unsupported method version %s' % (methodName, version))
 
         args = list(_thawParams(method, args, methodVersion))
 
         timestr = time.strftime('%x %X')
-        self.logStream.write('[%s] method: %s\n    credentials: %s\n' \
-                                            % (timestr, methodname, auth))
+        self._logger.logRPCCall(callData, methodName, args)
         rv = method(callData, *args)
 
         if rv != None:
@@ -293,13 +299,15 @@ class NoSuchMethodError(ApiError):
         ApiError.__init__(self, 'No such method: %s' % method)
 
 class CallData(object):
-    __slots__ = ['auth', 'apiVersion', 'clientVersion', 'methodVersion']
-    def __init__(self, auth, callTuple):
+    __slots__ = ['auth', 'apiVersion', 'clientVersion', 'methodVersion', 
+                 'logger']
+    def __init__(self, auth, callTuple, logger):
         apiVersion, clientVersion, methodVersion = callTuple
         self.apiVersion = apiVersion
         self.clientVersion = clientVersion
         self.methodVersion = methodVersion
         self.auth = auth
+        self.logger = logger
 
     def getApiVersion(self):
         return self.apiVersion

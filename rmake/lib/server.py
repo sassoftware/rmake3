@@ -22,12 +22,19 @@ import time
 import traceback
 
 from conary.lib import coveragehook
-from conary.lib import log
+
+from rmake.lib import logger as logger_
 
 class Server(object):
-    def __init__(self):
+    def __init__(self, logger=None):
         self._halt = False
         self._haltSignal = None
+        if logger is None:
+            logger = logger_.Logger()
+        self._logger = logger
+
+    def getLogger(self):
+        return self._logger
 
     def serve_forever(self):
         self._halt = False
@@ -39,7 +46,7 @@ class Server(object):
                 except (SystemExit, KeyboardInterrupt):
                     raise
                 except Exception, err:
-                    log.error('Error in loop hook: %s' % err)
+                    self.error('Error in loop hook: %s' % err)
                     traceback.print_exc()
                 if self._halt:
                     try:
@@ -49,7 +56,7 @@ class Server(object):
                         raise
                     except Exception, err:
                         try:
-                            self.error('Halt failed: %s\n%s', err, 
+                            self.error('Halt failed: %s\n%s', err,
                                       traceback.format_exc())
                         finally:
                             os._exit(1)
@@ -107,7 +114,7 @@ class Server(object):
         try:
             os.kill(pid, sig)
         except OSError, err:
-            if err.errno in errno.ESRCH:
+            if err.errno in (errno.ESRCH,):
                 # the process is already dead!
                 return
             raise
@@ -141,11 +148,14 @@ class Server(object):
                             ' signal %s' % (name, pid, sigNum))
 
     def info(self, *args, **kw):
-        log.info(*args, **kw)
+        self._logger.info(*args, **kw)
 
     def error(self, *args, **kw):
-        log.error(*args, **kw)
+        self._logger.error(*args, **kw)
 
     def warning(self, *args, **kw):
-        log.warning(*args, **kw)
+        self._logger.warning(*args, **kw)
+
+    def debug(self, *args, **kw):
+        self._logger.debug(*args, **kw)
 

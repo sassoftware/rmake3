@@ -20,14 +20,15 @@ import shutil
 import signal
 import sys
 
-from conary.lib import misc, options, log
+from conary.lib import misc, options
 from conary import command
 
 from rmake import constants
 from rmake import plugins
 from rmake.lib import daemon
-from rmake.server import servercfg
+from rmake.server import logger
 from rmake.server import repos
+from rmake.server import servercfg
 from rmake.server import server
 
 class ResetCommand(daemon.DaemonCommand):
@@ -47,10 +48,11 @@ class ResetCommand(daemon.DaemonCommand):
                 os.remove(path)
 
 class rMakeDaemon(daemon.Daemon):
-    name = 'rmake'
+    name = 'rmake-server'
     commandName = 'rmake-server'
     version = constants.version
     configClass = servercfg.rMakeConfiguration
+    loggerClass = server.ServerLogger
     user = constants.rmakeuser
     commandList = list(daemon.Daemon.commandList) + [ResetCommand,
                                                      command.HelpCommand]
@@ -67,7 +69,8 @@ class rMakeDaemon(daemon.Daemon):
         cfg = self.cfg
         cfg.sanityCheckForStart()
         if not cfg.isExternalRepos():
-            reposPid = repos.startRepository(cfg, fork=True)
+            reposPid = repos.startRepository(cfg, fork=True, 
+                                             logger=self.logger)
         else:
             reposPid = None
         misc.removeIfExists(cfg.socketPath)
@@ -83,21 +86,22 @@ class rMakeDaemon(daemon.Daemon):
                 self.killRepos(rMakeServer.repositoryPid)
 
     def killRepos(self, pid):
-        log.info('killing repository at %s' % pid)
+        self.logger.info('killing repository at %s' % pid)
         try:
             os.kill(pid, signal.SIGKILL)
         except Exception, e:
-            log.warning(
+            self.logger.warning(
             'Could not kill repository at pid %s: %s' % (pid, e))
 
     def runCommand(self, *args, **kw):
         return daemon.Daemon.runCommand(self, *args, **kw)
 
 def main(argv):
+    d = rMakeDaemon()
     try:
-        rc = rMakeDaemon().main(argv)
+        rc = d.main(argv)
         sys.exit(rc)
     except options.OptionError, err:
-        rMakeDaemon().usage()
-        log.error(err)
+        d.usage()
+        d.logger.error(err)
         sys.exit(1)

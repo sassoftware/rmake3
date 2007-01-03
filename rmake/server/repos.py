@@ -47,9 +47,11 @@ from rmake.server import servercfg
 
 conaryDir = sys.modules['conary'].__path__[0]
 
-def startRepository(cfg = None, fork = True):
+def startRepository(cfg = None, fork = True, logger=None):
     global conaryDir
     baseDir = cfg.serverDir
+    if logger is None:
+        logger = log
 
     util.mkdirChain('%s/repos' % baseDir)
     util.mkdirChain('%s/contents' % baseDir)
@@ -82,7 +84,7 @@ def startRepository(cfg = None, fork = True):
         pid = os.fork()
         if pid:
             pingServer(cfg)
-            log.info('Started repository "%s" on port %s (pid %s)' % (
+            logger.info('Started repository "%s" on port %s (pid %s)' % (
                                                             cfg.serverName,
                                                             cfg.serverPort,
                                                             pid))

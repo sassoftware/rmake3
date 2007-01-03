@@ -18,7 +18,7 @@ import sys
 import time
 
 #conary
-from conary.lib import util, log
+from conary.lib import util
 
 #rmake
 from rmake import constants
@@ -26,10 +26,12 @@ from rmake import errors
 from rmake.build.chroot import server as chrootserver
 from rmake.build import rootfactory
 from rmake.lib import flavorutil
+from rmake.lib import logger as logger_
 from rmake.lib import repocache
 
 class ChrootManager(object):
-    def __init__(self, jobId, baseDir, chrootHelperPath, buildCfg, serverCfg):
+    def __init__(self, jobId, baseDir, chrootHelperPath, buildCfg, serverCfg,
+                 logger=None):
         self.jobId = jobId
         self.cfg = buildCfg
         self.serverCfg = serverCfg
@@ -41,6 +43,10 @@ class ChrootManager(object):
         util.mkdirChain(cacheDir)
         self.csCache = repocache.RepositoryCache(cacheDir)
         self.chroots = {}
+        if logger is None:
+            logger = logger_.Logger()
+        self.logger = logger
+
 
     def createRoot(self, jobList, buildTrove):
         self.cfg.logFile = '/var/log/conary'
@@ -71,7 +77,7 @@ class ChrootManager(object):
 
         chroot = chrootClass(buildTrove,
                              self.chrootHelperPath,
-                             self.cfg, self.serverCfg, jobList,
+                             self.cfg, self.serverCfg, jobList, self.logger,
                              csCache=self.csCache,
                              copyInConary=copyInConary)
 
@@ -95,12 +101,10 @@ class ChrootManager(object):
         return client
 
     def info(self, message):
-        log.info('[%s] [jobId %s] CF: %s', time.strftime('%x %X'), self.jobId,
-                  message)
+        self.logger.info(message)
 
     def warning(self, message):
-        log.warning('[%s] [jobId %s] CF: %s', time.strftime('%x %X'), 
-                    self.jobId, message)
+        self.logger.warning(message)
 
     def cleanRoot(self, pid):
         root, client = self.chroots[pid]

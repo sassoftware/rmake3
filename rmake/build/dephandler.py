@@ -123,10 +123,11 @@ class DependencyHandler(object):
     """
         Updates what troves are buildable based on dependency information.
     """
-    def __init__(self, statusLog, cfg, searchSource, buildTroves):
+    def __init__(self, statusLog, cfg, searchSource, logger, buildTroves):
         self.depState = DependencyBasedBuildState(searchSource, buildTroves,
                                                   cfg)
         self.client = conaryclient.ConaryClient(cfg)
+        self.logger = logger
         if cfg.resolveTrovesOnly:
             self.installLabelPath = None
         else:
@@ -236,7 +237,7 @@ class DependencyHandler(object):
         """
         oldVerbosity = log.getVerbosity()
         log.setVerbosity(log.DEBUG)
-        log.debug('updating set of buildable troves')
+        self.logger.debug('updating set of buildable troves')
 
         self._updateBuildableTroves(self.client,
                                     self.depState.getDependencyGraph(), 
@@ -286,7 +287,7 @@ class DependencyHandler(object):
         # we allow build requirements to be matched against anywhere on the
         # install label.  Create a list of all of this trove's labels,
         # from latest on branch to earliest to use as search labels.
-        log.debug('   finding buildreqs for %s....' % trv.getName())
+        self.logger.debug('   finding buildreqs for %s....' % trv.getName())
         start = time.time()
 
         # NOTE: turn off automatic adding of buildLabel to buildReq
@@ -333,10 +334,10 @@ class DependencyHandler(object):
                 buildReqTups.append(sol)
 
         if not okay:
-            log.debug('could not find all buildreqs')
+            self.logger.debug('could not find all buildreqs')
             return False, None, missingBuildReqs, None
 
-        log.debug('   resolving deps for %s...' % trv.getName())
+        self.logger.debug('   resolving deps for %s...' % trv.getName())
         start = time.time()
         itemList = [ (x[0], (None, None), (x[1], x[2]), True)
                                                 for x in buildReqTups ]
@@ -354,10 +355,10 @@ class DependencyHandler(object):
         jobSet.update((x[0], (None, None), (x[1], x[2]), False) 
                       for x in itertools.chain(*suggMap.itervalues()))
         if cannotResolve or depList:
-            log.debug('Failed - unresolved deps - took %s seconds' % (time.time() - start))
+            self.logger.debug('Failed - unresolved deps - took %s seconds' % (time.time() - start))
             return False, None, [], depList + cannotResolve
 
-        log.debug('   took %s seconds' % (time.time() - start))
+        self.logger.debug('   took %s seconds' % (time.time() - start))
         return True, jobSet, None, None
 
     def _addPackages(self, searchSource, jobSet):
@@ -418,11 +419,11 @@ class DependencyHandler(object):
         if buildable:
             skipped = [ x for x in buildable if x in skipTroves ]
             buildable = [ x for x in buildable if x not in skipTroves ]
-            log.debug('buildable: %s - attempting to resolve buildreqs' % buildable)
+            self.logger.debug('buildable: %s - attempting to resolve buildreqs' % buildable)
             buildable = sorted(buildable, reverse=True)
             while buildable:
                 trv = buildable.pop()
-                log.debug('attempting to resolve buildreqs for %s=%s[%s]' % trv.getNameVersionFlavor())
+                self.logger.debug('attempting to resolve buildreqs for %s=%s[%s]' % trv.getNameVersionFlavor())
                 trv.troveResolvingBuildReqs()
                 success, buildReqs, failedReqs, failedDeps \
                                 = self._resolveBuildReqs(client, trv,
@@ -460,17 +461,17 @@ class DependencyHandler(object):
         # cycle.  There's no great way to break a cycle, unless you have some 
         # external knowledge about what packages are more 'basic'.
         checkedTroves = {}
-        log.debug('cycle detected!')
+        self.logger.debug('cycle detected!')
 
         while True:
             start = time.time()
             compGraph = depGraph.getStronglyConnectedGraph()
-            log.debug('building graph took %0.2f seconds' % (time.time() - start))
+            self.logger.debug('building graph took %0.2f seconds' % (time.time() - start))
             leafCycles = compGraph.getLeaves()
 
             checkedSomething = False
             for cycleTroves in leafCycles:
-                log.debug('cycle involves %s troves' % len(cycleTroves))
+                self.logger.debug('cycle involves %s troves' % len(cycleTroves))
 
                 cycleTroves = [x[1] for x in sorted((cycleNodeOrder(x), x) \
                                                     for x in cycleTroves)]
@@ -486,7 +487,7 @@ class DependencyHandler(object):
                     if success:
                         trv.troveBuildable()
                         self.depState.troveBuildable(trv, buildReqs)
-                        log.debug('Removing edge %s' % trv)
+                        self.logger.debug('Removing edge %s' % trv)
                         depGraph.deleteEdges(trv)
                         return True
                     elif failedReqs:

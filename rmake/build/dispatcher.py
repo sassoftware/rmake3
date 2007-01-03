@@ -23,8 +23,9 @@ from rmake.build import failure
 from rmake.build import rootmanager
 
 class Dispatcher(object):
-    def __init__(self, serverCfg):
+    def __init__(self, serverCfg, logger):
         self.serverCfg = serverCfg
+        self.logger = logger
         self._buildingTroves = []
         self._chroots = []
 
@@ -49,15 +50,16 @@ class Dispatcher(object):
     def getChrootManager(self, jobId, buildCfg):
         return rootmanager.ChrootManager(jobId, self.serverCfg.buildDir,
                                          self.serverCfg.chrootHelperPath,
-                                         buildCfg, self.serverCfg)
-    def _checkForResults(self, buildCfg):
+                                         buildCfg, self.serverCfg, self.logger)
+
+    def _checkForResults(self, buildCfg, timeout=0.1):
         if not self._buildingTroves:
             return False
         repos = conaryclient.ConaryClient(buildCfg).getRepos()
         foundResult = False
         for chrootManager, chroot, trove in list(self._buildingTroves):
             try:
-                if not chroot.checkSubscription():
+                if not chroot.checkSubscription(timeout):
                     continue
                 buildResult = chroot.checkResults(*trove.getNameVersionFlavor())
                 if not buildResult:

@@ -30,7 +30,7 @@ from conary.lib.cfgtypes import (CfgBool, CfgPath, CfgList, CfgDict, CfgString,
                                  CfgInt, CfgType, CfgQuotedLineList, 
                                  CfgPathList)
 
-from rmake.lib import apiutils, daemon
+from rmake.lib import apiutils, daemon, logger
 from rmake import compat, subscribers
 
 class CfgTroveSpec(CfgType):
@@ -137,9 +137,11 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
     _defaultSectionType   =  RmakeBuildContext
 
     def __init__(self, readConfigFiles=False, root='', conaryConfig=None, 
-                 serverConfig=None, ignoreErrors=False):
+                 serverConfig=None, ignoreErrors=False, log=None):
         # we default the value of these items to whatever they
         # are set to on the local system's conaryrc.
+        if log is None:
+            log = logger.Logger('buildcfg')
         if hasattr(self, 'setIgnoreErrors'):
             self.setIgnoreErrors(ignoreErrors)
 

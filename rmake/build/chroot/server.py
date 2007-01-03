@@ -20,7 +20,8 @@ import sys
 import time
 import traceback
 
-from conary.lib import log, misc, options, util
+from conary.lib import options, util
+from conary import conarycfg
 from conary import conaryclient
 
 from rmake.build.chroot import cook
@@ -28,7 +29,7 @@ from rmake.build.chroot import cook
 from rmake import constants
 from rmake.build import buildcfg
 from rmake.lib.apiutils import *
-from rmake.lib import apirpc, daemon, repocache
+from rmake.lib import apirpc, daemon, logger, repocache
 
 class ChrootServer(apirpc.XMLApiServer):
 
@@ -40,7 +41,6 @@ class ChrootServer(apirpc.XMLApiServer):
     @api_return(1, None)
     def buildTrove(self, callData, buildCfg, targetLabel,
                    name, version, flavor, logHost, logPort):
-
         buildCfg.root = self.cfg.root
         buildCfg.buildPath = self.cfg.root + '/tmp/rmake/builds'
         buildCfg.lookaside = self.cfg.root + '/tmp/rmake/cache'
@@ -140,7 +140,8 @@ class ChrootServer(apirpc.XMLApiServer):
         self._unconnectedSubscribers = {}
         self._subscribers = {}
         self._results = {}
-        apirpc.XMLApiServer.__init__(self, uri)
+        serverLogger = logger.ServerLogger('chroot')
+        apirpc.XMLApiServer.__init__(self, uri, logger=serverLogger)
 
     def _shutDown(self):
         # we've gotten a request to halt, kill all jobs
@@ -167,8 +168,8 @@ class ChrootClient(object):
         s.connect(('localhost', port))
         self.resultsReadySocket = s
 
-    def checkSubscription(self):
-        ready = select.select([self.resultsReadySocket], [], [], 0.1)[0]
+    def checkSubscription(self, timeout=0.1):
+        ready = select.select([self.resultsReadySocket], [], [], timeout)[0]
         if ready:
             done = self.resultsReadySocket.recv(1024)
             assert(done == '')
@@ -229,7 +230,7 @@ class ChrootConfig(daemon.DaemonConfig):
         daemon.DaemonConfig.__init__(self)
 
 class ChrootDaemon(daemon.Daemon):
-    name = 'chroot'
+    name = 'rmake-chroot'
     version = constants.version
     configClass = ChrootConfig
 
@@ -240,7 +241,7 @@ class ChrootDaemon(daemon.Daemon):
         cfg.socketPath = cfg.root + cfg.socketPath
         cfg.lockDir = cfg.root + cfg.lockDir
         cfg.logDir = cfg.root + cfg.logDir
-        misc.removeIfExists(cfg.socketPath)
+        util.removeIfExists(cfg.socketPath)
         util.mkdirChain(os.path.dirname(cfg.socketPath))
         util.mkdirChain(cfg.lockDir)
         util.mkdirChain(cfg.logDir)
@@ -254,13 +255,9 @@ class ChrootDaemon(daemon.Daemon):
 
 
 def main(argv):
-    try:
-        rc = ChrootDaemon().main(sys.argv)
-        sys.exit(rc)
-    except options.OptionError, err:
-        ChrootDaemon().usage()
-        log.error(err)
-        sys.exit(1)
+    d = ChrootDaemon()
+    rc = d.main(sys.argv)
+    sys.exit(rc)
 
 if __name__ == '__main__':
     sys.path.insert(0, '/usr/share/rmake')

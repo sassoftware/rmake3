@@ -93,8 +93,8 @@ class CookResults(object):
         return new
 
 
-def cookTrove(cfg, repos, name, version, flavor, targetLabel, logHost='', 
-              logPort=0):
+def cookTrove(cfg, repos, logger, name, version, flavor, targetLabel,
+              logHost='', logPort=0):
     util.mkdirChain(cfg.root + '/tmp')
     fd, csFile = tempfile.mkstemp(dir=cfg.root + '/tmp',
                                   prefix='rmake-%s-' % name,
@@ -114,10 +114,10 @@ def cookTrove(cfg, repos, name, version, flavor, targetLabel, logHost='',
     inF, outF = os.pipe()
     pid = os.fork()
     if not pid:
-        signal.signal(signal.SIGTERM, signal.SIG_DFL)
-        os.close(inF)
         try:
             try:
+                signal.signal(signal.SIGTERM, signal.SIG_DFL)
+                os.close(inF)
                 os.setpgrp()
                 # don't accidentally make world writable files
                 os.umask(0022)
@@ -127,9 +127,9 @@ def cookTrove(cfg, repos, name, version, flavor, targetLabel, logHost='',
                     logFile.logToPort(logHost, logPort)
                 else:
                     logFile.redirectOutput()
-
+                log.setVerbosity(log.INFO)
                 _cookTrove(cfg, repos, name, version, flavor, targetLabel, 
-                           csFile, failureFd=outF)
+                           csFile, failureFd=outF, logger=logger)
             except Exception, msg:
                 errMsg = 'Error cooking %s=%s[%s]: %s' % \
                                         (name, version, flavor, str(msg))
@@ -216,10 +216,10 @@ def _buildFailed(failureFd, errMsg, traceBack):
     os._exit(1)
 
 def _cookTrove(cfg, repos, name, version, flavor, targetLabel, csFile,
-               failureFd):
+               failureFd, logger):
     try:
-        log.debug('Cooking %s=%s[%s] to %s (stored in %s)' % \
-                  (name, version, flavor, targetLabel, csFile))
+        logger.debug('Cooking %s=%s[%s] to %s (stored in %s)' % \
+                     (name, version, flavor, targetLabel, csFile))
         (loader, recipeClass, localFlags, usedFlags)  = \
             recipeutil.loadRecipeClass(repos, name, version, flavor,
                                        ignoreInstalled=False, root=cfg.root)

@@ -22,14 +22,15 @@ import time
 import traceback
 
 from conary import conaryclient
-from conary.lib import log
 from conary.repository import changeset
 
 from rmake.build import buildjob
 from rmake.build import dispatcher
 from rmake.build import failure
 from rmake.build import dephandler
-from rmake.lib import logfile, recipeutil
+from rmake.lib import logfile
+from rmake.lib import logger
+from rmake.lib import recipeutil
 from rmake.lib import repocache
 
 class Builder(object):
@@ -65,15 +66,20 @@ class Builder(object):
     def __init__(self, serverCfg, buildCfg, job):
         self.serverCfg = serverCfg
         self.buildCfg = buildCfg
+        self.logger = BuildLogger(job.jobId,
+                                  serverCfg.getBuildLogPath(job.jobId))
         self.logFile = logfile.LogFile(
-                            serverCfg.getBuildLogPath(job.jobId))
+                                    serverCfg.getBuildLogPath(job.jobId))
         self.repos = self.getRepos()
         self.job = job
         self.jobId = job.jobId
-        self.dispatcher = dispatcher.Dispatcher(serverCfg)
+        self.dispatcher = dispatcher.Dispatcher(serverCfg, self.logger)
 
     def setDispatcher(self, dispatcher):
         self.dispatcher = dispatcher
+
+    def getDispatcher(self):
+        return self.dispatcher
 
     def getJob(self):
         return self.job
@@ -84,7 +90,7 @@ class Builder(object):
                                         self.serverCfg.getCacheDir())
 
     def info(self, state, message):
-        log.info('[%s] [jobId %s] B: %s', time.strftime('%x %X'), self.jobId, message)
+        self.logger.info(message)
 
     def _signalHandler(self, sigNum, frame):
         pid = os.fork()
@@ -98,16 +104,20 @@ class Builder(object):
 
     def buildAndExit(self):
         try:
-            signal.signal(signal.SIGTERM, self._signalHandler)
             try:
-                self.logFile.redirectOutput()
+                signal.signal(signal.SIGTERM, self._signalHandler)
+                self.logFile.redirectOutput() # redirect all output to the log 
+                                              # file.
+                                              # We do this to ensure that
+                                              # output we don't control,
+                                              # such as conary output, is
+                                              # directed to a file.
                 self.build()
                 os._exit(0)
             except Exception, err:
                 self.job.exceptionOccurred(err, traceback.format_exc())
-                print >>sys.stderr, traceback.format_exc()
+                log.error(traceback.format_exc())
                 self.logFile.restoreOutput()
-                print >>sys.stderr, traceback.format_exc()
                 if sys.stdin.isatty():
                     # this sets us back to be connected with the controlling 
                     # terminal (owned by our parent, the rmake server)
@@ -127,7 +137,7 @@ class Builder(object):
 
         self.dh = dephandler.DependencyHandler(self.job.getPublisher(),
                                                self.buildCfg, self.repos,
-                                               buildTroves)
+                                               self.logger, buildTroves)
 
         if not self._checkBuildSanity(buildTroves):
             return False
@@ -184,3 +194,7 @@ class Builder(object):
             self.job.jobFailed(failure.FailureReason("Job failed sanity check: %s: %s" % (err, troveNames)))
             return False
         return True
+
+class BuildLogger(logger.Logger):
+   def __init__(self, jobId, path):
+        logger.Logger.__init__(self, 'build-%s' % jobId, path)

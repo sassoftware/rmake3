@@ -37,6 +37,7 @@ class Plugin(object):
         self.name = name
         self.path = path
         self.pluginManager = pluginManager
+        self.enabled = True
 
     def unload(self):
         pass
@@ -83,7 +84,7 @@ class PluginManager(object):
         self.pluginPrefix = pluginPrefix
         self.pluginClass = pluginClass
 
-        self.plugins = [] # full list of
+        self.plugins = []
         self.pluginsByType = {}
         self.pluginsByName = {}
         self.disabledPlugins = disabledPlugins
@@ -96,6 +97,19 @@ class PluginManager(object):
 
     def uninstallImporter(self):
         self.loader.uninstall()
+
+    def disableAllPlugins(self):
+        for plugin in self.plugins:
+            plugin.enabled = False
+
+    def hasPlugin(self, name):
+        return name in self.pluginsByName
+
+    def enablePlugin(self, name):
+        self.pluginsByName[name].enabled = True
+
+    def disablePlugin(self, name):
+        self.pluginsByName[name].enabled = False
 
     def getPluginsByType(self, pluginType):
         return sorted(self.pluginsByType.get(pluginType, []), 
@@ -200,6 +214,8 @@ class PluginManager(object):
     def callHook(self, type, hookName, *args, **kw):
         self.loader.install()
         for plugin in self.getPluginsByType(type):
+            if not getattr(plugin, 'enabled', True):
+                continue
             getattr(plugin, hookName)(*args, **kw)
         self.loader.uninstall()
 

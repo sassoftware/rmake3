@@ -21,9 +21,10 @@ import time
 from optparse import OptionParser
 
 from conary.conarycfg import ConfigFile, CfgList, CfgString, CfgBool, CfgInt
-from conary.lib import options, log, util
+from conary.lib import options, util
 
 from rmake.lib import logfile
+from rmake.lib import logger
 
 (NO_PARAM,  ONE_PARAM)  = (options.NO_PARAM, options.ONE_PARAM)
 (OPT_PARAM, MULT_PARAM) = (options.OPT_PARAM, options.MULT_PARAM)
@@ -31,6 +32,7 @@ from rmake.lib import logfile
 class DaemonConfig(ConfigFile):
     logDir         = '/var/log/'
     lockDir        = '/var/run/'
+    verbose        = (CfgBool, False)
 
 _commands = []
 def _register(cmd):
@@ -48,10 +50,12 @@ class DaemonCommand(options.AbstractCommand):
         d["config-file"] = '-c', ONE_PARAM
         d["debug-all"] = '-d', NO_PARAM
         d["skip-default-config"] = NO_PARAM
-        d["verbose"] = '-v', NO_PARAM
 
         argDef[self.defaultGroup] = d
 
+    def addConfigOptions(self, cfgMap, argDef):
+        cfgMap['verbose'] = 'verbose', NO_PARAM, '-v'
+        options.AbstractCommand.addConfigOptions(self, cfgMap, argDef)
 
 class ConfigCommand(DaemonCommand):
     commands = ['config']
@@ -95,10 +99,12 @@ class Daemon(options.MainHandler):
     commandName = 'daemon'
     commandList = _commands
     user   = None
+    loggerClass = logger.Logger
+    useConaryOptions = False
 
     def __init__(self):
-        self._cfg = None
         self._logFile = None
+        self.logger = self.loggerClass(self.name)
         options.MainHandler.__init__(self)
 
     def getLockFilePath(self):
@@ -123,7 +129,7 @@ class Daemon(options.MainHandler):
             return pid
         except Exception, e:
             if warnOnError:
-                self.log("warning: unable to open lockfile for reading: %s (%s)" % (lockFile, str(e)))
+                self.warning("unable to open lockfile for reading: %s (%s)" % (lockFile, str(e)))
             return None
 
     def writePidToLockFile(self):
@@ -135,7 +141,7 @@ class Daemon(options.MainHandler):
             return True
             lockFile = self.getLockFilePath()
         except Exception, e:
-            self.log("unable to open lockfile: %s (%s)", lockFile, str(e))
+            self.warning("unable to open lockfile: %s (%s)", lockFile, str(e))
             return False
 
     def kill(self):
@@ -145,10 +151,9 @@ class Daemon(options.MainHandler):
                 os.setgid(pwent.pw_gid)
                 os.setuid(pwent.pw_uid)
 
-
         pid = self.getPidFromLockFile(warnOnError=True)
         if not pid:
-            log.error("could not kill %s: no pid found." % self.name)
+            self.error("could not kill %s: no pid found." % self.name)
             sys.exit(1)
 
         pipeFD = os.popen("ps -p %d -o comm=" %pid)
@@ -158,17 +163,25 @@ class Daemon(options.MainHandler):
             return
 
         if procName not in sys.argv[0]:
-            log.error("pid: %d does not seem to be a valid %s." % (pid,
+            self.error("pid: %d does not seem to be a valid %s." % (pid,
                                                                    self.name))
             sys.exit(1)
-        self.log("killing %s pid %d" % (self.name, pid))
+        self.info("killing %s pid %d" % (self.name, pid))
         try:
             os.kill(pid, signal.SIGINT)
+            while True:
+                # loop waiting for the process to die
+                pipeFD = os.popen("ps -p %d -o comm=" %pid)
+                procName = pipeFD.readline().strip()
+                pipeFD.close()
+                if not procName:
+                    break
+                time.sleep(.5)
         except OSError, e:
             if e.errno != errno.ESRCH:
                 raise
             else:
-                self.log("process not found; removing lock file")
+                self.info("process not found; removing lock file")
                 self.removeLockfile()
         else:
             #Do we really want to remove the PID?  Shouldn't we
@@ -184,19 +197,22 @@ class Daemon(options.MainHandler):
             self._logFile = logfile.LogFile(logPath)
             return self._logFile
         except OSError, err:
-            log.error('error opening logfile "%s" for writing: %s',
-                      logPath, err.strerror)
+            self.error('error opening logfile "%s" for writing: %s',
+                              logPath, err.strerror)
             sys.exit(1)
 
-    def log(self, msg, *args):
-        logFile = self.getLogFile()
-        if args:
-            logFile.write(msg % args)
-        else:
-            logFile.write(msg)
-        logFile.write('\n')
+    def info(self, msg, *args):
+        self.logger.info(msg, *args)
+
+    def error(self, msg, *args):
+        self.logger.error(msg, *args)
+
+    def warning(self, msg, *args):
+        self.logger.warning(msg, *args)
 
     def start(self, fork=True):
+        logPath = os.path.join(self.cfg.logDir, "%s.log" % self.name)
+        self.logger.logToFile(logPath)
         if not os.getuid():
             if self.user:
                 pwent = pwd.getpwnam(self.user)
@@ -211,14 +227,14 @@ class Daemon(options.MainHandler):
             pipeFD.close()
 
             if str(pid) in pidLine:
-                log.error("Daemon already running as pid %s", pid)
+                self.error("Daemon already running as pid %s", pid)
                 sys.exit(1)
             else:
-                self.log("Old %s pid seems to be invalid. killing." % self.name)
+                self.info("Old %s pid seems to be invalid. killing." % self.name)
                 self.kill()
 
-        self.log("using Conary in %s",
-                 os.path.dirname(sys.modules['conary'].__file__))
+        self.info("using Conary in %s",
+                  os.path.dirname(sys.modules['conary'].__file__))
         if fork:
             pid = os.fork()
 
@@ -258,7 +274,7 @@ class Daemon(options.MainHandler):
                     rc = os.WEXITSTATUS(status)
                     return rc
                 else:
-                    log.error('process killed with signal %s' % os.WTERMSIG(status))
+                    self.error('process killed with signal %s' % os.WTERMSIG(status))
                     return 1
         else:
             sys.excepthook = util.genExcepthook()
@@ -274,7 +290,7 @@ class Daemon(options.MainHandler):
             try:
                 self.doWork()
             except KeyboardInterrupt:
-                self.log("interrupt caught; exiting")
+                self.info("interrupt caught; exiting")
         finally:
             self.removeLockFile()
 
@@ -283,7 +299,6 @@ class Daemon(options.MainHandler):
 
     def runCommand(self, thisCommand, cfg, argSet, otherArgs, **kw):
         self.cfg = cfg
-        log.setVerbosity(log.INFO)
         return options.MainHandler.runCommand(self, thisCommand, self, cfg, 
                                              argSet, otherArgs, **kw)
 

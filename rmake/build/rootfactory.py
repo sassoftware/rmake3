@@ -39,11 +39,12 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
         the necessary files for the root to be usuable, and cleaning up
         after itself as much as possible.
     """
-    def __init__(self, jobList, cfg, csCache=None):
+    def __init__(self, jobList, logger, cfg, csCache=None):
         rootfactory.BasicChroot.__init__(self)
         self.cfg = cfg
         self.jobList = jobList
         self.callback = None
+        self.logger = logger
         self.csCache = csCache
 
         self.addDir('/tmp', mode=01777)
@@ -67,8 +68,8 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
         else:
             changeSetList = []
 
-        log.info('Troves To Install:')
-        log.info('\n    '.join('%s=%s[%s]' % (x[0], x[2][0], x[2][1])
+        self.logger.info('Troves To Install:')
+        self.logger.info('\n    '.join('%s=%s[%s]' % (x[0], x[2][0], x[2][1])
                                for x in sorted(self.jobList)))
 
         updJob, suggMap = client.updateChangeSet(
@@ -104,19 +105,19 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
 class rMakeChroot(ConaryBasedChroot):
 
     def __init__(self, buildTrove, chrootHelperPath, cfg, serverCfg,
-                 jobList, uid=None, gid=None, csCache=None,
+                 jobList, logger, uid=None, gid=None, csCache=None,
                  copyInConary=True):
         """ 
             uid/gid:  the uid/gid which special files in the chroot should be 
                       owned by
         """
-        ConaryBasedChroot.__init__(self, jobList, cfg, csCache)
+        ConaryBasedChroot.__init__(self, jobList, logger, cfg, csCache)
 
         self.jobId = buildTrove.jobId
         self.buildTrove = buildTrove
         self.chrootHelperPath = chrootHelperPath
         self.serverCfg = serverCfg
-        self.callback = ChrootCallback(self.buildTrove)
+        self.callback = ChrootCallback(self.buildTrove, logger)
 
         if copyInConary:
             self._copyInConary()
@@ -126,6 +127,7 @@ class rMakeChroot(ConaryBasedChroot):
 
     def install(self):
         self.buildTrove.log('Creating Chroot')
+        self.logger.info('Creating chroot')
         ConaryBasedChroot.install(self)
         # copy in the tarball files needed for building this package from
         # the cache.
@@ -173,7 +175,7 @@ class rMakeChroot(ConaryBasedChroot):
                 conaryrc = open('%s/etc/conaryrc.rmake' % self.cfg.root, 'w')
                 self.cfg.storeConaryCfg(conaryrc)
         except Exception, msg:
-            print "Error writing conaryrc:", msg
+            self.logger.error("Error writing conaryrc: %s", msg)
         conaryrc.close()
 
     def canChroot(self):
@@ -183,7 +185,7 @@ class rMakeChroot(ConaryBasedChroot):
         if not os.path.exists(self.cfg.root):
             return
         if self.canChroot():
-            log.info('Running chroot helper to unmount...')
+            self.logger.info('Running chroot helper to unmount...')
             util.mkdirChain(self.cfg.root + '/sbin')
             shutil.copy('/sbin/busybox', self.cfg.root + '/sbin/busybox')
             rc = os.system('%s %s --clean' % (self.chrootHelperPath, 
@@ -195,7 +197,7 @@ class rMakeChroot(ConaryBasedChroot):
 
     def clean(self):
         self.unmount()
-        log.debug("removing old chroot tree: %s", self.cfg.root)
+        self.logger.debug("removing old chroot tree: %s", self.cfg.root)
         os.system('rm -rf %s/tmp' % self.cfg.root)
         removeFailed = False
         if os.path.exists(self.cfg.root + '/tmp'):
@@ -274,14 +276,14 @@ class ChrootCallback(callbacks.UpdateCallback):
         @param buildTrove: trove we're creating a chroot for
         @type: build.buildtrove.BuildTrove
     """
-    def __init__(self, buildTrove):
+    def __init__(self, buildTrove, logger):
         callbacks.UpdateCallback.__init__(self)
         self.hunk = (0,0)
         self.buildTrove = buildTrove
+        self.logger = logger
 
     def _message(self, text):
         self.buildTrove.log(text)
-        log.info("chroot: %s" % text)
 
     def setChangesetHunk(self, num, total):
         self.showedHunk = False
