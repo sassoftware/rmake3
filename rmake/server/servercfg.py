@@ -44,6 +44,7 @@ class rMakeConfiguration(daemon.DaemonConfig):
     usePlugins        = (CfgBool, True)
     usePlugin         = CfgDict(CfgBool)
     user              = CfgUserInfo
+    verbose           = False
 
     def __init__(self, readConfigFiles = False, ignoreErrors=False):
         daemon.DaemonConfig.__init__(self)
