@@ -28,11 +28,11 @@ from rmake.lib import logger as logger_
 
 class Server(object):
     def __init__(self, logger=None):
-        self._halt = False
-        self._haltSignal = None
         if logger is None:
             logger = logger_.Logger()
         self._logger = logger
+        self._halt = False
+        self._haltSignal = None
 
     def getLogger(self):
         return self._logger

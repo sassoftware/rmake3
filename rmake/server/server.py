@@ -517,6 +517,7 @@ class rMakeServer(apirpc.XMLApiServer):
             serverLogger.enableConsole(logLevel)
         serverLogger.info('*** Started rMake Server at pid %s' % os.getpid())
         try:
+            apirpc.XMLApiServer.__init__(self, uri, logger=serverLogger)
             self.uri = uri
             self.cfg = cfg
             self.repositoryPid = repositoryPid
@@ -529,7 +530,6 @@ class rMakeServer(apirpc.XMLApiServer):
             # any jobs that were running before are not running now
             self._publisher = publish._RmakeServerPublisher()
 
-            apirpc.XMLApiServer.__init__(self, uri, logger=serverLogger)
             self.queue = []
             self._initialized = False
 
