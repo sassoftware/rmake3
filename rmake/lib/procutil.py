@@ -57,6 +57,16 @@ class CPUInfo(object):
         self.freq = freq
         self.model = model
 
+    @classmethod
+    def __thaw__(class_, d):
+        return class_(**d)
+
+    def __freeze__(self):
+        return self.__dict__
+
+    def __eq__(self, other):
+        return self.__dict__ == other.__dict__
+
 class Partition(object):
     def __init__(self, device, type, blocks, used, avail):
         self.device = device
@@ -71,6 +81,16 @@ class Partition(object):
 
     def __str__(self):
         return "%sK  (%sK free)" % (self.blocks, self.avail)
+
+    @classmethod
+    def __thaw__(class_, d):
+        return class_(**d)
+
+    def __freeze__(self):
+        return self.__dict__
+
+    def __eq__(self, other):
+        return self.__dict__ == other.__dict__
 
 class MachineInformation(object):
     def __init__(self):
@@ -105,6 +125,26 @@ class MachineInformation(object):
         for mount, part in sorted(self.mounts.iteritems()):
             l.append("%-20s%s" % (mount + ':', part))
         return l
+
+    def __eq__(self, other):
+        return self.__dict__ == other.__dict__
+
+    @classmethod
+    def __thaw__(class_, d):
+        self = class_()
+        self.__dict__.update(d)
+        self.cpus = [ CPUInfo.__thaw__(x) for x in self.cpus ]
+        self.mounts = dict((x[0], Partition.__thaw__(x[1]))
+                            for x in self.mounts)
+        return self
+
+    def __freeze__(self):
+        d = self.__dict__.copy()
+        d['cpus'] = [ x.__freeze__() for x in self.cpus ]
+        d['mounts'] = [ (x[0], x[1].__freeze__())
+                        for x in self.mounts.items() ]
+        return d
+
 
 if __name__ == "__main__":
     print MachineInformation()

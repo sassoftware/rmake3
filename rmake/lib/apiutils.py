@@ -23,6 +23,8 @@ from conary import versions
 from conary.deps import deps
 from conary.deps.deps import ThawFlavor
 
+from rmake.lib import procutil
+
 # ------------------ registry for api param types ------------
 apitypes = { None : None }
 
@@ -300,5 +302,6 @@ register(None, 'bool')
 register(None, 'int')
 register(None, 'str')
 register(None, 'float')
+register(procutil.MachineInformation)
 
 
