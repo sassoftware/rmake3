@@ -504,17 +504,17 @@ class rMakeServer(apirpc.XMLApiServer):
         logPath = cfg.logDir + '/rmake.log'
         rpcPath = cfg.logDir + '/xmlrpc.log'
         serverLogger = ServerLogger()
+        serverLogger.disableRPCConsole()
+        serverLogger.logToFile(logPath)
+        serverLogger.logRPCToFile(rpcPath)
         if quiet:
-            self.getLogger().setQuietMode()
+            serverLogger.setQuietMode()
         else:
             if cfg.verbose:
                 logLevel = logging.DEBUG
             else:
                 logLevel = logging.INFO
             serverLogger.enableConsole(logLevel)
-        serverLogger.disableRPCConsole()
-        serverLogger.logToFile(logPath)
-        serverLogger.logRPCToFile(rpcPath)
         serverLogger.info('*** Started rMake Server at pid %s' % os.getpid())
         try:
             self.uri = uri
