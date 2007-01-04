@@ -22,6 +22,7 @@ class Logger(object):
         if name is not None:
             self.name = name
 
+        self._loggers = []
         if self.name in self.__class__._dict:
             self.__dict__ = self.__class__._dict[self.name]
             self.isCopy = True
@@ -44,6 +45,11 @@ class Logger(object):
             self.logToFile(logPath)
         else:
             self.enableConsole()
+        self._loggers.append(logger)
+
+    def setQuietMode(self):
+        for logger in self._loggers:
+            logger.setLevel(logging.ERROR)
 
     def logToFile(self, logPath):
         if not self.fileHandler:
@@ -85,6 +91,7 @@ class ServerLogger(Logger):
             return
         self.xmlrpcLogger = logging.getLogger(self.name + '-rpc')
         self.xmlrpcLogger.setLevel(logging.DEBUG)
+        self._loggers.append(self.xmlrpcLogger)
         self.xmlrpcConsole = logging.StreamHandler()
         self.xmlrpcConsole.setFormatter(
                                      self.formatterClass(self.rpcConsoleFormat,

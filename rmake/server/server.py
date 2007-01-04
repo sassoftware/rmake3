@@ -498,16 +498,20 @@ class rMakeServer(apirpc.XMLApiServer):
             publisher.uncork()
 
 
-    def __init__(self, uri, cfg, repositoryPid, pluginMgr=None):
+    def __init__(self, uri, cfg, repositoryPid, pluginMgr=None, 
+                 quiet=False):
         util.mkdirChain(cfg.logDir)
         logPath = cfg.logDir + '/rmake.log'
         rpcPath = cfg.logDir + '/xmlrpc.log'
         serverLogger = ServerLogger()
-        if cfg.verbose:
-            logLevel = logging.DEBUG
+        if quiet:
+            self.getLogger().setQuietMode()
         else:
-            logLevel = logging.INFO
-        serverLogger.enableConsole(logLevel)
+            if cfg.verbose:
+                logLevel = logging.DEBUG
+            else:
+                logLevel = logging.INFO
+            serverLogger.enableConsole(logLevel)
         serverLogger.disableRPCConsole()
         serverLogger.logToFile(logPath)
         serverLogger.logRPCToFile(rpcPath)

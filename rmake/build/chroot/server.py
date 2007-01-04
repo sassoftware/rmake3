@@ -132,7 +132,7 @@ class ChrootServer(apirpc.XMLApiServer):
         self._haltSignal = sigNum
         return
 
-    def __init__(self, uri, cfg):
+    def __init__(self, uri, cfg, quiet=False):
         self.cfg = cfg
         self._halt = False
         self._haltSignal = None
@@ -142,6 +142,8 @@ class ChrootServer(apirpc.XMLApiServer):
         self._results = {}
         serverLogger = logger.ServerLogger('chroot')
         apirpc.XMLApiServer.__init__(self, uri, logger=serverLogger)
+        if quiet:
+            self.getLogger().setQuietMode()
 
     def _shutDown(self):
         # we've gotten a request to halt, kill all jobs
