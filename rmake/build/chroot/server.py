@@ -162,7 +162,7 @@ class ChrootClient(object):
     def __init__(self, root, uri, pid=None):
         self.root = root
         self.pid = pid
-        self.proxy = apirpc.ApiProxy(ChrootServer, uri)
+        self.proxy = apirpc.XMLApiProxy(ChrootServer, uri)
 
     def subscribeToBuild(self, name, version, flavor):
         port = self.proxy.subscribeToBuild(name, version, flavor)

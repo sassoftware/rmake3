@@ -28,7 +28,7 @@ class rMakeClient(object):
     """
     def __init__(self, uri):
         self.uri = uri
-        self.proxy = apirpc.ApiProxy(server.rMakeServer, uri)
+        self.proxy = apirpc.XMLApiProxy(server.rMakeServer, uri)
 
     def buildTroves(self, sourceTroveTups, buildEnv):
         """

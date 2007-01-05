@@ -120,7 +120,7 @@ class _RmakeServerPublisherProxy(_InternalSubscriber):
 
     def __init__(self, uri):
         from rmake.server import server
-        self.proxy = apirpc.ApiProxy(server.rMakeServer, uri)
+        self.proxy = apirpc.XMLApiProxy(server.rMakeServer, uri)
         _InternalSubscriber.__init__(self)
 
     def _receiveEvents(self, apiVer, eventList):
