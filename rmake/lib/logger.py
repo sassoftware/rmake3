@@ -85,8 +85,8 @@ class ServerLogger(Logger):
     rpcFormat = '%(asctime)s - %(message)s'
     maxParamLength = 300
 
-    def __init__(self, name=None):
-        Logger.__init__(self, name=name)
+    def __init__(self, name=None, logPath=None):
+        Logger.__init__(self, name=name, logPath=logPath)
         if self.isCopy:
             return
         self.xmlrpcLogger = logging.getLogger(self.name + '-rpc')
