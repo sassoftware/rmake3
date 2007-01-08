@@ -46,8 +46,13 @@ class Server(object):
                 if self._halt:
                     try:
                         self.info('Shutting down server')
+                        coveragehook.save()
                         self._try('halt', self._shutDown)
                     finally:
+                        try:
+                            coveragehook.save()
+                        except:
+                            pass
                         os._exit(1)
                     assert(0)
                 self._try('request handling', self.handleRequestIfReady, .1)
@@ -81,9 +86,17 @@ class Server(object):
             signal.signal(sigNum, signal.default_int_handler)
         else:
             signal.signal(sigNum, signal.SIG_DFL)
+        try:
+            coveragehook.save()
+        except:
+            pass
         self._halt = True
         self._haltSignal = sigNum
         return
+
+    def _installSignalHandlers(self):
+        signal.signal(signal.SIGTERM, self._signalHandler)
+        signal.signal(signal.SIGINT, self._signalHandler)
 
     def _collectChildren(self):
         try:
