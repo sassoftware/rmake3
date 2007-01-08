@@ -76,16 +76,6 @@ def setLocalFlags(flags):
     for flag in flags:
         LocalFlags.__setattr__(flag._name, flag._get())
 
-def resetLocalFlags():
-    """ Delete all created local flags. """
-    LocalFlags._clear()
-
-def knownArches():
-    return ('x86', 'x86_64', 'ppc', 'mips')
-
-def isKnownArch(arch):
-    return arch in knownArches()
-
 def getArchFlags(flavor):
     archFlavor = Flavor()
     flavorInsSet = flavor.getDepClasses().get(deps.DEP_CLASS_IS, None)
@@ -94,38 +84,8 @@ def getArchFlags(flavor):
             archFlavor.addDep(deps.InstructionSetDependency, insSet)
     return archFlavor
 
-def getArchFlavor(arch):
-    if arch in ('x86', 'i386'):
-        return deps.parseFlavor('is: x86')
-    elif arch == 'x86_64':
-        return deps.parseFlavor('is: x86_64')
-    elif arch == 'ppc':
-        return deps.parseFlavor('is: ppc')
-    elif arch == 'mips':
-        return deps.parseFlavor('is: mips')
-    assert(False)
-
 def getArchMacros(arch):
     return {}
-
-def setArch(flavor, arch):
-    return overrideFlavor(flavor, getArchFlavor(arch))
-
-def mergeArch(flavor, arch):
-    return mergeFlavor(flavor, getArchFlavor(arch))
-
-def mergeFlavor(flavor, newFlavor):
-    flavor = flavor.copy()
-    flavor.union(newFlavor)
-    return flavor
-
-def overrideFlavor(oldFlavor, newFlavor):
-    flavor = oldFlavor.copy()
-    if (deps.DEP_CLASS_IS in flavor.getDepClasses() 
-        and deps.DEP_CLASS_IS in newFlavor.getDepClasses()):
-        del flavor.members[deps.DEP_CLASS_IS]
-    flavor.union(newFlavor, mergeType=deps.DEP_MERGE_TYPE_OVERRIDE)
-    return flavor
 
 def getArch(flavor):
     flags = getFlavorUseFlags(flavor)
@@ -138,56 +98,6 @@ def getArch(flavor):
     if 'mips' in flags['Arch']:
         return 'mips'
     return None
-
-def clearAllFlags():
-    use._clear()
-
-def getSubFlavors(flavor, subFlavors, name):
-    mainFlags = getFlavorUseFlags(flavor)
-    matchingSubFlavors = []
-    for subFlavor in subFlavors:
-        subFlags = getFlavorUseFlags(subFlavor)
-        mainUse = mainFlags['Use']
-        subUse = subFlags['Use']
-        found = True
-        try:
-            for flag, value in subUse.iteritems():
-                if mainUse[flag] != value:
-                    raise KeyError
-            if name in subFlags['Flags']:
-                subLocal = subFlags['Flags'][name]
-                mainLocal = mainFlags['Flags'][name]
-                for flag, value in subLocal.iteritems():
-                    if flag in mainLocal and mainLocal[flag] != value:
-                        # don't complain if local flag is not set -- 
-                        # we allow defaults to be used 
-                        raise KeyError
-            mainArch = mainFlags['Arch']
-            subArch = subFlags['Arch']
-            for majarch in subArch:
-                if majarch not in mainArch:
-                    raise KeyError
-                for minarch in subArch[majarch]:
-                    if minarch not in mainArch[majarch]:
-                        raise KeyError
-            matchingSubFlavors.append(subFlavor)
-        except KeyError:
-            pass
-    return matchingSubFlavors
-
-ignoredClasses = [ deps.DEP_CLASS_ABI ]
-
-def iterDeps(flavor, ignoreABI=False):
-    """ iterates through all the individual dependencies in 
-        a dependency set by creating a dependency.  
-    """
-    for depClass in flavor.members.values():
-        if ignoreABI and depClass.tag in ignoredClasses:
-            continue
-        for dependency in depClass.members.values():
-            newDep = Flavor()
-            newDep.addDep(depClass.__class__, dependency)
-            yield newDep
 
 setArchOk = {'x86_64'  : ['x86'],
              'sparc64' : ['sparc'],
