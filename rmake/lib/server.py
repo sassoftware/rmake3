@@ -108,7 +108,7 @@ class Server(object):
             else:
                 self.warning('pid %s killed with signal %s' % (pid, signalRc))
 
-    def _killPid(self, pid, name, sig=signal.SIGTERM):
+    def _killPid(self, pid, name, sig=signal.SIGTERM, timeout=20):
         if not pid:
             return
         try:
@@ -119,7 +119,7 @@ class Server(object):
                 return
             raise
         timeSlept = 0
-        while timeSlept < 20:
+        while timeSlept < timeout:
             found, status = os.waitpid(pid, os.WNOHANG)
             if found:
                 break
