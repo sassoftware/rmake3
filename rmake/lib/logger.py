@@ -39,6 +39,9 @@ class Logger(object):
                                                       self.consoleDateFormat))
         self.console.setLevel(logging.INFO)
         logger = logging.getLogger(self.name)
+        logger.parent = None
+        for handler in logger.handlers:
+            logger.removeHandler(x)
         logger.setLevel(logging.DEBUG)
         self.logger = logger
         if logPath:

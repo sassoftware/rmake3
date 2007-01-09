@@ -33,6 +33,7 @@ class Server(object):
         self._logger = logger
         self._halt = False
         self._haltSignal = None
+        self._pids = {}
 
     def getLogger(self):
         return self._logger
@@ -77,8 +78,25 @@ class Server(object):
             raise
         assert(0)
 
+    def _fork(self, name):
+        pid = os.fork()
+        if not pid:
+            self._resetSignalHandlers()
+            return
+        self._pids[pid] = name
+        return pid
+
     def _shutDown(self):
+        self._killAllPids()
         sys.exit(0)
+
+    def _killAllPids(self):
+        for pid, name in self._pids.items():
+            self._killPid(pid, name)
+
+    def _resetSignalHandlers(self):
+        signal.signal(signal.SIGTERM, signal.default_int_handler)
+        signal.signal(signal.SIGINT, signal.SIG_DFL)
 
     def _signalHandler(self, sigNum, frame):
         # if they rekill, we just exit
@@ -115,11 +133,12 @@ class Server(object):
         # logging.
         exitRc = os.WEXITSTATUS(status)
         signalRc = os.WTERMSIG(status)
+        name = self._pids.pop(pid, 'Unknown')
         if exitRc or signalRc:
             if exitRc:
-                self.warning('pid %s exited with exit status %s' % (pid, exitRc))
+                self.warning('pid %s (%s) exited with exit status %s' % (pid, name, exitRc))
             else:
-                self.warning('pid %s killed with signal %s' % (pid, signalRc))
+                self.warning('pid %s (%s) killed with signal %s' % (pid, name, signalRc))
 
     def _killPid(self, pid, name, sig=signal.SIGTERM, timeout=20):
         if not pid:

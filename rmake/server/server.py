@@ -183,13 +183,13 @@ class rMakeServer(apirpc.XMLApiServer):
     def startCommit(self, callData, jobId):
         jobId = self.db.convertToJobId(jobId)
         job = self.db.getJob(jobId)
-        pid = os.fork()
+        pid = self._fork('startCommit')
         if pid:
             self.debug('jobCommitting forked pid %d' % pid)
             return
         else:
             try:
-                self._subscribeToJobInternal(job)
+                self._subscribeToJob(job)
                 job.jobCommitting()
                 os._exit(0)
             finally:
@@ -200,7 +200,7 @@ class rMakeServer(apirpc.XMLApiServer):
     def commitFailed(self, callData, jobId, message):
         jobId = self.db.convertToJobId(jobId)
         job = self.db.getJob(jobId)
-        pid = os.fork()
+        pid = self._fork('commitFailed')
         if pid:
             self.debug('commitFailed forked pid %d' % pid)
             return
@@ -217,13 +217,13 @@ class rMakeServer(apirpc.XMLApiServer):
     def commitSucceeded(self, callData, jobId, troveTupleList):
         jobId = self.db.convertToJobId(jobId)
         job = self.db.getJob(jobId)
-        pid = os.fork()
+        pid = self._fork('commitSucceeded for jobId %s' % jobId)
         if pid:
             self.debug('commitSucceeded forked pid %d' % pid)
             return
         else:
             try:
-                self._subscribeToJobInternal(job)
+                self._subscribeToJob(job)
                 job.jobCommitted(troveTupleList)
                 os._exit(0)
             finally:
@@ -287,6 +287,7 @@ class rMakeServer(apirpc.XMLApiServer):
         # we've gotten a request to halt, kill all jobs (they've run
         # setpgrp) and then kill ourselves
         self._stopAllJobs()
+        self._killAllPids()
         self.plugins.callServerHook('server_shutDown', self)
         sys.exit(0)
 
@@ -313,7 +314,7 @@ class rMakeServer(apirpc.XMLApiServer):
             return
         events = self._events
         self._events = {}
-        pid = os.fork()
+        pid = self._fork('emitEvents')
         if pid:
             self._numEvents = 0
             self._lastEmit = time.time()
@@ -337,7 +338,7 @@ class rMakeServer(apirpc.XMLApiServer):
         buildCfg = self.db.getJobConfig(job.jobId)
         buildCfg.setServerConfig(self.cfg)
         buildMgr = self.getBuilder(job, buildCfg)
-        pid = os.fork()
+        pid = self._fork('Job %s' % job.jobId)
         if pid:
             self._buildPids[pid] = job.jobId # mark this pid for potential 
                                              # killing later
@@ -370,7 +371,7 @@ class rMakeServer(apirpc.XMLApiServer):
 
     def _failCurrentJobs(self, jobs, reason):
         from rmake.server.client import rMakeClient
-        pid = os.fork()
+        pid = self._fork('Fail current jobs')
         if pid:
             self.debug('Fail current jobs forked pid %d' % pid)
             return
