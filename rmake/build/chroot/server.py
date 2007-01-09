@@ -12,6 +12,7 @@
 # or fitness for a particular purpose. See the Common Public License for
 # full details.
 #
+import errno
 import os
 import select
 import signal
@@ -209,12 +210,21 @@ class ChrootClient(object):
     def stop(self):
         if not self.pid:
             return
-        if os.waitpid(self.pid, os.WNOHANG):
+        try:
+            pid, status = os.waitpid(self.pid, os.WNOHANG)
+        except OSError, err:
+            if err == errno.ECHILD:
+                self.pid = None
+                return 0
+            raise
+        if pid:
             # HM, we lose signal info this way, is that ok?
             self.pid = None
-            return
+            return status
         rc = self.proxy.stop()
-        os.waitpid(self.pid, 0)
+        pid, status = os.waitpid(self.pid, 0)
+        self.pid = None
+        return status
 
     def ping(self, seconds=5, hook=None, sleep=0.1):
         timeSlept = 0

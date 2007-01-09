@@ -189,7 +189,7 @@ class rMakeServer(apirpc.XMLApiServer):
             return
         else:
             try:
-                self._subscribeToJob(job)
+                self._subscribeToJobInternal(job)
                 job.jobCommitting()
                 os._exit(0)
             finally:
@@ -223,7 +223,7 @@ class rMakeServer(apirpc.XMLApiServer):
             return
         else:
             try:
-                self._subscribeToJob(job)
+                self._subscribeToJobInternal(job)
                 job.jobCommitted(troveTupleList)
                 os._exit(0)
             finally:

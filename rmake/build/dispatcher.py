@@ -50,11 +50,8 @@ class Dispatcher(object):
         self._buildingTroves.append((chrootManager, chroot, trove))
 
     def stopAllChroots(self):
-        for chroot in self._chroots:
-            try:
-                chroot.stop()
-            except errors.OpenError:
-                pass
+        for chrootManager, chroot, trove in self._buildingTroves:
+            chrootManager.killAllRoots()
 
     def getChrootManager(self, jobId, buildCfg):
         return rootmanager.ChrootManager(jobId, self.serverCfg.buildDir,

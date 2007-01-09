@@ -131,7 +131,13 @@ class ChrootManager(object):
             pass
         died = False
         for i in xrange(400):
-            foundPid, status = os.waitpid(pid, os.WNOHANG)
+            try:
+                foundPid, status = os.waitpid(pid, os.WNOHANG)
+            except OSError, err:
+                if err.errno in (errno.ESRCH, errno.ECHILD):
+                    foundPid = True
+                else:
+                    raise
             if not foundPid:
                 time.sleep(.1)
             else:
