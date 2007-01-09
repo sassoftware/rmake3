@@ -111,7 +111,10 @@ class ChrootServer(apirpc.XMLApiServer):
         return
 
     def _serveLoopHook(self):
-        ready = select.select(self._unconnectedSubscribers, [], [], 0.1)[0]
+        try:
+            ready = select.select(self._unconnectedSubscribers, [], [], 0.1)[0]
+        except select.error, err:
+            ready = []
         for socket in ready:
             troveTup = self._unconnectedSubscribers.pop(socket)
             socket, caddr = socket.accept()
@@ -204,7 +207,14 @@ class ChrootClient(object):
         return results
 
     def stop(self):
-        return self.proxy.stop()
+        if not self.pid:
+            return
+        if os.waitpid(self.pid, os.WNOHANG):
+            # HM, we lose signal info this way, is that ok?
+            self.pid = None
+            return
+        rc = self.proxy.stop()
+        os.waitpid(self.pid, 0)
 
     def ping(self, seconds=5, hook=None, sleep=0.1):
         timeSlept = 0
@@ -252,7 +262,7 @@ class ChrootDaemon(daemon.Daemon):
     def doWork(self):
         cfg = self.cfg
         server = ChrootServer('unix://%s' % (cfg.socketPath), cfg)
-        signal.signal(signal.SIGTERM, server._signalHandler)
+        server._installSignalHandlers()
         server.serve_forever()
 
 

@@ -93,12 +93,14 @@ class Builder(object):
         self.logger.info(message)
 
     def _signalHandler(self, sigNum, frame):
-        pid = os.fork()
         try:
-            if not pid:
-                for chroot in self._chroots:
-                    chroot.stop()
-            os._exit(0)
+            signal.signal(sigNum, signal.SIG_DFL)
+            self.dispatcher.stopAllChroots()
+            # NOTE: unfortunately, we can't send this out, it's entirely
+            # possible the signal could have come from the rmake server.
+            # instead, we'll have to let the server ensure our 
+            # self.job.jobFailed('Received signal %s' % sigNum)
+            os.kill(os.getpid(), sigNum)
         finally:
             os._exit(1)
 

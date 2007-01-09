@@ -465,7 +465,7 @@ class rMakeServer(apirpc.XMLApiServer):
 
         killed = []
         timeSlept = 0
-        while timeSlept < 15 and self._buildPids:
+        while timeSlept < 90 and self._buildPids:
             for pid in list(self._buildPids):
                 try:
                     pid, status = os.waitpid(pid, os.WNOHANG)

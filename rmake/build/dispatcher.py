@@ -19,6 +19,8 @@ import traceback
 from conary.repository import changeset
 from conary import conaryclient
 
+from rmake import errors
+
 from rmake.build import failure
 from rmake.build import rootmanager
 
@@ -46,6 +48,13 @@ class Dispatcher(object):
         # sends off message that this trove is building.
         trove.troveBuilding(logPath, pid)
         self._buildingTroves.append((chrootManager, chroot, trove))
+
+    def stopAllChroots(self):
+        for chroot in self._chroots:
+            try:
+                chroot.stop()
+            except errors.OpenError:
+                pass
 
     def getChrootManager(self, jobId, buildCfg):
         return rootmanager.ChrootManager(jobId, self.serverCfg.buildDir,
