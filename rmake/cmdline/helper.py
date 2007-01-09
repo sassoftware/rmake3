@@ -33,6 +33,7 @@ from conary.deps import deps
 from conary.lib import log
 from conary.lib import options
 
+from rmake import errors
 from rmake.build import buildcfg
 from rmake.build import buildjob
 from rmake.cmdline import buildcmd
@@ -277,10 +278,13 @@ class rMakeHelper(object):
                 self.client.commitFailed(jobId, data)
                 log.error(data)
                 return False
+        except errors.uncatchableExceptions, err:
+            self.client.commitFailed(jobId, str(err))
+            raise
         except Exception, err:
             self.client.commitFailed(jobId, str(err))
             log.error(err)
-            return False
+            raise
 
     def deleteJobs(self, jobIdList):
         """
