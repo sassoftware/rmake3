@@ -60,6 +60,7 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
             return
         assert(self.cfg.root == self.root)
         client = conaryclient.ConaryClient(self.cfg)
+        client.setUpdateCallback(self.callback)
 
         if self.csCache:
             changeSetList = self.csCache.getChangeSets(client.getRepos(),
@@ -75,10 +76,10 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
         updJob, suggMap = client.updateChangeSet(
             self.jobList, keepExisting=False, resolveDeps=False,
             recurse=False, checkPathConflicts=False,
-            callback = self.callback, fromChangesets=changeSetList,
+            fromChangesets=changeSetList,
             migrate=True)
         util.mkdirChain(self.cfg.root + '/root')
-        client.applyUpdate(updJob, replaceFiles=True, callback = self.callback,
+        client.applyUpdate(updJob, replaceFiles=True,
                            tagScript=self.cfg.root + '/root/tagscripts')
 
 
