@@ -93,6 +93,7 @@ class ServerLogger(Logger):
         if self.isCopy:
             return
         self.xmlrpcLogger = logging.getLogger(self.name + '-rpc')
+        self.xmlrpcLogger.parent = None
         self.xmlrpcLogger.setLevel(logging.DEBUG)
         self._loggers.append(self.xmlrpcLogger)
         self.xmlrpcConsole = logging.StreamHandler()
