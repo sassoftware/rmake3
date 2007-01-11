@@ -48,7 +48,14 @@ class Server(object):
                     try:
                         self.info('Shutting down server')
                         coveragehook.save()
-                        self._try('halt', self._shutDown)
+                        try:
+                            self._try('halt', self._shutDown)
+                        except SystemExit, err:
+                            try:
+                                coveragehook.save()
+                            except:
+                                pass
+                            os._exit(err.args[0])
                     finally:
                         try:
                             coveragehook.save()
