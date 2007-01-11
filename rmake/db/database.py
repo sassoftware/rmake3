@@ -209,7 +209,7 @@ class Database(object):
                                      (trove.jobId,)))
 
     def updateJobStatus(self, job):
-        self.jobStore.updateJobLog(job, "%s %s" % (job.state, job.status))
+        self.jobStore.updateJobLog(job, job.status)
         self.jobStore.updateJob(job)
         self.commit()
 
