@@ -130,7 +130,7 @@ class JobLogDisplay(_AbstractDisplay):
                 break
             logMark += len(newLogs)
             for (timeStamp, message, args) in newLogs:
-                print '[%s] %s' % (timeStamp, message)
+                print '[%s] [%s] - %s' % (timeStamp, jobId, message)
 
         BUILDING = buildtrove.TROVE_STATE_BUILDING
         troveTups = client.listTrovesByState(jobId, BUILDING).get(BUILDING, [])
