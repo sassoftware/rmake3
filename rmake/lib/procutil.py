@@ -104,6 +104,16 @@ class MachineInformation(object):
         self.loadavg = getLoadAverage()
         self.uptime = getUptime()
 
+    def getLoadAverage(self, minutes):
+        if minutes not in (1,5,15):
+            raise ValueError('Can only get the load average for 1,5,or 15 minutes')
+        if minutes == 1:
+            return self.loadavg[0]
+        if minutes == 5:
+            return self.loadavg[1]
+        if minutes == 15:
+            return self.loadavg[2]
+
     def __str__(self):
         l = []
         l.append('Machine: %s' % self.hostname)
