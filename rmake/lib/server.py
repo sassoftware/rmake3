@@ -102,8 +102,8 @@ class Server(object):
             self._killPid(pid, name)
 
     def _resetSignalHandlers(self):
-        signal.signal(signal.SIGTERM, signal.default_int_handler)
-        signal.signal(signal.SIGINT, signal.SIG_DFL)
+        signal.signal(signal.SIGTERM, signal.SIG_DFL)
+        signal.signal(signal.SIGINT, signal.default_int_handler)
 
     def _signalHandler(self, sigNum, frame):
         # if they rekill, we just exit
