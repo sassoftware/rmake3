@@ -26,7 +26,6 @@ from conary import command
 from rmake import constants
 from rmake import plugins
 from rmake.lib import daemon
-from rmake.server import logger
 from rmake.server import repos
 from rmake.server import servercfg
 from rmake.server import server
