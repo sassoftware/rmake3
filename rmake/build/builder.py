@@ -95,7 +95,7 @@ class Builder(object):
     def _signalHandler(self, sigNum, frame):
         try:
             signal.signal(sigNum, signal.SIG_DFL)
-            self.dispatcher.stopAllChroots()
+            self.dispatcher.stopAllCommands()
             # NOTE: unfortunately, we can't send this out, it's entirely
             # possible the signal could have come from the rmake server.
             # instead, we'll have to let the server ensure our 

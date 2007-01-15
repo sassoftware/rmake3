@@ -51,7 +51,11 @@ class Dispatcher(object):
 
     def stopAllChroots(self):
         for chrootManager, chroot, trove in self._buildingTroves:
-            chrootManager.killAllRoots()
+            try:
+                chrootManager.killAllRoots()
+                trove.troveFailed(failure.Stopped('Stop requested'))
+            except:
+                pass
 
     def getChrootManager(self, jobId, buildCfg):
         return rootmanager.ChrootManager(jobId, self.serverCfg.buildDir,

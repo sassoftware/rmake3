@@ -290,7 +290,7 @@ class BuildJob(_FreezableBuildJob):
         # right now jobStopped is an alias for job failed.
         # but I think we may wish to give it its own state
         # at some point so I'm distinguishing it here.
-        self.jobFailed(failure.JobStopped(failureReason))
+        self.jobFailed(failure.Stopped(failureReason))
 
     def jobCommitting(self):
         self._setState(JOB_STATE_COMMITTING, '')

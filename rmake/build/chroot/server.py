@@ -175,7 +175,10 @@ class ChrootClient(object):
         self.resultsReadySocket = s
 
     def checkSubscription(self, timeout=0.1):
-        ready = select.select([self.resultsReadySocket], [], [], timeout)[0]
+        try:
+            ready = select.select([self.resultsReadySocket], [], [], timeout)[0]
+        except select.error, err:
+            return False
         if ready:
             done = self.resultsReadySocket.recv(1024)
             assert(done == '')

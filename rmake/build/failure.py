@@ -34,7 +34,7 @@ FAILURE_REASON_DEP            = 3
 FAILURE_REASON_CHROOT         = 4 # installation error
 FAILURE_REASON_LOAD           = 5 # loadrecipe error
 FAILURE_REASON_INTERNAL       = 6 # error in rmake proper
-FAILURE_REASON_JOB_STOPPED    = 7 # stop request
+FAILURE_REASON_STOPPED    = 7 # stop request
 FAILURE_REASON_COMMAND_FAILED = 8
 
 # FIXME: this should use streamSets for the data.
@@ -199,11 +199,11 @@ class MissingDependencies(FailureReason):
         return parsedData
 
 
-class JobStopped(FailureReason):
-    tag = FAILURE_REASON_JOB_STOPPED
+class Stopped(FailureReason):
+    tag = FAILURE_REASON_STOPPED
 
     def __str__(self):
-        return 'Job Stopped: %s' % self.data
+        return 'Stopped: %s' % self.data
 
 # ----------------------------------------------------
 # NOTE: Must add new failure types to this list
@@ -218,7 +218,7 @@ for class_ in (FailureReason,
                MissingDependencies,
                LoadFailed,
                InternalError,
-               JobStopped):
+               Stopped):
     classByTag[class_.tag] = class_
 
 def freezeFailureMethod(failure):

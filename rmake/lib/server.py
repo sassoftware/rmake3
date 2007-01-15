@@ -38,6 +38,9 @@ class Server(object):
     def getLogger(self):
         return self._logger
 
+    def _exit(self, exitRc):
+        os._exit(exitRc)
+
     def serve_forever(self):
         self._halt = False
         self._haltSignal = None
@@ -55,18 +58,19 @@ class Server(object):
                                 coveragehook.save()
                             except:
                                 pass
-                            os._exit(err.args[0])
+                            self._exit(err.args[0])
                     finally:
                         try:
                             coveragehook.save()
                         except:
                             pass
-                        os._exit(1)
+                        self._exit(1)
                     assert(0)
                 self._try('request handling', self.handleRequestIfReady, .1)
                 self._try('loop hook', self._serveLoopHook)
         finally:
             coveragehook.save()
+            self._try('halt', self._shutDown)
 
     def handleRequestIfReady(self, sleepTime):
         raise NotImplmentedError
@@ -132,24 +136,30 @@ class Server(object):
             else:
                 pid = None
         if pid:
-            self._pidDied(pid, status)
+            self._try('pidDied', self._pidDied, pid, status)
 
-    def _pidDied(self, pid, status):
+    def _pidDied(self, pid, status, name=None):
         # We may want to check for failure here, but that is really
         # an odd case, the child process should have handled its own
         # logging.
         exitRc = os.WEXITSTATUS(status)
         signalRc = os.WTERMSIG(status)
-        name = self._pids.pop(pid, 'Unknown')
+        if not name:
+            name = self._pids.pop(pid, 'Unknown')
+        else:
+            self._pids.pop(pid, None)
+
         if exitRc or signalRc:
             if exitRc:
                 self.warning('pid %s (%s) exited with exit status %s' % (pid, name, exitRc))
             else:
                 self.warning('pid %s (%s) killed with signal %s' % (pid, name, signalRc))
 
-    def _killPid(self, pid, name, sig=signal.SIGTERM, timeout=20):
+    def _killPid(self, pid, name=None, sig=signal.SIGTERM, timeout=20):
         if not pid:
             return
+        if not name:
+            name = self._pids.get(pid, 'Unknown')
         try:
             os.kill(pid, sig)
         except OSError, err:
@@ -173,18 +183,8 @@ class Server(object):
             else:
                 self.error('%s (pid %s) would not die.' % (name, pid))
             return
-
         # yay, our kill worked.
-        if os.WIFEXITED(status):
-            exitRc = os.WEXITSTATUS(status)
-            if exitRc:
-                self.warning('%s (pid %s) exited with'
-                            ' exit status %s' % (name, pid, exitRc))
-        else:
-            sigNum = os.WTERMSIG(status)
-            if sigNum != sig:
-                self.warning('%s (pid %s) exited with'
-                            ' signal %s' % (name, pid, sigNum))
+        self._pidDied(pid, status, name)
 
     def info(self, *args, **kw):
         self._logger.info(*args, **kw)

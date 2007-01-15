@@ -389,8 +389,8 @@ class rMakeServer(apirpc.XMLApiServer):
         finally:
             os._exit(1)
 
-    def _pidDied(self, pid, status):
-        apirpc.XMLApiServer._pidDied(self, pid, status)
+    def _pidDied(self, pid, status, name=None):
+        apirpc.XMLApiServer._pidDied(self, pid, status, name)
         self._buildPids.pop(pid, None)
 
         if pid == self._emitPid: # rudimentary locking for emits
