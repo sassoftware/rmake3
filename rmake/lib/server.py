@@ -73,7 +73,7 @@ class Server(object):
             self._try('halt', self._shutDown)
 
     def handleRequestIfReady(self, sleepTime):
-        raise NotImplmentedError
+        time.sleep(sleepTime)
 
     def _serveLoopHook(self):
         pass
@@ -169,7 +169,14 @@ class Server(object):
             raise
         timeSlept = 0
         while timeSlept < timeout:
-            found, status = os.waitpid(pid, os.WNOHANG)
+            try:
+                found, status = os.waitpid(pid, os.WNOHANG)
+            except OSError, err:
+                if err.errno == errno.ECHILD:
+                    # it's not our child process, so we can't 
+                    # wait for it
+                    return
+                raise
             if found:
                 break
             else:
