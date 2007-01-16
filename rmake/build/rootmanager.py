@@ -30,15 +30,10 @@ from rmake.lib import logger as logger_
 from rmake.lib import repocache
 
 class ChrootManager(object):
-    def __init__(self, jobId, baseDir, chrootHelperPath, buildCfg, serverCfg,
-                 logger=None):
-        self.jobId = jobId
-        self.cfg = buildCfg
-        self.serverCfg = serverCfg
-        self.cfg = copy.deepcopy(self.cfg)
-        self.cfg.threaded = False
+    def __init__(self, baseDir, chrootHelperPath, serverCfg, logger=None):
         self.baseDir = baseDir
         self.chrootHelperPath = chrootHelperPath
+        self.serverCfg = serverCfg
         cacheDir = self.baseDir + '/cscache'
         util.mkdirChain(cacheDir)
         self.csCache = repocache.RepositoryCache(cacheDir)
@@ -47,106 +42,63 @@ class ChrootManager(object):
             logger = logger_.Logger()
         self.logger = logger
 
+    def getRootPath(self, buildTrove):
+        name = buildTrove.getName().rsplit(':', 1)[0]
+        path =  self.baseDir + '/chroot-%s' % name
+        count = 1
+        if path not in self.chroots:
+            return path
+        path = path + '-%s'
+        while True:
+            if path % count in self.chroots:
+                count += 1
+            else:
+                return path % count
 
-    def createRoot(self, jobList, buildTrove):
-        self.cfg.logFile = '/var/log/conary'
-        self.cfg.dbPath = '/var/lib/conarydb'
+    def rootFinished(self, chroot):
+        root = chroot.getRoot()
+        if root in self.chroots:
+            del self.chroots[root]
+
+    def getRootFactory(self, cfg, jobList, buildTrove):
+        cfg = copy.deepcopy(cfg)
+        cfg.threaded = False
+
+        cfg.logFile = '/var/log/conary'
+        cfg.dbPath = '/var/lib/conarydb'
 
         setArch, targetArch = flavorutil.getTargetArch(buildTrove.flavor)
+
         if not setArch:
             targetArch = None
 
-        if self.cfg.strictMode or (buildTrove.isPackageRecipe()
-                                   or buildTrove.isInfoRecipe()):
-            rootDir = self.baseDir + '/chroot'
-            chrootClass = rootfactory.FullRmakeChroot
-        elif (buildTrove.isRedirectRecipe() or buildTrove.isGroupRecipe()
-              or buildTrove.isFilesetRecipe()):
+        rootDir = self.getRootPath(buildTrove)
+        if (not cfg.strictMode and
+              (buildTrove.isRedirectRecipe() or buildTrove.isGroupRecipe()
+               or buildTrove.isFilesetRecipe())):
             # we don't need to actually instantiate a root to cook
             # these packages - if we're not worried about using the 
             # "correct" conary, conary-policy, etc.
-            rootDir = self.baseDir + '/chroot'
             jobList = []
             os.chdir(self.baseDir)
             chrootClass = rootfactory.FakeRmakeRoot
         else:
-            raise errors.OpenError('Chroot could not be created - unknown recipe type for %s' % buildTrove.getName())
-
-        self.cfg.root = rootDir
-        copyInConary = not targetArch and not self.cfg.strictMode
+            chrootClass = rootfactory.FullRmakeChroot
+        cfg.root = rootDir
+        copyInConary = not targetArch and not cfg.strictMode
 
         chroot = chrootClass(buildTrove,
                              self.chrootHelperPath,
-                             self.cfg, self.serverCfg, jobList, self.logger,
+                             cfg, self.serverCfg, jobList, self.logger,
                              csCache=self.csCache,
                              copyInConary=copyInConary)
-
-        if self.cfg.reuseRoots and not self.cfg.strictMode:
-            # we're going to keep the old contents of the root and perform
-            # as few updates as possible.  However, that still means
-            # unmounting those things owned by root so that the rmake process
-            # can make any necessary modifications.
-            chroot.unmount()
-        else:
-            chroot.clean()
-        chroot.create(rootDir)
-        buildLogPath = self.serverCfg.getBuildLogPath(self.jobId)
-        chrootServer = rMakeChrootServer(chroot, self.cfg, targetArch,
+        buildLogPath = self.serverCfg.getBuildLogPath(buildTrove.jobId)
+        chrootServer = rMakeChrootServer(chroot, cfg, targetArch,
                                          useTmpfs=self.serverCfg.useTmpfs,
                                          buildLogPath=buildLogPath)
 
-        buildTrove.log('Chroot Created')
-        client = chrootServer.start()
-        self.chroots[client.getPid()] = (chroot, client)
-        return client
-
-    def info(self, message):
-        self.logger.info(message)
-
-    def warning(self, message):
-        self.logger.warning(message)
-
-    def cleanRoot(self, pid):
-        root, client = self.chroots[pid]
-        self.killRoot(pid)
-        root.clean()
-
-    def __del__(self):
-        self.killAllRoots()
-
-    def killAllRoots(self):
-        for pid in list(self.chroots): # make copy since is modified
-            self.killRoot(pid)
-
-    def killRoot(self, pid):
-        root, client = self.chroots[pid]
-        try:
-            client.stop()
-        except OSError, err:
-            if err.errno != errno.ESRCH:
-                raise
-            else:
-                return
-        except errors.OpenError, err:
-            pass
-        died = False
-        for i in xrange(400):
-            try:
-                foundPid, status = os.waitpid(pid, os.WNOHANG)
-            except OSError, err:
-                if err.errno in (errno.ESRCH, errno.ECHILD):
-                    foundPid = True
-                else:
-                    raise
-            if not foundPid:
-                time.sleep(.1)
-            else:
-                died = True
-                break
-        if not died:
-            self.warning('child process %s did not shut down' % pid)
-        else:
-            del self.chroots[pid]
+        self.chroots[rootDir] = chrootServer
+        return chrootServer
 
 
 class rMakeChrootServer(object):
@@ -160,6 +112,23 @@ class rMakeChrootServer(object):
         self.targetArch = targetArch
         self.useTmpfs = useTmpfs
         self.buildLogPath = buildLogPath
+
+    def getRoot(self):
+        return self.chroot.cfg.root
+
+    def clean(self):
+        return self.chroot.clean()
+
+    def create(self):
+        if self.cfg.reuseRoots and not self.cfg.strictMode:
+            # we're going to keep the old contents of the root and perform
+            # as few updates as possible.  However, that still means
+            # unmounting those things owned by root so that the rmake process
+            # can make any necessary modifications.
+            self.chroot.unmount()
+        else:
+            self.chroot.clean()
+        self.chroot.create(self.getRoot())
 
     def start(self):
         pid = os.fork()

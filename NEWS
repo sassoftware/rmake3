@@ -3,6 +3,9 @@ Changes in @NEW@:
      * rMake now supports plugins, located in /etc/rmake/plugins.d (RMK-186).
      * The builder has been split out into builder and dispatcher to enable
        support for multiple build nodes.
+     * Trove builds are now wrapped in a Command object which monitors
+       the actual build.  This is a step towards pushing all build actions
+       to be done in separate processes.
   o Bug Fixes:
      * StrictMode now allows signatureKeys.
      * StrictMode now reads in conary configuration files that are
