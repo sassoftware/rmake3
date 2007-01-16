@@ -112,7 +112,9 @@ class rMakeConfiguration(daemon.DaemonConfig):
     def getUserGlobs(self):
         return self.user
 
-    def getBuildLogDir(self):
+    def getBuildLogDir(self, jobId=None):
+        if jobId:
+            return self.logDir + '/buildlogs/%d/' % jobId
         return self.logDir + '/buildlogs/'
 
     def getBuildLogPath(self, jobId):
