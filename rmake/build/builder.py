@@ -118,7 +118,7 @@ class Builder(object):
                 os._exit(0)
             except Exception, err:
                 self.job.exceptionOccurred(err, traceback.format_exc())
-                log.error(traceback.format_exc())
+                self.logger.error(traceback.format_exc())
                 self.logFile.restoreOutput()
                 if sys.stdin.isatty():
                     # this sets us back to be connected with the controlling 
@@ -155,7 +155,7 @@ class Builder(object):
 
         if self.job.hasBuildableTroves():
             while True:
-                if self.dispatcher._checkForResults(self.buildCfg):
+                if self.dispatcher._checkForResults():
                     self.dh.updateBuildableTroves()
                 elif self.job.hasBuildableTroves():
                     self.buildTrove(self.job.iterBuildableTroves().next())
@@ -163,7 +163,6 @@ class Builder(object):
                     pass
                 else:
                     break
-                time.sleep(1)
 
             if self.dh.jobPassed():
                 self.job.jobPassed("build job finished successfully")
@@ -177,8 +176,8 @@ class Builder(object):
         buildReqs = self.dh.getBuildReqTroves(troveToBuild)
         self.job.log('Building %s' % troveToBuild.getName())
         targetLabel = self.buildCfg.getTargetLabel(troveToBuild.getVersion())
-        self.dispatcher.buildTrove(self.buildCfg, troveToBuild, buildReqs,
-                                   targetLabel)
+        self.dispatcher.buildTrove(self.buildCfg, troveToBuild.jobId,
+                                   troveToBuild, buildReqs, targetLabel)
 
     def _checkBuildSanity(self, buildTroves):
         def _referencesOtherTroves(trv):
