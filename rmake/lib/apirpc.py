@@ -136,6 +136,8 @@ class ApiServer(server.Server):
         if logger is None:
             logger = BaseRPCLogger('server')
         server.Server.__init__(self, logger)
+        self._methods = {}
+        self._addMethods(self)
 
     def _serveLoopHook(self):
         pass
@@ -163,14 +165,25 @@ class ApiServer(server.Server):
             frzMethod = 'Exception'
         return frzMethod, apiutils.freeze(frzMethod, err)
 
+    def _getMethod(self, methodName):
+        if methodName.startswith('_'):
+            raise NoSuchMethodError(methodName)
+        if methodName not in self._methods:
+            raise NoSuchMethodError(methodName)
+        return self._methods[methodName]
+
+    def _addMethods(self, apiServer):
+        for name in dir(apiServer):
+            attr = getattr(apiServer, name)
+            if hasattr(attr, 'allowed_versions') and hasattr(attr, '__call__'):
+                self._methods[name] = attr
+
     def _dispatch2(self, methodName, (auth, args)):
         """Dispatches call to methodName, unfreezing data in args, checking
            method version as well.
         """
-        method = getattr(self, methodName, None)
-        if not method:
-            raise NoSuchMethodError(methodName)
-
+ 
+        method = self.getMethod(self, methodName)
         callData = CallData(auth, args[0], self._logger)
         args = args[1:]
         apiVersion    = callData.getApiVersion()
