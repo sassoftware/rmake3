@@ -129,7 +129,7 @@ class rMakeServer(apirpc.XMLApiServer):
         jobId = self.db.convertToJobId(jobId)
         trove = self.db.getTrove(jobId, *troveTuple)
         if not self.db.hasTroveBuildLog(trove):
-            return False, xmlrpclib.Binary('')
+            return True, xmlrpclib.Binary('')
         f = self.db.openTroveBuildLog(trove)
         f.seek(mark)
         return trove.isBuilding(), xmlrpclib.Binary(f.read())
@@ -229,8 +229,7 @@ class rMakeServer(apirpc.XMLApiServer):
             finally:
                 os._exit(1)
 
-
-    # --- callbacks from Builders -
+    # --- callbacks from Builders
 
     @api(version=1)
     @api_parameters(1, None, 'EventList')
@@ -262,33 +261,51 @@ class rMakeServer(apirpc.XMLApiServer):
             jobsToFail = self.db.getJobsByState(buildjob.JOB_STATE_STARTED)
             self._failCurrentJobs(jobsToFail, 'Server was stopped')
             self._initialized = True
-        if not self.db.isJobBuilding():
-            while True:
-                # start one job from the cue.  This loop should be
-                # exited after one successful start.
-                job = self.db.popJobFromQueue()
-                if job is None:
-                    break
-                if job.isFailed():
-                    continue
-                try:
-                    self._startBuild(job)
-                except Exception, err:
-                    self._subscribeToJob(job)
-                    job.jobFailed(failure.InternalError(
-                                            'Failed while initializing',
-                                            traceback.format_exc()))
+        while True:
+            job = self._getNextJob()
+
+        self._startReadyJobs()
+        while True:
+            # start one job from the cue.  This loop should be
+            # exited after one successful start.
+            job = self._getNextJob()
+            if job is None:
                 break
+            try:
+                self._startBuild(job)
+            except Exception, err:
+                self._subscribeToJob(job)
+                job.jobFailed(failure.InternalError(
+                                        'Failed while initializing',
+                                        traceback.format_exc()))
+            break
         self._emitEvents()
         self._collectChildren()
         self.plugins.callServerHook('server_loop', self)
 
+
+    def _getNextJob(self):
+        if self._canBuild():
+            return
+        while True:
+            job = self.db.popJobFromQueue()
+            if job is None:
+                break
+            if job.isFailed():
+                continue
+            return job
+
+    def _canBuild(self):
+        return not self.db.isJobBuilding()
+        
     def _shutDown(self):
         # we've gotten a request to halt, kill all jobs (they've run
         # setpgrp) and then kill ourselves
-        self._stopAllJobs()
-        self._killAllPids()
-        self.plugins.callServerHook('server_shutDown', self)
+        if self.db:
+            self._stopAllJobs()
+            self._killAllPids()
+        if self.plugins:
+            self.plugins.callServerHook('server_shutDown', self)
         sys.exit(0)
 
     def _subscribeToJob(self, job):
@@ -498,6 +515,8 @@ class rMakeServer(apirpc.XMLApiServer):
         for publisher in publishers:
             publisher.uncork()
 
+    def _exit(self, exitCode):
+        sys.exit(exitCode)
 
     def __init__(self, uri, cfg, repositoryPid, pluginMgr=None, 
                  quiet=False):
@@ -518,21 +537,8 @@ class rMakeServer(apirpc.XMLApiServer):
             serverLogger.enableConsole(logLevel)
         serverLogger.info('*** Started rMake Server at pid %s' % os.getpid())
         try:
-            apirpc.XMLApiServer.__init__(self, uri, logger=serverLogger)
-            self.uri = uri
-            self.cfg = cfg
-            self.repositoryPid = repositoryPid
-            self.db = database.Database(cfg.getDbPath(),
-                                        cfg.getDbContentsPath())
-            if pluginMgr is None:
-                pluginMgr = plugins.PluginManager([])
-            self.plugins = pluginMgr
-
-            # any jobs that were running before are not running now
-            self._publisher = publish._RmakeServerPublisher()
-
-            self.queue = []
             self._initialized = False
+            self.db = None
 
             # event queuing code - to eventually be moved to a separate 
             # process
@@ -546,7 +552,22 @@ class rMakeServer(apirpc.XMLApiServer):
             self._emitPid = 0                  # pid for rudimentary locking
 
             # forked jobs that are currently active
-            self._buildPids = {} 
+            self._buildPids = {}
+
+
+            self.uri = uri
+            self.cfg = cfg
+            self.repositoryPid = repositoryPid
+            self.db = database.Database(cfg.getDbPath(),
+                                        cfg.getDbContentsPath())
+            if pluginMgr is None:
+                pluginMgr = plugins.PluginManager([])
+            self.plugins = pluginMgr
+            apirpc.XMLApiServer.__init__(self, uri, logger=serverLogger)
+
+            # any jobs that were running before are not running now
+            self._publisher = publish._RmakeServerPublisher()
+
             dbLogger = subscriber._JobDbLogger(self.db)
             # note - it's important that the db logger
             # comes first, before the general publisher,
