@@ -44,33 +44,32 @@ class Server(object):
     def serve_forever(self):
         self._halt = False
         self._haltSignal = None
+        startedShutdown = False
         try:
             self._try('loop hook', self._serveLoopHook)
             while True:
                 if self._halt:
-                    try:
-                        self.info('Shutting down server')
-                        coveragehook.save()
-                        try:
-                            self._try('halt', self._shutDown)
-                        except SystemExit, err:
-                            try:
-                                coveragehook.save()
-                            except:
-                                pass
-                            self._exit(err.args[0])
-                    finally:
-                        try:
-                            coveragehook.save()
-                        except:
-                            pass
-                        self._exit(1)
-                    assert(0)
+                    self.info('Shutting down server')
+                    coveragehook.save()
+                    startedShutdown = True
+                    self._try('halt', self._shutDown)
+                    sys.exit(0)
                 self._try('request handling', self.handleRequestIfReady, .1)
                 self._try('loop hook', self._serveLoopHook)
-        finally:
-            coveragehook.save()
-            self._try('halt', self._shutDown)
+        except SystemExit, err:
+            try:
+                coveragehook.save()
+            except:
+                pass
+            self._exit(err.args[0])
+        except:
+            try:
+                coveragehook.save()
+            except:
+                pass
+            if not startedShutdown:
+                self._try('halt', self._shutDown)
+            raise
 
     def handleRequestIfReady(self, sleepTime):
         time.sleep(sleepTime)
