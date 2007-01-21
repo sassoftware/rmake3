@@ -61,15 +61,19 @@ class Dispatcher(server.Server):
         self.commands = []
         self.slots = slots
 
+    def hasActiveTroves(self):
+        return self.commands or self._queuedCommands
+
     def buildTrove(self, buildCfg, jobId, trove, buildReqs, targetLabel,
-                   logHost='', logPort=0, commandId=None):
+                   logHost='', logPort=0, logPath=None, commandId=None):
         if not commandId:
             commandId = self.idgen.getBuildCommandId(trove)
         chrootFactory = self.chrootManager.getRootFactory(buildCfg, buildReqs,
                                                           trove)
+        trove.troveQueued('build')
         self.queueCommand(self.commandClasses['build'], self.cfg, commandId, 
                           jobId, buildCfg, chrootFactory, trove,
-                          targetLabel, logHost, logPort)
+                          targetLabel, logHost, logPort, logPath)
 
     def stopCommand(self, targetCommandId, commandId=None):
         targetCommand = self.getCommandById(targetCommandId)

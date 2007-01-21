@@ -28,9 +28,11 @@ from rmake.lib.apiutils import freeze, thaw
 troveStates = {
     'TROVE_STATE_INIT'      : 0,
     'TROVE_STATE_FAILED'    : 1,
-    'TROVE_STATE_BUILDABLE' : 2,
+    'TROVE_STATE_WAITING'   : 2,
+    'TROVE_STATE_PREPARING' : 3,
     'TROVE_STATE_BUILDING'  : 4,
     'TROVE_STATE_BUILT'     : 5,
+    'TROVE_STATE_BUILDABLE' : 6,
     }
 
 recipeTypes = {
@@ -88,7 +90,8 @@ class _AbstractBuildTrove:
     def __init__(self, jobId, name, version, flavor,
                  state=TROVE_STATE_INIT, status='',
                  failureReason=None, logPath='', start=0, finish=0,
-                 pid=0, recipeType=RECIPE_TYPE_PACKAGE):
+                 pid=0, recipeType=RECIPE_TYPE_PACKAGE,
+                 chrootHost='', chrootPath=''):
         assert(name.endswith(':source'))
         self.jobId = jobId
         self.name = name
@@ -104,6 +107,8 @@ class _AbstractBuildTrove:
         self.finish = finish
         self.failureReason = failureReason
         self.pid = pid
+        self.chrootHost = chrootHost
+        self.chrootPath = chrootPath
         self.recipeType = recipeType
 
     def __repr__(self):
@@ -141,8 +146,18 @@ class _AbstractBuildTrove:
     def isBuilding(self):
         return self.state == TROVE_STATE_BUILDING
 
+    def isPreparing(self):
+        return self.state == TROVE_STATE_PREPARING
+
+    def isWaiting(self):
+        return self.state == TROVE_STATE_WAITING
+
     def isUnbuilt(self):
-        return self.state in (TROVE_STATE_INIT, TROVE_STATE_BUILDABLE)
+        return self.state in (TROVE_STATE_INIT, TROVE_STATE_BUILDABLE,
+                              TROVE_STATE_WAITING)
+
+    def needsBuildreqs(self):
+        return self.state == TROVE_STATE_INIT
 
     def isPackageRecipe(self):
         return self.recipeType == RECIPE_TYPE_PACKAGE
@@ -202,6 +217,12 @@ class _AbstractBuildTrove:
     def getStateName(self):
         return _getStateName(self.state)
 
+    def getChrootHost(self):
+        return self.chrootHost
+
+    def getChrootPath(self):
+        return self.chrootPath
+
     def __hash__(self):
         return hash(self.getNameVersionFlavor())
 
@@ -230,6 +251,8 @@ class _FreezableBuildTrove(_AbstractBuildTrove):
                  'logPath'           : 'str',
                  'start'             : 'float',
                  'finish'            : 'float',
+                 'chrootHost'        : 'str',
+                 'chrootPath'        : 'str',
                  }
 
     def __freeze__(self):
@@ -322,15 +345,29 @@ class BuildTrove(_FreezableBuildTrove):
 
             Publishes log message.
         """
-        self.log('Resolved buildreqs include %s other troves scheduled to be built - delaying' % (len(newDeps),))
+        self._setState(TROVE_STATE_WAITING,
+                      'Resolved buildreqs include %s other troves scheduled to be built - delaying' % (len(newDeps),))
 
-    def prepChroot(self):
+    def troveQueued(self, command):
+        self._setState(TROVE_STATE_WAITING,
+                      'Waiting to start %s' % command)
+
+    def creatingChroot(self, hostname, path):
         """
             Log step in building.
 
             Publishes log message.
         """
-        self.log('Preparing Chroot')
+        self.chrootHost = hostname
+        self.chrootPath = path
+        self._setState(TROVE_STATE_PREPARING, 'Creating chroot', hostname, path)
+
+    def chrootFailed(self, err, traceback=''):
+        f = failure.ChrootFailed(str(err), traceback)
+        self.hostname = ''
+        self.path = ''
+        self.troveFailed(f)
+
 
     def troveBuilding(self, logPath='', pid=0):
         """
@@ -344,7 +381,7 @@ class BuildTrove(_FreezableBuildTrove):
         self.pid = pid
         self.start = time.time()
         self.logPath = logPath
-        self._setState(TROVE_STATE_BUILDING, status='')
+        self._setState(TROVE_STATE_BUILDING, '', logPath, pid)
 
     def troveBuilt(self, troveList):
         """

@@ -75,12 +75,24 @@ class Command(server.Server):
         return 0
 
     def _runCommand(self):
+        self.commandStarted()
         self.logger = logger.Logger(self.name, self.getLogPath())
         self.logFile = logfile.LogFile(self.getLogPath())
         self.logFile.redirectOutput()
         try:
             self.logger.info('Running Command... (pid %s)' % os.getpid())
-            self.runCommand()
+            try:
+                self.runCommand()
+            except SystemExit, err:
+                raise
+            except Exception, err:
+                if isinstance(err, SystemExit) and not err.args[0]:
+                    self.commandFinished()
+                else:
+                    self.commandErrored(err, traceback.format_exc())
+                raise
+            else:
+                self.commandFinished()
         finally:
             self.logFile.restoreOutput()
 
@@ -106,13 +118,24 @@ class Command(server.Server):
                 msg = 'Command %s unexpectedly killed with signal %s'
                 msg = msg % (commandId, signalRc)
             self.setError(msg)
+        self.commandFinished()
+
+    def commandStarted(self):
+        pass
+
+    def commandFinished(self):
+        pass
+
+    def commandErrored(self, err, tb):
+        pass
 
 class BuildCommand(Command):
 
     name = 'build-command'
 
     def __init__(self, serverCfg, commandId, jobId, buildCfg,
-                 chrootFactory, trove, targetLabel, logHost='', logPort=0):
+                 chrootFactory, trove, targetLabel, logHost='', logPort=0, 
+                 logPath=None):
         Command.__init__(self, serverCfg, commandId, jobId)
         self.buildCfg = buildCfg
         self.chrootFactory = chrootFactory
@@ -120,6 +143,7 @@ class BuildCommand(Command):
         self.targetLabel = targetLabel
         self.logHost = logHost
         self.logPort = logPort
+        self.logPath = logPath
         self.failureReason = None
 
     def _signalHandler(self, signal, frame):
@@ -151,21 +175,23 @@ class BuildCommand(Command):
         try:
             try:
                 trove = self.trove
+                trove.creatingChroot(self.cfg.getName(),
+                                     self.chrootFactory.getRoot())
                 self.chrootFactory.create()
-                trove.log('Chroot Created')
                 self.chroot = self.chrootFactory.start()
             except Exception, err:
-                f = failure.ChrootFailed(str(err), traceback.format_exc())
                 # sends off messages to all listeners that this trove failed.
-                trove.troveFailed(f)
+                trove.chrootFailed(str(err), traceback.format_exc())
                 return
             n,v,f = trove.getNameVersionFlavor()
-            logPath, pid = self.chroot.buildTrove(self.buildCfg, 
+            logPath, pid = self.chroot.buildTrove(self.buildCfg,
                                                   self.targetLabel,
-                                                  n, v, f, self.logHost, 
+                                                  n, v, f, self.logHost,
                                                   self.logPort)
             # sends off message that this trove is building.
             self.chroot.subscribeToBuild(n,v,f)
+            if self.logPath:
+                logPath = self.logPath
             trove.troveBuilding(logPath, pid)
             self.serve_forever()
         except SystemExit, err:

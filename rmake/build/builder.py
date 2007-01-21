@@ -157,10 +157,11 @@ class Builder(object):
             while True:
                 if self.dispatcher._checkForResults():
                     self.dh.updateBuildableTroves()
-                elif self.job.hasBuildableTroves():
-                    self.buildTrove(self.job.iterBuildableTroves().next())
-                elif self.job.hasBuildingTroves():
-                    pass
+                elif self.dh.hasBuildableTroves():
+                    trv, buildReqs = self.dh.popBuildableTrove()
+                    self.buildTrove(trv, buildReqs)
+                elif self.dispatcher.hasActiveTroves():
+                    self.dh.updateBuildableTroves()
                 else:
                     break
 
@@ -172,8 +173,8 @@ class Builder(object):
             self.job.jobFailed('Did not find any buildable troves')
         return False
 
-    def buildTrove(self, troveToBuild):
-        buildReqs = self.dh.getBuildReqTroves(troveToBuild)
+    def buildTrove(self, troveToBuild, buildReqs):
+        troveToBuild.troveQueued('Waiting for build to start')
         self.job.log('Building %s' % troveToBuild.getName())
         targetLabel = self.buildCfg.getTargetLabel(troveToBuild.getVersion())
         self.dispatcher.buildTrove(self.buildCfg, troveToBuild.jobId,

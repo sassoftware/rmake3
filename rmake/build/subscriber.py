@@ -52,15 +52,16 @@ class _InternalSubscriber(subscriber.Subscriber):
 
 class _JobDbLogger(_InternalSubscriber):
     listeners = {
-        'JOB_STATE_UPDATED'    : 'jobStateUpdated',
-        'JOB_LOG_UPDATED'      : 'jobLogUpdated',
-        'JOB_TROVES_SET'       : 'jobTrovesSet',
-        'JOB_COMMITTED'        : 'jobCommitted',
-        'TROVE_BUILDING'       : 'troveBuilding',
-        'TROVE_BUILT'          : 'troveBuilt',
-        'TROVE_FAILED'         : 'troveFailed',
-        'TROVE_STATE_UPDATED'  : 'troveStateUpdated',
-        'TROVE_LOG_UPDATED'    : 'troveLogUpdated',
+        'JOB_STATE_UPDATED'      : 'jobStateUpdated',
+        'JOB_LOG_UPDATED'        : 'jobLogUpdated',
+        'JOB_TROVES_SET'         : 'jobTrovesSet',
+        'JOB_COMMITTED'          : 'jobCommitted',
+        'TROVE_PREPARING_CHROOT' : 'trovePreparingChroot',
+        'TROVE_BUILDING'         : 'troveBuilding',
+        'TROVE_BUILT'            : 'troveBuilt',
+        'TROVE_FAILED'           : 'troveFailed',
+        'TROVE_STATE_UPDATED'    : 'troveStateUpdated',
+        'TROVE_LOG_UPDATED'      : 'troveLogUpdated',
     }
 
     def __init__(self, db):
@@ -72,13 +73,16 @@ class _JobDbLogger(_InternalSubscriber):
             _InternalSubscriber._receiveEvents, self,
             apiVersion, eventList)
 
+    def trovePreparingChroot(self, trove, host, path):
+        self.db.trovePreparingChroot(trove)
+
     def troveBuilt(self, trove, troveList):
         self.db.troveBuilt(trove)
 
     def troveFailed(self, trove, failureReason):
         self.db.troveFailed(trove)
 
-    def troveBuilding(self, trove):
+    def troveBuilding(self, trove, logPath, pid):
         self.db.troveBuilding(trove)
 
     def troveStateUpdated(self, trove, state, status):
