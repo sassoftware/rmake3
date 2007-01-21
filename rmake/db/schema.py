@@ -18,7 +18,7 @@ from rmake import errors
 
 # NOTE: this schema is sqlite-specific
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 def createJobs(db):
     cu = db.cursor()
@@ -140,6 +140,7 @@ def createBuildTroves(db):
             finish         STRING NOT NULL DEFAULT '0',
             logPath        STRING NOT NULL DEFAULT '',
             recipeType     INTEGER NOT NULL DEFAULT 1,
+            chrootId       INTEGER NOT NULL DEFAULT 0,
             CONSTRAINT BuildTroves_jobId_fk
                 FOREIGN KEY(jobId) REFERENCES Jobs(jobId)
                 ON DELETE CASCADE ON UPDATE RESTRICT
@@ -226,27 +227,80 @@ def createJobQueue(db):
         db.commit()
         db.loadSchema()
 
-def loadSchema(db):
-    global SCHEMA_VERSION
-    version = db.getVersion()
+def createChroots(db):
+    cu = db.cursor()
+    commit = False
+    if "Chroots" not in db.tables:
+        cu.execute("""
+        CREATE TABLE Chroots (
+            chrootId      INTEGER PRIMARY KEY AUTOINCREMENT,
+            host          INTEGER,
+            path          VARCHAR,
+            troveId       INTEGER NOT NULL,
+            active        INTEGER NOT NULL
+        )""")
+        db.tables["Chroots"] = []
+        commit = True
+    if db.createIndex("Chroots", "ChrootdsIdx", "troveId"):
+        commit = True
+    if commit:
+        db.commit()
+        db.loadSchema()
 
-    if version == SCHEMA_VERSION:
-        return version
+class SchemaManager(object)
 
-    db.loadSchema()
-    createJobs(db)
-    createJobConfig(db)
-    createBuildTroves(db)
-    createBinaryTroves(db)
-    createStateLogs(db)
-    createSubscriber(db)
-    createJobQueue(db)
-    db.loadSchema()
+class SchemaManager(object):
+    def __init__(self, db, currentVersion):
+        self.db = db
+        self.currentVersion = currentVersion
 
-    if version != SCHEMA_VERSION:
-        return db.setVersion(SCHEMA_VERSION)
+    def loadSchema(self):
+        db = self.db
+        version = self.getVersion()
 
-    return SCHEMA_VERSION
+        if version == self.currentVersion:
+            return version
+
+        db.loadSchema()
+        self.createTables()
+        db.loadSchema()
+
+        if version != self.currentVersion:
+            return db.setVersion(self.currentVersion)
+
+        return self.currentVersion
+
+    def createTables(self):
+        db = self.db
+        createJobs(db)
+        createJobConfig(db)
+        createBuildTroves(db)
+        createBinaryTroves(db)
+        createStateLogs(db)
+        createSubscriber(db)
+        createJobQueue(db)
+        createChroots(db)
+        createNodes(db)
+
+    def getVersion(self):
+        return self.db.getVersion()
+
+    def loadAndMigrate(self):
+        schemaVersion = self.getVersion()
+        if schemaVersion > SCHEMA_VERSION:
+            raise errors.DatabaseSchemaTooNew()
+        if not schemaVersion:
+            self.loadSchema()
+            return SCHEMA_VERSION
+        else:
+            self.db.loadSchema()
+            if schemaVersion != SCHEMA_VERSION:
+                self.migrate(schemaVersion, SCHEMA_VERSION)
+                self.loadSchema()
+        return SCHEMA_VERSION
+
+    def migrate(self, oldVersion, newVersion):
+        Migrator(self.db).migrate(schemaVersion, SCHEMA_VERSION)
 
 class Migrator(object):
 
@@ -279,6 +333,12 @@ class Migrator(object):
                         "INTEGER NOT NULL DEFAULT 0")
         return 5
 
+    def migrateFrom5(self):
+        self._addColumn('BuildTroves', "chrootId",
+                        "INTEGER NOT NULL DEFAULT 0")
+        return 6
+
+
     def _addColumn(self, table, name, value):
         self.cu.execute('ALTER TABLE %s ADD COLUMN %s    %s' % (table, name, value))
 
@@ -294,16 +354,4 @@ class Migrator(object):
         self.db = db
         self.cu = db.cursor()
 
-def loadAndMigrate(db):
-    schemaVersion = db.getVersion()
-    if schemaVersion > SCHEMA_VERSION:
-        raise errors.DatabaseSchemaTooNew()
-    if not schemaVersion:
-        loadSchema(db)
-        return SCHEMA_VERSION
-    else:
-        db.loadSchema()
-        if schemaVersion != SCHEMA_VERSION:
-            Migrator(db).migrate(schemaVersion, SCHEMA_VERSION)
-            db.loadSchema()
-    return SCHEMA_VERSION
+
