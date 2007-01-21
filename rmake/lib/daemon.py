@@ -47,7 +47,7 @@ class DaemonCommand(options.AbstractCommand):
     def addParameters(self, argDef):
         d = {}
         d["config"] = MULT_PARAM
-        d["config-file"] = '-c', ONE_PARAM
+        d["config-file"] = '-c', MULT_PARAM
         d["debug-all"] = '-d', NO_PARAM
         d["skip-default-config"] = NO_PARAM
 
@@ -56,6 +56,12 @@ class DaemonCommand(options.AbstractCommand):
     def addConfigOptions(self, cfgMap, argDef):
         cfgMap['verbose'] = 'verbose', NO_PARAM, '-v'
         options.AbstractCommand.addConfigOptions(self, cfgMap, argDef)
+
+    def processConfigOptions(self, cfg, cfgMap, argSet):
+        for file in argSet.pop('config-file', []):
+            cfg.read(file)
+        options.AbstractCommand.processConfigOptions(self, cfg, cfgMap, argSet)
+
 
 class ConfigCommand(DaemonCommand):
     commands = ['config']
@@ -309,3 +315,24 @@ class Daemon(options.MainHandler):
             print 'Common Commands (use "%s help" for the full list)' % self.commandName
         return options.MainHandler.usage(self, rc, showAll=showAll)
 
+    def mainWithExceptionHandling(self, argv):
+        from rmake import errors
+        try:
+            argv = list(argv)
+            debugAll = '--debug-all' in argv
+            if debugAll:
+                debuggerException = Exception
+                argv.remove('--debug-all')
+            else:
+                debuggerException = errors.RmakeInternalError
+            sys.excepthook = errors.genExcepthook(debug=debugAll,
+                                                  debugCtrlC=debugAll)
+            self.main(argv)
+        except debuggerException, err:
+            raise
+        except errors.RmakeError, err:
+            self.logger.error(err)
+            return 1
+        except KeyboardInterrupt:
+            pass
+        return 0
