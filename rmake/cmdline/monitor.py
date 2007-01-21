@@ -74,27 +74,25 @@ class JobLogDisplay(_AbstractDisplay):
     def __init__(self, client, showBuildLogs=True, out=None):
         _AbstractDisplay.__init__(self, client, out)
         self.showBuildLogs = showBuildLogs
-        self.buildingTrove = None
+        self.buildingTroves = {}
 
     def _tailBuildLog(self, jobId, troveTuple):
-        self.buildingTrove = (jobId, troveTuple, 0)
+        self.buildingTroves[jobId, troveTuple] =  0
         self.out.write('Tailing %s build log:\n\n' % troveTuple[0])
 
     def _updateBuildLog(self):
-        if not self.buildingTrove:
+        if not self.buildingTroves:
             return
-
-        jobId, troveTuple, mark = self.buildingTrove
-
-        moreData = True
-
-        moreData, data = self.client.getTroveBuildLog(jobId, troveTuple, mark)
-        mark += len(data)
-        self.out.write(data)
-        if not moreData:
-            self.buildingTrove = None
-        else:
-            self.buildingTrove = (jobId, troveTuple, mark)
+        for (jobId, troveTuple), mark in self.buildingTroves.items():
+            moreData = True
+            moreData, data = self.client.getTroveBuildLog(jobId, troveTuple,
+                                                          mark)
+            mark += len(data)
+            self.out.write(data)
+            if not moreData:
+                del self.buildingTroves[jobId, troveTuple]
+            else:
+                self.buildingTroves[jobId, troveTuple] =  mark
 
     def _jobTrovesSet(self, jobId, troveData):
         self._msg('[%d] - job troves set' % jobId)
@@ -102,6 +100,8 @@ class JobLogDisplay(_AbstractDisplay):
     def _jobStateUpdated(self, jobId, state, status):
         _AbstractDisplay._jobStateUpdated(self, jobId, state, status)
         state = buildjob._getStateName(state)
+        if self._isFinished():
+            self._updateBuildLog()
         self._msg('[%d] - State: %s' % (jobId, state))
         if status:
             self._msg('[%d] - %s' % (jobId, status))
