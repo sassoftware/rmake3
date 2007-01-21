@@ -14,3 +14,25 @@
 """
 rMake, build utility for conary - chroot server
 """
+from rmake.lib import apiutils
+from rmake.lib.apiutils import freeze, thaw
+
+class Chroot(object):
+    def __init__(self, host, path, troveTuple, active):
+        self.host = host
+        self.path = path
+        self.troveTuple = troveTuple
+        self.active = active
+
+    @staticmethod
+    def __freeze__(self):
+        return dict(host=self.host, path=self.path,
+                    troveTuple=freeze('troveTuple', self.troveTuple),
+                    active=self.active)
+
+    @classmethod
+    def __thaw__(class_, d):
+        self = class_(**d)
+        self.troveTuple = thaw('troveTuple', self.troveTuple)
+apiutils.register(Chroot)
+
