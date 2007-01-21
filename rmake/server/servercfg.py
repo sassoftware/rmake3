@@ -75,6 +75,9 @@ class rMakeConfiguration(daemon.DaemonConfig):
         else:
             return 'unix://' + self.socketPath
 
+    def getName(self):
+        return '_local_'
+
     def getDbPath(self):
         return self.serverDir + '/jobs.db'
 
