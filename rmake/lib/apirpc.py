@@ -56,14 +56,14 @@ from rmake.lib import logger
 # This version describes the current iteration of the API protocol.
 _API_VERSION = 1
 
-
 class ApiProxy(object):
 
     def __init__(self, apiClass, requestFn, uri):
         self.apiClass = apiClass
-        self.clientVersion = getattr(self.apiClass, '_CLASS_API_VERSION', 1)
         self.uri = uri
         self._requestFn = requestFn
+        self._methods = {}
+        self._addMethods(apiClass)
 
     def __repr__(self):
         return "<ApiProxy>"
@@ -71,15 +71,19 @@ class ApiProxy(object):
     def __str__(self):
         return "<ApiProxy>"
 
+    def _addMethods(self, apiClass):
+        clientVersion = getattr(apiClass, '_CLASS_API_VERSION', 1)
+        for name, methodApi in apiClass._listClassMethods():
+            self._methods[name] = methodApi, clientVersion
+
     def __getattr__(self, name):
         """ Get a proxy for an individual method.  """
-        try:
-            methodApi = getattr(self.apiClass, name)
-        except AttributeError:
+        if name not in self._methods:
             raise ApiError, 'cannot find method %s in api' % name
+        methodApi, clientVersion = self._methods[name]
 
         return _ApiMethod(self._requestFn, name, self.uri,
-                          _API_VERSION, self.clientVersion, methodApi)
+                          _API_VERSION, clientVersion, methodApi)
 
 class XMLApiProxy(ApiProxy, localrpc.ServerProxy):
 
@@ -172,18 +176,29 @@ class ApiServer(server.Server):
             raise NoSuchMethodError(methodName)
         return self._methods[methodName]
 
-    def _addMethods(self, apiServer):
-        for name in dir(apiServer):
-            attr = getattr(apiServer, name)
+    @classmethod
+    def _listClassMethods(class_):
+        for name in dir(class_):
+            attr = getattr(class_, name)
             if hasattr(attr, 'allowed_versions') and hasattr(attr, '__call__'):
-                self._methods[name] = attr
+                yield name, attr
+
+    def _listMethods(self):
+        for name in dir(self):
+            attr = getattr(self, name)
+            if hasattr(attr, 'allowed_versions') and hasattr(attr, '__call__'):
+                yield name, attr
+
+    def _addMethods(self, apiServer):
+        for name, attr in apiServer._listMethods():
+            self._methods[name] = attr
 
     def _dispatch2(self, methodName, (auth, args)):
         """Dispatches call to methodName, unfreezing data in args, checking
            method version as well.
         """
  
-        method = self.getMethod(self, methodName)
+        method = self._getMethod(methodName)
         callData = CallData(auth, args[0], self._logger)
         args = args[1:]
         apiVersion    = callData.getApiVersion()
