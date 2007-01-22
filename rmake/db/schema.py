@@ -247,12 +247,26 @@ def createChroots(db):
         db.commit()
         db.loadSchema()
 
-class SchemaManager(object)
+def createPluginVersionTable(db):
+    cu = db.cursor()
+    commit = False
+    if "PluginVersion" not in db.tables:
+        cu.execute("""
+        CREATE TABLE PluginVersion (
+            plugin      VARCHAR NOT NULL UNIQUE,
+            version     INTEGER
+        )""")
+        db.tables["PluginVersion"] = []
+        commit = True
+    if commit:
+        db.commit()
+        db.loadSchema()
 
-class SchemaManager(object):
-    def __init__(self, db, currentVersion):
+class AbstractSchemaManager(object):
+    def __init__(self, db):
         self.db = db
-        self.currentVersion = currentVersion
+        self.currentVersion = self.getLatestVersion()
+
 
     def loadSchema(self):
         db = self.db
@@ -266,9 +280,58 @@ class SchemaManager(object):
         db.loadSchema()
 
         if version != self.currentVersion:
-            return db.setVersion(self.currentVersion)
+            return self.setVersion(self.currentVersion)
 
         return self.currentVersion
+
+    def getVersion(self):
+        return self.db.getVersion()
+
+    def setVersion(self, version):
+        self.db.setVersion(version)
+
+    def loadAndMigrate(self):
+        schemaVersion = self.getVersion()
+        if schemaVersion > self.currentVersion:
+            raise errors.DatabaseSchemaTooNew()
+        if not schemaVersion:
+            self.loadSchema()
+            return self.currentVersion
+        else:
+            self.db.loadSchema()
+            if schemaVersion != self.currentVersion:
+                self.migrate(schemaVersion, self.currentVersion)
+                self.loadSchema()
+        return self.currentVersion
+
+class AbstractMigrator(object):
+
+    # FIXME: This migration code is susceptible to a sort of upgrade race
+    # condition: if a table is created and migrated during the same run,
+    # SQL that alters the table will fail. this only applies to rMake installs
+    # that don't get upgraded very often. there are a few ways to accomodate
+    # this, just be aware that nothing is yet implemented.
+
+    def _addColumn(self, table, name, value):
+        self.cu.execute('ALTER TABLE %s ADD COLUMN %s    %s' % (table, name,
+                                                                value))
+
+    def migrate(self, currentVersion, newVersion):
+        if currentVersion < newVersion:
+            while currentVersion < newVersion:
+                # migration returns the schema that they migrated to.
+                currentVersion = getattr(self, 'migrateFrom' + str(currentVersion))()
+        self.schemaMgr.setVersion(newVersion)
+        self.db.commit()
+
+    def __init__(self, db, schemaMgr):
+        self.db = db
+        self.cu = db.cursor()
+        self.schemaMgr = schemaMgr
+
+
+
+class SchemaManager(AbstractSchemaManager):
 
     def createTables(self):
         db = self.db
@@ -280,36 +343,15 @@ class SchemaManager(object):
         createSubscriber(db)
         createJobQueue(db)
         createChroots(db)
-        createNodes(db)
-
-    def getVersion(self):
-        return self.db.getVersion()
-
-    def loadAndMigrate(self):
-        schemaVersion = self.getVersion()
-        if schemaVersion > SCHEMA_VERSION:
-            raise errors.DatabaseSchemaTooNew()
-        if not schemaVersion:
-            self.loadSchema()
-            return SCHEMA_VERSION
-        else:
-            self.db.loadSchema()
-            if schemaVersion != SCHEMA_VERSION:
-                self.migrate(schemaVersion, SCHEMA_VERSION)
-                self.loadSchema()
-        return SCHEMA_VERSION
+        createPluginVersionTable(db)
 
     def migrate(self, oldVersion, newVersion):
-        Migrator(self.db).migrate(schemaVersion, SCHEMA_VERSION)
+        Migrator(self.db).migrate(oldVersion, newVersion)
 
-class Migrator(object):
+    def getLatestVersion(self):
+        return SCHEMA_VERSION
 
-    # FIXME: This migration code is susceptible to a sort of upgrade race
-    # condition: if a table is created and migrated during the same run,
-    # SQL that alters the table will fail. this only applies to rMake installs
-    # that don't get upgraded very often. there are a few ways to accomodate
-    # this, just be aware that nothing is yet implemented.
-
+class Migrator(AbstractMigrator):
     def migrateFrom1(self):
         self._addColumn('Jobs', "uuid", "CHAR(32) NOT NULL DEFAULT ''")
 
@@ -337,21 +379,5 @@ class Migrator(object):
         self._addColumn('BuildTroves', "chrootId",
                         "INTEGER NOT NULL DEFAULT 0")
         return 6
-
-
-    def _addColumn(self, table, name, value):
-        self.cu.execute('ALTER TABLE %s ADD COLUMN %s    %s' % (table, name, value))
-
-    def migrate(self, currentVersion, newVersion):
-        if currentVersion < newVersion:
-            while currentVersion < newVersion:
-                # migration returns the schema that they migrated to.
-                currentVersion = getattr(self, 'migrateFrom' + str(currentVersion))()
-        self.db.setVersion(newVersion)
-        self.db.commit()
-
-    def __init__(self, db):
-        self.db = db
-        self.cu = db.cursor()
 
 

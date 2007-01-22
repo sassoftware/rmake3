@@ -91,9 +91,9 @@ class Database(DBInterface):
 
     def loadSchema(self, migrate=True):
         if migrate:
-            return schema.loadAndMigrate(self.db)
+            return schema.SchemaManager(self.db).loadAndMigrate()
         else:
-            return schema.loadSchema(self.db)
+            return schema.SchemaManager(self.db).loadSchema()
 
     def open(self):
         return dbstore.connect(self.dbpath, driver = "sqlite", timeout=10000)
