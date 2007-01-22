@@ -30,13 +30,13 @@ class ClientPlugin(Plugin):
 
     types = [TYPE_CLIENT]
 
-    def client_preInit(self, main):
+    def client_preInit(self, main, argv):
         """
             Called right after plugins have been loaded.
         """
         pass
 
-    def client_preCommand(self, main, client):
+    def client_preCommand(self, main, client, command):
         """
             Called after the command-line client has instantiated, 
             but before the command has been executed.

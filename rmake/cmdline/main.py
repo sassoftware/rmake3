@@ -106,7 +106,8 @@ class RmakeMain(options.MainHandler):
         client = helper.rMakeHelper(buildConfig=buildConfig,
                                     rmakeConfig=serverConfig)
 
-        pluginManager.callClientHook('client_preCommand', self, client)
+        pluginManager.callClientHook('client_preCommand', self, client,
+                                     thisCommand)
 
         try:
             return options.MainHandler.runCommand(self, thisCommand, client, 
