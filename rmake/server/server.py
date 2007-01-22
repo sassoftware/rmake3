@@ -261,10 +261,7 @@ class rMakeServer(apirpc.XMLApiServer):
             jobsToFail = self.db.getJobsByState(buildjob.JOB_STATE_STARTED)
             self._failCurrentJobs(jobsToFail, 'Server was stopped')
             self._initialized = True
-        while True:
-            job = self._getNextJob()
 
-        self._startReadyJobs()
         while True:
             # start one job from the cue.  This loop should be
             # exited after one successful start.
@@ -283,9 +280,8 @@ class rMakeServer(apirpc.XMLApiServer):
         self._collectChildren()
         self.plugins.callServerHook('server_loop', self)
 
-
     def _getNextJob(self):
-        if self._canBuild():
+        if not self._canBuild():
             return
         while True:
             job = self.db.popJobFromQueue()
@@ -297,7 +293,7 @@ class rMakeServer(apirpc.XMLApiServer):
 
     def _canBuild(self):
         return not self.db.isJobBuilding()
-        
+
     def _shutDown(self):
         # we've gotten a request to halt, kill all jobs (they've run
         # setpgrp) and then kill ourselves
