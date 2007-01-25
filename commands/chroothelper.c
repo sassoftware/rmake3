@@ -40,6 +40,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <getopt.h>
+#include <grp.h>
 
 #include <sys/capability.h>
 #include <sys/mount.h>
@@ -80,6 +81,10 @@ struct passwd * get_user_entry(const char * userName) {
 }
 
 int switch_to_uid_gid(int uid, int gid) {
+    if (-1 == setgroups(0, NULL)) {
+        perror("setgroups");
+        return 1;
+    }
     if (-1 == setgid(gid)) {
         perror("setgid");
         return 1;
