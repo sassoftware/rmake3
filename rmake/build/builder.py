@@ -24,14 +24,15 @@ import traceback
 from conary import conaryclient
 from conary.repository import changeset
 
+from rmake import failure
+from rmake.build import buildtrove
 from rmake.build import buildjob
-from rmake.build import dispatcher
-from rmake.build import failure
 from rmake.build import dephandler
 from rmake.lib import logfile
 from rmake.lib import logger
 from rmake.lib import recipeutil
 from rmake.lib import repocache
+from rmake.worker import worker
 
 class Builder(object):
     """
@@ -73,13 +74,14 @@ class Builder(object):
         self.repos = self.getRepos()
         self.job = job
         self.jobId = job.jobId
-        self.dispatcher = dispatcher.Dispatcher(serverCfg, self.logger)
+        self.eventHandler = EventHandler(job)
+        self.worker = worker.Worker(serverCfg, self.logger, serverCfg.slots)
 
-    def setDispatcher(self, dispatcher):
-        self.dispatcher = dispatcher
+    def setWorker(self, worker):
+        self.worker = worker
 
-    def getDispatcher(self):
-        return self.dispatcher
+    def getWorker(self):
+        return self.worker
 
     def getJob(self):
         return self.job
@@ -95,7 +97,7 @@ class Builder(object):
     def _signalHandler(self, sigNum, frame):
         try:
             signal.signal(sigNum, signal.SIG_DFL)
-            self.dispatcher.stopAllCommands()
+            self.worker.stopAllCommands()
             # NOTE: unfortunately, we can't send this out, it's entirely
             # possible the signal could have come from the rmake server.
             # instead, we'll have to let the server ensure our 
@@ -131,7 +133,6 @@ class Builder(object):
 
     def initializeBuild(self):
         self.job.log('Build started - loading troves')
-
         buildTroves = recipeutil.getSourceTrovesFromJob(self.job,
                                                         self.buildCfg,
                                                         self.repos)
@@ -155,16 +156,16 @@ class Builder(object):
 
         if self.job.hasBuildableTroves():
             while True:
-                if self.dispatcher._checkForResults():
+                self.worker.handleRequestIfReady()
+                if self.worker._checkForResults():
                     self.dh.updateBuildableTroves()
                 elif self.dh.hasBuildableTroves():
                     trv, buildReqs = self.dh.popBuildableTrove()
                     self.buildTrove(trv, buildReqs)
-                elif self.dispatcher.hasActiveTroves():
+                elif self.worker.hasActiveTroves():
                     self.dh.updateBuildableTroves()
                 else:
                     break
-
             if self.dh.jobPassed():
                 self.job.jobPassed("build job finished successfully")
                 return True
@@ -177,8 +178,9 @@ class Builder(object):
         troveToBuild.troveQueued('Waiting for build to start')
         self.job.log('Building %s' % troveToBuild.getName())
         targetLabel = self.buildCfg.getTargetLabel(troveToBuild.getVersion())
-        self.dispatcher.buildTrove(self.buildCfg, troveToBuild.jobId,
-                                   troveToBuild, buildReqs, targetLabel)
+        self.worker.buildTrove(self.buildCfg, troveToBuild.jobId,
+                               troveToBuild, self.eventHandler,
+                                   buildReqs, targetLabel)
 
     def _checkBuildSanity(self, buildTroves):
         def _referencesOtherTroves(trv):
@@ -200,3 +202,55 @@ class Builder(object):
 class BuildLogger(logger.Logger):
    def __init__(self, jobId, path):
         logger.Logger.__init__(self, 'build-%s' % jobId, path)
+
+from rmake.lib import subscriber
+class EventHandler(subscriber.StatusSubscriber):
+    listeners = { 'TROVE_PREPARING_CHROOT' : 'trovePreparingChroot',
+                  'TROVE_BUILT'            : 'troveBuilt',
+                  'TROVE_FAILED'           : 'troveFailed',
+                  'TROVE_LOG_UPDATED'      : 'troveLogUpdated',
+                  'TROVE_BUILDING'         : 'troveBuilding',
+                  'TROVE_STATE_UPDATED'    : 'troveStateUpdated' }
+
+    def __init__(self, job):
+        self.job = job
+        self._hadEvent = False
+        subscriber.StatusSubscriber.__init__(self, None, None)
+
+    def hadEvent(self):
+        return self._hadEvent
+
+    def reset(self):
+        self._hadEvent = False
+
+    def troveBuilt(self, (jobId, troveTuple), binaryTroveList):
+        self._hadEvent = True
+        t = self.job.getTrove(*troveTuple)
+        t.troveBuilt(binaryTroveList)
+        t.own()
+
+    def troveLogUpdated(self, (jobId, troveTuple), state, log):
+        t = self.job.getTrove(*troveTuple)
+        t.log(log)
+
+    def troveFailed(self, (jobId, troveTuple), failureReason):
+        self._hadEvent = True
+        t = self.job.getTrove(*troveTuple)
+        t.troveFailed(failureReason)
+        t.own()
+
+    def trovePreparingChroot(self, (jobId, troveTuple), chrootHost, chrootPath):
+        t = self.job.getTrove(*troveTuple)
+        t.creatingChroot(chrootHost, chrootPath)
+
+    def troveBuilding(self, (jobId, troveTuple), logPath, pid):
+        t = self.job.getTrove(*troveTuple)
+        t.troveBuilding(logPath, pid)
+
+    def troveStateUpdated(self, (jobId, troveTuple), state, status):
+        if state not in (buildtrove.TROVE_STATE_FAILED,
+                         buildtrove.TROVE_STATE_BUILT,
+                         buildtrove.TROVE_STATE_PREPARING,
+                         buildtrove.TROVE_STATE_BUILDING):
+            t = self.job.getTrove(*troveTuple)
+            t._setState(state, status)
