@@ -31,17 +31,18 @@ from conary.deps import deps
 from conary.lib import util
 
 from rmake import errors
+from rmake import failure
 from rmake import plugins
 from rmake.build import builder
 from rmake.build import buildcfg
 from rmake.build import buildjob
-from rmake.build import failure
 from rmake.build import subscriber
 from rmake.server import publish
 from rmake.db import database
 from rmake.lib.apiutils import api, api_parameters, api_return, freeze, thaw
 from rmake.lib import apirpc
 from rmake.lib import logger
+from rmake.worker import worker
 
 class ServerLogger(logger.ServerLogger):
     name = 'rmake-server'
@@ -168,7 +169,7 @@ class rMakeServer(apirpc.XMLApiServer):
     def listSubscribersByUri(self, callData, jobId, uri):
         jobId = self.db.convertToJobId(jobId)
         subscribers = self.db.listSubscribersByUri(jobId, uri)
-        return [ thaw('Subscriber', x) for x in subscribers ]
+        return [ freeze('Subscriber', x) for x in subscribers ]
 
     @api(version=1)
     @api_parameters(1, None)
@@ -176,7 +177,42 @@ class rMakeServer(apirpc.XMLApiServer):
     def listSubscribers(self, callData, jobId):
         jobId = self.db.convertToJobId(jobId)
         subscribers = self.db.listSubscribers(jobId)
-        return [ thaw('Subscriber', x) for x in subscribers ]
+        return [ freeze('Subscriber', x) for x in subscribers ]
+
+    @api(version=1)
+    @api_parameters(1)
+    @api_return(1, None)
+    def listChroots(self, callData):
+        chroots = self.db.listChroots()
+        return [ freeze('Chroot', x) for x in chroots ]
+
+    @api(version=1)
+    @api_parameters(1, 'str', 'str', 'str', 'bool')
+    @api_return(1, None)
+    def startChrootServer(self, callData, host, chrootPath, command, superUser):
+        success, data =  self.worker.startSession(host, chrootPath, command,
+                                                  superUser=superUser)
+        if not success:
+            raise errors.RmakeError('Chroot failed: %s' % data)
+        return data
+
+    @api(version=1)
+    @api_parameters(1, 'str', 'str', 'str')
+    @api_return(1, None)
+    def archiveChroot(self, callData, host, chrootPath, newPath):
+        if self.db.chrootIsActive(host, chrootPath):
+            raise errors.RmakeError('Chroot is in use!')
+        self.worker.archiveChroot(host, chrootPath, newPath)
+        self.db.moveChroot(host, chrootPath, newPath)
+
+    @api(version=1)
+    @api_parameters(1, 'str', 'str')
+    @api_return(1, None)
+    def deleteChroot(self, callData, host, chrootPath):
+        if self.db.chrootIsActive(host, chrootPath):
+            raise errors.RmakeError('Chroot is in use!')
+        self.worker.deleteChroot(host, chrootPath)
+        self.db.removeChroot(host, chrootPath)
 
     @api(version=1)
     @api_parameters(1, None)
@@ -260,6 +296,7 @@ class rMakeServer(apirpc.XMLApiServer):
         if not self._initialized:
             jobsToFail = self.db.getJobsByState(buildjob.JOB_STATE_STARTED)
             self._failCurrentJobs(jobsToFail, 'Server was stopped')
+            self._initializeNodes()
             self._initialized = True
 
         while True:
@@ -292,6 +329,10 @@ class rMakeServer(apirpc.XMLApiServer):
             return job
 
     def _canBuild(self):
+        # NOTE: Because there is more than one root manager for the local
+        # machine, we cannot have more than one process building at the 
+        # same time in the single-node version of rMake.  They would conflict
+        # over the use of particular chroots.
         return not self.db.isJobBuilding()
 
     def _shutDown(self):
@@ -346,6 +387,12 @@ class rMakeServer(apirpc.XMLApiServer):
                 os._exit(1)
         finally:
             os._exit(1)
+
+    def _initializeNodes(self):
+        self.db.deactivateAllNodes()
+        chroots = self.worker.listChroots()
+        self.db.addNode('_local_', 'localhost.localdomain', self.cfg.slots,
+                        [], chroots)
 
     def _startBuild(self, job):
         buildCfg = self.db.getJobConfig(job.jobId)
@@ -554,16 +601,17 @@ class rMakeServer(apirpc.XMLApiServer):
             self.uri = uri
             self.cfg = cfg
             self.repositoryPid = repositoryPid
+            apirpc.XMLApiServer.__init__(self, uri, logger=serverLogger)
             self.db = database.Database(cfg.getDbPath(),
                                         cfg.getDbContentsPath())
             if pluginMgr is None:
                 pluginMgr = plugins.PluginManager([])
             self.plugins = pluginMgr
-            apirpc.XMLApiServer.__init__(self, uri, logger=serverLogger)
 
             # any jobs that were running before are not running now
             self._publisher = publish._RmakeServerPublisher()
 
+            self.worker = worker.Worker(self.cfg, self._logger)
             dbLogger = subscriber._JobDbLogger(self.db)
             # note - it's important that the db logger
             # comes first, before the general publisher,
