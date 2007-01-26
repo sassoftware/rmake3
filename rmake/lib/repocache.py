@@ -14,6 +14,7 @@
 """
 Cache of changesets.
 """
+from StringIO import StringIO
 import errno
 import os
 import itertools
@@ -21,6 +22,7 @@ import tempfile
 
 from conary import trove
 
+from conary.deps import deps
 from conary.lib import sha1helper
 from conary.lib import util
 from conary.repository import changeset
@@ -49,9 +51,23 @@ class CachingTroveSource:
             raise errors.TroveMissing(name, version)
         return trv
 
+    def resolveDependenciesByGroups(self, groupTroves, depList):
+        if not (groupTroves and depList):
+            return {}
+        return self._cache.resolveDependenciesByGroups(self._troveSource, 
+                                                       groupTroves,
+                                                       depList)
+
     def getFileContents(self, fileList, callback = None):
         return self._cache.getFileContents(self._troveSource,
                                            fileList, callback=callback)
+
+class DependencyResultList(trove.TroveTupleList):
+    def get(self):
+        rv = [ (x.name(), x.version().copy(), x.flavor()) for x in self.iter() ]
+        [ x[1].resetTimeStamps() for x in rv ]
+        return rv
+
 
 class RepositoryCache(object):
     """
@@ -62,6 +78,17 @@ class RepositoryCache(object):
         self.root = cacheDir
         self.store = DataStore(cacheDir)
         self.readOnly = readOnly
+
+    def hashGroupDeps(self, groupTroves, depClass, dependency):
+        depSet = deps.DependencySet()
+        depSet.addDep(depClass, dependency)
+        frz = depSet.freeze()
+        troveList = sorted(self.hashTrove(withFiles=False,
+                                          withFileContents=False,
+                                          *x.getNameVersionFlavor())
+                           for x in groupTroves)
+        str = '[1]%s%s%s' % (len(frz), frz, ''.join(troveList))
+        return sha1helper.sha1ToString(sha1helper.sha1String(str))
 
     def hashFile(self, fileId, fileVersion):
         # we add extra delimiters here because we can be sure they they
@@ -83,6 +110,7 @@ class RepositoryCache(object):
                                    withFiles, withFileContents,
                                    callback=callback)
 
+
     def getTroves(self, repos, troveList, withFiles=True,
                   withFileContents=False, callback=None):
         csList = self.getChangeSetsForTroves(repos, troveList, withFiles,
@@ -100,6 +128,52 @@ class RepositoryCache(object):
             t = trove.Trove(troveCs, skipIntegrityChecks = not withFiles)
             l.append(t)
         return l
+
+    def resolveDependenciesByGroups(self, repos, groupTroves, depList):
+        allToFind = []
+        allFound = []
+        allMissing = []
+        for depSet in depList:
+            d = {}
+            toFind = deps.DependencySet()
+            found  = []
+            missingIdx = []
+            allToFind.append(toFind)
+            allFound.append(found)
+            allMissing.append(missingIdx)
+            for idx, (depClass, dependency) in enumerate(depSet.iterDeps(sort=True)):
+                depHash = str(self.hashGroupDeps(groupTroves, depClass, 
+                                                 dependency))
+                if self.store.hasFile(depHash):
+                    outFile = self.store.openFile(depHash)
+                    results = DependencyResultList(outFile.read()).get()
+                    found.append(results)
+                else:
+                    toFind.addDep(depClass, dependency)
+                    found.append(None)
+                    missingIdx.append((idx, depHash))
+        if [ x for x in allToFind if x]:
+            allResults = repos.resolveDependenciesByGroups(groupTroves,
+                                                           allToFind)
+            for found, toFind, missingIdx in itertools.izip(allFound,
+                                                            allToFind,
+                                                            allMissing):
+                if toFind.isEmpty():
+                    continue
+                iter = itertools.izip(missingIdx, toFind.iterDeps(sort=True), 
+                                      allResults[toFind])
+                for (idx, depHash), (depClass, dependency), resultList in iter:
+                    found[idx] = resultList
+                    depResultList = DependencyResultList()
+                    [ depResultList.add(*x) for x in resultList ]
+                    s = StringIO()
+                    s.write(depResultList.freeze())
+                    s.seek(0)
+                    self.store.addFile(s, depHash, integrityCheck=False)
+        allResults = {}
+        for result, depSet in itertools.izip(allFound, depList):
+            allResults[depSet] = result
+        return allResults
 
     def getChangeSets(self, repos, jobList, withFiles=True,
                       withFileContents=True, callback=None):
