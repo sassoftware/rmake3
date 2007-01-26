@@ -195,9 +195,44 @@ assumed with many other options.
 .B stop \fI<jobId>\fP
 Stops the given job, failing any current builds.
 .RE
+.SS "Chroot Management"
+The following \fBcommands\fP are used to debug, archive, and remove chroots
+that were made as a part of building packages in rMake.
+.TP 4
+.B archive \fI<chrootName>\fP [\fI<newName>\fP]
+Archives the given chroot so that it will not be overwritten by a future build.
+The chroot is moved to a separate directory.  After archiving, the chroot can be accessed by "rmake chroot archive/<newName>"
+.RE
+.TP 4
+.B chroot \fI<chrootName>\fP
+Enters the given chroot as the rmake-chroot user and runs "sh", allowing you 
+to execute commands in the chroot as the build process did.
+.RS 4
+.TP 4
+.B \-\-super
+Enters the rmake chroot as the rmake version of the "super" user, which is the 
+rmake daemon user itself.  With this user you can install packages into the 
+chroot by running commands such as "conary update strace".
+.RE
+.TP 4
+.B clean \fI<chrootName>\fP
+Removes the given chroot, freeing the disk space it used.
+.RE
 .\"
 .\"
 .\"
+.TP 4
+.B list chroots
+Lists the chroots that rMake knows about.  The names listed here can be used
+by the other rmake chroot commands.  If the trove that was built in that chroot is known, rMake will list that information.
+
+The output of the command is likely to change.
+.RE
+.RE
+.\"
+.\"
+.\"
+
 .SH FILES
 .\" do not put excess space in the file list
 .PD 0
