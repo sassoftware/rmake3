@@ -91,7 +91,15 @@ class RmakeMain(options.MainHandler):
 
     def runCommand(self, thisCommand, (buildConfig, serverConfig, conaryConfig,
                                        pluginManager), argSet, args):
- 
+        thisCommand.verbose = (log.getVerbosity() <= log.INFO)
+        if args[1] != 'help':
+            # NOTE: the help system assumes that the base level of output
+            # you want is "warning", but rmake is more verbose than that.
+            # Due to limitations in how configurable the help system is, 
+            # I can't easily fix that.  Someday I should though.  For now,
+            # if we're running help, we make log.WARNING the default level,
+            # and otherwise log.INFO is the default.
+            log.setMinVerbosity(log.INFO)
         context = self._getContext(buildConfig, conaryConfig, argSet)
         if conaryConfig and context:
             conaryConfig.setContext(context)
@@ -113,11 +121,13 @@ class RmakeMain(options.MainHandler):
             return options.MainHandler.runCommand(self, thisCommand, client, 
                                                   buildConfig, argSet, args)
         except errors.BadParameters:
+            if not thisCommand.verbose:
+                log.setVerbosity(log.WARNING)
             thisCommand.usage()
             raise
 
 def main(argv):
-    log.setVerbosity(log.INFO)
+    log.setVerbosity(log.WARNING)
     rmakeMain = RmakeMain()
     try:
         argv = list(argv)
