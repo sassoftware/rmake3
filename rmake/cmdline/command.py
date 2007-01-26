@@ -117,8 +117,6 @@ class rMakeCommand(options.AbstractCommand):
         if expected:
             missing = expected[len(args):]
             if missing:
-                import epdb
-                epdb.st()
                 raise errors.BadParameters('%s missing %s command'
                                            ' parameter(s): %s' % (
                                             command, len(missing),
