@@ -16,7 +16,7 @@ Changes in @NEW@:
      * You can archive a chroot by running "rmake archive <chroot> [<newname>]."
        That will ensure the chroot does not get deleted by future builds.
        The chroot will then be available at "archive/<chroot>".
-     * You can delete a chroot by running "rmake clear <chroot>"
+     * You can delete a chroot by running "rmake clean <chroot>"
 
   o Server Changes:
      * Dependency resolution against a particular group is now cached.
