@@ -111,7 +111,7 @@ class JobStore(object):
                     SELECT jobId, BuildTroves.troveId, troveName, version,
                         flavor, state, status, failureReason, failureData,
                         start, finish, logPath, pid, recipeType, Chroots.path,
-                        Chroots.host
+                        Chroots.nodeName
                         FROM tJobIdList
                         JOIN BuildTroves USING(jobId)
                         LEFT JOIN Chroots USING(chrootId)
@@ -214,7 +214,7 @@ class JobStore(object):
         """
             SELECT BuildTroves.troveId, jobId, pid, troveName, version, 
                 flavor, state, status, failureReason, failureData, start, 
-                finish, logPath, recipeType, Chroots.host, Chroots.path
+                finish, logPath, recipeType, Chroots.nodeName, Chroots.path
                 FROM tTroveInfo
                 JOIN BuildTroves USING(jobId, troveName, version, flavor)
                 LEFT JOIN Chroots USING(chrootId)
@@ -370,7 +370,7 @@ class JobStore(object):
         cu = self.db.cursor()
 
         if trove.getChrootHost():
-            chrootId = self.getOrCreateChrootId(trove)
+            chrootId = self.db._getChrootIdForTrove(trove)
         else:
             chrootId = 0
 
@@ -395,50 +395,6 @@ class JobStore(object):
                       SET %s
                       WHERE jobId=? AND troveName=? AND version=? AND flavor=?
                    """ % fieldList, valueList)
-
-    def getOrCreateChrootId(self, trove):
-        cu = self.db.cursor()
-        chrootId = cu.execute("""SELECT chrootId from Chroots
-                                  WHERE host=? and path=?""",
-                              trove.chrootHost,
-                              trove.chrootPath).fetchall()
-        if not chrootId:
-            return self.createChrootId(trove)
-        return chrootId[0][0]
-
-    def createChrootId(self, trove):
-        cu = self.db.cursor()
-        host = trove.getChrootHost()
-        path = trove.getChrootPath()
-        troveId = self._getTroveId(cu, trove.jobId, *trove.getNameVersionFlavor())
-        cu.execute("""INSERT INTO Chroots (host, path, troveId, active) 
-                      VALUES (?,?,?,0)""", host, path, troveId)
-        chrootId = cu.lastrowid
-        return chrootId
-
-    def setChrootActive(self, trove, active=True):
-        cu = self.db.cursor()
-        host = trove.getChrootHost()
-        path = trove.getChrootPath()
-        if not (host and path):
-            return
-        cu.execute("""UPDATE Chroots SET active=? WHERE host=? and path=?""",
-                    host, path, int(active))
-        return
-
-    def getChrootsForHost(self, name):
-        cu.execute("""SELECT host, path,
-                             name, version, flavor active
-                       FROM Chroots
-                       JOIN BuildTroves USING(troveId)
-                       WHERE Chroots.host=?""", name)
-        chroots = []
-        for host, path, name, version, flavor in cu:
-            version = thaw('Version', version)
-            flavor = thaw('Flavor', flavor)
-            c = chroot.Chroot(host, path, (name, version, flavor), active)
-            chroots.append(c)
-        return chroots
 
     def setBuildTroves(self, job):
         cu = self.db.cursor()

@@ -22,6 +22,7 @@ from rmake.build.subscriber import _JobDbLogger
 from rmake.db import schema
 from rmake.db import jobstore
 from rmake.db import logstore
+from rmake.db import nodestore
 from rmake.db import subscriber
 
 class DBInterface(object):
@@ -88,6 +89,7 @@ class Database(DBInterface):
         self.logStore = logstore.LogStore(contentsPath + '/logs')
         self.jobQueue = jobstore.JobQueue(self)
         self.subscriberStore = subscriber.SubscriberData(self)
+        self.nodeStore = nodestore.NodeStore(self)
 
     def loadSchema(self, migrate=True):
         if migrate:
@@ -125,6 +127,9 @@ class Database(DBInterface):
             return self.jobStore.getJob(jobId, withTroves=withTroves)
         except KeyError:
             raise errors.JobNotFound(jobId)
+
+    def _getChrootIdForTrove(self, trove):
+        return self.nodeStore.getOrCreateChrootId(trove)
 
     def getJobs(self, jobIds, withTroves=True):
         try:
@@ -211,6 +216,7 @@ class Database(DBInterface):
         subscribers = self.subscriberStore.getByJobId(jobId)
         return subscribers
 
+
     def listSubscribersByUri(self, jobId, uri):
         subscribers = self.subscriberStore.getByUri(jobId, uri)
         return subscribers
@@ -284,7 +290,7 @@ class Database(DBInterface):
 
     def troveBuilding(self, trove):
         self.jobStore.updateTrove(trove)
-        self.jobStore.setChrootActive(trove, False)
+        self.nodeStore.setChrootActive(trove, False)
         self.commit()
 
     def troveBuilt(self, trove):
@@ -292,7 +298,7 @@ class Database(DBInterface):
             self.logStore.addTroveLog(trove)
         self.jobStore.updateTrove(trove)
         self.jobStore.setBinaryTroves(trove, trove.getBinaryTroves())
-        self.jobStore.setChrootActive(trove, False)
+        self.nodeStore.setChrootActive(trove, False)
         self.commit()
 
     def troveFailed(self, trove):
@@ -302,7 +308,7 @@ class Database(DBInterface):
             else:
                 trove.logPath = ''
         self.jobStore.updateTrove(trove)
-        self.jobStore.setChrootActive(trove, False)
+        self.nodeStore.setChrootActive(trove, False)
         self.commit()
 
 
@@ -317,4 +323,38 @@ class Database(DBInterface):
     def getTroveLogs(self, jobId, troveTuple, mark = 0):
         return self.jobStore.getTroveLogs(jobId, troveTuple, mark=mark)
 
+    def addNode(self, name, host, slots, buildFlavors, chrootPaths):
+        self.nodeStore.addNode(name, host, slots, buildFlavors)
+        self.nodeStore.setChrootsForNode(name, chrootPaths)
+        self.commit()
 
+    def removeNode(self, name):
+        self.nodeStore.removeNode(name)
+        self.commit()
+
+    def deactivateAllNodes(self):
+        self.nodeStore.deactivateAllNodes()
+        self.commit()
+
+    def chrootIsActive(self, nodeName, path):
+        try:
+            return self.nodeStore.chrootIsActive(nodeName, path)
+        except KeyError, err:
+            raise errors.RmakeError('Chroot %s does not exist!' % err.args[1])
+
+    def moveChroot(self, nodeName, path, newPath):
+        self.nodeStore.moveChroot(nodeName, path, newPath)
+        self.commit()
+
+    def removeChroot(self, nodeName, path):
+        self.nodeStore.removeChroot(nodeName, path)
+        self.commit()
+
+    def listChroots(self):
+        return self.nodeStore.getAllChroots()
+
+    def listNodes(self):
+        return self.nodeStore.listNodes()
+
+    def getEmptySlots(self):
+        return self.nodeStore.getEmptySlots()

@@ -234,7 +234,7 @@ def createChroots(db):
         cu.execute("""
         CREATE TABLE Chroots (
             chrootId      INTEGER PRIMARY KEY AUTOINCREMENT,
-            host          INTEGER,
+            nodeName      VARCHAR,
             path          VARCHAR,
             troveId       INTEGER NOT NULL,
             active        INTEGER NOT NULL
@@ -242,6 +242,24 @@ def createChroots(db):
         db.tables["Chroots"] = []
         commit = True
     if db.createIndex("Chroots", "ChrootdsIdx", "troveId"):
+        commit = True
+    if commit:
+        db.commit()
+        db.loadSchema()
+
+def createNodes(db):
+    cu = db.cursor()
+    commit = False
+    if "Nodes" not in db.tables:
+        cu.execute("""
+        CREATE TABLE Nodes (
+            nodeName     VARCHAR PRIMARY KEY NOT NULL,
+            host         VARCHAR NOT NULL,
+            slots        INTEGER NOT NULL,
+            buildFlavors VARCHAR NOT NULL,
+            active       INTEGER NOT NULL DEFAULT 0
+        )""")
+        db.tables["Nodes"] = []
         commit = True
     if commit:
         db.commit()
@@ -329,8 +347,6 @@ class AbstractMigrator(object):
         self.cu = db.cursor()
         self.schemaMgr = schemaMgr
 
-
-
 class SchemaManager(AbstractSchemaManager):
 
     def createTables(self):
@@ -343,6 +359,7 @@ class SchemaManager(AbstractSchemaManager):
         createSubscriber(db)
         createJobQueue(db)
         createChroots(db)
+        createNodes(db)
         createPluginVersionTable(db)
 
     def migrate(self, oldVersion, newVersion):
@@ -380,4 +397,32 @@ class Migrator(AbstractMigrator):
                         "INTEGER NOT NULL DEFAULT 0")
         return 6
 
+
+class PluginSchemaManager(AbstractSchemaManager):
+    """
+        Not used at the moment but here's a way to add plugin-specific tables
+        to rMake.
+    """
+
+    def getVersion(self):
+        cu = self.db.cursor()
+        rv = cu.execute('SELECT version from PluginVersion WHERE plugin=?', 
+                        self.name).fetchall()
+        if rv:
+            return rv[0][0]
+        else:
+            return None
+
+    def getLatestVersion(self):
+        return SCHEMA_VERSION
+
+    def setVersion(self, version):
+        if self.getVersion() is None:
+            cu = self.db.cursor()
+            rv = cu.execute('INSERT INTO PluginVersion VALUES (?, ?)', 
+                            self.name, version)
+        else:
+            cu = self.db.cursor()
+            rv = cu.execute('UPDATE PluginVersion SET version=? WHERE'
+                            'plugin=?', version, self.name)
 
