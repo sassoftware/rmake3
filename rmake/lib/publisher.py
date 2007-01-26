@@ -18,10 +18,13 @@ class Publisher(object):
     states = set()
 
     def __init__(self):
-        self.listeners = {}
-        self.dispatchers = {}
         for state in self.states:
             setattr(self, state, state)
+        self.reset()
+
+    def reset(self):
+        self.listeners = {}
+        self.dispatchers = {}
         self._toEmit = {}
         self._corked = False
 
