@@ -289,8 +289,7 @@ class Daemon(options.MainHandler):
 
 
     def daemonize(self):
-        '''Call this to execute the daemon
-        '''
+        '''Call this to execute the daemon'''
         self.writePidToLockFile()
         try:
             try:
