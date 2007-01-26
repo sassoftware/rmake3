@@ -105,10 +105,10 @@ class _JobDbLogger(_InternalSubscriber):
         # put I don't see how to do it.
         pass
 
-
-class _RmakeServerPublisherProxy(_InternalSubscriber):
+class _RmakePublisherProxy(_InternalSubscriber):
     """
-        Class that transmits events from internal build process -> rMake server.
+        Class that transmits events from internal build process -> 
+         some location .
     """
 
     # we override the _receiveEvents method to just pass these
@@ -118,14 +118,13 @@ class _RmakeServerPublisherProxy(_InternalSubscriber):
         'JOB_LOG_UPDATED',
         'JOB_TROVES_SET',
         'JOB_COMMITTED',
+        'TROVE_PREPARING_CHROOT',
+        'TROVE_BUILDING',
+        'TROVE_BUILT',
+        'TROVE_FAILED',
         'TROVE_STATE_UPDATED',
         'TROVE_LOG_UPDATED',
         ])
-
-    def __init__(self, uri):
-        from rmake.server import server
-        self.proxy = apirpc.XMLApiProxy(server.rMakeServer, uri)
-        _InternalSubscriber.__init__(self)
 
     def _receiveEvents(self, apiVer, eventList):
         # Convert eventList from the format for _intrajob_ events
@@ -143,9 +142,22 @@ class _RmakeServerPublisherProxy(_InternalSubscriber):
                 newData = [ (data[0].jobId, data[0].getNameVersionFlavor()) ]
             newData.extend(data[1:])
             newEventList.append((event, newData))
+        if not newEventList:
+            return
         newEventList = (apiVer, newEventList)
+        self._emitEvents(jobId, newEventList)
 
-        self.proxy.emitEvents(jobId, newEventList)
+    def _emitEvents(self, jobId, eventList):
+        raise NotImplementedError
+
+class _RmakeServerPublisherProxy(_RmakePublisherProxy):
+    def __init__(self, uri):
+        from rmake.server import server
+        self.proxy = apirpc.XMLApiProxy(server.rMakeServer, uri)
+        _RmakePublisherProxy.__init__(self)
+
+    def _emitEvents(self, jobId, eventList):
+        self.proxy.emitEvents(jobId, eventList)
 
 class _EventListFreezer(object):
     """
