@@ -169,6 +169,23 @@ class rMakeClient(object):
         return [ thaw('Subscriber', x)
                   for x in self.proxy.listSubscribers(jobId) ]
 
+    def listChroots(self):
+        return [ thaw('Chroot', x)
+                  for x in self.proxy.listChroots() ]
+
+    def archiveChroot(self, host, chrootPath, newPath):
+        self.proxy.archiveChroot(host, chrootPath, newPath)
+
+    def deleteChroot(self, host, chrootPath):
+        self.proxy.deleteChroot(host, chrootPath)
+
+    def connectToChroot(self, host, chroot, command, superUser=False):
+        host, port = self.proxy.startChrootServer(host, chroot, command,
+                                                  superUser)
+        from rmake.lib import telnetclient
+        t = telnetclient.TelnetClient(host, port)
+        return t
+
     def subscribe(self, jobId, subscriber):
         """
             Add subscriber to jobId.
