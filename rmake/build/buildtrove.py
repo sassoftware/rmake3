@@ -20,7 +20,7 @@ from conary.deps import deps
 from conary.repository import changeset
 from conary import trove
 
-from rmake.build import failure
+from rmake import failure
 from rmake.build import publisher
 from rmake.lib import apiutils
 from rmake.lib.apiutils import freeze, thaw
