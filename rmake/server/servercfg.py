@@ -27,11 +27,44 @@ from conary.lib import log, cfg
 from conary.lib.cfgtypes import CfgPath, CfgList, CfgString, CfgInt, CfgType
 from conary.lib.cfgtypes import CfgBool, CfgPathList, CfgDict
 from conary.conarycfg import CfgLabel, CfgUserInfo
+
 from rmake.lib import daemon
 
-class rMakeConfiguration(daemon.DaemonConfig):
+class rMakeBuilderConfiguration(daemon.DaemonConfig):
     buildDir          = (CfgPath, '/var/rmake')
     chrootHelperPath  = (CfgPath, "/usr/libexec/rmake/chroothelper")
+    slots             = (CfgInt, 1)
+    useTmpfs          = (CfgBool, False)
+    pluginDirs        = (CfgPathList, ['/etc/rmake/plugins.d'])
+    usePlugins        = (CfgBool, True)
+    usePlugin         = CfgDict(CfgBool)
+    verbose           = False
+
+    def getCommandSocketDir(self):
+        return self.buildDir + '/tmp/'
+
+    def getName(self):
+        return '_local_'
+
+    def getCacheDir(self):
+        return self.buildDir + '/cscache'
+
+    def getChrootDir(self):
+        return self.buildDir + '/chroots'
+
+    def getChrootArchiveDir(self):
+        return self.buildDir + '/archive'
+
+    def getBuildLogDir(self, jobId=None):
+        if jobId:
+            return self.logDir + '/buildlogs/%d/' % jobId
+        return self.logDir + '/buildlogs/'
+
+    def getBuildLogPath(self, jobId):
+        return self.logDir + '/buildlogs/%d.log' % jobId
+
+
+class rMakeConfiguration(rMakeBuilderConfiguration):
     logDir            = (CfgPath, '/var/log/rmake')
     lockDir           = (CfgPath, '/var/run/rmake')
     serverDir         = (CfgPath, '/srv/rmake')
@@ -39,12 +72,7 @@ class rMakeConfiguration(daemon.DaemonConfig):
     serverPort        = (CfgInt, 7777)
     serverName        = socket.getfqdn()
     socketPath        = (CfgPath, '/var/lib/rmake/socket')
-    useTmpfs          = (CfgBool, False)
-    pluginDirs        = (CfgPathList, ['/etc/rmake/plugins.d'])
-    usePlugins        = (CfgBool, True)
-    usePlugin         = CfgDict(CfgBool)
     user              = CfgUserInfo
-    verbose           = False
 
     def __init__(self, readConfigFiles = False, ignoreErrors=False):
         daemon.DaemonConfig.__init__(self)
@@ -75,14 +103,8 @@ class rMakeConfiguration(daemon.DaemonConfig):
         else:
             return 'unix://' + self.socketPath
 
-    def getName(self):
-        return '_local_'
-
     def getDbPath(self):
         return self.serverDir + '/jobs.db'
-
-    def getCacheDir(self):
-        return self.buildDir + '/cscache'
 
     def getDbContentsPath(self):
         return self.serverDir + '/jobcontents'
@@ -115,13 +137,6 @@ class rMakeConfiguration(daemon.DaemonConfig):
     def getUserGlobs(self):
         return self.user
 
-    def getBuildLogDir(self, jobId=None):
-        if jobId:
-            return self.logDir + '/buildlogs/%d/' % jobId
-        return self.logDir + '/buildlogs/'
-
-    def getBuildLogPath(self, jobId):
-        return self.logDir + '/buildlogs/%d.log' % jobId
 
     def sanityCheck(self):
         currUser = pwd.getpwuid(os.getuid()).pw_name
