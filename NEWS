@@ -6,6 +6,21 @@ Changes in @NEW@:
      * Trove builds are now wrapped in a Command object which monitors
        the actual build.  This is a step towards pushing all build actions
        to be done in separate processes.
+     * You can now perform multiple cook w/in a single job at the same
+       time by setting the "slots" configuration variable to > 1.
+
+  o Client changes:
+     * You can now debug failures in a chroot by running 
+       "rmake chroot <chroot name>".  You can see the existing chroots by
+       running "rmake list chroots".
+     * You can archive a chroot by running "rmake archive <chroot> [<newname>]."
+       That will ensure the chroot does not get deleted by future builds.
+       The chroot will then be available at "archive/<chroot>".
+     * You can delete a chroot by running "rmake clear <chroot>"
+
+  o Server Changes:
+     * Dependency resolution against a particular group is now cached.
+
   o Bug Fixes:
      * StrictMode now allows signatureKeys.
      * StrictMode now reads in conary configuration files that are
