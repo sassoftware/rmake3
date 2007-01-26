@@ -52,15 +52,16 @@ class _InternalSubscriber(subscriber.Subscriber):
 
 class _JobDbLogger(_InternalSubscriber):
     listeners = {
-        'JOB_STATE_UPDATED'    : 'jobStateUpdated',
-        'JOB_LOG_UPDATED'      : 'jobLogUpdated',
-        'JOB_TROVES_SET'       : 'jobTrovesSet',
-        'JOB_COMMITTED'        : 'jobCommitted',
-        'TROVE_BUILDING'       : 'troveBuilding',
-        'TROVE_BUILT'          : 'troveBuilt',
-        'TROVE_FAILED'         : 'troveFailed',
-        'TROVE_STATE_UPDATED'  : 'troveStateUpdated',
-        'TROVE_LOG_UPDATED'    : 'troveLogUpdated',
+        'JOB_STATE_UPDATED'      : 'jobStateUpdated',
+        'JOB_LOG_UPDATED'        : 'jobLogUpdated',
+        'JOB_TROVES_SET'         : 'jobTrovesSet',
+        'JOB_COMMITTED'          : 'jobCommitted',
+        'TROVE_PREPARING_CHROOT' : 'trovePreparingChroot',
+        'TROVE_BUILDING'         : 'troveBuilding',
+        'TROVE_BUILT'            : 'troveBuilt',
+        'TROVE_FAILED'           : 'troveFailed',
+        'TROVE_STATE_UPDATED'    : 'troveStateUpdated',
+        'TROVE_LOG_UPDATED'      : 'troveLogUpdated',
     }
 
     def __init__(self, db):
@@ -72,13 +73,16 @@ class _JobDbLogger(_InternalSubscriber):
             _InternalSubscriber._receiveEvents, self,
             apiVersion, eventList)
 
+    def trovePreparingChroot(self, trove, host, path):
+        self.db.trovePreparingChroot(trove)
+
     def troveBuilt(self, trove, troveList):
         self.db.troveBuilt(trove)
 
     def troveFailed(self, trove, failureReason):
         self.db.troveFailed(trove)
 
-    def troveBuilding(self, trove):
+    def troveBuilding(self, trove, logPath, pid):
         self.db.troveBuilding(trove)
 
     def troveStateUpdated(self, trove, state, status):
@@ -101,10 +105,10 @@ class _JobDbLogger(_InternalSubscriber):
         # put I don't see how to do it.
         pass
 
-
-class _RmakeServerPublisherProxy(_InternalSubscriber):
+class _RmakePublisherProxy(_InternalSubscriber):
     """
-        Class that transmits events from internal build process -> rMake server.
+        Class that transmits events from internal build process -> 
+         some location .
     """
 
     # we override the _receiveEvents method to just pass these
@@ -114,14 +118,13 @@ class _RmakeServerPublisherProxy(_InternalSubscriber):
         'JOB_LOG_UPDATED',
         'JOB_TROVES_SET',
         'JOB_COMMITTED',
+        'TROVE_PREPARING_CHROOT',
+        'TROVE_BUILDING',
+        'TROVE_BUILT',
+        'TROVE_FAILED',
         'TROVE_STATE_UPDATED',
         'TROVE_LOG_UPDATED',
         ])
-
-    def __init__(self, uri):
-        from rmake.server import server
-        self.proxy = apirpc.XMLApiProxy(server.rMakeServer, uri)
-        _InternalSubscriber.__init__(self)
 
     def _receiveEvents(self, apiVer, eventList):
         # Convert eventList from the format for _intrajob_ events
@@ -139,9 +142,22 @@ class _RmakeServerPublisherProxy(_InternalSubscriber):
                 newData = [ (data[0].jobId, data[0].getNameVersionFlavor()) ]
             newData.extend(data[1:])
             newEventList.append((event, newData))
+        if not newEventList:
+            return
         newEventList = (apiVer, newEventList)
+        self._emitEvents(jobId, newEventList)
 
-        self.proxy.emitEvents(jobId, newEventList)
+    def _emitEvents(self, jobId, eventList):
+        raise NotImplementedError
+
+class _RmakeServerPublisherProxy(_RmakePublisherProxy):
+    def __init__(self, uri):
+        from rmake.server import server
+        self.proxy = apirpc.XMLApiProxy(server.rMakeServer, uri)
+        _RmakePublisherProxy.__init__(self)
+
+    def _emitEvents(self, jobId, eventList):
+        self.proxy.emitEvents(jobId, eventList)
 
 class _EventListFreezer(object):
     """

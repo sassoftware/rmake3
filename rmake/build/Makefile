@@ -14,8 +14,6 @@
 python_files = *.py
 dist_files = Makefile $(python_files)
 
-SUBDIRS=chroot
-
 all: default-subdirs default-all
 
 clean: clean-subdirs default-clean

@@ -31,17 +31,18 @@ from conary.deps import deps
 from conary.lib import util
 
 from rmake import errors
+from rmake import failure
 from rmake import plugins
 from rmake.build import builder
 from rmake.build import buildcfg
 from rmake.build import buildjob
-from rmake.build import failure
 from rmake.build import subscriber
 from rmake.server import publish
 from rmake.db import database
 from rmake.lib.apiutils import api, api_parameters, api_return, freeze, thaw
 from rmake.lib import apirpc
 from rmake.lib import logger
+from rmake.worker import worker
 
 class ServerLogger(logger.ServerLogger):
     name = 'rmake-server'
@@ -129,7 +130,7 @@ class rMakeServer(apirpc.XMLApiServer):
         jobId = self.db.convertToJobId(jobId)
         trove = self.db.getTrove(jobId, *troveTuple)
         if not self.db.hasTroveBuildLog(trove):
-            return False, xmlrpclib.Binary('')
+            return True, xmlrpclib.Binary('')
         f = self.db.openTroveBuildLog(trove)
         f.seek(mark)
         return trove.isBuilding(), xmlrpclib.Binary(f.read())
@@ -168,7 +169,7 @@ class rMakeServer(apirpc.XMLApiServer):
     def listSubscribersByUri(self, callData, jobId, uri):
         jobId = self.db.convertToJobId(jobId)
         subscribers = self.db.listSubscribersByUri(jobId, uri)
-        return [ thaw('Subscriber', x) for x in subscribers ]
+        return [ freeze('Subscriber', x) for x in subscribers ]
 
     @api(version=1)
     @api_parameters(1, None)
@@ -176,7 +177,42 @@ class rMakeServer(apirpc.XMLApiServer):
     def listSubscribers(self, callData, jobId):
         jobId = self.db.convertToJobId(jobId)
         subscribers = self.db.listSubscribers(jobId)
-        return [ thaw('Subscriber', x) for x in subscribers ]
+        return [ freeze('Subscriber', x) for x in subscribers ]
+
+    @api(version=1)
+    @api_parameters(1)
+    @api_return(1, None)
+    def listChroots(self, callData):
+        chroots = self.db.listChroots()
+        return [ freeze('Chroot', x) for x in chroots ]
+
+    @api(version=1)
+    @api_parameters(1, 'str', 'str', 'str', 'bool')
+    @api_return(1, None)
+    def startChrootServer(self, callData, host, chrootPath, command, superUser):
+        success, data =  self.worker.startSession(host, chrootPath, command,
+                                                  superUser=superUser)
+        if not success:
+            raise errors.RmakeError('Chroot failed: %s' % data)
+        return data
+
+    @api(version=1)
+    @api_parameters(1, 'str', 'str', 'str')
+    @api_return(1, None)
+    def archiveChroot(self, callData, host, chrootPath, newPath):
+        if self.db.chrootIsActive(host, chrootPath):
+            raise errors.RmakeError('Chroot is in use!')
+        self.worker.archiveChroot(host, chrootPath, newPath)
+        self.db.moveChroot(host, chrootPath, newPath)
+
+    @api(version=1)
+    @api_parameters(1, 'str', 'str')
+    @api_return(1, None)
+    def deleteChroot(self, callData, host, chrootPath):
+        if self.db.chrootIsActive(host, chrootPath):
+            raise errors.RmakeError('Chroot is in use!')
+        self.worker.deleteChroot(host, chrootPath)
+        self.db.removeChroot(host, chrootPath)
 
     @api(version=1)
     @api_parameters(1, None)
@@ -229,8 +265,7 @@ class rMakeServer(apirpc.XMLApiServer):
             finally:
                 os._exit(1)
 
-
-    # --- callbacks from Builders -
+    # --- callbacks from Builders
 
     @api(version=1)
     @api_parameters(1, None, 'EventList')
@@ -261,34 +296,53 @@ class rMakeServer(apirpc.XMLApiServer):
         if not self._initialized:
             jobsToFail = self.db.getJobsByState(buildjob.JOB_STATE_STARTED)
             self._failCurrentJobs(jobsToFail, 'Server was stopped')
+            self._initializeNodes()
             self._initialized = True
-        if not self.db.isJobBuilding():
-            while True:
-                # start one job from the cue.  This loop should be
-                # exited after one successful start.
-                job = self.db.popJobFromQueue()
-                if job is None:
-                    break
-                if job.isFailed():
-                    continue
-                try:
-                    self._startBuild(job)
-                except Exception, err:
-                    self._subscribeToJob(job)
-                    job.jobFailed(failure.InternalError(
-                                            'Failed while initializing',
-                                            traceback.format_exc()))
+
+        while True:
+            # start one job from the cue.  This loop should be
+            # exited after one successful start.
+            job = self._getNextJob()
+            if job is None:
                 break
+            try:
+                self._startBuild(job)
+            except Exception, err:
+                self._subscribeToJob(job)
+                job.jobFailed(failure.InternalError(
+                                        'Failed while initializing',
+                                        traceback.format_exc()))
+            break
         self._emitEvents()
         self._collectChildren()
         self.plugins.callServerHook('server_loop', self)
 
+    def _getNextJob(self):
+        if not self._canBuild():
+            return
+        while True:
+            job = self.db.popJobFromQueue()
+            if job is None:
+                break
+            if job.isFailed():
+                continue
+            return job
+
+    def _canBuild(self):
+        # NOTE: Because there is more than one root manager for the local
+        # machine, we cannot have more than one process building at the 
+        # same time in the single-node version of rMake.  They would conflict
+        # over the use of particular chroots.
+        return not self.db.isJobBuilding()
+
     def _shutDown(self):
         # we've gotten a request to halt, kill all jobs (they've run
         # setpgrp) and then kill ourselves
-        self._stopAllJobs()
-        self._killAllPids()
-        self.plugins.callServerHook('server_shutDown', self)
+        if self.db:
+            self._stopAllJobs()
+            self._killAllPids()
+        if self.plugins:
+            self.plugins.callServerHook('server_shutDown', self)
         sys.exit(0)
 
     def _subscribeToJob(self, job):
@@ -333,6 +387,12 @@ class rMakeServer(apirpc.XMLApiServer):
                 os._exit(1)
         finally:
             os._exit(1)
+
+    def _initializeNodes(self):
+        self.db.deactivateAllNodes()
+        chroots = self.worker.listChroots()
+        self.db.addNode('_local_', 'localhost.localdomain', self.cfg.slots,
+                        [], chroots)
 
     def _startBuild(self, job):
         buildCfg = self.db.getJobConfig(job.jobId)
@@ -498,6 +558,8 @@ class rMakeServer(apirpc.XMLApiServer):
         for publisher in publishers:
             publisher.uncork()
 
+    def _exit(self, exitCode):
+        sys.exit(exitCode)
 
     def __init__(self, uri, cfg, repositoryPid, pluginMgr=None, 
                  quiet=False):
@@ -518,21 +580,8 @@ class rMakeServer(apirpc.XMLApiServer):
             serverLogger.enableConsole(logLevel)
         serverLogger.info('*** Started rMake Server at pid %s' % os.getpid())
         try:
-            apirpc.XMLApiServer.__init__(self, uri, logger=serverLogger)
-            self.uri = uri
-            self.cfg = cfg
-            self.repositoryPid = repositoryPid
-            self.db = database.Database(cfg.getDbPath(),
-                                        cfg.getDbContentsPath())
-            if pluginMgr is None:
-                pluginMgr = plugins.PluginManager([])
-            self.plugins = pluginMgr
-
-            # any jobs that were running before are not running now
-            self._publisher = publish._RmakeServerPublisher()
-
-            self.queue = []
             self._initialized = False
+            self.db = None
 
             # event queuing code - to eventually be moved to a separate 
             # process
@@ -546,7 +595,23 @@ class rMakeServer(apirpc.XMLApiServer):
             self._emitPid = 0                  # pid for rudimentary locking
 
             # forked jobs that are currently active
-            self._buildPids = {} 
+            self._buildPids = {}
+
+
+            self.uri = uri
+            self.cfg = cfg
+            self.repositoryPid = repositoryPid
+            apirpc.XMLApiServer.__init__(self, uri, logger=serverLogger)
+            self.db = database.Database(cfg.getDbPath(),
+                                        cfg.getDbContentsPath())
+            if pluginMgr is None:
+                pluginMgr = plugins.PluginManager([])
+            self.plugins = pluginMgr
+
+            # any jobs that were running before are not running now
+            self._publisher = publish._RmakeServerPublisher()
+
+            self.worker = worker.Worker(self.cfg, self._logger)
             dbLogger = subscriber._JobDbLogger(self.db)
             # note - it's important that the db logger
             # comes first, before the general publisher,

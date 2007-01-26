@@ -110,6 +110,10 @@ class DependencyBasedBuildState(AbstractBuildState):
     def getBuildReqTroves(self, trove):
         return self.buildReqTroves[trove]
 
+    def popBuildableTrove(self):
+        trove = self.buildReqTroves.keys()[0]
+        return (trove, self.buildReqTroves.pop(trove))
+
     def getDependencyGraph(self):
         return self.depGraph
 
@@ -219,9 +223,11 @@ class DependencyHandler(object):
             else:
                 depState.troveFailed(trove)
 
-    def troveBuilding(self, trove):
-        # FIXME: should move trove off of buildable lists at this point
+    def troveBuilding(self, trove, logPath='', pid=0):
         pass
+
+    def popBuildableTrove(self):
+        return self.depState.popBuildableTrove()
 
     def jobPassed(self):
         return self.depState.jobPassed()
@@ -237,7 +243,6 @@ class DependencyHandler(object):
         """
         oldVerbosity = log.getVerbosity()
         log.setVerbosity(log.DEBUG)
-        self.logger.debug('updating set of buildable troves')
 
         self._updateBuildableTroves(self.client,
                                     self.depState.getDependencyGraph(), 
@@ -413,8 +418,13 @@ class DependencyHandler(object):
 
 
         buildable = sorted(depGraph.getLeaves())
+        needsBuildReqs = [ x for x in buildable if x.needsBuildreqs() ]
         skipped = []
         found = []
+        if buildable and not needsBuildReqs:
+            return True
+        self.logger.debug('updating set of buildable troves')
+        buildable = needsBuildReqs
 
         if buildable:
             skipped = [ x for x in buildable if x in skipTroves ]

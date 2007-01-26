@@ -125,6 +125,8 @@ class rMakeChroot(ConaryBasedChroot):
         self._copyInRmake()
         self._cacheBuildFiles()
 
+    def getRoot(self):
+        return self.cfg.root
 
     def install(self):
         self.buildTrove.log('Creating Chroot')
@@ -183,33 +185,36 @@ class rMakeChroot(ConaryBasedChroot):
         return (pwd.getpwnam(constants.rmakeuser).pw_uid == os.getuid())
 
     def unmount(self):
-        if not os.path.exists(self.cfg.root):
+        if not os.path.exists(self.getRoot()):
             return
         if self.canChroot():
             self.logger.info('Running chroot helper to unmount...')
-            util.mkdirChain(self.cfg.root + '/sbin')
-            shutil.copy('/sbin/busybox', self.cfg.root + '/sbin/busybox')
+            util.mkdirChain(self.getRoot() + '/sbin')
+            shutil.copy('/sbin/busybox', self.getRoot() + '/sbin/busybox')
             rc = os.system('%s %s --clean' % (self.chrootHelperPath, 
-                            self.cfg.root))
+                            self.getRoot()))
             if rc:
                 raise errors.OpenError(
                         'Cannot create chroot - chroot helper failed'
                         ' to clean old chroot')
 
     def clean(self):
+        self._clean()
+
+    def _clean(self):
         self.unmount()
-        self.logger.debug("removing old chroot tree: %s", self.cfg.root)
-        os.system('rm -rf %s/tmp' % self.cfg.root)
+        self.logger.debug("removing old chroot tree: %s", self.getRoot())
+        os.system('rm -rf %s/tmp' % self.getRoot())
         removeFailed = False
-        if os.path.exists(self.cfg.root + '/tmp'):
+        if os.path.exists(self.getRoot() + '/tmp'):
             # attempt to remove just the /tmp dir first.
             # that's where the chroot process should have had all
             # of its files.  Doing this makes sure we don't remove
             # /bin/rm while it might still be needed the next time around.
             removeFailed = True
         else:
-            os.system('rm -rf %s' % self.cfg.root)
-            if os.path.exists(self.cfg.root):
+            os.system('rm -rf %s' % self.getRoot())
+            if os.path.exists(self.getRoot()):
                 removeFailed = True
         if removeFailed:
             raise errors.OpenError(
@@ -218,13 +223,36 @@ class rMakeChroot(ConaryBasedChroot):
                 ' owned files, or earlier build processes that have not'
                 ' completely died.  Please shut down rmake, kill any remaining'
                 ' rmake processes, and then retry.  If that does not work,'
-                ' please remove the old root by hand.' % self.cfg.root)
+                ' please remove the old root by hand.' % self.getRoot())
 
 class FakeRmakeRoot(rMakeChroot):
     def canChroot(self):
         return False
 
     def clean(self):
+        pass
+
+class ExistingChroot(rMakeChroot):
+    def __init__(self, rootPath, logger, chrootHelperPath):
+        self.root = rootPath
+        self.logger = logger
+        self.chrootHelperPath = chrootHelperPath
+        rootfactory.BasicChroot.__init__(self)
+        self._copyInRmake()
+
+    def create(self, root):
+        rootfactory.BasicChroot.create(self, root)
+
+    def install(self):
+        pass
+
+    def getRoot(self):
+        return self.root
+
+    def clean(self):
+        pass
+
+    def _postInstall(self):
         pass
 
 class FullRmakeChroot(rMakeChroot):

@@ -304,7 +304,7 @@ class PluginImporter(object):
             base = dir
             rest = name
             while '.' in rest:
-                head, rest = name.split('.', 1)
+                head, rest = rest.split('.', 1)
                 path = base + '/' + head
                 if os.path.isdir(path):
                     base = path

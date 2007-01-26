@@ -35,12 +35,12 @@
 #include <errno.h>
 #include <dirent.h>
 #include <fcntl.h>
-#include <pwd.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <string.h>
 #include <getopt.h>
 #include <grp.h>
+#include <pwd.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
 
 #include <sys/capability.h>
 #include <sys/mount.h>
@@ -134,7 +134,7 @@ int mount_dir(const char * chrootDir, const char * fromDir,
     }
     if (-1 == mount(fromDir, tempPath, mountType, 0, NULL)) {
         perror("mount");
-        return 1;
+        /* don't error out on mount errors - if it's already mounted - great!*/
     }
     return 0;
 }
@@ -285,7 +285,8 @@ int clean(const char * chrootDir) {
  *
  *********************************************************/
 
-int enter_chroot(const char * chrootDir, int useTmpfs) {
+int enter_chroot(const char * chrootDir, const char * socketPath,
+                 int useTmpfs, int useChrootUser) {
     cap_t cap;
     int i;
     int rc;
@@ -396,13 +397,14 @@ int enter_chroot(const char * chrootDir, int useTmpfs) {
         }
     }
 
-    if (switch_to_user(CHROOT_USER)) {
-	fprintf(stderr, "ERROR: can not assume %s privileges\n", RMAKE_USER);
-	return -1;
+    if (useChrootUser && switch_to_user(CHROOT_USER)) {
+        fprintf(stderr, "ERROR: can not assume %s privileges\n", CHROOT_USER);
+        return -1;
     }
     if (opt_verbose)
 	printf("executing: %s start -n\n", CHROOT_SERVER_PATH);
-    execl(CHROOT_SERVER_PATH, CHROOT_SERVER_PATH, "start", "-n", NULL);
+    execl(CHROOT_SERVER_PATH, CHROOT_SERVER_PATH,
+           "start", "-n", "--socket", socketPath, NULL);
     perror("execl");
     return 1;
 }
@@ -498,11 +500,17 @@ int main(int argc, char **argv)
 
     int opt_clean = 0; /* set if we need to --clean */
     int opt_tmpfs = 0; /* set if we are using tmpfs */
-    char *archname = NULL;
+    int opt_noChrootUser = 0; /* set if we should not use the chroot user 
+                                 but instead stay as the rmake user.
+                                 (useful for debugging)
+                               */
+    char * archname = NULL;
     char * chrootDir = NULL;
+    char * socketPath = NULL;
 
     struct option main_options[] = {
 	{"tmpfs", no_argument, &opt_tmpfs, 1},
+	{"no-chroot-user", no_argument, &opt_noChrootUser, 1},
 	{"clean", no_argument, &opt_clean, 1},
 	{"arch", required_argument, NULL, 'a'},
 	{"help", no_argument, NULL, 'h'},
@@ -545,6 +553,19 @@ int main(int argc, char **argv)
     } else {
 	usage(argv[0]);
 	return -1;
+    }
+    /* grab the requested socket path */
+    if (!opt_clean) {
+        if (optind < argc) {
+            if (strlen(argv[optind]) >= PATH_MAX) {
+                usage(argv[0]);
+                return -2;
+            }
+            socketPath = strndup(argv[optind++], PATH_MAX);
+        } else {
+            usage(argv[0]);
+            return -1;
+        }
     }
     /* we can only have one path as an arg */
     if (optind != argc) {
@@ -589,5 +610,5 @@ int main(int argc, char **argv)
 	}
     }
     /* finally, start the work */
-    return enter_chroot(chrootDir, opt_tmpfs);
+    return enter_chroot(chrootDir, socketPath, opt_tmpfs, !opt_noChrootUser);
 }

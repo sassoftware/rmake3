@@ -25,12 +25,12 @@ from conary.lib import options, util
 from conary import conarycfg
 from conary import conaryclient
 
-from rmake.build.chroot import cook
+from rmake.worker.chroot import cook
 
 from rmake import constants
 from rmake.build import buildcfg
 from rmake.lib.apiutils import *
-from rmake.lib import apirpc, daemon, logger, repocache
+from rmake.lib import apirpc, daemon, logger, repocache, telnetserver
 
 class ChrootServer(apirpc.XMLApiServer):
 
@@ -111,6 +111,25 @@ class ChrootServer(apirpc.XMLApiServer):
         self._halt = True
         return
 
+    @api(version=1)
+    @api_parameters(1, 'str')
+    @api_return(1, 'int')
+    def startSession(self, callData, command=['/bin/sh']):
+        s = socket.socket()
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.bind(('', 0))
+        port = s.getsockname()[1]
+        pid = self._fork('Telnet session')
+        if pid:
+            return port
+        try:
+            t = telnetserver.TelnetServerForCommand(('', port), command,
+                                                    workDir='/tmp/rmake')
+            self._try('Telnet session', t.handle_request)
+        finally:
+            os._exit(1)
+
+
     def _serveLoopHook(self):
         try:
             ready = select.select(self._unconnectedSubscribers, [], [], 0.1)[0]
@@ -153,6 +172,7 @@ class ChrootServer(apirpc.XMLApiServer):
         # we've gotten a request to halt, kill all jobs
         # and then kill ourselves
         self._stopBuilds()
+        self._killAllPids()
         if self._haltSignal:
             os.kill(os.getpid(), self._haltSignal)
         sys.exit(0)
@@ -167,6 +187,9 @@ class ChrootClient(object):
         self.root = root
         self.pid = pid
         self.proxy = apirpc.XMLApiProxy(ChrootServer, uri)
+
+    def startSession(self, command=['/bin/sh']):
+        return self.proxy.startSession(command)
 
     def subscribeToBuild(self, name, version, flavor):
         port = self.proxy.subscribeToBuild(name, version, flavor)
@@ -254,6 +277,12 @@ class ChrootConfig(daemon.DaemonConfig):
     def __init__(self, readConfigFiles=False):
         daemon.DaemonConfig.__init__(self)
 
+class StartCommand(daemon.StartCommand):
+
+    def addConfigOptions(self, cfgMap, argDef):
+        cfgMap['socket'] = 'socketPath', daemon.ONE_PARAM
+        daemon.StartCommand.addConfigOptions(self, cfgMap, argDef)
+
 class ChrootDaemon(daemon.Daemon):
     name = 'rmake-chroot'
     version = constants.version
@@ -261,6 +290,7 @@ class ChrootDaemon(daemon.Daemon):
 
     def __init__(self, *args, **kw):
         daemon.Daemon.__init__(self, *args, **kw)
+        self._registerCommand(StartCommand)
 
     def runCommand(self, thisCommand, cfg, *args, **kw):
         cfg.socketPath = cfg.root + cfg.socketPath

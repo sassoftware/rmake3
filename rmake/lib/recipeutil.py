@@ -27,9 +27,9 @@ from conary.deps.deps import Flavor
 
 #rmake
 from rmake import errors
+from rmake import failure
 from rmake.lib import flavorutil
 from rmake.build import buildtrove
-from rmake.build import failure
 
 
 def getRecipes(repos, troveTups):

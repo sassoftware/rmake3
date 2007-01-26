@@ -13,6 +13,7 @@
 #
 import errno
 import os
+import socket
 import sys
 import time
 import traceback
@@ -22,11 +23,15 @@ from conary.repository import changeset
 
 from rmake import errors
 
+from rmake import failure
+from rmake.build import subscriber
+
 from rmake.lib import logfile
 from rmake.lib import logger
 from rmake.lib import server
 
-from rmake.build import failure
+from rmake.lib.apiutils import thaw, freeze
+
 
 class Command(server.Server):
     name = 'command'
@@ -38,9 +43,40 @@ class Command(server.Server):
         self.jobId = jobId
         self._isErrored = False
         self._errorMessage = ''
+        self._output = []
+        self.readPipe = None
 
     def _exit(self, exitRc):
         sys.exit(exitRc)
+
+    def shouldFork(self):
+        return True
+
+    def setWritePipe(self, writePipe):
+        self.writePipe = writePipe
+
+    def setReadPipe(self, readPipe):
+        self.readPipe = readPipe
+
+    def fileno(self):
+        return self.readPipe.fileno()
+
+    def handleRead(self):
+        data = self.readPipe.handle_read()
+        if data:
+            self._handleData(data)
+
+    def flushInputBuffer(self):
+        if not self.readPipe:
+            return
+        for data in self.readPipe.readUntilClosed():
+            self._handleData(data)
+
+    def handleWrite(self):
+        self.writePipe.handle_write()
+
+    def _handleData(self, data):
+        self._output.append(data)
 
     def getCommandId(self):
         return self.commandId
@@ -75,52 +111,80 @@ class Command(server.Server):
         return 0
 
     def _runCommand(self):
+        self.commandStarted()
         self.logger = logger.Logger(self.name, self.getLogPath())
         self.logFile = logfile.LogFile(self.getLogPath())
         self.logFile.redirectOutput()
         try:
             self.logger.info('Running Command... (pid %s)' % os.getpid())
-            self.runCommand()
+            try:
+                self.runCommand()
+            except SystemExit, err:
+                raise
+            except Exception, err:
+                if isinstance(err, SystemExit) and not err.args[0]:
+                    self.commandFinished()
+                else:
+                    self.commandErrored(err, traceback.format_exc())
+                raise
+            else:
+                self.commandFinished()
         finally:
             self.logFile.restoreOutput()
 
     def isErrored(self):
         return self._isErrored
 
-    def getErrorMessage(self):
-        return self._errorMessage
+    def getFailureReason(self):
+        return self.failureReason
 
-    def setError(self, msg):
+    def setError(self, msg, tb=''):
         self._isErrored = True
-        self._errorMessage = msg
+        self.failureReason = failure.CommandFailed(self.commandId, str(msg), tb)
 
     def commandDied(self, status):
+        self.flushInputBuffer()
         exitRc = os.WEXITSTATUS(status)
         signalRc = os.WTERMSIG(status)
         commandId = self.getCommandId()
         if exitRc or signalRc:
             if exitRc:
-                msg = 'Command %s unexpectedly died with exit code %s'
-                msg = msg % (commandId, exitRc)
+                msg = 'unexpectedly died with exit code %s'
+                msg = msg % (exitRc)
             else:
-                msg = 'Command %s unexpectedly killed with signal %s'
-                msg = msg % (commandId, signalRc)
+                msg = 'unexpectedly killed with signal %s'
+                msg = msg % (signalRc)
             self.setError(msg)
+        self.commandFinished()
+
+    def commandStarted(self):
+        pass
+
+    def commandFinished(self):
+        pass
+
+    def commandErrored(self, msg, tb=''):
+        self.setError(msg, tb)
 
 class BuildCommand(Command):
 
     name = 'build-command'
 
-    def __init__(self, serverCfg, commandId, jobId, buildCfg,
-                 chrootFactory, trove, targetLabel, logHost='', logPort=0):
+    def __init__(self, serverCfg, commandId, jobId, eventHandler, buildCfg,
+                 chrootFactory, trove, targetLabel, logHost='', logPort=0,
+                 logPath=None, uri=None):
         Command.__init__(self, serverCfg, commandId, jobId)
+        self.eventHandler = eventHandler
         self.buildCfg = buildCfg
         self.chrootFactory = chrootFactory
         self.trove = trove
         self.targetLabel = targetLabel
         self.logHost = logHost
         self.logPort = logPort
+        self.logPath = logPath
+        self.readPipe = None
         self.failureReason = None
+        self.uri = None
 
     def _signalHandler(self, signal, frame):
         self.failureReason = failure.Stopped('Signal %s received' % signal)
@@ -141,6 +205,9 @@ class BuildCommand(Command):
         self._killPid(self.chroot.pid)
         Command._shutDown(self)
 
+    def _handleData(self, (jobId, eventList)):
+        self.eventHandler._receiveEvents(*thaw('EventList', eventList))
+
     def getTrove(self):
         return self.trove
 
@@ -151,26 +218,32 @@ class BuildCommand(Command):
         try:
             try:
                 trove = self.trove
+                trove.getPublisher().reset()
+                PipePublisher(self.writePipe).attach(trove)
+                trove.creatingChroot(self.cfg.getName(),
+                                     self.chrootFactory.getRoot())
                 self.chrootFactory.create()
-                trove.log('Chroot Created')
                 self.chroot = self.chrootFactory.start()
             except Exception, err:
-                f = failure.ChrootFailed(str(err), traceback.format_exc())
                 # sends off messages to all listeners that this trove failed.
-                trove.troveFailed(f)
+                trove.chrootFailed(str(err), traceback.format_exc())
                 return
             n,v,f = trove.getNameVersionFlavor()
-            logPath, pid = self.chroot.buildTrove(self.buildCfg, 
+            logPath, pid = self.chroot.buildTrove(self.buildCfg,
                                                   self.targetLabel,
-                                                  n, v, f, self.logHost, 
+                                                  n, v, f, self.logHost,
                                                   self.logPort)
             # sends off message that this trove is building.
             self.chroot.subscribeToBuild(n,v,f)
+            if self.logPath:
+                logPath = self.logPath
             trove.troveBuilding(logPath, pid)
             self.serve_forever()
         except SystemExit, err:
+            self.writePipe.flush()
             raise
         except Exception, err:
+            self.writePipe.flush()
             # even if there's an exception in here, we don't really
             # want to retry the build.
             reason = failure.InternalError(str(err), traceback.format_exc())
@@ -182,6 +255,7 @@ class BuildCommand(Command):
 
     def _serveLoopHook(self):
         try:
+            self.writePipe.handleWriteIfReady()
             if self.chroot.checkSubscription():
                 self.getResults()
                 self._halt = True
@@ -246,3 +320,48 @@ class StopCommand(Command):
                 raise
         else:
             self.setError('%s did not die!' % self.targetCommand.getCommandId())
+
+class SessionCommand(Command):
+
+    name = 'session-command'
+
+    def __init__(self, serverCfg, commandId, chrootFactory, command, 
+                 hostInfo):
+        Command.__init__(self, serverCfg, commandId, 0)
+        self.chrootFactory = chrootFactory
+        self.command = command
+        self.hostInfo = hostInfo
+
+    def getTrove(self):
+        return self.trove
+
+    def getChrootFactory(self):
+        return self.chrootFactory
+
+    def runCommand(self):
+        self.chrootFactory.create()
+        self.chroot = self.chrootFactory.start()
+        port = self.chroot.startSession(self.command)
+        self.hostInfo.extend((socket.getfqdn(), port))
+
+    def shouldFork(self):
+        return False
+
+class PipePublisher(subscriber._RmakePublisherProxy):
+    """
+        Class that transmits events from internal build process -> rMake server.
+    """
+
+    # we override the _receiveEvents method to just pass these
+    # events on, thus we just use listeners as a list of states we subscribe to
+
+    def __init__(self, pipeWriter):
+        self.pipeWriter = pipeWriter
+        subscriber._RmakePublisherProxy.__init__(self)
+
+    def _emitEvents(self, jobId, eventList):
+        self.pipeWriter.send((jobId, freeze('EventList', eventList)))
+        self.pipeWriter.flush()
+
+def attach(trove, p):
+    _RmakeBusPublisher(client).attach(trove)

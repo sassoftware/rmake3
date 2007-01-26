@@ -17,10 +17,9 @@ import time
 from conary.lib import log
 from conary.repository import trovesource
 
+from rmake import failure
 from rmake.lib import apiutils
 from rmake.lib.apiutils import thaw, freeze
-
-from rmake.build import failure
 from rmake.build import publisher
 
 jobStates = {

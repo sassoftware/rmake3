@@ -27,7 +27,7 @@ from conary.lib import log,util
 from conary import versions
 from conary.deps.deps import ThawFlavor
 
-from rmake.build.failure import BuildFailed, FailureReason
+from rmake.failure import BuildFailed, FailureReason
 from rmake.lib import flavorutil
 from rmake.lib import logfile
 from rmake.lib import recipeutil

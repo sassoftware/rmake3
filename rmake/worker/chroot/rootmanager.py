@@ -15,6 +15,7 @@ import errno
 import copy
 import os
 import sys
+import tempfile
 import time
 
 #conary
@@ -23,18 +24,19 @@ from conary.lib import util
 #rmake
 from rmake import constants
 from rmake import errors
-from rmake.build.chroot import server as chrootserver
-from rmake.build import rootfactory
+from rmake.worker.chroot import rootserver
+from rmake.worker.chroot import rootfactory
 from rmake.lib import flavorutil
 from rmake.lib import logger as logger_
 from rmake.lib import repocache
 
 class ChrootManager(object):
-    def __init__(self, baseDir, chrootHelperPath, serverCfg, logger=None):
-        self.baseDir = baseDir
-        self.chrootHelperPath = chrootHelperPath
+    def __init__(self, serverCfg, logger=None):
         self.serverCfg = serverCfg
-        cacheDir = self.baseDir + '/cscache'
+        self.baseDir =  os.path.realpath(serverCfg.getChrootDir())
+        self.archiveDir =  os.path.realpath(serverCfg.getChrootArchiveDir())
+        self.chrootHelperPath = serverCfg.chrootHelperPath
+        cacheDir = serverCfg.getCacheDir()
         util.mkdirChain(cacheDir)
         self.csCache = repocache.RepositoryCache(cacheDir)
         self.chroots = {}
@@ -42,9 +44,21 @@ class ChrootManager(object):
             logger = logger_.Logger()
         self.logger = logger
 
+    def listChroots(self):
+        chroots = []
+        if os.path.exists(self.baseDir):
+            for name in os.listdir(self.baseDir):
+                path = self.baseDir + '/' + name
+                if os.path.isdir(path):
+                    chroots.append(name)
+        if os.path.exists(self.archiveDir):
+            for name in os.listdir(self.archiveDir):
+                chroots.append('archive/' + name)
+        return chroots
+
     def getRootPath(self, buildTrove):
         name = buildTrove.getName().rsplit(':', 1)[0]
-        path =  self.baseDir + '/chroot-%s' % name
+        path =  self.baseDir + '/%s' % name
         count = 1
         if path not in self.chroots:
             return path
@@ -80,6 +94,7 @@ class ChrootManager(object):
             # these packages - if we're not worried about using the 
             # "correct" conary, conary-policy, etc.
             jobList = []
+            util.mkdirChain(self.baseDir)
             os.chdir(self.baseDir)
             chrootClass = rootfactory.FakeRmakeRoot
         else:
@@ -93,34 +108,70 @@ class ChrootManager(object):
                              csCache=self.csCache,
                              copyInConary=copyInConary)
         buildLogPath = self.serverCfg.getBuildLogPath(buildTrove.jobId)
-        chrootServer = rMakeChrootServer(chroot, cfg, targetArch,
+        chrootServer = rMakeChrootServer(chroot, targetArch,
                                          useTmpfs=self.serverCfg.useTmpfs,
-                                         buildLogPath=buildLogPath)
+                                         buildLogPath=buildLogPath,
+                                         reuseRoots=cfg.reuseRoots,
+                                         strictMode=cfg.strictMode)
 
         self.chroots[rootDir] = chrootServer
         return chrootServer
 
+    def useExistingChroot(self, chrootPath, useChrootUser=True):
+        if not chrootPath.startswith(self.baseDir):
+            chrootPath = self.baseDir + '/' +  chrootPath
+        assert(os.path.exists(chrootPath))
+        chroot = rootfactory.ExistingChroot(chrootPath, self.logger,
+                                             self.chrootHelperPath)
+        chrootServer = rMakeChrootServer(chroot, targetArch=None,
+                                         useTmpfs=self.serverCfg.useTmpfs,
+                                         buildLogPath=None, reuseRoots=True,
+                                         useChrootUser=useChrootUser)
+        self.chroots[chrootPath] = chrootServer
+        return chrootServer
+
+    def archiveChroot(self, chrootPath, newPath):
+        chrootPath = os.path.realpath(self.baseDir + '/' + chrootPath)
+        newPath = os.path.realpath(self.archiveDir + '/' + newPath)
+        assert(os.path.dirname(chrootPath) == self.baseDir)
+        assert(os.path.dirname(newPath) == self.archiveDir)
+        os.system('/bin/mv %s %s' % (chrootPath, newPath))
+
+    def deleteChroot(self, chrootPath):
+        if chrootPath.startswith('archive/'):
+            chrootPath = self.archiveDir + '/' + chrootPath[len('archive/'):]
+            chrootPath = os.path.realpath(chrootPath)
+            assert(os.path.dirname(chrootPath) == self.archiveDir)
+        else:
+            chrootPath = os.path.realpath(self.baseDir +'/' +  chrootPath)
+            assert(os.path.dirname(chrootPath) == self.baseDir)
+        chroot = rootfactory.ExistingChroot(chrootPath, self.logger,
+                                             self.chrootHelperPath)
+        chroot._clean()
 
 class rMakeChrootServer(object):
     """
         Manages starting the rmake chroot server.
     """
-    def __init__(self, chroot, cfg, targetArch, buildLogPath,
-                 useTmpfs=False):
+    def __init__(self, chroot, targetArch, buildLogPath,
+                 useTmpfs=False, reuseRoots=False, strictMode=False,
+                 useChrootUser=True):
         self.chroot = chroot
-        self.cfg = cfg
         self.targetArch = targetArch
         self.useTmpfs = useTmpfs
+        self.reuseRoots = reuseRoots
+        self.strictMode = strictMode
         self.buildLogPath = buildLogPath
+        self.useChrootUser = useChrootUser
 
     def getRoot(self):
-        return self.chroot.cfg.root
+        return self.chroot.getRoot()
 
     def clean(self):
         return self.chroot.clean()
 
     def create(self):
-        if self.cfg.reuseRoots and not self.cfg.strictMode:
+        if self.reuseRoots and not self.strictMode:
             # we're going to keep the old contents of the root and perform
             # as few updates as possible.  However, that still means
             # unmounting those things owned by root so that the rmake process
@@ -131,33 +182,39 @@ class rMakeChrootServer(object):
         self.chroot.create(self.getRoot())
 
     def start(self):
+        self.socketPath = self.getRoot() + '/tmp/chroot-socket-%s'
         pid = os.fork()
         if pid:
+            self.socketPath = self.socketPath % pid
             return self._waitForChrootServer(pid)
         else:
+            self.socketPath = self.socketPath % os.getpid()
             try:
                 self._startChrootServer()
             finally:
                 os._exit(1)
 
     def _startChrootServer(self):
+        socketPath = self.socketPath[len(self.getRoot()):]
         if self.chroot.canChroot():
             prog = self.chroot.chrootHelperPath
-            args = [prog, self.cfg.root]
+            args = [prog, self.getRoot(), socketPath]
             if self.targetArch:
                 args.extend(['--arch', self.targetArch])
             if self.useTmpfs:
                 args.append('--tmpfs')
+            if not self.useChrootUser:
+                args.append('--no-chroot-user')
             os.execv(prog, args)
         else:
             # testsuite and FakeRoot path
             rmakeDir = os.path.dirname(sys.modules['rmake'].__file__)
             conaryDir = os.path.dirname(sys.modules['conary'].__file__)
-            prog = (self.cfg.root + constants.chrootRmakePath
+            prog = (self.getRoot() + constants.chrootRmakePath
                     + constants.chrootServerPath)
-            util.mkdirChain(self.cfg.root + '/tmp/rmake/lib')
+            util.mkdirChain(self.getRoot() + '/tmp/rmake/lib')
             args = [prog, 'start', '-n', '--config',
-                    'root %s' % self.cfg.root]
+                    'root %s' % self.getRoot(), '--socket', socketPath]
             os.execve(prog, args,
                   {'PYTHONPATH' : '%s:%s' % (os.path.dirname(rmakeDir),
                                              os.path.dirname(conaryDir))})
@@ -165,26 +222,27 @@ class rMakeChrootServer(object):
     def _waitForChrootServer(self, pid):
         # paths passed back from the server will be relative to the chroot
         # if we chroot into it, otherwise they'll be relative to /
-        socketPath = '/tmp/rmake/lib/chrootsocket'
-        uri = 'unix:%s%s' % (self.cfg.root, socketPath)
+        uri = 'unix:%s' % (self.socketPath)
 
         if self.chroot.canChroot():
-            clientRoot = self.cfg.root
+            clientRoot = self.getRoot()
         else:
             clientRoot = '/'
-        client = chrootserver.ChrootClient(clientRoot, uri, pid)
+        client = rootserver.ChrootClient(clientRoot, uri, pid)
 
         def checkPid():
             checkedPid, status = os.waitpid(pid, os.WNOHANG)
             if checkedPid:
-                raise errors.OpenError(
-                    'Chroot server failed to start - please check'
-                    ' %s' % self.buildLogPath)
+                msg = ('Chroot server failed to start - please check'
+                       ' logs for chroot process %s' % pid)
+                if self.buildLogPath:
+                    msg += ' and build log %s' % self.buildLogPath
+                raise errors.OpenError(msg)
 
 
         timeSlept = 0
         while timeSlept < 180:
-            if os.path.exists('%s%s' % (self.cfg.root, socketPath)):
+            if os.path.exists(self.socketPath):
                 break
             checkPid()
             time.sleep(.1)

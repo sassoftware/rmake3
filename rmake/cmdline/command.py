@@ -8,6 +8,7 @@ from conary.lib import options
 from rmake import errors
 from rmake.build import buildcfg
 from rmake.cmdline import query
+from rmake.lib import flavorutil
 
 
 (NO_PARAM,  ONE_PARAM)  = (options.NO_PARAM, options.ONE_PARAM)
@@ -33,7 +34,8 @@ class rMakeCommand(options.AbstractCommand):
                             "Set server config KEY to VALUE", "'KEY VALUE'"),
             'config-file'        : (VERBOSE_HELP,
                                     "Read PATH config file", "PATH"),
-            'context'            : ("Set the configuration context to use"),
+            'context'            : (VERBOSE_HELP,
+                                    "Set the configuration context to use"),
             'server-config-file' : (VERBOSE_HELP,
                                     "Read PATH config file", "PATH"),
             'conary-config-file'  : (VERBOSE_HELP,
@@ -115,6 +117,8 @@ class rMakeCommand(options.AbstractCommand):
         if expected:
             missing = expected[len(args):]
             if missing:
+                import epdb
+                epdb.st()
                 raise errors.BadParameters('%s missing %s command'
                                            ' parameter(s): %s' % (
                                             command, len(missing),
@@ -149,13 +153,11 @@ def _getJobIdOrUUId(val):
             raise errors.ParseError, 'Not a valid jobId or UUID: %s' % val
 
 class BuildCommand(rMakeCommand):
+    '''Builds the specified packages or recipes.  '''
+
     commands = ['build', 'buildgroup']
     commandGroup = CG_BUILD
-    paramHelp = '''\
-<troveSpec> [<troveSpec>]*
-
-Builds the specified packages or recipes.
-'''
+    paramHelp = '<troveSpec> [<troveSpec>]*'
     help = 'Build packages or recipes'
 
     docs = {'flavor' : "flavor to build with",
@@ -471,3 +473,140 @@ class QueryCommand(rMakeCommand):
 register(QueryCommand)
 
 
+
+class ListCommand(rMakeCommand):
+    """\
+    List information about the given rmake server.
+
+    Types Available:
+        list [ch]roots - lists chroots on this rmake server"""
+    commands = ['list']
+    paramHelp = "<type>"
+    help = 'List various information about this rmake server'
+    commandGroup = CG_INFO
+
+    def runCommand(self, client, cfg, argSet, args):
+        command, subCommand = self.requireParameters(args, 'command')
+        commandFn = getattr(self, 'list%s' % subCommand.title(), None)
+        if not commandFn:
+            self.usage('No such list command %s' % subCommand)
+            raise errors.RmakeError('No such list command %s' % subCommand)
+        commandFn(client, cfg, argSet)
+
+    def listChroots(self, client, cfg, argSet):
+        chrootsByHost =  {}
+        for chroot in client.client.listChroots():
+            chrootsByHost.setdefault(chroot.host, []).append(chroot)
+        for host in sorted(chrootsByHost):
+            if host != '_local_':
+                print '%s:' % host
+            for chroot in chrootsByHost[host]:
+                self._displayChroot(chroot)
+
+    def _displayChroot(self, chroot):
+        if chroot.active:
+            active = ' (Building)'
+        else:
+            active = ''
+        name = '%s%s:' % (chroot.path, active)
+        troveTuple = ''
+        if chroot.jobId:
+            jobId = '[%s]' % chroot.jobId
+            if chroot.troveTuple:
+                n,v,f = chroot.troveTuple
+                arch = flavorutil.getArch(f)
+                if arch:
+                    arch = '[is: %s]' % arch
+                else:
+                    arch = None
+                troveTuple = ' %s=%s/%s' % (n, v.trailingRevision(),
+                                            arch)
+            jobInfo = '%s%s' % (jobId, troveTuple)
+        else:
+            jobInfo = '[Unknown]'
+
+        print '   %-18s %s' % (name, jobInfo)
+    listRoots = listChroots
+register(ListCommand)
+
+class ChrootCommand(rMakeCommand):
+    """\
+    Runs /bin/sh in the given chroot.
+
+    This command allows you to debug problems that occur with a build in
+    rMake.  By default, it enters the chroot as the user who built the
+    trove.  With the --super parameter you can cause it to run as the 
+    "rmake" user, who can then run commands like "conary update strace."\
+"""
+    help = 'Run /bin/sh in a given chroot'
+    paramHelp = "<chrootName>"
+
+    commands = ['chroot']
+
+    docs = {'super' :
+             'Run as a user capable of modifying the contents of the root' }
+
+    def addParameters(self, argDef):
+        argDef['super'] = NO_PARAM
+        rMakeCommand.addParameters(self, argDef)
+
+    def runCommand(self, client, cfg, argSet, args):
+        command, chroot = self.requireParameters(args, ['chrootPath'])
+        chrootConnection = client.client.connectToChroot('_local_', chroot,
+                                         ['/bin/sh'],
+                                         superUser=argSet.pop('super', False))
+        chrootConnection.interact()
+register(ChrootCommand)
+
+class ArchiveCommand(rMakeCommand):
+    """\
+    Archive a chroot so that it will not be overwritten by rmake during the
+    build process.
+
+    By default, rmake will reuse particular names for chroots
+    whenever building something with that same name.  This command can be used
+    to safely move a chroot out of the way for further debugging without 
+    requiring that normal rmake use be stopped."""
+    commands = ['archive']
+    paramHelp = '<chrootName> <newName>'
+    help = 'Archives a chroot for later use'
+
+    def addParameters(self, argDef):
+        rMakeCommand.addParameters(self, argDef)
+
+    def runCommand(self, client, cfg, argSet, args):
+        command, chroot, extra = self.requireParameters(args,
+                                                       ['chrootPath'],
+                                                        allowExtra=1)
+        if extra:
+            newPath = extra[0]
+        else:
+            newPath = chroot
+        client.client.archiveChroot('_local_', chroot, newPath)
+        print "Chroot moved to archive/%s" % newPath
+register(ArchiveCommand)
+
+
+class CleanCommand(rMakeCommand):
+    """\
+    Removes the given chroot, freeing its space.
+
+    This command simply removes the given chroot and everything within it,
+    freeing its diskspace."""
+    commands = ['clean']
+    help = 'Deletes a chroot'
+    paramHelp = '<chroot>'
+
+    def addParameters(self, argDef):
+        rMakeCommand.addParameters(self, argDef)
+
+    def runCommand(self, client, cfg, argSet, args):
+        command, chroot  = self.requireParameters(args, ['chrootPath'])
+        client.client.deleteChroot('_local_', chroot)
+        print "Chroot %s deleted" % chroot
+register(CleanCommand)
+
+
+def addCommands(main):
+    for command in _commands:
+        main._registerCommand(command)
