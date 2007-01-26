@@ -67,13 +67,13 @@ class Logger(object):
         self.logger.info(message, *args, **kw)
 
     def error(self, message, *args, **kw):
-        self.logger.error('error: ' + message, *args, **kw)
+        self.logger.error('error: ' + str(message), *args, **kw)
 
     def warning(self, message, *args, **kw):
-        self.logger.warning('warning: ' + message, *args, **kw)
+        self.logger.warning('warning: ' + str(message), *args, **kw)
 
     def debug(self, message, *args, **kw):
-        self.logger.debug('debug: ' + message, *args, **kw)
+        self.logger.debug('debug: ' + str(message), *args, **kw)
 
     def enableConsole(self, level=logging.INFO):
         self.logger.addHandler(self.console)
