@@ -18,12 +18,20 @@ import os
 import select
 import struct
 
+def getStructSize(char):
+    # NOTE:  This could change depending on architecture - so you can't
+    # use this method when reading from sockets!
+    return len(struct.pack(char, 0))
+
+LENGTH_STRUCT = 'L'
+
 class PipeReader(object):
     def __init__(self, fd):
         self.fd = fd
         self.length = None
         self.buf = []
-        self.sizeLength = 4 
+        self.sizeLength = getStructSize(LENGTH_STRUCT) 
+        self.sizeNeeded = self.sizeLength 
         self.sizeBuf = []
 
     def __del__(self):
@@ -53,21 +61,21 @@ class PipeReader(object):
             text = ''.join(self.buf)
             self.buf = []
             return text
-        sizeChars = os.read(self.fd, self.sizeLength)
+        sizeChars = os.read(self.fd, self.sizeNeeded)
         self.sizeBuf.append(sizeChars)
         if len(sizeChars) == 0:
             os.close(self.fd)
             self.fd = None
             return
 
-        if len(sizeChars) < self.sizeLength:
-            self.sizeLength -= len(sizeChars)
+        if len(sizeChars) < self.sizeNeeded:
+            self.sizeNeeded -= len(sizeChars)
             return
         else:
             sizeChars = ''.join(self.sizeBuf)
             self.sizeBuf = []
-            self.sizeLength = 4
-            self.length = struct.unpack('L', sizeChars)[0]
+            self.sizeNeeded = self.sizeLength
+            self.length = struct.unpack(LENGTH_STRUCT, sizeChars)[0]
             return
 
     def handleReadIfReady(self, sleep=0.1):
@@ -89,7 +97,6 @@ class PipeWriter(object):
         self.fd = fd
         self.length = None
         self.buf = []
-        self.sizeLength = 4
         self.sizeBuf = []
 
     def __del__(self):
@@ -105,7 +112,7 @@ class PipeWriter(object):
 
     def send(self, text):
         length = len(text)
-        length = struct.pack('L', length)
+        length = struct.pack(LENGTH_STRUCT, length)
         self.buf.extend((length + text))
 
     def handle_write(self):
