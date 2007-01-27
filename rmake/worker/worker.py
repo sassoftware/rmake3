@@ -73,10 +73,12 @@ class Worker(server.Server):
             commandId = self.idgen.getBuildCommandId(trove)
         chrootFactory = self.chrootManager.getRootFactory(buildCfg, buildReqs,
                                                           trove)
+        trove.own()
         trove.troveQueued('build')
         self.queueCommand(self.commandClasses['build'], self.cfg, commandId,
                           jobId, eventHandler, buildCfg, chrootFactory,
                           trove, targetLabel, logHost, logPort, logPath)
+        trove.disown()
 
     def stopCommand(self, targetCommandId, commandId=None):
         targetCommand = self.getCommandById(targetCommandId)
