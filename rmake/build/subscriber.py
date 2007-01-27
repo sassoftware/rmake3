@@ -126,6 +126,16 @@ class _RmakePublisherProxy(_InternalSubscriber):
         'TROVE_LOG_UPDATED',
         ])
 
+    def _freezeTroveEvent(self, event, buildTrove, eventData, eventList):
+        newData = [ (buildTrove.jobId, buildTrove.getNameVersionFlavor()) ]
+        newData.extend(eventData)
+        eventList.append((event, newData))
+
+    def _freezeJobEvent(self, event, job, eventData, eventList):
+        newData = [ job.jobId ]
+        newData.extend(eventData)
+        eventList.append((event, newData))
+
     def _receiveEvents(self, apiVer, eventList):
         # Convert eventList from the format for _intrajob_ events
         # to the format for _extrajob_ events - we're passing this back
@@ -137,11 +147,9 @@ class _RmakePublisherProxy(_InternalSubscriber):
         for event, data in eventList:
             jobId =  data[0].jobId
             if isinstance(data[0], buildjob.BuildJob):
-                newData = [ data[0].jobId ]
+                self._freezeJobEvent(event, data[0], data[1:], newEventList)
             if isinstance(data[0], buildtrove.BuildTrove):
-                newData = [ (data[0].jobId, data[0].getNameVersionFlavor()) ]
-            newData.extend(data[1:])
-            newEventList.append((event, newData))
+                self._freezeTroveEvent(event, data[0], data[1:], newEventList)
         if not newEventList:
             return
         newEventList = (apiVer, newEventList)
