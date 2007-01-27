@@ -309,9 +309,8 @@ class rMakeServer(apirpc.XMLApiServer):
                 self._startBuild(job)
             except Exception, err:
                 self._subscribeToJob(job)
-                job.jobFailed(failure.InternalError(
-                                        'Failed while initializing',
-                                        traceback.format_exc()))
+                job.exceptionOccurred('Failed while initializing',
+                                      traceback.format_exc())
             break
         self._emitEvents()
         self._collectChildren()
@@ -400,32 +399,34 @@ class rMakeServer(apirpc.XMLApiServer):
         buildMgr = self.getBuilder(job, buildCfg)
         pid = self._fork('Job %s' % job.jobId)
         if pid:
+            buildMgr._closeLog()
             self._buildPids[pid] = job.jobId # mark this pid for potential 
                                              # killing later
             return job.jobId
         else:
-            # we want to be able to kill this build process and
-            # all its children with one swell foop.
-            os.setpgrp()
-            # restore default signal handlers, so we actually respond
-            # to these.
-            signal.signal(signal.SIGTERM, signal.SIG_DFL)
-            signal.signal(signal.SIGINT, signal.default_int_handler)
-
-
-            # need to reinitialize the database in the forked child process
-            self.db.reopen()
-
-            self._subscribeToBuild(buildMgr)
-
-            job.jobStarted("spawning process %s for build %s..." % (
-                                                    os.getpid(), job.jobId,),
-                                                    pid=os.getpid())
-            job.log("Starting Build")
-            # don't do anything else in here, buildAndExit has handling for
-            # ensuring that exceptions are handled correctly.
             try:
-                buildMgr.buildAndExit()
+                try:
+                    # we want to be able to kill this build process and
+                    # all its children with one swell foop.
+                    os.setpgrp()
+                    # restore default signal handlers, so we actually respond
+                    # to these.
+                    signal.signal(signal.SIGTERM, signal.SIG_DFL)
+                    signal.signal(signal.SIGINT, signal.default_int_handler)
+                    # need to reinitialize the database in the forked child 
+                    # process
+                    self._close()
+                    self.db.reopen()
+                    self._subscribeToBuild(buildMgr)
+                    # don't do anything else in here, buildAndExit has 
+                    # handling for ensuring that exceptions are handled 
+                    # correctly.
+                    buildMgr.buildAndExit()
+                except Exception, err:
+                    tb = traceback.format_exc()
+                    buildMgr.logger.error('Build initialization failed: %s' %
+                                          err, tb)
+                    job.exceptionOccurred(err, tb)
             finally:
                 os._exit(2)
 
@@ -449,9 +450,34 @@ class rMakeServer(apirpc.XMLApiServer):
         finally:
             os._exit(1)
 
+    def _failJob(self, jobId, reason):
+        pid = self._fork('Fail job %s' % jobId)
+        if pid:
+            self.debug('Fail job %s forked pid %d' % (jobId, pid))
+            return
+        try:
+            from rmake.server.client import rMakeClient
+            client = rMakeClient(self.uri)
+            # make sure the main process is up and running before we 
+            # try to communicate w/ it
+            client.ping()
+            self.db.reopen()
+            job = self.db.getJob(jobId)
+            self._subscribeToJob(job)
+            publisher = job.getPublisher()
+            job.jobFailed(reason)
+            os._exit(0)
+        finally:
+            os._exit(1)
+
+
     def _pidDied(self, pid, status, name=None):
+        jobId = self._buildPids.pop(pid, None)
+        if jobId and status:
+            job = self.db.getJob(jobId)
+            if job.isBuilding() or job.isQueued():
+                self._failJob(jobId, self._getExitMessage(pid, status, name))
         apirpc.XMLApiServer._pidDied(self, pid, status, name)
-        self._buildPids.pop(pid, None)
 
         if pid == self._emitPid: # rudimentary locking for emits
             self._emitPid = 0    # only allow one emitEvent process 
@@ -560,6 +586,10 @@ class rMakeServer(apirpc.XMLApiServer):
 
     def _exit(self, exitCode):
         sys.exit(exitCode)
+
+    def _close(self):
+        apirpc.XMLApiServer._close(self)
+        self.db.close()
 
     def __init__(self, uri, cfg, repositoryPid, pluginMgr=None, 
                  quiet=False):
