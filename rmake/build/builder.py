@@ -77,6 +77,10 @@ class Builder(object):
         self.eventHandler = EventHandler(job)
         self.worker = worker.Worker(serverCfg, self.logger, serverCfg.slots)
 
+    def _closeLog(self):
+        self.logFile.close()
+        self.logger.close()
+
     def setWorker(self, worker):
         self.worker = worker
 
@@ -119,8 +123,8 @@ class Builder(object):
                 self.build()
                 os._exit(0)
             except Exception, err:
-                self.job.exceptionOccurred(err, traceback.format_exc())
                 self.logger.error(traceback.format_exc())
+                self.job.exceptionOccurred(err, traceback.format_exc())
                 self.logFile.restoreOutput()
                 if sys.stdin.isatty():
                     # this sets us back to be connected with the controlling 
@@ -150,6 +154,8 @@ class Builder(object):
         return True
 
     def build(self):
+        self.job.jobStarted("Starting Build %s (pid %s)" % (self.job.jobId,
+                            os.getpid()), pid=os.getpid())
         # main loop is here.
         if not self.initializeBuild():
             return False
@@ -178,6 +184,7 @@ class Builder(object):
         troveToBuild.troveQueued('Waiting for build to start')
         self.job.log('Building %s' % troveToBuild.getName())
         targetLabel = self.buildCfg.getTargetLabel(troveToBuild.getVersion())
+        troveToBuild.disown()
         self.worker.buildTrove(self.buildCfg, troveToBuild.jobId,
                                troveToBuild, self.eventHandler,
                                    buildReqs, targetLabel)
