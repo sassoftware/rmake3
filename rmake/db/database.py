@@ -74,6 +74,10 @@ class DBInterface(object):
     def reopen(self):
         self.db = self.open()
 
+    def close(self):
+        self.db.close()
+        self.db = None
+
 class Database(DBInterface):
 
     def __init__(self, path, contentsPath, clean = False):
