@@ -280,6 +280,10 @@ class XMLApiServer(ApiServer):
         if serverObj:
             serverObj.register_instance(self)
 
+    def _close(self):
+        ApiServer._close(self)
+        self.server.server_close()
+
     def handleRequestIfReady(self, sleepTime):
         try:
             ready, _, _ = select.select([self.server], [], [], sleepTime)
