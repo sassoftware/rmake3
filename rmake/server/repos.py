@@ -89,13 +89,15 @@ def startRepository(cfg = None, fork = True, logger=None):
                                                             cfg.serverPort,
                                                             pid))
             return pid
+        elif hasattr(logger, 'close'):
+            logger.close()
     try:
         os.chdir(cfg.getReposDir())
         serverrc = open(cfg.getReposConfigPath(), 'w')
         serverCfg.store(serverrc, includeDocs=False)
         util.mkdirChain(os.path.dirname(cfg.getReposLogPath()))
         logFile = logfile.LogFile(cfg.getReposLogPath())
-        logFile.redirectOutput()
+        logFile.redirectOutput(close=True)
         serverrc.close()
         os.execv('%s/server/server.py' % conaryDir,
                  ['%s/server/server.py' % conaryDir,
@@ -109,7 +111,7 @@ def pingServer(cfg):
     userList = conarycfg.UserInformation()
 
     repos = netclient.NetworkRepositoryClient(repositoryMap, userList)
-    for i in range(0,100):
+    for i in range(0,200):
         try:
             checked = repos.c[cfg.serverName].checkVersion()
         except Exception, err:
