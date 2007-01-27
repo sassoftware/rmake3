@@ -85,7 +85,7 @@ class NodeStore(object):
         nodes = []
         cu = self.db.cursor()
         cu.execute('''SELECT nodeName, host, slots, buildFlavors, active 
-                      FROM Nodes''')
+                      FROM Nodes where active=1''')
         for name, host, slots, buildFlavors, active in cu.fetchall():
             buildFlavors = toBuildFlavors(buildFlavors)
             chroots = self.getChrootsForHost(name)
