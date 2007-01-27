@@ -50,6 +50,13 @@ class Logger(object):
             self.enableConsole()
         self._loggers.append(logger)
 
+    def close(self):
+        for logger in self._loggers:
+            for handler in logger.handlers:
+                # if handler not in this list, it's already been cleaned up.
+                if handler in logging._handlers:
+                    handler.close()
+
     def setQuietMode(self):
         for logger in self._loggers:
             logger.setLevel(logging.ERROR)
