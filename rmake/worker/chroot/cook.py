@@ -134,10 +134,13 @@ def cookTrove(cfg, repos, logger, name, version, flavor, targetLabel,
                 errMsg = 'Error cooking %s=%s[%s]: %s' % \
                                         (name, version, flavor, str(msg))
                 _buildFailed(outF, errMsg, traceback.format_exc())
+                logFile.close()
                 os._exit(1)
             else:
+                logFile.close()
                 os._exit(0)
         finally:
+            logFile.close()
             # some kind of error occurred if we get here.
             os._exit(1)
     else:
