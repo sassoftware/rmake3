@@ -131,7 +131,7 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
         if self.isExternalRepos():
             url = self.serverUrl
         else:
-            url = 'http://localhost:%s/conary/' % (self.serverPort)
+            url = 'http://%s:%s/conary/' % (socket.getfqdn(), self.serverPort)
         return { self.serverName : url }
 
     def getUserGlobs(self):
