@@ -35,7 +35,7 @@ class rMakeBuilderConfiguration(daemon.DaemonConfig):
     chrootHelperPath  = (CfgPath, "/usr/libexec/rmake/chroothelper")
     slots             = (CfgInt, 1)
     useTmpfs          = (CfgBool, False)
-    pluginDirs        = (CfgPathList, ['/etc/rmake/plugins.d'])
+    pluginDirs        = (CfgPathList, ['/usr/share/rmake/plugins'])
     usePlugins        = (CfgBool, True)
     usePlugin         = CfgDict(CfgBool)
     verbose           = False

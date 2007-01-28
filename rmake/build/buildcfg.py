@@ -120,7 +120,7 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
 
     buildTroveSpecs      = CfgList(CfgTroveSpec)
     resolveTroveTups     = CfgList(CfgQuotedLineList(CfgTroveTuple))
-    pluginDirs           = (CfgPathList, ['/etc/rmake/plugins.d',
+    pluginDirs           = (CfgPathList, ['/usr/share/rmake/plugins',
                                           '~/.rmake/plugins.d'])
     usePlugin            = CfgDict(CfgBool)
     usePlugins           = (CfgBool, True)
