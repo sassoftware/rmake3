@@ -86,4 +86,4 @@ class ConaryVersion(object):
             return self.minorVersion >= oneOneVersion
 
 def checkRequiredVersions():
-    ConaryVersion('1.1.13').checkRequiredVersion()
+    ConaryVersion().checkRequiredVersion()
