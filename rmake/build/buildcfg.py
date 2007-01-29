@@ -133,7 +133,7 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
 
     _strictOptions = [ 'buildFlavor', 'buildLabel',
                        'flavor', 'installLabelPath', 'repositoryMap', 'root',
-                       'user', 'name', 'contact', 'signatureKey' ]
+                       'user', 'name', 'contact', 'signatureKey', 'dbPath' ]
     _defaultSectionType   =  RmakeBuildContext
 
     def __init__(self, readConfigFiles=False, root='', conaryConfig=None, 
