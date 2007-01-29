@@ -363,7 +363,7 @@ class SchemaManager(AbstractSchemaManager):
         createPluginVersionTable(db)
 
     def migrate(self, oldVersion, newVersion):
-        Migrator(self.db).migrate(oldVersion, newVersion)
+        Migrator(self.db, self).migrate(oldVersion, newVersion)
 
     def getLatestVersion(self):
         return SCHEMA_VERSION
@@ -395,6 +395,9 @@ class Migrator(AbstractMigrator):
     def migrateFrom5(self):
         self._addColumn('BuildTroves', "chrootId",
                         "INTEGER NOT NULL DEFAULT 0")
+        createChroots(self.db)
+        createNodes(self.db)
+        createPluginVersionTable(self.db)
         return 6
 
 
