@@ -14,6 +14,7 @@
 import os
 import select
 import signal
+import socket
 import sys
 import time
 
@@ -70,6 +71,16 @@ class LogFile(object):
 
         os.dup2(self.fd, sys.stdout.fileno())
         os.dup2(self.fd, sys.stderr.fileno())
+
+    def logToPort(self, host, port):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((host, port))
+        socketFd = s.fileno()
+        self.tee = Tee()
+        outFile = self.tee.tee(self.fd, socketFd)
+        os.close(self.fd)
+        self.fd = outFile
+        self.redirectOutput()
 
     def restoreOutput(self):
         sys.stdout.flush()

@@ -27,10 +27,11 @@ from conary.conarycfg import CfgLabel
 from conary.conarycfg import ParseError
 from conary.conaryclient import cmdline
 from conary.lib.cfgtypes import (CfgBool, CfgPath, CfgList, CfgDict, CfgString,
-                                 CfgInt, CfgType, CfgQuotedLineList)
+                                 CfgInt, CfgType, CfgQuotedLineList, 
+                                 CfgPathList)
 
-from rmake.lib import apiutils, daemon
-from rmake import compat, plugins
+from rmake.lib import apiutils, daemon, logger
+from rmake import compat, subscribers
 
 class CfgTroveSpec(CfgType):
     def parseString(self, val):
@@ -64,7 +65,7 @@ class CfgSubscriber(CfgType):
 
     def parseString(self, name, val):
         protocol, uri = val.split(None, 1)
-        s = plugins.SubscriberFactory(name, protocol, uri)
+        s = subscribers.SubscriberFactory(name, protocol, uri)
         return s
 
     def updateFromString(self, s, str):
@@ -102,7 +103,7 @@ class RmakeBuildContext(cfg.ConfigSection):
                             [[('group-dist', None, None)]])
     resolveTrovesOnly    = (CfgBool, False)
     reuseRoots           = (CfgBool, False)
-    strictMode           = (CfgBool, False)
+    strictMode           = (CfgBool, True)
     subscribe            = (CfgSubscriberDict(CfgSubscriber), {})
     targetLabel          = (CfgLabel, versions.Label('NONE@local:NONE'))
     uuid                 = (CfgUUID, '')
@@ -119,6 +120,10 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
 
     buildTroveSpecs      = CfgList(CfgTroveSpec)
     resolveTroveTups     = CfgList(CfgQuotedLineList(CfgTroveTuple))
+    pluginDirs           = (CfgPathList, ['/usr/share/rmake/plugins',
+                                          '~/.rmake/plugins.d'])
+    usePlugin            = CfgDict(CfgBool)
+    usePlugins           = (CfgBool, True)
 
     # Here are options that are not visible from the command-line
     # and should not be displayed.  They are job-specific.  However,
@@ -128,13 +133,17 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
 
     _strictOptions = [ 'buildFlavor', 'buildLabel',
                        'flavor', 'installLabelPath', 'repositoryMap', 'root',
-                       'user', 'name', 'contact' ]
+                       'user', 'name', 'contact', 'signatureKey' ]
     _defaultSectionType   =  RmakeBuildContext
 
     def __init__(self, readConfigFiles=False, root='', conaryConfig=None, 
-                 serverConfig=None):
+                 serverConfig=None, ignoreErrors=False, log=None):
         # we default the value of these items to whatever they
         # are set to on the local system's conaryrc.
+        if log is None:
+            log = logger.Logger('buildcfg')
+        if hasattr(self, 'setIgnoreErrors'):
+            self.setIgnoreErrors(ignoreErrors)
 
         conarycfg.ConaryConfiguration.__init__(self, readConfigFiles=False)
         for info in RmakeBuildContext._getConfigOptions():
@@ -248,6 +257,15 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
             return targetLabel
         else:
             return version.getTrailingLabel()
+
+    def storeConaryCfg(self, out):
+        conaryCfg = conarycfg.ConaryConfiguration(False)
+        for key, value in self.iteritems():
+            if self.isDefault(key):
+                continue
+            if key in conaryCfg:
+                conaryCfg[key] = value
+        conaryCfg.store(out, includeDocs=False)
 
     def _writeKey(self, out, cfgItem, value, options):
         if cfgItem.name in self._hiddenOptions:

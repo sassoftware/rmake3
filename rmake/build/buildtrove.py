@@ -17,18 +17,22 @@ import time
 from conary.build import recipe
 from conary.conaryclient import cmdline
 from conary.deps import deps
+from conary.repository import changeset
 from conary import trove
 
-from rmake.build import failure
+from rmake import failure
+from rmake.build import publisher
 from rmake.lib import apiutils
 from rmake.lib.apiutils import freeze, thaw
 
 troveStates = {
     'TROVE_STATE_INIT'      : 0,
     'TROVE_STATE_FAILED'    : 1,
-    'TROVE_STATE_BUILDABLE' : 2,
+    'TROVE_STATE_WAITING'   : 2,
+    'TROVE_STATE_PREPARING' : 3,
     'TROVE_STATE_BUILDING'  : 4,
     'TROVE_STATE_BUILT'     : 5,
+    'TROVE_STATE_BUILDABLE' : 6,
     }
 
 recipeTypes = {
@@ -86,7 +90,8 @@ class _AbstractBuildTrove:
     def __init__(self, jobId, name, version, flavor,
                  state=TROVE_STATE_INIT, status='',
                  failureReason=None, logPath='', start=0, finish=0,
-                 pid=0, recipeType=RECIPE_TYPE_PACKAGE):
+                 pid=0, recipeType=RECIPE_TYPE_PACKAGE,
+                 chrootHost='', chrootPath=''):
         assert(name.endswith(':source'))
         self.jobId = jobId
         self.name = name
@@ -102,6 +107,8 @@ class _AbstractBuildTrove:
         self.finish = finish
         self.failureReason = failureReason
         self.pid = pid
+        self.chrootHost = chrootHost
+        self.chrootPath = chrootPath
         self.recipeType = recipeType
 
     def __repr__(self):
@@ -139,8 +146,18 @@ class _AbstractBuildTrove:
     def isBuilding(self):
         return self.state == TROVE_STATE_BUILDING
 
+    def isPreparing(self):
+        return self.state == TROVE_STATE_PREPARING
+
+    def isWaiting(self):
+        return self.state == TROVE_STATE_WAITING
+
     def isUnbuilt(self):
-        return self.state in (TROVE_STATE_INIT, TROVE_STATE_BUILDABLE)
+        return self.state in (TROVE_STATE_INIT, TROVE_STATE_BUILDABLE,
+                              TROVE_STATE_WAITING)
+
+    def needsBuildreqs(self):
+        return self.state == TROVE_STATE_INIT
 
     def isPackageRecipe(self):
         return self.recipeType == RECIPE_TYPE_PACKAGE
@@ -200,6 +217,12 @@ class _AbstractBuildTrove:
     def getStateName(self):
         return _getStateName(self.state)
 
+    def getChrootHost(self):
+        return self.chrootHost
+
+    def getChrootPath(self):
+        return self.chrootPath
+
     def __hash__(self):
         return hash(self.getNameVersionFlavor())
 
@@ -218,7 +241,7 @@ class _FreezableBuildTrove(_AbstractBuildTrove):
                  'name'              : 'str',
                  'version'           : 'version',
                  'flavor'            : 'flavor',
-                 'buildRequirements' : 'troveSpecList',
+                 'buildRequirements' : 'set',
                  'builtTroves'       : 'troveTupleList',
                  'failureReason'     : 'FailureReason',
                  'packages'          : None,
@@ -228,6 +251,8 @@ class _FreezableBuildTrove(_AbstractBuildTrove):
                  'logPath'           : 'str',
                  'start'             : 'float',
                  'finish'            : 'float',
+                 'chrootHost'        : 'str',
+                 'chrootPath'        : 'str',
                  }
 
     def __freeze__(self):
@@ -260,8 +285,24 @@ class BuildTrove(_FreezableBuildTrove):
     """
 
     def __init__(self, *args, **kwargs):
-        self._publisher = None
+        self._publisher = publisher.JobStatusPublisher()
+        self._amOwner = False
         _FreezableBuildTrove.__init__(self, *args, **kwargs)
+
+    def amOwner(self):
+        """
+            Returns True if this process owns this trove, otherwise
+            returns False.  Processes that don't own troves are not allowed
+            to update other processes about the trove's status (this avoids
+            message loops).
+        """
+        return self._amOwner
+
+    def own(self):
+        self._amOwner = True
+
+    def disown(self):
+        self._amOwner = False
  
     def setPublisher(self, publisher):
         """
@@ -304,15 +345,29 @@ class BuildTrove(_FreezableBuildTrove):
 
             Publishes log message.
         """
-        self.log('Resolved buildreqs include %s other troves scheduled to be built - delaying' % (len(newDeps),))
+        self._setState(TROVE_STATE_WAITING,
+                      'Resolved buildreqs include %s other troves scheduled to be built - delaying' % (len(newDeps),))
 
-    def prepChroot(self):
+    def troveQueued(self, command):
+        self._setState(TROVE_STATE_WAITING,
+                      'Waiting to start %s' % command)
+
+    def creatingChroot(self, hostname, path):
         """
             Log step in building.
 
             Publishes log message.
         """
-        self.log('Preparing Chroot')
+        self.chrootHost = hostname
+        self.chrootPath = path
+        self._setState(TROVE_STATE_PREPARING, 'Creating chroot', hostname, path)
+
+    def chrootFailed(self, err, traceback=''):
+        f = failure.ChrootFailed(str(err), traceback)
+        self.hostname = ''
+        self.path = ''
+        self.troveFailed(f)
+
 
     def troveBuilding(self, logPath='', pid=0):
         """
@@ -323,13 +378,12 @@ class BuildTrove(_FreezableBuildTrove):
             @param logPath: path to build log on the filesystem.
             @param pid: pid of build process.
         """
-
         self.pid = pid
         self.start = time.time()
         self.logPath = logPath
-        self._setState(TROVE_STATE_BUILDING, status='')
+        self._setState(TROVE_STATE_BUILDING, '', logPath, pid)
 
-    def troveBuilt(self, changeSet):
+    def troveBuilt(self, troveList):
         """
             Sets the trove state to built.
 
@@ -337,11 +391,13 @@ class BuildTrove(_FreezableBuildTrove):
 
             @param changeSet: changeset created for this trove.
         """
+        if isinstance(troveList, changeset.ChangeSet):
+            troveList = [ x.getNewNameVersionFlavor()
+                          for x in troveList.iterNewTroveList() ]
         self.finish = time.time()
         self.pid = 0
-        self.setBuiltTroves([x.getNewNameVersionFlavor() for
-                             x in changeSet.iterNewTroveList() ])
-        self._setState(TROVE_STATE_BUILT, '', changeSet)
+        self.setBuiltTroves(troveList)
+        self._setState(TROVE_STATE_BUILT, '', troveList)
 
     def troveFailed(self, failureReason):
         """
@@ -357,7 +413,7 @@ class BuildTrove(_FreezableBuildTrove):
         if isinstance(failureReason, str):
             failureReason = failure.BuildFailed(failureReason)
         self.setFailureReason(failureReason)
-        self._setState(TROVE_STATE_FAILED, status=str(self.getFailureReason()))
+        self._setState(TROVE_STATE_FAILED, str(failureReason), failureReason)
 
     def troveMissingBuildReqs(self, buildReqs):
         """

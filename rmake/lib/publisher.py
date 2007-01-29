@@ -18,10 +18,13 @@ class Publisher(object):
     states = set()
 
     def __init__(self):
-        self.listeners = {}
-        self.dispatchers = {}
         for state in self.states:
             setattr(self, state, state)
+        self.reset()
+
+    def reset(self):
+        self.listeners = {}
+        self.dispatchers = {}
         self._toEmit = {}
         self._corked = False
 
@@ -68,9 +71,11 @@ class Publisher(object):
             if state not in self.states:
                 raise ValueError("no such state '%s'" % state)
             if dispatcher:
-                self.dispatchers.setdefault(state, []).append(fn)
+                l = self.dispatchers.setdefault(state, [])
             else:
-                self.listeners.setdefault(state, []).append(fn)
+                l = self.listeners.setdefault(state, [])
+            if fn not in l:
+                l.append(fn)
 
     def unsubscribe(self, state, fn):
         self.listeners[state].remove(fn)

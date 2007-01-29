@@ -20,16 +20,20 @@ import shutil
 import signal
 import sys
 
-from conary.lib import misc, options, log
+from conary.lib import misc, options
+from conary import command
 
 from rmake import constants
+from rmake import plugins
 from rmake.lib import daemon
-from rmake.server import servercfg
 from rmake.server import repos
+from rmake.server import servercfg
 from rmake.server import server
 
 class ResetCommand(daemon.DaemonCommand):
     commands = ['reset']
+
+    help = 'Remove all job data from rmake'
 
     def runCommand(self, daemon, cfg, argSet, args):
         for dir in (cfg.getReposDir(), cfg.getBuildLogDir(),
@@ -43,30 +47,35 @@ class ResetCommand(daemon.DaemonCommand):
                 os.remove(path)
 
 class rMakeDaemon(daemon.Daemon):
-    name = 'rmake'
+    name = 'rmake-server'
+    commandName = 'rmake-server'
     version = constants.version
     configClass = servercfg.rMakeConfiguration
+    loggerClass = server.ServerLogger
     user = constants.rmakeuser
-    commandList = list(daemon.Daemon.commandList) + [ResetCommand]
-
-    def __init__(self, *args, **kw):
-        daemon.Daemon.__init__(self, *args, **kw)
+    commandList = list(daemon.Daemon.commandList) + [ResetCommand,
+                                                     command.HelpCommand]
 
     def getConfigFile(self, argv):
+        p = plugins.getPluginManager(argv, servercfg.rMakeConfiguration)
+        p.callServerHook('server_preInit', self, argv)
+        self.plugins = p
         cfg = daemon.Daemon.getConfigFile(self, argv)
         cfg.sanityCheck() 
         return cfg
 
     def doWork(self):
         cfg = self.cfg
-        cfg.sanityCheck()
+        cfg.sanityCheckForStart()
         if not cfg.isExternalRepos():
-            reposPid = repos.startRepository(cfg, fork=True)
+            reposPid = repos.startRepository(cfg, fork=True, 
+                                             logger=self.logger)
         else:
             reposPid = None
         misc.removeIfExists(cfg.socketPath)
         rMakeServer = server.rMakeServer(cfg.getServerUri(), cfg,
-                                    repositoryPid=reposPid)
+                                         repositoryPid=reposPid,
+                                         pluginMgr=self.plugins)
         signal.signal(signal.SIGTERM, rMakeServer._signalHandler)
         signal.signal(signal.SIGINT, rMakeServer._signalHandler)
         try:
@@ -76,18 +85,22 @@ class rMakeDaemon(daemon.Daemon):
                 self.killRepos(rMakeServer.repositoryPid)
 
     def killRepos(self, pid):
-        log.info('killing repository at %s' % pid)
+        self.logger.info('killing repository at %s' % pid)
         try:
             os.kill(pid, signal.SIGKILL)
         except Exception, e:
-            log.warning(
+            self.logger.warning(
             'Could not kill repository at pid %s: %s' % (pid, e))
 
+    def runCommand(self, *args, **kw):
+        return daemon.Daemon.runCommand(self, *args, **kw)
+
 def main(argv):
+    d = rMakeDaemon()
     try:
-        rc = rMakeDaemon().main(argv)
+        rc = d.main(argv)
         sys.exit(rc)
     except options.OptionError, err:
-        rMakeDaemon().usage()
-        log.error(err)
+        d.usage()
+        d.logger.error(err)
         sys.exit(1)

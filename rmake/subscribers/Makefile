@@ -11,6 +11,17 @@
 # or fitness for a particular purpose. See the Common Public License for
 # full details.
 #
-"""
-rMake, build utility for conary - chroot server
-"""
+python_files = *.py
+dist_files = Makefile $(python_files)
+
+SUBDIRS=
+
+all: default-subdirs default-all
+
+clean: clean-subdirs default-clean
+
+install: all pyfiles-install
+
+dist: default-dist
+
+include ../../Make.rules

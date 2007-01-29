@@ -22,31 +22,14 @@ from rmake.build.subscriber import _JobDbLogger
 from rmake.db import schema
 from rmake.db import jobstore
 from rmake.db import logstore
+from rmake.db import nodestore
 from rmake.db import subscriber
 
-class Database(object):
-
-    def __init__(self, path, contentsPath, clean = False):
-        self.dbpath = path
-
-        if os.path.exists(path) and clean:
-            os.unlink(path)
-        self.db = dbstore.connect(path, driver = "sqlite", timeout=10000)
-
-        self.schemaVersion = schema.loadAndMigrate(self.db)
-
-        self.jobStore = jobstore.JobStore(self)
-        self.logStore = logstore.LogStore(contentsPath + '/logs')
-        self.jobQueue = jobstore.JobQueue(self)
-        self.subscriberStore = subscriber.SubscriberData(self)
+class DBInterface(object):
+    def __init__(self, db):
         self._holdCommits = False
-
-    def subscribeToJob(self, job):
-        """ 
-            Watches updates to this job object and will record them
-            in the db.
-        """
-        _JobDbLogger(self).attach(job)
+        self.db = db
+        self.schemaVersion = self.loadSchema(migrate=True)
 
     def _getOne(self, cu, key):
         try:
@@ -57,6 +40,76 @@ class Database(object):
             return res
         except:
             raise KeyError, key
+
+
+    def cursor(self):
+        return self.db.cursor()
+
+    def commitAfter(self, fn, *args, **kw):
+        """
+            Commits after running a function
+        """
+        self._holdCommits = True
+        try:
+            rv = fn(*args, **kw)
+            self._holdCommits = False
+            self.commit()
+            return rv
+        except:
+            self._holdCommits = False
+            raise
+
+    def commit(self):
+        if not self._holdCommits:
+            return self.db.commit()
+        else:
+            return True
+
+    def rollback(self):
+        return self.db.rollback()
+
+    def inTransaction(self):
+        return self.db.inTransaction()
+
+    def reopen(self):
+        self.db = self.open()
+
+    def close(self):
+        self.db.close()
+        self.db = None
+
+class Database(DBInterface):
+
+    def __init__(self, path, contentsPath, clean = False):
+        self.dbpath = path
+
+        if os.path.exists(path) and clean:
+            os.unlink(path)
+
+        db = self.open()
+        DBInterface.__init__(self, db)
+
+        self.jobStore = jobstore.JobStore(self)
+        self.logStore = logstore.LogStore(contentsPath + '/logs')
+        self.jobQueue = jobstore.JobQueue(self)
+        self.subscriberStore = subscriber.SubscriberData(self)
+        self.nodeStore = nodestore.NodeStore(self)
+
+    def loadSchema(self, migrate=True):
+        if migrate:
+            return schema.SchemaManager(self.db).loadAndMigrate()
+        else:
+            return schema.SchemaManager(self.db).loadSchema()
+
+    def open(self):
+        return dbstore.connect(self.dbpath, driver = "sqlite", timeout=10000)
+
+    def subscribeToJob(self, job):
+        """ 
+            Watches updates to this job object and will record them
+            in the db.
+        """
+        _JobDbLogger(self).attach(job)
 
     def addJob(self, job, jobConfig=None):
         jobId = self.jobStore.addJob(job)
@@ -79,12 +132,20 @@ class Database(object):
         except KeyError:
             raise errors.JobNotFound(jobId)
 
+    def _getChrootIdForTrove(self, trove):
+        return self.nodeStore.getOrCreateChrootId(trove)
+
     def getJobs(self, jobIds, withTroves=True):
         try:
             return self.jobStore.getJobs(jobIds, withTroves=withTroves)
         except KeyError, err:
             raise errors.JobNotFound(err.args[0])
 
+    def setLogPath(self, trove, logPath):
+        # FIXME: we need to kill this.
+        trove = self.getTrove(trove.jobId, *trove.getNameVersionFlavor())
+        trove.logPath = logPath
+        self.updateTrove(trove)
 
     def getTrove(self, jobId, name, version, flavor):
         try:
@@ -159,6 +220,7 @@ class Database(object):
         subscribers = self.subscriberStore.getByJobId(jobId)
         return subscribers
 
+
     def listSubscribersByUri(self, jobId, uri):
         subscribers = self.subscriberStore.getByUri(jobId, uri)
         return subscribers
@@ -204,7 +266,7 @@ class Database(object):
                                      (trove.jobId,)))
 
     def updateJobStatus(self, job):
-        self.jobStore.updateJobLog(job, "%s %s" % (job.state, job.status))
+        self.jobStore.updateJobLog(job, job.status)
         self.jobStore.updateJob(job)
         self.commit()
 
@@ -226,8 +288,13 @@ class Database(object):
         self.jobStore.setBuildTroves(job)
         self.commit()
 
+    def trovePreparingChroot(self, trove):
+        self.jobStore.updateTrove(trove)
+        self.commit()
+
     def troveBuilding(self, trove):
         self.jobStore.updateTrove(trove)
+        self.nodeStore.setChrootActive(trove, False)
         self.commit()
 
     def troveBuilt(self, trove):
@@ -235,6 +302,7 @@ class Database(object):
             self.logStore.addTroveLog(trove)
         self.jobStore.updateTrove(trove)
         self.jobStore.setBinaryTroves(trove, trove.getBinaryTroves())
+        self.nodeStore.setChrootActive(trove, False)
         self.commit()
 
     def troveFailed(self, trove):
@@ -244,7 +312,9 @@ class Database(object):
             else:
                 trove.logPath = ''
         self.jobStore.updateTrove(trove)
+        self.nodeStore.setChrootActive(trove, False)
         self.commit()
+
 
     def updateTroveStatus(self, trove):
         self.jobStore.updateTrove(trove)
@@ -257,35 +327,38 @@ class Database(object):
     def getTroveLogs(self, jobId, troveTuple, mark = 0):
         return self.jobStore.getTroveLogs(jobId, troveTuple, mark=mark)
 
-    def cursor(self):
-        return self.db.cursor()
+    def addNode(self, name, host, slots, buildFlavors, chrootPaths):
+        self.nodeStore.addNode(name, host, slots, buildFlavors)
+        self.nodeStore.setChrootsForNode(name, chrootPaths)
+        self.commit()
 
-    def commitAfter(self, fn, *args, **kw):
-        """
-            Commits after running a function
-        """
-        self._holdCommits = True
+    def removeNode(self, name):
+        self.nodeStore.removeNode(name)
+        self.commit()
+
+    def deactivateAllNodes(self):
+        self.nodeStore.deactivateAllNodes()
+        self.commit()
+
+    def chrootIsActive(self, nodeName, path):
         try:
-            rv = fn(*args, **kw)
-            self._holdCommits = False
-            self.commit()
-            return rv
-        except:
-            self._holdCommits = False
-            raise
+            return self.nodeStore.chrootIsActive(nodeName, path)
+        except KeyError, err:
+            raise errors.RmakeError('Chroot %s does not exist!' % err.args[1])
 
-    def commit(self):
-        if not self._holdCommits:
-            return self.db.commit()
-        else:
-            return True
+    def moveChroot(self, nodeName, path, newPath):
+        self.nodeStore.moveChroot(nodeName, path, newPath)
+        self.commit()
 
-    def reopen(self):
-        self.db = dbstore.connect(self.dbpath, driver = "sqlite", timeout=10000)
-        schema.loadSchema(self.db)
+    def removeChroot(self, nodeName, path):
+        self.nodeStore.removeChroot(nodeName, path)
+        self.commit()
 
-    def rollback(self):
-        return self.db.rollback()
+    def listChroots(self):
+        return self.nodeStore.getAllChroots()
 
-    def inTransaction(self):
-        return self.db.inTransaction()
+    def listNodes(self):
+        return self.nodeStore.listNodes()
+
+    def getEmptySlots(self):
+        return self.nodeStore.getEmptySlots()

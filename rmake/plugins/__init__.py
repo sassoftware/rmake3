@@ -12,39 +12,73 @@
 # full details.
 #
 """
-rMake, build utility for conary - plugins
+rMake, build utility for conary - plugin support
 """
-import sys
-import urllib
+from rmake import subscribers
+from rmake.lib import pluginlib
+from rmake.plugins.plugin import *
 
-from rmake import errors
+class PluginManager(pluginlib.PluginManager):
+    def __init__(self, pluginDirs=None, disabledPlugins=None):
+        pluginlib.PluginManager.__init__(self, pluginDirs, disabledPlugins,
+                                         pluginPrefix='rmake_plugins',
+                                         supportedTypes=[TYPE_CLIENT,
+                                                         TYPE_SERVER,
+                                                         TYPE_SUBSCRIBER])
 
-# Note: this is not supposed to be a fully featured plugin interface atm,
-# simply a sort of 'hook' for one to be implemented later.
+    def loadPlugins(self):
+        pluginlib.PluginManager.loadPlugins(self)
+        # make subscriber plugins available.
+        subscribers.loadPlugins(self.getPluginsByType(TYPE_SUBSCRIBER))
 
-_pluginsLoaded = False
-_registeredProtocols = {}
-def registerProtocol(protocol, class_):
-    _registeredProtocols[protocol] = class_
+    def callClientHook(self, hookName, *args, **kw):
+        self.callHook(TYPE_CLIENT, hookName, *args, **kw)
 
+    def callServerHook(self, hookName, *args, **kw):
+        self.callHook(TYPE_SERVER, hookName, *args, **kw)
 
-def _loadPlugins():
-    pluginNames = ['mailto', 'xmlrpc', 'irc']
-    for pluginName in pluginNames:
-        module = __import__('rmake.plugins.' + pluginName, {}, {}, 
-                            ['rmake.plugins'])
-        for class_ in module.__dict__.values():
-            if hasattr(class_, 'protocol'):
-                registerProtocol(class_.protocol, class_)
-        sys.modules[__name__].__dict__[pluginName] = module
-    _pluginsLoaded = True
+    def callSubscriberHook(self, hookName, *args, **kw):
+        self.callHook(TYPE_SUBSCRIBER, hookName, *args, **kw)
 
+def getPluginManager(argv, configClass):
+    """
+        Handles plugin parameter parsing.  Unfortunately, plugin
+        parameter parsing must happen very early on in the command-line parsing
+        -- loading or not loading a plugin may change what parameters are 
+        valid, for example.  For that reason, we have to do some hand
+        parsing.
 
-def SubscriberFactory(name, protocol, uri):
-    if not _pluginsLoaded:
-        _loadPlugins()
-    try:
-        return _registeredProtocols[protocol](name, uri)
-    except KeyError:
-        raise errors.RmakeError('cannot get subscriber for %s: Unknown protocol' % uri)
+        Limitations: in order to reduce the complexity of this hand-parsing,
+        plugin parameters are not allowed in contexts, and they cannot
+        be specified as --config options.
 
+        Suggestions on removing these limitations are welcome.
+    """
+    if '--no-plugins' in argv:
+        argv.remove('--no-plugins')
+        return PluginManager([])
+
+    if '--skip-default-config' in argv:
+        read = False
+    else:
+        read = True
+    # create an instance of our configuration file.  Ingore errors
+    # that might arise due to unknown options or changed option types,
+    # e.g. - we are only interested in the plugin dirs and usePlugins
+    # options.
+    cfg = configClass(readConfigFiles=read, ignoreErrors=True)
+    if not getattr(cfg, 'usePlugins', True):
+        return PluginManager([])
+
+    pluginDirInfo = [ x for x in argv if x.startswith('--plugin-dirs=')]
+
+    if pluginDirInfo:
+        pluginDirs = pluginDirInfo[-1].split('=', 1)[1].split(',')
+        [ argv.remove(x) for x in pluginDirInfo ]
+    else:
+        pluginDirs = cfg.pluginDirs
+
+    disabledPlugins = [ x[0] for x in cfg.usePlugin.items() if not x[1] ]
+    p = PluginManager(pluginDirs, disabledPlugins)
+    p.loadPlugins()
+    return p

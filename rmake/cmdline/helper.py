@@ -33,6 +33,7 @@ from conary.deps import deps
 from conary.lib import log
 from conary.lib import options
 
+from rmake import errors
 from rmake.build import buildcfg
 from rmake.build import buildjob
 from rmake.cmdline import buildcmd
@@ -76,7 +77,7 @@ class rMakeHelper(object):
 
 
     def __init__(self, uri=None, rmakeConfig=None, buildConfig=None, root='/',
-                 guiPassword=False):
+                 guiPassword=False, plugins=None):
         if not rmakeConfig:
             rmakeConfig = servercfg.rMakeConfiguration(True)
 
@@ -113,8 +114,7 @@ class rMakeHelper(object):
         self.buildConfig = buildConfig
         self.rmakeConfig = rmakeConfig
         self.buildConfig.setServerConfig(rmakeConfig)
-
-
+        self.plugins = plugins
 
     def displayConfig(self, hidePasswords=True, prettyPrint=True):
         """
@@ -167,6 +167,9 @@ class rMakeHelper(object):
             @raise: rMakeError: If job is already stopped.
         """
         stopped = self.client.stopJob(jobId)
+
+    def getJob(self, jobId, withTroves=True):
+        return self.client.getJob(jobId, withTroves=withTroves)
 
     def createChangeSet(self, jobId):
         """
@@ -275,10 +278,13 @@ class rMakeHelper(object):
                 self.client.commitFailed(jobId, data)
                 log.error(data)
                 return False
+        except errors.uncatchableExceptions, err:
+            self.client.commitFailed(jobId, str(err))
+            raise
         except Exception, err:
             self.client.commitFailed(jobId, str(err))
             log.error(err)
-            return False
+            raise
 
     def deleteJobs(self, jobIdList):
         """

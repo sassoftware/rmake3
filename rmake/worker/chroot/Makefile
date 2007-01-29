@@ -22,4 +22,4 @@ install: all pyfiles-install install-subdirs default-install
 
 dist: default-dist
 
-include ../../Make.rules
+include ../../../Make.rules

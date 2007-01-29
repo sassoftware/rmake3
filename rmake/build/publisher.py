@@ -31,6 +31,7 @@ from rmake.lib.apiutils import thaw, freeze
 class JobStatusPublisher(publisher.Publisher):
     states = set(['TROVE_LOG_UPDATED',
                   'TROVE_STATE_UPDATED',
+                  'TROVE_PREPARING_CHROOT',
                   'TROVE_BUILDING',
                   'TROVE_BUILT',
                   'TROVE_FAILED',
@@ -57,6 +58,8 @@ class JobStatusPublisher(publisher.Publisher):
     def troveStateUpdated(self, buildTrove, state, oldState, *args):
         self._emit(self.TROVE_STATE_UPDATED, state, buildTrove, 
                    state, buildTrove.status)
+        if buildTrove.isPreparing():
+            self._emit(self.TROVE_PREPARING_CHROOT, '', buildTrove, *args)
         if buildTrove.isBuilt():
             self._emit(self.TROVE_BUILT, '', buildTrove, *args)
         elif buildTrove.isBuilding():

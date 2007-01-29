@@ -47,9 +47,11 @@ from rmake.server import servercfg
 
 conaryDir = sys.modules['conary'].__path__[0]
 
-def startRepository(cfg = None, fork = True):
+def startRepository(cfg = None, fork = True, logger=None):
     global conaryDir
     baseDir = cfg.serverDir
+    if logger is None:
+        logger = log
 
     util.mkdirChain('%s/repos' % baseDir)
     util.mkdirChain('%s/contents' % baseDir)
@@ -82,18 +84,20 @@ def startRepository(cfg = None, fork = True):
         pid = os.fork()
         if pid:
             pingServer(cfg)
-            log.info('Started repository "%s" on port %s (pid %s)' % (
+            logger.info('Started repository "%s" on port %s (pid %s)' % (
                                                             cfg.serverName,
                                                             cfg.serverPort,
                                                             pid))
             return pid
+        elif hasattr(logger, 'close'):
+            logger.close()
     try:
         os.chdir(cfg.getReposDir())
         serverrc = open(cfg.getReposConfigPath(), 'w')
         serverCfg.store(serverrc, includeDocs=False)
         util.mkdirChain(os.path.dirname(cfg.getReposLogPath()))
         logFile = logfile.LogFile(cfg.getReposLogPath())
-        logFile.redirectOutput()
+        logFile.redirectOutput(close=True)
         serverrc.close()
         os.execv('%s/server/server.py' % conaryDir,
                  ['%s/server/server.py' % conaryDir,
@@ -107,7 +111,7 @@ def pingServer(cfg):
     userList = conarycfg.UserInformation()
 
     repos = netclient.NetworkRepositoryClient(repositoryMap, userList)
-    for i in range(0,100):
+    for i in range(0,200):
         try:
             checked = repos.c[cfg.serverName].checkVersion()
         except Exception, err:

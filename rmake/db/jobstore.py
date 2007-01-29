@@ -99,7 +99,7 @@ class JobStore(object):
                 failureReason = thaw('FailureReason', 
                                      (failureReason, failureData))
                 job = buildjob.BuildJob(jobId, status=status, state=state,
-                                        start=float(start), 
+                                        start=float(start),
                                         finish=float(finish),
                                         failureReason=failureReason,
                                         uuid=uuid, pid=pid)
@@ -108,19 +108,24 @@ class JobStore(object):
             if withTroves:
                 results = cu.execute(
                 """
-                    SELECT jobId, troveId, troveName, version ,flavor, state, 
-                        status, failureReason, failureData, start, finish, 
-                        logPath, pid, recipeType
+                    SELECT jobId, BuildTroves.troveId, troveName, version,
+                        flavor, state, status, failureReason, failureData,
+                        start, finish, logPath, pid, recipeType, Chroots.path,
+                        Chroots.nodeName
                         FROM tJobIdList
                         JOIN BuildTroves USING(jobId)
+                        LEFT JOIN Chroots USING(chrootId)
                 """)
 
                 trovesById = {}
 
-                for (jobId, troveId, name, version, flavor, state, status, 
-                     failureReason, failureData, start, finish, 
-                     logPath, pid, recipeType) in results:
+                for (jobId, troveId, name, version, flavor, state, status,
+                     failureReason, failureData, start, finish,
+                     logPath, pid, recipeType, chrootPath, chrootHost) in results:
 
+                    if chrootPath is None:
+                        chrootPath = ''
+                        chrootHost = ''
                     version = versions.ThawVersion(version)
                     flavor = ThawFlavor(flavor)
                     failureReason = thaw('FailureReason',
@@ -131,7 +136,9 @@ class JobStore(object):
                                                finish=float(finish),
                                                logPath=logPath, status=status,
                                                failureReason=failureReason,
-                                               pid=pid, recipeType=recipeType)
+                                               pid=pid, recipeType=recipeType,
+                                               chrootPath=chrootPath,
+                                               chrootHost=chrootHost)
                     trovesById[troveId] = buildTrove
                     jobsById[jobId].addTrove(name, version, flavor, buildTrove)
 
@@ -205,19 +212,23 @@ class JobStore(object):
 
         results = cu.execute(
         """
-            SELECT troveId, jobId, pid, troveName, version, flavor, state, 
-                status, failureReason, failureData, start, finish, logPath,
-                recipeType
+            SELECT BuildTroves.troveId, jobId, pid, troveName, version, 
+                flavor, state, status, failureReason, failureData, start, 
+                finish, logPath, recipeType, Chroots.nodeName, Chroots.path
                 FROM tTroveInfo
                 JOIN BuildTroves USING(jobId, troveName, version, flavor)
+                LEFT JOIN Chroots USING(chrootId)
         """)
 
         trovesById = {}
         trovesByNVF = {}
         # FIXME From here on out it's mostly duplication from getJobs code
         for (troveId, jobId, pid, troveName, version, flavor, state, status,
-             failureReason, failureData, start, finish, logPath, recipeType) \
+             failureReason, failureData, start, finish, logPath, recipeType,
+             chrootHost, chrootPath) \
              in results:
+            if chrootPath is None:
+                chrootPath = chrootHost = ''
             version = versions.ThawVersion(version)
             flavor = ThawFlavor(flavor)
             failureReason = thaw('FailureReason',
@@ -228,7 +239,9 @@ class JobStore(object):
                                            finish=float(finish),
                                            logPath=logPath, status=status,
                                            failureReason=failureReason,
-                                           recipeType=recipeType)
+                                           recipeType=recipeType,
+                                           chrootPath=chrootPath,
+                                           chrootHost=chrootHost)
             trovesById[troveId] = buildTrove
             trovesByNVF[(jobId, troveName, version, flavor)] = buildTrove
 
@@ -356,6 +369,11 @@ class JobStore(object):
     def updateTrove(self, trove):
         cu = self.db.cursor()
 
+        if trove.getChrootHost():
+            chrootId = self.db._getChrootIdForTrove(trove)
+        else:
+            chrootId = 0
+
         failureTup = freeze('FailureReason', trove.getFailureReason())
         kw = dict(pid=trove.pid, 
                   start=trove.start,
@@ -365,7 +383,8 @@ class JobStore(object):
                   state=trove.state,
                   failureReason=failureTup[0],
                   failureData=failureTup[1],
-                  recipeType=trove.recipeType)
+                  recipeType=trove.recipeType,
+                  chrootId=chrootId)
         fieldList = '=?, '.join(kw) + '=?'
         valueList = kw.values()
         valueList += (trove.jobId, trove.getName(),

@@ -195,9 +195,44 @@ assumed with many other options.
 .B stop \fI<jobId>\fP
 Stops the given job, failing any current builds.
 .RE
+.SS "Chroot Management"
+The following \fBcommands\fP are used to debug, archive, and remove chroots
+that were made as a part of building packages in rMake.
+.TP 4
+.B archive \fI<chrootName>\fP [\fI<newName>\fP]
+Archives the given chroot so that it will not be overwritten by a future build.
+The chroot is moved to a separate directory.  After archiving, the chroot can be accessed by "rmake chroot archive/<newName>"
+.RE
+.TP 4
+.B chroot \fI<chrootName>\fP
+Enters the given chroot as the rmake-chroot user and runs "sh", allowing you 
+to execute commands in the chroot as the build process did.
+.RS 4
+.TP 4
+.B \-\-super
+Enters the rmake chroot as the rmake version of the "super" user, which is the 
+rmake daemon user itself.  With this user you can install packages into the 
+chroot by running commands such as "conary update strace".
+.RE
+.TP 4
+.B clean \fI<chrootName>\fP
+Removes the given chroot, freeing the disk space it used.
+.RE
 .\"
 .\"
 .\"
+.TP 4
+.B list chroots
+Lists the chroots that rMake knows about.  The names listed here can be used
+by the other rmake chroot commands.  If the trove that was built in that chroot is known, rMake will list that information.
+
+The output of the command is likely to change.
+.RE
+.RE
+.\"
+.\"
+.\"
+
 .SH FILES
 .\" do not put excess space in the file list
 .PD 0
@@ -249,6 +284,22 @@ The default value is bash:runtime, coreutils:runtime conary:runtime,
 conary-build:runtime, epdb (a debugging utility), dev:runtime, grep:runtime,
 procps:runtime, sed:runtime, findutils:runtime, and gawk:runtime.
 .TP
+.B pluginDirs
+Directories in which rMake plugins can be found.  Defaults to /etc/rmake/plugins.d, ~/.rmake/plugins.d.  See PLUGINS section for more information.
+NOTE: All plugin loading related options, such as this one, cannot be included in contexts, and cannot be overridden with --config command line options, because plugins can affect the behavior of the command line and must be read in before command line processing is done.
+
+Plugin directories can be specified by the plugin-dirs command line option, in this format: --plugin-dirs=<dir>,<dir>.  Note that the = is not optional.
+.TP
+.B enablePlugins
+Whether or not to enable plugins.  Defaults to True.  Can also be specified by 
+the --disable-plugins command line option.
+
+NOTE: All plugin loading related options, such as this one, cannot be included in contexts, and cannot be overridden with --config command line options, because plugins can affect the behavior of the command line and must be read in before command line processing is done.
+.B enablePlugin <name> <bool>
+Enables or disables a particular plugin.  By default all plugins are enabled.
+
+NOTE: All plugin loading related options, such as this one, cannot be included in contexts, and cannot be overridden with --config command line options, because plugins can affect the behavior of the command line and must be read in before command line processing is done.
+.TP
 .B subscribe
 Subscribe is an experimental option, and should not be used except by
 developers. Documentation is forthcoming for this option.
@@ -295,8 +346,10 @@ root if strict mode is used; the conary instance installed in that root will
 be used instead. If enforceManagedPolicy is off, strict mode will also turn it
 on.
 
-The following values are still copied into the chroot: repositoryMap and
-entitlement info, user info, buildFlavor, flavor and installLabelPath.
+The following values are still copied into the chroot: repositoryMap entries,
+user info, buildFlavor, flavor and installLabelPath.
+
+StrictMode defaults to True
 .TP
 .B targetLabel
 Specifies the label to build troves against.  Modification of this value is
@@ -343,6 +396,12 @@ conary(1) for more information.
 .B includeConfigFile
 Immediately reads the listed configuration file.  The file name may include
 shell globs, in which case all files matching the glob will be read in.
+.\"
+.\"
+.\"
+.SH PLUGINS
+Plugin support is still under development.   More documentation will come as 
+the plugin API stabilizes and plugins are written.
 .\"
 .\"
 .\"

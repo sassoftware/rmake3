@@ -17,6 +17,7 @@ rMake Backend server
 """
 import errno
 import itertools
+import logging
 import pwd
 import os
 import shutil
@@ -27,9 +28,11 @@ import traceback
 import xmlrpclib
 
 from conary.deps import deps
-from conary.lib import log
+from conary.lib import util
 
 from rmake import errors
+from rmake import failure
+from rmake import plugins
 from rmake.build import builder
 from rmake.build import buildcfg
 from rmake.build import buildjob
@@ -38,6 +41,11 @@ from rmake.server import publish
 from rmake.db import database
 from rmake.lib.apiutils import api, api_parameters, api_return, freeze, thaw
 from rmake.lib import apirpc
+from rmake.lib import logger
+from rmake.worker import worker
+
+class ServerLogger(logger.ServerLogger):
+    name = 'rmake-server'
 
 class rMakeServer(apirpc.XMLApiServer):
     """
@@ -52,6 +60,8 @@ class rMakeServer(apirpc.XMLApiServer):
     @api_parameters(1, 'troveTupleList', 'BuildConfiguration')
     @api_return(1, 'int')
     def buildTroves(self, callData, sourceTroveTups, buildCfg):
+        callData.logger.logRPCDetails('buildTroves',
+                                      sourceTroveTups=sourceTroveTups)
         self.updateBuildConfig(buildCfg)
         job = self.newJob(buildCfg, sourceTroveTups)
         self._subscribeToJobInternal(job)
@@ -65,7 +75,6 @@ class rMakeServer(apirpc.XMLApiServer):
         jobId = self.db.convertToJobId(jobId)
         job = self.db.getJob(jobId, withTroves=True)
         self._stopJob(job)
-        self.db.subscribeToJob(job)
         self._subscribeToJobInternal(job)
         job.jobStopped('User requested stop')
 
@@ -89,6 +98,8 @@ class rMakeServer(apirpc.XMLApiServer):
     @api_parameters(1, None, 'bool')
     @api_return(1, None)
     def getJobs(self, callData, jobIds, withTroves=True):
+        callData.logger.logRPCDetails('getJobs', jobIds=jobIds,
+                                      withTroves=withTroves)
         jobIds = self.db.convertToJobIds(jobIds)
         return [ freeze('BuildJob', x)
                  for x in self.db.getJobs(jobIds, withTroves=withTroves) ]
@@ -99,7 +110,7 @@ class rMakeServer(apirpc.XMLApiServer):
     def getJobLogs(self, callData, jobId, mark):
         jobId = self.db.convertToJobId(jobId)
         if not self.db.jobExists(jobId):
-            log.warning("%s tried to obtain logs for invlid JobId %s" % (
+            self.warning("%s tried to obtain logs for invlid JobId %s" % (
                         str(callData.auth), jobId))
             return []
         return [ tuple(str(x) for x in data) 
@@ -119,7 +130,7 @@ class rMakeServer(apirpc.XMLApiServer):
         jobId = self.db.convertToJobId(jobId)
         trove = self.db.getTrove(jobId, *troveTuple)
         if not self.db.hasTroveBuildLog(trove):
-            return False, xmlrpclib.Binary('')
+            return True, xmlrpclib.Binary('')
         f = self.db.openTroveBuildLog(trove)
         f.seek(mark)
         return trove.isBuilding(), xmlrpclib.Binary(f.read())
@@ -158,7 +169,7 @@ class rMakeServer(apirpc.XMLApiServer):
     def listSubscribersByUri(self, callData, jobId, uri):
         jobId = self.db.convertToJobId(jobId)
         subscribers = self.db.listSubscribersByUri(jobId, uri)
-        return [ thaw('Subscriber', x) for x in subscribers ]
+        return [ freeze('Subscriber', x) for x in subscribers ]
 
     @api(version=1)
     @api_parameters(1, None)
@@ -166,20 +177,54 @@ class rMakeServer(apirpc.XMLApiServer):
     def listSubscribers(self, callData, jobId):
         jobId = self.db.convertToJobId(jobId)
         subscribers = self.db.listSubscribers(jobId)
-        return [ thaw('Subscriber', x) for x in subscribers ]
+        return [ freeze('Subscriber', x) for x in subscribers ]
+
+    @api(version=1)
+    @api_parameters(1)
+    @api_return(1, None)
+    def listChroots(self, callData):
+        chroots = self.db.listChroots()
+        return [ freeze('Chroot', x) for x in chroots ]
+
+    @api(version=1)
+    @api_parameters(1, 'str', 'str', 'str', 'bool')
+    @api_return(1, None)
+    def startChrootServer(self, callData, host, chrootPath, command, superUser):
+        success, data =  self.worker.startSession(host, chrootPath, command,
+                                                  superUser=superUser)
+        if not success:
+            raise errors.RmakeError('Chroot failed: %s' % data)
+        return data
+
+    @api(version=1)
+    @api_parameters(1, 'str', 'str', 'str')
+    @api_return(1, None)
+    def archiveChroot(self, callData, host, chrootPath, newPath):
+        if self.db.chrootIsActive(host, chrootPath):
+            raise errors.RmakeError('Chroot is in use!')
+        self.worker.archiveChroot(host, chrootPath, newPath)
+        self.db.moveChroot(host, chrootPath, newPath)
+
+    @api(version=1)
+    @api_parameters(1, 'str', 'str')
+    @api_return(1, None)
+    def deleteChroot(self, callData, host, chrootPath):
+        if self.db.chrootIsActive(host, chrootPath):
+            raise errors.RmakeError('Chroot is in use!')
+        self.worker.deleteChroot(host, chrootPath)
+        self.db.removeChroot(host, chrootPath)
 
     @api(version=1)
     @api_parameters(1, None)
     def startCommit(self, callData, jobId):
         jobId = self.db.convertToJobId(jobId)
         job = self.db.getJob(jobId)
-        pid = os.fork()
+        pid = self._fork('startCommit')
         if pid:
-            log.info('jobCommitting forked pid %d' % pid)
+            self.debug('jobCommitting forked pid %d' % pid)
             return
         else:
             try:
-                self.db.subscribeToJob(job)
                 self._subscribeToJob(job)
                 job.jobCommitting()
                 os._exit(0)
@@ -191,13 +236,12 @@ class rMakeServer(apirpc.XMLApiServer):
     def commitFailed(self, callData, jobId, message):
         jobId = self.db.convertToJobId(jobId)
         job = self.db.getJob(jobId)
-        pid = os.fork()
+        pid = self._fork('commitFailed')
         if pid:
-            log.info('commitFailed forked pid %d' % pid)
+            self.debug('commitFailed forked pid %d' % pid)
             return
         else:
             try:
-                self.db.subscribeToJob(job)
                 self._subscribeToJob(job)
                 job.jobCommitFailed(message)
                 os._exit(0)
@@ -209,21 +253,19 @@ class rMakeServer(apirpc.XMLApiServer):
     def commitSucceeded(self, callData, jobId, troveTupleList):
         jobId = self.db.convertToJobId(jobId)
         job = self.db.getJob(jobId)
-        pid = os.fork()
+        pid = self._fork('commitSucceeded for jobId %s' % jobId)
         if pid:
-            log.info('commitSucceeded forked pid %d' % pid)
+            self.debug('commitSucceeded forked pid %d' % pid)
             return
         else:
             try:
-                self.db.subscribeToJob(job)
                 self._subscribeToJob(job)
                 job.jobCommitted(troveTupleList)
                 os._exit(0)
             finally:
                 os._exit(1)
 
-
-    # --- callbacks from Builders -
+    # --- callbacks from Builders
 
     @api(version=1)
     @api_parameters(1, None, 'EventList')
@@ -241,7 +283,9 @@ class rMakeServer(apirpc.XMLApiServer):
         return job
 
     def getBuilder(self, job, buildConfig):
-        return builder.Builder(self.cfg, buildConfig, job)
+        b = builder.Builder(self.cfg, buildConfig, job)
+        self.plugins.callServerHook('server_builderInit', self, b)
+        return b
 
     def updateBuildConfig(self, buildConfig):
         buildConfig.repositoryMap.update(self.cfg.getRepositoryMap())
@@ -252,42 +296,68 @@ class rMakeServer(apirpc.XMLApiServer):
         if not self._initialized:
             jobsToFail = self.db.getJobsByState(buildjob.JOB_STATE_STARTED)
             self._failCurrentJobs(jobsToFail, 'Server was stopped')
+            self._initializeNodes()
             self._initialized = True
-        if not self.db.isJobBuilding():
-            while True:
-                job = self.db.popJobFromQueue()
-                if job is None:
-                    break
-                if job.isFailed():
-                    continue
-                buildCfg = self.db.getJobConfig(job.jobId)
-                buildCfg.setServerConfig(self.cfg)
-                self._startBuild(job, buildCfg)
+
+        while True:
+            # start one job from the cue.  This loop should be
+            # exited after one successful start.
+            job = self._getNextJob()
+            if job is None:
                 break
+            try:
+                self._startBuild(job)
+            except Exception, err:
+                self._subscribeToJob(job)
+                job.exceptionOccurred('Failed while initializing',
+                                      traceback.format_exc())
+            break
         self._emitEvents()
         self._collectChildren()
+        self.plugins.callServerHook('server_loop', self)
 
-        if self._halt:
-            log.info('Shutting down server')
-            try:
-                # we've gotten a request to halt, kill all jobs (they've run
-                # setpgrp) and then kill ourselves
-                self._stopAllJobs()
-                sys.exit(0)
-            except (SystemExit, KeyboardInterrupt), err:
-                raise
-            except Exception, err:
-                try:
-                    log.error('Halt failed: %s\n%s', err, 
-                              traceback.format_exc())
-                finally:
-                    os._exit(1)
+    def _getNextJob(self):
+        if not self._canBuild():
+            return
+        while True:
+            job = self.db.popJobFromQueue()
+            if job is None:
+                break
+            if job.isFailed():
+                continue
+            return job
+
+    def _canBuild(self):
+        # NOTE: Because there is more than one root manager for the local
+        # machine, we cannot have more than one process building at the 
+        # same time in the single-node version of rMake.  They would conflict
+        # over the use of particular chroots.
+        return not self.db.isJobBuilding()
+
+    def _shutDown(self):
+        # we've gotten a request to halt, kill all jobs (they've run
+        # setpgrp) and then kill ourselves
+        if self.db:
+            self._stopAllJobs()
+            self._killAllPids()
+        if self.plugins:
+            self.plugins.callServerHook('server_shutDown', self)
+        sys.exit(0)
 
     def _subscribeToJob(self, job):
-        subscriber._RmakeServerPublisherProxy(self.uri).attach(job)
+        for subscriber in self._subscribers:
+            subscriber.attach(job)
+
+    def _subscribeToBuild(self, build):
+        for subscriber in self._subscribers:
+            if hasattr(subscriber, 'attachToBuild'):
+                subscriber.attachToBuild(build)
+            else:
+                subscriber.attach(build.getJob())
 
     def _subscribeToJobInternal(self, job):
-        subscriber._RmakeServerPublisherProxy(self).attach(job)
+        for subscriber in self._internalSubscribers:
+            subscriber.attach(job)
 
     def _emitEvents(self):
         if not self._events or self._emitPid:
@@ -297,12 +367,12 @@ class rMakeServer(apirpc.XMLApiServer):
             return
         events = self._events
         self._events = {}
-        pid = os.fork()
+        pid = self._fork('emitEvents')
         if pid:
             self._numEvents = 0
             self._lastEmit = time.time()
             self._emitPid = pid
-            log.info('_emitEvents forked pid %d' % pid)
+            self.debug('_emitEvents forked pid %d' % pid)
             return
         try:
             try:
@@ -311,53 +381,60 @@ class rMakeServer(apirpc.XMLApiServer):
                     self._publisher.emitEvents(self.db, jobId, eventList)
                 os._exit(0)
             except Exception, err:
-                log.error('Emit Events failed: %s\n%s', err, 
-                          traceback.format_exc())
+                self.error('Emit Events failed: %s\n%s', err, 
+                           traceback.format_exc())
                 os._exit(1)
         finally:
             os._exit(1)
 
-    def _startBuild(self, job, buildCfg):
+    def _initializeNodes(self):
+        self.db.deactivateAllNodes()
+        chroots = self.worker.listChroots()
+        self.db.addNode('_local_', 'localhost.localdomain', self.cfg.slots,
+                        [], chroots)
+
+    def _startBuild(self, job):
+        buildCfg = self.db.getJobConfig(job.jobId)
+        buildCfg.setServerConfig(self.cfg)
         buildMgr = self.getBuilder(job, buildCfg)
-        pid = os.fork()
+        pid = self._fork('Job %s' % job.jobId)
         if pid:
+            buildMgr._closeLog()
             self._buildPids[pid] = job.jobId # mark this pid for potential 
                                              # killing later
             return job.jobId
         else:
-            # we want to be able to kill this build process and
-            # all its children with one swell foop.
-            os.setpgrp()
-            # restore default signal handlers, so we actually respond
-            # to these.
-            signal.signal(signal.SIGTERM, signal.SIG_DFL)
-            signal.signal(signal.SIGINT, signal.default_int_handler)
-
-
-            # need to reinitialize the database in the forked child process
-            self.db.reopen()
-
-            # note - we cannot call any callbacks before we fork 
-            # until we have a forking xmlrpc server
-            self.db.subscribeToJob(job)
-            self._subscribeToJob(job)
-
-            job.jobStarted("spawning process %s for build %s..." % (
-                                                    os.getpid(), job.jobId,),
-                                                    pid=os.getpid())
-            job.log("Starting Build")
-            # don't do anything else in here, buildAndExit has handling for
-            # ensuring that exceptions are handled correctly.
             try:
-                buildMgr.buildAndExit()
+                try:
+                    # we want to be able to kill this build process and
+                    # all its children with one swell foop.
+                    os.setpgrp()
+                    # restore default signal handlers, so we actually respond
+                    # to these.
+                    signal.signal(signal.SIGTERM, signal.SIG_DFL)
+                    signal.signal(signal.SIGINT, signal.default_int_handler)
+                    # need to reinitialize the database in the forked child 
+                    # process
+                    self._close()
+                    self.db.reopen()
+                    self._subscribeToBuild(buildMgr)
+                    # don't do anything else in here, buildAndExit has 
+                    # handling for ensuring that exceptions are handled 
+                    # correctly.
+                    buildMgr.buildAndExit()
+                except Exception, err:
+                    tb = traceback.format_exc()
+                    buildMgr.logger.error('Build initialization failed: %s' %
+                                          err, tb)
+                    job.exceptionOccurred(err, tb)
             finally:
                 os._exit(2)
 
     def _failCurrentJobs(self, jobs, reason):
         from rmake.server.client import rMakeClient
-        pid = os.fork()
+        pid = self._fork('Fail current jobs')
         if pid:
-            log.info('Fail current jobs forked pid %d' % pid)
+            self.debug('Fail current jobs forked pid %d' % pid)
             return
         try:
             client = rMakeClient(self.uri)
@@ -367,58 +444,50 @@ class rMakeServer(apirpc.XMLApiServer):
             self.db.reopen()
             for job in jobs:
                 self._subscribeToJob(job)
-                self.db.subscribeToJob(job)
                 publisher = job.getPublisher()
-                publisher.cork()
-
-                for trove in job.iterTroves():
-                    if not (trove.isFailed() or trove.isBuilt()):
-                        trove.troveFailed(reason)
                 job.jobFailed(reason)
-
-                publisher.uncork()
             os._exit(0)
         finally:
             os._exit(1)
 
-    def _signalHandler(self, sigNum, frame):
-        # if they rekill, we just exit
-        if sigNum == signal.SIGINT:
-            signal.signal(sigNum, signal.default_int_handler)
-        else:
-            signal.signal(sigNum, signal.SIG_DFL)
-        self._halt = True
-        self._haltSignal = sigNum
-        return
-
-    def _collectChildren(self):
-        try:
-            pid, status = os.waitpid(-1, os.WNOHANG)
-        except OSError, err:
-            if err.errno != errno.ECHILD:
-                raise
-            else:
-                pid = None
+    def _failJob(self, jobId, reason):
+        pid = self._fork('Fail job %s' % jobId)
         if pid:
-            self._buildPids.pop(pid, None)
+            self.debug('Fail job %s forked pid %d' % (jobId, pid))
+            return
+        try:
+            from rmake.server.client import rMakeClient
+            client = rMakeClient(self.uri)
+            # make sure the main process is up and running before we 
+            # try to communicate w/ it
+            client.ping()
+            self.db.reopen()
+            job = self.db.getJob(jobId)
+            self._subscribeToJob(job)
+            publisher = job.getPublisher()
+            job.jobFailed(reason)
+            os._exit(0)
+        finally:
+            os._exit(1)
 
-            if pid == self._emitPid: # rudimentary locking for emits
-                self._emitPid = 0    # only allow one emitEvent process 
-                                     # at a time.
-            # We may want to check for failure here, but that is really
-            # an odd case, the child process should have handled its own
-            # logging.
-            exitRc = os.WEXITSTATUS(status)
-            signalRc = os.WTERMSIG(status)
-            if exitRc or signalRc:
-                if exitRc:
-                    log.warning('pid %s exited with exit status %s' % (pid, exitRc))
-                else:
-                    log.warning('pid %s killed with signal %s' % (pid, signalRc))
-                if pid == self.repositoryPid:
-                    log.error('Internal Repository died - shutting down rMake')
-                    self._halt = 1
-                    self.repositoryPid = None
+
+    def _pidDied(self, pid, status, name=None):
+        jobId = self._buildPids.pop(pid, None)
+        if jobId and status:
+            job = self.db.getJob(jobId)
+            if job.isBuilding() or job.isQueued():
+                self._failJob(jobId, self._getExitMessage(pid, status, name))
+        apirpc.XMLApiServer._pidDied(self, pid, status, name)
+
+        if pid == self._emitPid: # rudimentary locking for emits
+            self._emitPid = 0    # only allow one emitEvent process 
+                                 # at a time.
+
+        if pid == self.repositoryPid:
+            self.error('Internal Repository died - shutting down rMake')
+            self._halt = 1
+            self.repositoryPid = None
+        self.plugins.callServerHook('server_pidDied', self, pid, status)
 
     def _stopJob(self, job):
         if job.isQueued(): # job isn't started yet, just stop it.
@@ -432,12 +501,12 @@ class rMakeServer(apirpc.XMLApiServer):
                                     ' already stopped' % job.jobId)
 
         if job.pid not in self._buildPids:
-            log.warning('job %s is not in active job list')
+            self.warning('job %s is not in active job list')
             return
         else:
             try:
                 os.kill(-job.pid, signal.SIGTERM)
-            except OSError, err:
+            except jSError, err:
                 if err.errno == errno.ESRCH:
                     # the process is already dead!
                     return
@@ -455,18 +524,18 @@ class rMakeServer(apirpc.XMLApiServer):
                 if os.WIFEXITED(status):
                     exitRc = os.WEXITSTATUS(status)
                     if exitRc:
-                        log.warning('job %s (pid %s) exited with'
+                        self.warning('job %s (pid %s) exited with'
                                     ' exit status %s' % (job.jobId, pid, exitRc))
                 else:
                     sigNum = os.WTERMSIG(status)
-                    log.warning('job %s (pid %s) exited with'
+                    self.warning('job %s (pid %s) exited with'
                                 ' signal %s' % (job.jobId, pid, sigNum))
                 return
 
             if timeSlept >= 20:
                 # we need to SIGKILL this guy, he did not respond to our
                 # request.
-                log.warning('job %s (pid %s) did not exit, trying harder') 
+                self.warning('job %s (pid %s) did not exit, trying harder') 
                 try:
                     os.kill(-job.pid, signal.SIGTERM)
                 except OSError, err:
@@ -483,7 +552,7 @@ class rMakeServer(apirpc.XMLApiServer):
 
         killed = []
         timeSlept = 0
-        while timeSlept < 15 and self._buildPids:
+        while timeSlept < 90 and self._buildPids:
             for pid in list(self._buildPids):
                 try:
                     pid, status = os.waitpid(pid, os.WNOHANG)
@@ -506,7 +575,6 @@ class rMakeServer(apirpc.XMLApiServer):
         jobs = self.db.getJobs(killed)
         for job in jobs:
             self._subscribeToJobInternal(job)
-            self.db.subscribeToJob(job)
             publisher = job.getPublisher()
             publisher.cork()
             publishers.append(publisher)
@@ -516,30 +584,82 @@ class rMakeServer(apirpc.XMLApiServer):
         for publisher in publishers:
             publisher.uncork()
 
-    def __init__(self, uri, cfg, repositoryPid):
-        self.uri = uri
-        self.cfg = cfg
-        self.repositoryPid = repositoryPid
-        self.db = database.Database(cfg.getDbPath(),
-                                    cfg.getDbContentsPath())
+    def _exit(self, exitCode):
+        sys.exit(exitCode)
 
-        # any jobs that were running before are not running now
-        self._publisher = publish._RmakeServerPublisher()
-        apirpc.XMLApiServer.__init__(self, uri, logRequests=False)
-        self.queue = []
-        self._initialized = False
+    def _close(self):
+        apirpc.XMLApiServer._close(self)
+        self.db.close()
 
-        # event queuing code - to eventually be moved to a separate process
-        self._events = {}
-        self._emitEventTimeThreshold = .2  # min length of time between emits
-        self._emitEventSizeThreshold = 10  # max # of issues to queue before
-                                           # emit (overrides time threshold)
+    def __init__(self, uri, cfg, repositoryPid, pluginMgr=None, 
+                 quiet=False):
+        util.mkdirChain(cfg.logDir)
+        logPath = cfg.logDir + '/rmake.log'
+        rpcPath = cfg.logDir + '/xmlrpc.log'
+        serverLogger = ServerLogger()
+        serverLogger.disableRPCConsole()
+        serverLogger.logToFile(logPath)
+        serverLogger.logRPCToFile(rpcPath)
+        if quiet:
+            serverLogger.setQuietMode()
+        else:
+            if cfg.verbose:
+                logLevel = logging.DEBUG
+            else:
+                logLevel = logging.INFO
+            serverLogger.enableConsole(logLevel)
+        serverLogger.info('*** Started rMake Server at pid %s' % os.getpid())
+        try:
+            self._initialized = False
+            self.db = None
 
-        self._numEvents = 0                # number of queued events
-        self._lastEmit = time.time()       # time of last emit
-        self._emitPid = 0                  # pid for rudimentary locking
+            # event queuing code - to eventually be moved to a separate 
+            # process
+            self._events = {}
+            # min length of time between emits
+            self._emitEventTimeThreshold = .2
+            # max # of issues to queue before emit (overrides time threshold)
+            self._emitEventSizeThreshold = 10  
+            self._numEvents = 0                # number of queued events
+            self._lastEmit = time.time()       # time of last emit
+            self._emitPid = 0                  # pid for rudimentary locking
+
+            # forked jobs that are currently active
+            self._buildPids = {}
 
 
-        self._buildPids = {}         # forked jobs that are currently active
-        self._halt = False
-        self._haltSignal = None
+            self.uri = uri
+            self.cfg = cfg
+            self.repositoryPid = repositoryPid
+            apirpc.XMLApiServer.__init__(self, uri, logger=serverLogger)
+            self.db = database.Database(cfg.getDbPath(),
+                                        cfg.getDbContentsPath())
+            if pluginMgr is None:
+                pluginMgr = plugins.PluginManager([])
+            self.plugins = pluginMgr
+
+            # any jobs that were running before are not running now
+            self._publisher = publish._RmakeServerPublisher()
+
+            self.worker = worker.Worker(self.cfg, self._logger)
+            dbLogger = subscriber._JobDbLogger(self.db)
+            # note - it's important that the db logger
+            # comes first, before the general publisher,
+            # so that whatever published is actually 
+            # recorded in the DB.
+            self._subscribers = [dbLogger]
+            s = subscriber._RmakeServerPublisherProxy(self.uri)
+            self._subscribers.append(s)
+
+            self._internalSubscribers = [dbLogger]
+            s = subscriber._RmakeServerPublisherProxy(self)
+            self._internalSubscribers.append(s)
+            self.plugins.callServerHook('server_postInit', self)
+        except errors.uncatchableExceptions:
+            raise
+        except Exception, err:
+            self.error('Error initializing rMake Server:\n  %s\n%s', err,
+                        traceback.format_exc())
+            self._try('halt', self._shutDown)
+            raise
+

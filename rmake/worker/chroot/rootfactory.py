@@ -39,11 +39,12 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
         the necessary files for the root to be usuable, and cleaning up
         after itself as much as possible.
     """
-    def __init__(self, jobList, cfg, csCache=None):
+    def __init__(self, jobList, logger, cfg, csCache=None):
         rootfactory.BasicChroot.__init__(self)
         self.cfg = cfg
         self.jobList = jobList
         self.callback = None
+        self.logger = logger
         self.csCache = csCache
 
         self.addDir('/tmp', mode=01777)
@@ -59,25 +60,26 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
             return
         assert(self.cfg.root == self.root)
         client = conaryclient.ConaryClient(self.cfg)
+        client.setUpdateCallback(self.callback)
 
         if self.csCache:
             changeSetList = self.csCache.getChangeSets(client.getRepos(),
-                                                       self.jobList, 
-                                                       self.callback)
+                                                       self.jobList,
+                                                       callback=self.callback)
         else:
             changeSetList = []
 
-        log.info('Troves To Install:')
-        log.info('\n    '.join('%s=%s[%s]' % (x[0], x[2][0], x[2][1])
+        self.logger.info('Troves To Install:')
+        self.logger.info('\n    '.join('%s=%s[%s]' % (x[0], x[2][0], x[2][1])
                                for x in sorted(self.jobList)))
 
         updJob, suggMap = client.updateChangeSet(
             self.jobList, keepExisting=False, resolveDeps=False,
             recurse=False, checkPathConflicts=False,
-            callback = self.callback, fromChangesets=changeSetList,
+            fromChangesets=changeSetList,
             migrate=True)
         util.mkdirChain(self.cfg.root + '/root')
-        client.applyUpdate(updJob, replaceFiles=True, callback = self.callback,
+        client.applyUpdate(updJob, replaceFiles=True,
                            tagScript=self.cfg.root + '/root/tagscripts')
 
 
@@ -104,28 +106,31 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
 class rMakeChroot(ConaryBasedChroot):
 
     def __init__(self, buildTrove, chrootHelperPath, cfg, serverCfg,
-                 jobList, uid=None, gid=None, csCache=None,
+                 jobList, logger, uid=None, gid=None, csCache=None,
                  copyInConary=True):
         """ 
             uid/gid:  the uid/gid which special files in the chroot should be 
                       owned by
         """
-        ConaryBasedChroot.__init__(self, jobList, cfg, csCache)
+        ConaryBasedChroot.__init__(self, jobList, logger, cfg, csCache)
 
         self.jobId = buildTrove.jobId
         self.buildTrove = buildTrove
         self.chrootHelperPath = chrootHelperPath
         self.serverCfg = serverCfg
-        self.callback = ChrootCallback(self.buildTrove)
+        self.callback = ChrootCallback(self.buildTrove, logger)
 
         if copyInConary:
             self._copyInConary()
         self._copyInRmake()
         self._cacheBuildFiles()
 
+    def getRoot(self):
+        return self.cfg.root
 
     def install(self):
         self.buildTrove.log('Creating Chroot')
+        self.logger.info('Creating chroot')
         ConaryBasedChroot.install(self)
         # copy in the tarball files needed for building this package from
         # the cache.
@@ -159,56 +164,57 @@ class rMakeChroot(ConaryBasedChroot):
         self.createConaryRc()
 
     def createConaryRc(self):
-        conaryrc = open('%s/etc/conaryrc' % self.cfg.root, 'w')
         conaryCfg = conarycfg.ConaryConfiguration(False)
-        for key, value in self.cfg.iteritems():
-            if self.cfg.isDefault(key):
-                continue
-            if key in conaryCfg:
-                conaryCfg[key] = value
         try:
             if self.canChroot(): # then we will be chrooting into this dir
+                conaryrc = open('%s/etc/conaryrc.prechroot' % self.cfg.root, 'w')
                 oldroot = self.cfg.root
-                conaryCfg.root = '/'
-                conaryCfg.store(conaryrc, includeDocs=False)
-                conaryCfg.root = oldroot
+                self.cfg.root = '/'
+                try:
+                    self.cfg.storeConaryCfg(conaryrc)
+                finally:
+                    self.cfg.root = oldroot
             else:
-                conaryCfg.store(conaryrc, includeDocs=False)
+                conaryrc = open('%s/etc/conaryrc.rmake' % self.cfg.root, 'w')
+                self.cfg.storeConaryCfg(conaryrc)
         except Exception, msg:
-            print "Error writing conaryrc:", msg
+            self.logger.error("Error writing conaryrc: %s", msg)
         conaryrc.close()
 
     def canChroot(self):
         return (pwd.getpwnam(constants.rmakeuser).pw_uid == os.getuid())
 
     def unmount(self):
-        if not os.path.exists(self.cfg.root):
+        if not os.path.exists(self.getRoot()):
             return
         if self.canChroot():
-            log.info('Running chroot helper to unmount...')
-            util.mkdirChain(self.cfg.root + '/sbin')
-            shutil.copy('/sbin/busybox', self.cfg.root + '/sbin/busybox')
+            self.logger.info('Running chroot helper to unmount...')
+            util.mkdirChain(self.getRoot() + '/sbin')
+            shutil.copy('/sbin/busybox', self.getRoot() + '/sbin/busybox')
             rc = os.system('%s %s --clean' % (self.chrootHelperPath, 
-                            self.cfg.root))
+                            self.getRoot()))
             if rc:
                 raise errors.OpenError(
                         'Cannot create chroot - chroot helper failed'
                         ' to clean old chroot')
 
     def clean(self):
+        self._clean()
+
+    def _clean(self):
         self.unmount()
-        log.debug("removing old chroot tree: %s", self.cfg.root)
-        os.system('rm -rf %s/tmp' % self.cfg.root)
+        self.logger.debug("removing old chroot tree: %s", self.getRoot())
+        os.system('rm -rf %s/tmp' % self.getRoot())
         removeFailed = False
-        if os.path.exists(self.cfg.root + '/tmp'):
+        if os.path.exists(self.getRoot() + '/tmp'):
             # attempt to remove just the /tmp dir first.
             # that's where the chroot process should have had all
             # of its files.  Doing this makes sure we don't remove
             # /bin/rm while it might still be needed the next time around.
             removeFailed = True
         else:
-            os.system('rm -rf %s' % self.cfg.root)
-            if os.path.exists(self.cfg.root):
+            os.system('rm -rf %s' % self.getRoot())
+            if os.path.exists(self.getRoot()):
                 removeFailed = True
         if removeFailed:
             raise errors.OpenError(
@@ -217,13 +223,36 @@ class rMakeChroot(ConaryBasedChroot):
                 ' owned files, or earlier build processes that have not'
                 ' completely died.  Please shut down rmake, kill any remaining'
                 ' rmake processes, and then retry.  If that does not work,'
-                ' please remove the old root by hand.' % self.cfg.root)
+                ' please remove the old root by hand.' % self.getRoot())
 
 class FakeRmakeRoot(rMakeChroot):
     def canChroot(self):
         return False
 
     def clean(self):
+        pass
+
+class ExistingChroot(rMakeChroot):
+    def __init__(self, rootPath, logger, chrootHelperPath):
+        self.root = rootPath
+        self.logger = logger
+        self.chrootHelperPath = chrootHelperPath
+        rootfactory.BasicChroot.__init__(self)
+        self._copyInRmake()
+
+    def create(self, root):
+        rootfactory.BasicChroot.create(self, root)
+
+    def install(self):
+        pass
+
+    def getRoot(self):
+        return self.root
+
+    def clean(self):
+        pass
+
+    def _postInstall(self):
         pass
 
 class FullRmakeChroot(rMakeChroot):
@@ -276,14 +305,14 @@ class ChrootCallback(callbacks.UpdateCallback):
         @param buildTrove: trove we're creating a chroot for
         @type: build.buildtrove.BuildTrove
     """
-    def __init__(self, buildTrove):
+    def __init__(self, buildTrove, logger):
         callbacks.UpdateCallback.__init__(self)
         self.hunk = (0,0)
         self.buildTrove = buildTrove
+        self.logger = logger
 
     def _message(self, text):
         self.buildTrove.log(text)
-        log.info("chroot: %s" % text)
 
     def setChangesetHunk(self, num, total):
         self.showedHunk = False

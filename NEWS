@@ -1,3 +1,35 @@
+Changes in @NEW@:
+  o Architecture Changes:
+     * rMake now supports plugins, located in /etc/rmake/plugins.d (RMK-186).
+     * The builder has been split out into builder and dispatcher to enable
+       support for multiple build nodes.
+     * Trove builds are now wrapped in a Command object which monitors
+       the actual build.  This is a step towards pushing all build actions
+       to be done in separate processes.
+     * You can now perform multiple cook w/in a single job at the same
+       time by setting the "slots" configuration variable to > 1.
+
+  o Client changes:
+     * You can now debug failures in a chroot by running 
+       "rmake chroot <chroot name>".  You can see the existing chroots by
+       running "rmake list chroots".
+     * You can archive a chroot by running "rmake archive <chroot> [<newname>]."
+       That will ensure the chroot does not get deleted by future builds.
+       The chroot will then be available at "archive/<chroot>".
+     * You can delete a chroot by running "rmake clean <chroot>"
+     * StrictMode is now default True - to get conary to use your local
+       conary configuration files, you'll have to set it to False.
+
+  o Server Changes:
+     * Dependency resolution against a particular group is now cached.
+
+  o Bug Fixes:
+     * StrictMode now allows signatureKeys.
+     * StrictMode now reads in conary configuration files that are
+       installed in the root and uses them for buildcfg (RMK-295).
+     * Add more error handling for the case when a build fails after
+       being removed from the queue but before starting. (RMK-312)
+
 Changes in 1.0.4:
   o Bug Fixes:
      * Drop supplemental group permissions in the chroot and in the server 

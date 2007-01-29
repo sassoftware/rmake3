@@ -37,22 +37,22 @@ class BasicXMLRPCStatusSubscriber(StatusSubscriber):
         eventList = thaw('EventList', (apiVer, eventList))[1]
         return self._receiveEvents(apiVer, eventList)
 
-    def _jobTrovesSet(self, callData, jobId, troveList):
+    def _jobTrovesSet(self, jobId, troveList):
         pass
 
-    def _jobCommitted(self, callData, jobId, troveList):
+    def _jobCommitted(self, jobId, troveList):
         pass
 
-    def _jobLogUpdated(self, callData, jobId, state, status):
+    def _jobLogUpdated(self, jobId, state, status):
         pass
 
-    def _jobStateUpdated(self, callData, jobId, state, status):
+    def _jobStateUpdated(self, jobId, state, status):
         pass
 
-    def _troveStateUpdated(self, callData, (jobId, troveTuple), state, status):
+    def _troveStateUpdated(self, (jobId, troveTuple), state, status):
         pass
 
-    def _troveLogUpdated(self, callData, (jobId, troveTuple), state, status):
+    def _troveLogUpdated(self, (jobId, troveTuple), state, status):
         pass
 
 class _XMLRPCSubscriberProxy(StatusSubscriber):

@@ -23,6 +23,8 @@ from conary import versions
 from conary.deps import deps
 from conary.deps.deps import ThawFlavor
 
+from rmake.lib import procutil
+
 # ------------------ registry for api param types ------------
 apitypes = { None : None }
 
@@ -246,6 +248,19 @@ class api_flavor:
         return ThawFlavor(flavorStr)
 register(api_flavor)
 
+class api_set:
+    name = 'set'
+
+    @staticmethod
+    def __freeze__(item):
+        return [ x for x in item ]
+
+    @staticmethod
+    def __thaw__(item):
+        return set(item)
+register(api_set)
+
+
 class api_manual:
     name = 'manual'
 
@@ -287,5 +302,6 @@ register(None, 'bool')
 register(None, 'int')
 register(None, 'str')
 register(None, 'float')
+register(procutil.MachineInformation)
 
 

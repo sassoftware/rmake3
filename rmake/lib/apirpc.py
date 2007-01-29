@@ -13,7 +13,7 @@
 #
 """
 Along with apiutils, implements an API-validating and versioning scheme for 
-xmlrpc calls.
+rpc calls.
 
 The ApiProxy is instantiated with a reference to the class of the server it is 
 communicating with, and uses that information to determine the expected format 
@@ -42,26 +42,28 @@ import time
 import traceback
 import xmlrpclib
 
-from conary.lib import log
 from conary.lib import coveragehook
 
 from rmake import errors
+
 from rmake.lib import apiutils
 from rmake.lib import localrpc
+from rmake.lib import server
 from rmake.lib import auth
 from rmake.lib.apiutils import api, api_parameters, api_return
+from rmake.lib import logger
 
 # This version describes the current iteration of the API protocol.
 _API_VERSION = 1
 
+class ApiProxy(object):
 
-class ApiProxy(localrpc.ServerProxy):
-
-    def __init__(self, apiClass, uri):
+    def __init__(self, apiClass, requestFn, uri):
         self.apiClass = apiClass
-        self.clientVersion = self.apiClass._CLASS_API_VERSION
         self.uri = uri
-        localrpc.ServerProxy.__init__(self, uri)
+        self._requestFn = requestFn
+        self._methods = {}
+        self._addMethods(apiClass)
 
     def __repr__(self):
         return "<ApiProxy>"
@@ -69,21 +71,32 @@ class ApiProxy(localrpc.ServerProxy):
     def __str__(self):
         return "<ApiProxy>"
 
+    def _addMethods(self, apiClass):
+        clientVersion = getattr(apiClass, '_CLASS_API_VERSION', 1)
+        for name, methodApi in apiClass._listClassMethods():
+            self._methods[name] = methodApi, clientVersion
+
     def __getattr__(self, name):
         """ Get a proxy for an individual method.  """
-        try:
-            methodApi = getattr(self.apiClass, name)
-        except AttributeError:
+        if name not in self._methods:
             raise ApiError, 'cannot find method %s in api' % name
+        methodApi, clientVersion = self._methods[name]
 
-        return _ApiMethod(self._ServerProxy__request, name, self.uri,
-                          _API_VERSION, self.clientVersion, methodApi)
+        return _ApiMethod(self._requestFn, name, self.uri,
+                          _API_VERSION, clientVersion, methodApi)
+
+class XMLApiProxy(ApiProxy, localrpc.ServerProxy):
+
+    def __init__(self, apiClass, uri):
+        localrpc.ServerProxy.__init__(self, uri)
+        ApiProxy.__init__(self, apiClass, self._ServerProxy__request, uri)
+
 
 class _ApiMethod(xmlrpclib._Method):
     """ Api-aware method proxy for xmlrpc.  """
 
-    def __init__(self, request, name, uri, metaApiVersion, clientVersion, 
-                 methodApi): 
+    def __init__(self, request, name, loc, metaApiVersion, clientVersion, 
+                 methodApi):
         """
             @param metaApiVersion: version of apirpc data.
             @param clientVersion: client's version the whole server API
@@ -93,7 +106,7 @@ class _ApiMethod(xmlrpclib._Method):
         self.__metaApiVersion = metaApiVersion
         self.__clientVersion = clientVersion
         self.__methodApi = methodApi
-        self.__uri = uri
+        self.__loc = loc
 
     def __call__(self, *args):
         """ 
@@ -109,32 +122,141 @@ class _ApiMethod(xmlrpclib._Method):
             passed, rv = xmlrpclib._Method.__call__(self, callData, *args)
         except socket.error, err:
             raise errors.OpenError(
-                'Error communicating to server at %s: %s' % (self.__uri,
+                'Error communicating to server at %s: %s' % (self.__loc,
                                                              err.args[1]))
         if passed:
             return _thawReturn(self.__methodApi, rv, methodVersion)
         else:
             raise apiutils.thaw(rv[0], rv[1])
 
-class XMLApiServer:
+class BaseRPCLogger(logger.Logger):
+    def logRPCCall(self, callData, methodName, args):
+        pass
+
+class ApiServer(server.Server):
+
+    _debug = False
+    def __init__(self, logger=None):
+        if logger is None:
+            logger = BaseRPCLogger('server')
+        server.Server.__init__(self, logger)
+        self._methods = {}
+        self._addMethods(self)
+
+    def _serveLoopHook(self):
+        pass
+
+    def _dispatch(self, methodName, (auth, args)):
+        try:
+            rv = self._dispatch2(methodName, (auth, args))
+        except Exception, err:
+            if self._debug:
+                if sys.stdin.isatty() and sys.stdout.isatty():
+                    import epdb
+                    epdb.post_mortem(sys.exc_info()[2])
+            return False, self._freezeException(err)
+        else:
+            return True, rv
+
+
+    def _freezeException(self, err):
+        errorClass = err.__class__
+        if apiutils.isRegistered(str(errorClass)):
+            frzMethod = str(errorClass)
+        elif apiutils.isRegistered(errorClass.__name__):
+            frzMethod = errorClass.__name__
+        else:
+            frzMethod = 'Exception'
+        return frzMethod, apiutils.freeze(frzMethod, err)
+
+    def _getMethod(self, methodName):
+        if methodName.startswith('_'):
+            raise NoSuchMethodError(methodName)
+        if methodName not in self._methods:
+            raise NoSuchMethodError(methodName)
+        return self._methods[methodName]
+
+    @classmethod
+    def _listClassMethods(class_):
+        for name in dir(class_):
+            attr = getattr(class_, name)
+            if hasattr(attr, 'allowed_versions') and hasattr(attr, '__call__'):
+                yield name, attr
+
+    def _listMethods(self):
+        for name in dir(self):
+            attr = getattr(self, name)
+            if hasattr(attr, 'allowed_versions') and hasattr(attr, '__call__'):
+                yield name, attr
+
+    def _addMethods(self, apiServer):
+        for name, attr in apiServer._listMethods():
+            self._methods[name] = attr
+
+    def _dispatch2(self, methodName, (auth, args)):
+        """Dispatches call to methodName, unfreezing data in args, checking
+           method version as well.
+        """
+ 
+        method = self._getMethod(methodName)
+        callData = CallData(auth, args[0], self._logger)
+        args = args[1:]
+        apiVersion    = callData.getApiVersion()
+        clientVersion = callData.getClientVersion()
+        methodVersion = callData.getMethodVersion()
+
+        if apiVersion != _API_VERSION:
+            raise ApiError('Incompatible server API')
+
+
+        if clientVersion != getattr(self, '_CLASS_API_VERSION', 1):
+            raise RuntimeError(
+                    '%s: unsupported client version %s' % (methodName, version))
+
+        if methodVersion not in method.allowed_versions:
+            raise RuntimeError(
+                    '%s: unsupported method version %s' % (methodName, version))
+
+        args = list(_thawParams(method, args, methodVersion))
+
+        timestr = time.strftime('%x %X')
+        self._logger.logRPCCall(callData, methodName, args)
+        rv = method(callData, *args)
+        return self.getReturnValue(rv, method, methodVersion)
+
+    def getReturnValue(self, rv, method, methodVersion):
+        if rv != None:
+            return _freezeReturn(method, rv, methodVersion)
+        # By default, we return empty string since None is not allowed
+        return ''
+
+    @api(version=1)
+    @api_parameters(1)
+    @api_return(1, 'bool')
+    def ping(self, callData):
+        return True
+
+
+class XMLApiServer(ApiServer):
     """ API-aware server wrapper for XMLRPC. """
 
     # if set to True, will try to send exceptions to a debug prompt on 
     # the console before returning them across the wire
-    debug = False
 
-    def __init__(self, uri=None, logRequests=True):
+    def __init__(self, uri=None, logger=None):
         """ @param serverObj: The XMLRPCServer that will serve data to 
             the _dispatch method.  If None, caller is responsible for 
             giving information to be dispatched.
         """
+        ApiServer.__init__(self, logger)
         self.uri = uri
         if uri:
             if isinstance(uri, str):
                 import urllib
                 type, url = urllib.splittype(uri)
                 if type == 'unix':
-                    serverObj = auth.AuthAwareUnixDomainXMLRPCServer(url, logRequests=logRequests)
+                    serverObj = auth.AuthAwareUnixDomainXMLRPCServer(url,
+                                                        logRequests=False)
                 elif type == 'http':
                     # path is ignored with simple server.
                     host, path = urllib.splithost(url)
@@ -144,7 +266,8 @@ class XMLApiServer:
                     else:
                         port = 80
 
-                    serverObj = auth.AuthAwareXMLRPCServer((host, port), logRequests=logRequests)
+                    serverObj = auth.AuthAwareXMLRPCServer((host, port),
+                                                           logRequests=False)
                 elif type == 'https':
                     raise NotImplementedError
             else:
@@ -157,23 +280,9 @@ class XMLApiServer:
         if serverObj:
             serverObj.register_instance(self)
 
-
-    def serve_forever(self):
-        try:
-            while True:
-                try:
-                    self._serveLoopHook()
-                except (SystemExit, KeyboardInterrupt):
-                    raise
-                except Exception, err:
-                    if isinstance(err, SystemExit):
-                        raise
-                    log.error('Error in loop hook: %s' % err)
-                    traceback.print_exc()
-                self.handleRequestIfReady(.1)
-        finally:
-            coveragehook.save()
-
+    def _close(self):
+        ApiServer._close(self)
+        self.server.server_close()
 
     def handleRequestIfReady(self, sleepTime):
         try:
@@ -182,77 +291,6 @@ class XMLApiServer:
             ready = None
         if ready:
             self.server.handle_request()
-
-    def _serveLoopHook(self):
-        pass
-
-    def _dispatch(self, methodname, (auth, args)):
-        try:
-            rv = self._dispatch2(methodname, (auth, args))
-        except Exception, err:
-            if self.debug:
-                if sys.stdin.isatty() and sys.stdout.isatty():
-                    import epdb
-                    epdb.post_mortem(sys.exc_info()[2])
-            return False, self._freezeException(err)
-        else:
-            return True, rv
-
-    def _freezeException(self, err):
-        errorClass = err.__class__
-        if apiutils.isRegistered(str(errorClass)):
-            frzMethod = str(errorClass)
-        elif apiutils.isRegistered(errorClass.__name__):
-            frzMethod = errorClass.__name__
-        else:
-            frzMethod = 'Exception'
-        return frzMethod, apiutils.freeze(frzMethod, err)
-
-    def _dispatch2(self, methodname, (auth, args)):
-        """Dispatches call to methodname, unfreezing data in args, checking
-           method version as well.
-        """
-        method = getattr(self, methodname, None)
-        if not method:
-            raise NoSuchMethodError(methodname)
-
-        callData = CallData(auth, args[0])
-        args = args[1:]
-        apiVersion    = callData.getApiVersion()
-        clientVersion = callData.getClientVersion()
-        methodVersion = callData.getMethodVersion()
-
-        if apiVersion != _API_VERSION:
-            raise ApiError('Incompatible server API')
-
-
-        if clientVersion != self._CLASS_API_VERSION:
-            raise RuntimeError(
-                    '%s: unsupported client version %s' % (methodname, version))
-
-        if methodVersion not in method.allowed_versions:
-            raise RuntimeError(
-                    '%s: unsupported method version %s' % (methodname, version))
-
-        args = list(_thawParams(method, args, methodVersion))
-
-        timestr = time.strftime('%x %X')
-        log.info('[%s] method: %s\n    credentials: %s' % (timestr, methodname,
-                                                           auth))
-        rv = method(callData, *args)
-
-        if rv != None:
-            rv = _freezeReturn(method, rv, methodVersion)
-            return rv
-
-        # By default, we return empty string since None is not allowed
-        return ''
-
-    @api(version=1)
-    @api_parameters(1)
-    @api_return(1, 'bool')
-    def ping(self, callData):
-        return True
 
 # ---- helper functions
 
@@ -292,11 +330,9 @@ def _thawParams(api, paramList, version):
 
 def _thawReturn(api, val, version):
     r = api.returnType[version]
-    if r is None:
-        return val
-    if isinstance(r, tuple):
-        return paramType[1](param)
-    return r.__thaw__(val)
+    if r is not None:
+        val = r.__thaw__(val)
+    return val
 
 class ApiError(Exception):
     pass
@@ -307,13 +343,15 @@ class NoSuchMethodError(ApiError):
         ApiError.__init__(self, 'No such method: %s' % method)
 
 class CallData(object):
-    __slots__ = ['auth', 'apiVersion', 'clientVersion', 'methodVersion']
-    def __init__(self, auth, callTuple):
+    __slots__ = ['auth', 'apiVersion', 'clientVersion', 'methodVersion', 
+                 'logger']
+    def __init__(self, auth, callTuple, logger):
         apiVersion, clientVersion, methodVersion = callTuple
         self.apiVersion = apiVersion
         self.clientVersion = clientVersion
         self.methodVersion = methodVersion
         self.auth = auth
+        self.logger = logger
 
     def getApiVersion(self):
         return self.apiVersion

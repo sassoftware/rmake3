@@ -18,7 +18,7 @@ from rmake import errors
 
 # NOTE: this schema is sqlite-specific
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 def createJobs(db):
     cu = db.cursor()
@@ -140,6 +140,7 @@ def createBuildTroves(db):
             finish         STRING NOT NULL DEFAULT '0',
             logPath        STRING NOT NULL DEFAULT '',
             recipeType     INTEGER NOT NULL DEFAULT 1,
+            chrootId       INTEGER NOT NULL DEFAULT 0,
             CONSTRAINT BuildTroves_jobId_fk
                 FOREIGN KEY(jobId) REFERENCES Jobs(jobId)
                 ON DELETE CASCADE ON UPDATE RESTRICT
@@ -226,29 +227,102 @@ def createJobQueue(db):
         db.commit()
         db.loadSchema()
 
-def loadSchema(db):
-    global SCHEMA_VERSION
-    version = db.getVersion()
+def createChroots(db):
+    cu = db.cursor()
+    commit = False
+    if "Chroots" not in db.tables:
+        cu.execute("""
+        CREATE TABLE Chroots (
+            chrootId      INTEGER PRIMARY KEY AUTOINCREMENT,
+            nodeName      VARCHAR,
+            path          VARCHAR,
+            troveId       INTEGER NOT NULL,
+            active        INTEGER NOT NULL
+        )""")
+        db.tables["Chroots"] = []
+        commit = True
+    if db.createIndex("Chroots", "ChrootdsIdx", "troveId"):
+        commit = True
+    if commit:
+        db.commit()
+        db.loadSchema()
 
-    if version == SCHEMA_VERSION:
-        return version
+def createNodes(db):
+    cu = db.cursor()
+    commit = False
+    if "Nodes" not in db.tables:
+        cu.execute("""
+        CREATE TABLE Nodes (
+            nodeName     VARCHAR PRIMARY KEY NOT NULL,
+            host         VARCHAR NOT NULL,
+            slots        INTEGER NOT NULL,
+            buildFlavors VARCHAR NOT NULL,
+            active       INTEGER NOT NULL DEFAULT 0
+        )""")
+        db.tables["Nodes"] = []
+        commit = True
+    if commit:
+        db.commit()
+        db.loadSchema()
 
-    db.loadSchema()
-    createJobs(db)
-    createJobConfig(db)
-    createBuildTroves(db)
-    createBinaryTroves(db)
-    createStateLogs(db)
-    createSubscriber(db)
-    createJobQueue(db)
-    db.loadSchema()
+def createPluginVersionTable(db):
+    cu = db.cursor()
+    commit = False
+    if "PluginVersion" not in db.tables:
+        cu.execute("""
+        CREATE TABLE PluginVersion (
+            plugin      VARCHAR NOT NULL UNIQUE,
+            version     INTEGER
+        )""")
+        db.tables["PluginVersion"] = []
+        commit = True
+    if commit:
+        db.commit()
+        db.loadSchema()
 
-    if version != SCHEMA_VERSION:
-        return db.setVersion(SCHEMA_VERSION)
+class AbstractSchemaManager(object):
+    def __init__(self, db):
+        self.db = db
+        self.currentVersion = self.getLatestVersion()
 
-    return SCHEMA_VERSION
 
-class Migrator(object):
+    def loadSchema(self):
+        db = self.db
+        version = self.getVersion()
+
+        if version == self.currentVersion:
+            return version
+
+        db.loadSchema()
+        self.createTables()
+        db.loadSchema()
+
+        if version != self.currentVersion:
+            return self.setVersion(self.currentVersion)
+
+        return self.currentVersion
+
+    def getVersion(self):
+        return self.db.getVersion()
+
+    def setVersion(self, version):
+        self.db.setVersion(version)
+
+    def loadAndMigrate(self):
+        schemaVersion = self.getVersion()
+        if schemaVersion > self.currentVersion:
+            raise errors.DatabaseSchemaTooNew()
+        if not schemaVersion:
+            self.loadSchema()
+            return self.currentVersion
+        else:
+            self.db.loadSchema()
+            if schemaVersion != self.currentVersion:
+                self.migrate(schemaVersion, self.currentVersion)
+                self.loadSchema()
+        return self.currentVersion
+
+class AbstractMigrator(object):
 
     # FIXME: This migration code is susceptible to a sort of upgrade race
     # condition: if a table is created and migrated during the same run,
@@ -256,6 +330,45 @@ class Migrator(object):
     # that don't get upgraded very often. there are a few ways to accomodate
     # this, just be aware that nothing is yet implemented.
 
+    def _addColumn(self, table, name, value):
+        self.cu.execute('ALTER TABLE %s ADD COLUMN %s    %s' % (table, name,
+                                                                value))
+
+    def migrate(self, currentVersion, newVersion):
+        if currentVersion < newVersion:
+            while currentVersion < newVersion:
+                # migration returns the schema that they migrated to.
+                currentVersion = getattr(self, 'migrateFrom' + str(currentVersion))()
+        self.schemaMgr.setVersion(newVersion)
+        self.db.commit()
+
+    def __init__(self, db, schemaMgr):
+        self.db = db
+        self.cu = db.cursor()
+        self.schemaMgr = schemaMgr
+
+class SchemaManager(AbstractSchemaManager):
+
+    def createTables(self):
+        db = self.db
+        createJobs(db)
+        createJobConfig(db)
+        createBuildTroves(db)
+        createBinaryTroves(db)
+        createStateLogs(db)
+        createSubscriber(db)
+        createJobQueue(db)
+        createChroots(db)
+        createNodes(db)
+        createPluginVersionTable(db)
+
+    def migrate(self, oldVersion, newVersion):
+        Migrator(self.db).migrate(oldVersion, newVersion)
+
+    def getLatestVersion(self):
+        return SCHEMA_VERSION
+
+class Migrator(AbstractMigrator):
     def migrateFrom1(self):
         self._addColumn('Jobs', "uuid", "CHAR(32) NOT NULL DEFAULT ''")
 
@@ -279,31 +392,37 @@ class Migrator(object):
                         "INTEGER NOT NULL DEFAULT 0")
         return 5
 
-    def _addColumn(self, table, name, value):
-        self.cu.execute('ALTER TABLE %s ADD COLUMN %s    %s' % (table, name, value))
+    def migrateFrom5(self):
+        self._addColumn('BuildTroves', "chrootId",
+                        "INTEGER NOT NULL DEFAULT 0")
+        return 6
 
-    def migrate(self, currentVersion, newVersion):
-        if currentVersion < newVersion:
-            while currentVersion < newVersion:
-                # migration returns the schema that they migrated to.
-                currentVersion = getattr(self, 'migrateFrom' + str(currentVersion))()
-        self.db.setVersion(newVersion)
-        self.db.commit()
 
-    def __init__(self, db):
-        self.db = db
-        self.cu = db.cursor()
+class PluginSchemaManager(AbstractSchemaManager):
+    """
+        Not used at the moment but here's a way to add plugin-specific tables
+        to rMake.
+    """
 
-def loadAndMigrate(db):
-    schemaVersion = db.getVersion()
-    if schemaVersion > SCHEMA_VERSION:
-        raise errors.DatabaseSchemaTooNew()
-    if not schemaVersion:
-        loadSchema(db)
+    def getVersion(self):
+        cu = self.db.cursor()
+        rv = cu.execute('SELECT version from PluginVersion WHERE plugin=?', 
+                        self.name).fetchall()
+        if rv:
+            return rv[0][0]
+        else:
+            return None
+
+    def getLatestVersion(self):
         return SCHEMA_VERSION
-    else:
-        db.loadSchema()
-        if schemaVersion != SCHEMA_VERSION:
-            Migrator(db).migrate(schemaVersion, SCHEMA_VERSION)
-            db.loadSchema()
-    return SCHEMA_VERSION
+
+    def setVersion(self, version):
+        if self.getVersion() is None:
+            cu = self.db.cursor()
+            rv = cu.execute('INSERT INTO PluginVersion VALUES (?, ?)', 
+                            self.name, version)
+        else:
+            cu = self.db.cursor()
+            rv = cu.execute('UPDATE PluginVersion SET version=? WHERE'
+                            'plugin=?', version, self.name)
+
