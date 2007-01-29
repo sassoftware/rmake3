@@ -293,9 +293,9 @@ class ChrootConfig(daemon.DaemonConfig):
     lockDir    = '/tmp/run'
 
     def __init__(self, readConfigFiles=False):
+        daemon.DaemonConfig.__init__(self)
         self.lockDir = self.lockDir + '.%s' % os.getpid()
         self.logDir = self.logDir + '.%s' % os.getpid()
-        daemon.DaemonConfig.__init__(self)
 
 class StartCommand(daemon.StartCommand):
 
