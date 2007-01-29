@@ -1,3 +1,8 @@
+Changes in 1.0.4:
+  o Bug Fixes:
+     * Drop supplemental group permissions in the chroot and in the server 
+       (CVE-2007-0536).
+
 Changes in 1.0.3:
   o Server Changes:
      * rMake now supports reusable chroots. Use the --reuse option or the
