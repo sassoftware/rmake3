@@ -121,6 +121,13 @@ class ChrootServer(apirpc.XMLApiServer):
         port = s.getsockname()[1]
         pid = self._fork('Telnet session')
         if pid:
+            # Note that when this session dies, the server will die.
+            # This is in recognition of the fact that this chroot server,
+            # while made to handle multiple commands, in fact only ever
+            # receives one command and then dies when it finishes.
+            # Perhaps we should get rid of this daemon and instead
+            # make it a simple program?
+            self._sessionPid = pid
             return port
         try:
             t = telnetserver.TelnetServerForCommand(('', port), command,
@@ -147,6 +154,12 @@ class ChrootServer(apirpc.XMLApiServer):
             for socket in self._subscribers.get(troveInfo, []):
                 socket.close()
             del self._buildInfo[troveInfo]
+        self._collectChildren()
+
+    def _pidDied(self, pid, status, name=None):
+        if pid == self._sessionPid:
+            self._halt = True
+        apirpc.XMLApiServer._pidDied(self, pid, status, name=name)
 
     def _signalHandler(self, sigNum, frame):
         # if they rekill, we just exit
@@ -163,6 +176,7 @@ class ChrootServer(apirpc.XMLApiServer):
         self._unconnectedSubscribers = {}
         self._subscribers = {}
         self._results = {}
+        self._sessionPid = None
         serverLogger = logger.ServerLogger('chroot')
         apirpc.XMLApiServer.__init__(self, uri, logger=serverLogger)
         if quiet:
