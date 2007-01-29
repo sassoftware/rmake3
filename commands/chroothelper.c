@@ -157,13 +157,13 @@ int do_chroot(const char * chrootDir) {
 
 /***********************************************************
  *
- * --clean command
+ * --clean/--unmount command
  *
  * enters chroot, unmounts partitions, and removes CHROOT_USER files
  * from /tmp and /var/tmp (the only place they should be able to write
  *
  *********************************************************/
-int clean(const char * chrootDir) {
+int unmountchroot(const char * chrootDir, int opt_clean) {
     char childPath[PATH_MAX];
     int i;
     int rc;
@@ -176,7 +176,7 @@ int clean(const char * chrootDir) {
 
     char * tmpDirs[] = { "/tmp", "/var/tmp" };
     if (opt_verbose)
-	printf("cleaning %s\n", chrootDir);
+	printf("unmounting/cleaning %s\n", chrootDir);
 
     /* get chroot user uid/gid from outside the chroot */
     chrootent = get_user_entry(CHROOT_USER);
@@ -209,6 +209,8 @@ int clean(const char * chrootDir) {
     rc = switch_to_uid_gid(chrootent->pw_uid, chrootent->pw_gid);
     if (rc)
 	return rc;
+    if (!opt_clean)
+        return 0;
 
     myUid = getuid();
     if (opt_verbose)
@@ -491,14 +493,15 @@ int assert_correct_perms(const char * chrootDir) {
 
 void usage(char *progname)
 {
-    fprintf(stderr, "usage: %s [--arch <arch>] [--clean] <path>\n", progname);
+    fprintf(stderr, "usage: %s [--arch <arch>] [--clean] [--unmount] <path>\n", progname);
 };
 
 int main(int argc, char **argv)
 {
     int rc;
 
-    int opt_clean = 0; /* set if we need to --clean */
+    int opt_clean = 0; /* set if we need to clean */
+    int opt_unmount = 0; /* set if we need to unmount only */
     int opt_tmpfs = 0; /* set if we are using tmpfs */
     int opt_noChrootUser = 0; /* set if we should not use the chroot user 
                                  but instead stay as the rmake user.
@@ -512,6 +515,7 @@ int main(int argc, char **argv)
 	{"tmpfs", no_argument, &opt_tmpfs, 1},
 	{"no-chroot-user", no_argument, &opt_noChrootUser, 1},
 	{"clean", no_argument, &opt_clean, 1},
+	{"unmount", no_argument, &opt_unmount, 1},
 	{"arch", required_argument, NULL, 'a'},
 	{"help", no_argument, NULL, 'h'},
 	{"verbose", no_argument, &opt_verbose, 1},
@@ -555,7 +559,7 @@ int main(int argc, char **argv)
 	return -1;
     }
     /* grab the requested socket path */
-    if (!opt_clean) {
+    if (!(opt_clean || opt_unmount)) {
         if (optind < argc) {
             if (strlen(argv[optind]) >= PATH_MAX) {
                 usage(argv[0]);
@@ -579,8 +583,8 @@ int main(int argc, char **argv)
         fprintf(stderr, "permissions check failed\n");
         return rc;
     }
-    if (opt_clean)
-	return clean(chrootDir);
+    if (opt_clean || opt_unmount)
+	return unmountchroot(chrootDir, opt_clean);
 
     /* check if we need to do a 32bit setarch */
     if (archname) {
