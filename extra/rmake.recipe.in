@@ -29,6 +29,8 @@ class RmakeRecipe(CPackageRecipe):
         r.Desktopfile('extra/rmake.desktop')
         r.Ownership('rmake', 'rmake',
                     '%(localstatedir)s/rmake',
+                    '%(localstatedir)s/rmake/chroots',
+                    '%(localstatedir)s/rmake/archive',
                     '%(localstatedir)s/(lib|log|run)/rmake',
                     '%(servicedir)s/rmake',
                     '%(libexecdir)s/rmake')
