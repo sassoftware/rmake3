@@ -75,7 +75,7 @@ sanitycheck: archive
 	@echo "=== sanity building/testing rmake ==="; \
 	cd $(DISTDIR); \
 	make > /dev/null || exit 1; \
-	./bin/rmake --version > /dev/null || echo "RMAKE DOES NOT WORK" || exit 1; \
+	./bin/rmake --version --skip-default-config > /dev/null || echo "RMAKE DOES NOT WORK" || exit 1; \
 	cd -; \
 	rm -rf $(DISTDIR)
 
