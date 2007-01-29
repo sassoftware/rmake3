@@ -36,7 +36,12 @@ class ClientPlugin(Plugin):
         """
         pass
 
-    def client_preCommand(self, main, client, command):
+    def client_preCommand(self, main, thisCommand,
+                         (buildConfig, serverConfig, conaryConfig),
+                         argSet, args):
+        pass
+
+    def client_preCommand2(self, main, client, command):
         """
             Called after the command-line client has instantiated, 
             but before the command has been executed.

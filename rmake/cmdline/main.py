@@ -91,6 +91,9 @@ class RmakeMain(options.MainHandler):
 
     def runCommand(self, thisCommand, (buildConfig, serverConfig, conaryConfig,
                                        pluginManager), argSet, args):
+        pluginManager.callClientHook('client_preCommand', self, thisCommand,
+                                     (buildConfig, serverConfig, conaryConfig),
+                                     argSet, args)
         compat.checkRequiredVersions()
         thisCommand.verbose = (log.getVerbosity() <= log.INFO)
         if args[1] != 'help':
@@ -115,7 +118,7 @@ class RmakeMain(options.MainHandler):
         client = helper.rMakeHelper(buildConfig=buildConfig,
                                     rmakeConfig=serverConfig)
 
-        pluginManager.callClientHook('client_preCommand', self, client,
+        pluginManager.callClientHook('client_preCommand2', self, client,
                                      thisCommand)
 
         try:
