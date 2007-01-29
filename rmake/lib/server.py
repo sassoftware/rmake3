@@ -52,7 +52,6 @@ class Server(object):
         self._haltSignal = None
         startedShutdown = False
         try:
-            self._try('loop hook', self._serveLoopHook)
             while True:
                 if self._halt:
                     self.info('Shutting down server')
@@ -60,8 +59,35 @@ class Server(object):
                     startedShutdown = True
                     self._try('halt', self._shutDown)
                     sys.exit(0)
-                self._try('request handling', self.handleRequestIfReady, .1)
                 self._try('loop hook', self._serveLoopHook)
+                self._try('request handling', self.handleRequestIfReady, .1)
+        except SystemExit, err:
+            try:
+                coveragehook.save()
+            except:
+                pass
+            self._exit(err.args[0])
+        except:
+            try:
+                coveragehook.save()
+            except:
+                pass
+            if not startedShutdown:
+                self._try('halt', self._shutDown)
+            raise
+
+    def serve_once(self):
+        startedShutdown = False
+        self._try('loop hook', self._serveLoopHook)
+        try:
+            self._try('request handling', self.handleRequestIfReady, .1)
+            self._try('loop hook', self._serveLoopHook)
+            if self._halt:
+                self.info('Shutting down server')
+                coveragehook.save()
+                startedShutdown = True
+                self._try('halt', self._shutDown)
+                sys.exit(0)
         except SystemExit, err:
             try:
                 coveragehook.save()

@@ -96,7 +96,7 @@ class Worker(server.Server):
         cmd = self.runCommand(self.commandClasses['session'], self.cfg,
                               commandId, chrootFactory, commandLine)
         while not cmd.getHostInfo() and not cmd.isErrored():
-            self.handleRequestIfReady(0.1)
+            self.serve_once()
 
         if cmd.isErrored():
             return False, cmd.getFailureReason()
@@ -134,9 +134,15 @@ class Worker(server.Server):
         return False
 
     def handleRequestIfReady(self, sleep=0.1):
+        ready = []
         try:
             ready = select.select(self.commands, [], [], sleep)[0]
         except select.error, err:
+            pass
+        except IOError, err:
+            # this could happen because a pipe has been closed.  In this 
+            # case, we should notice the pid dying shortly anyway and
+            # we'll get our error message there.
             pass
         for command in ready:
             command.handleRead()
