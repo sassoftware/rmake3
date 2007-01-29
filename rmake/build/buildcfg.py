@@ -264,6 +264,9 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
             if self.isDefault(key):
                 continue
             if key in conaryCfg:
+                if key == 'context':
+                    # we're not writing out contexts!
+                    continue
                 conaryCfg[key] = value
         conaryCfg.store(out, includeDocs=False)
 
@@ -307,8 +310,14 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
                     obj[name] = lines
 
                 for line in d.get(name, []):
-                    setattr(obj, name,
-                            obj._options[name].parseString(obj[name], line))
+                    value = obj._options[name].parseString(obj[name], line)
+                    if name in obj: # it could be a hidden attribute,
+                                    # in which case we can't use setitem.
+                                    # but if we can we want to trigger the 
+                                    # default handling...
+                        obj[name] = value
+                    else:
+                        setattr(obj, name, value)
         return obj
 
 
