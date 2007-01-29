@@ -346,8 +346,10 @@ root if strict mode is used; the conary instance installed in that root will
 be used instead. If enforceManagedPolicy is off, strict mode will also turn it
 on.
 
-The following values are still copied into the chroot: repositoryMap and
-entitlement info, user info, buildFlavor, flavor and installLabelPath.
+The following values are still copied into the chroot: repositoryMap entries,
+user info, buildFlavor, flavor and installLabelPath.
+
+StrictMode defaults to True
 .TP
 .B targetLabel
 Specifies the label to build troves against.  Modification of this value is

@@ -103,7 +103,7 @@ class RmakeBuildContext(cfg.ConfigSection):
                             [[('group-dist', None, None)]])
     resolveTrovesOnly    = (CfgBool, False)
     reuseRoots           = (CfgBool, False)
-    strictMode           = (CfgBool, False)
+    strictMode           = (CfgBool, True)
     subscribe            = (CfgSubscriberDict(CfgSubscriber), {})
     targetLabel          = (CfgLabel, versions.Label('NONE@local:NONE'))
     uuid                 = (CfgUUID, '')
