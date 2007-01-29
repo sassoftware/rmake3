@@ -23,6 +23,7 @@ import sys
 from conary.lib import misc, options
 from conary import command
 
+from rmake import compat
 from rmake import constants
 from rmake import plugins
 from rmake.lib import daemon
@@ -98,6 +99,7 @@ class rMakeDaemon(daemon.Daemon):
 def main(argv):
     d = rMakeDaemon()
     try:
+        compat.checkRequiredVersions()
         rc = d.main(argv)
         sys.exit(rc)
     except options.OptionError, err:

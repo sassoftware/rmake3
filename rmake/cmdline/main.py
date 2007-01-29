@@ -91,6 +91,7 @@ class RmakeMain(options.MainHandler):
 
     def runCommand(self, thisCommand, (buildConfig, serverConfig, conaryConfig,
                                        pluginManager), argSet, args):
+        compat.checkRequiredVersions()
         thisCommand.verbose = (log.getVerbosity() <= log.INFO)
         if args[1] != 'help':
             # NOTE: the help system assumes that the base level of output
@@ -139,6 +140,7 @@ def main(argv):
             debuggerException = errors.RmakeInternalError
         sys.excepthook = errors.genExcepthook(debug=debugAll,
                                               debugCtrlC=debugAll)
+        compat.ConaryVersion().checkRequiredVersion()
         return RmakeMain().main(argv, debuggerException=debuggerException)
     except debuggerException, err:
         raise

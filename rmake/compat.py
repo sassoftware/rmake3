@@ -19,8 +19,10 @@ from conary import constants
 from conary import state
 from conary.lib import log
 
+from rmake import errors
+
 class ConaryVersion(object):
-    maxKnownVersion = "1.1.7"
+    maxKnownVersion = "1.1.15"
     _warnedUser = False
 
     def __init__(self, conaryVersion=None):
@@ -40,6 +42,14 @@ class ConaryVersion(object):
         self.minorVersion = self.conaryVersion[2]
         self.isOneOne = self.majorVersion == (1,1)
 
+    def checkRequiredVersion(self):
+        oneZeroVersion = 42
+        oneOneVersion = 15
+        if not self.checkVersion(42, 15):
+            raise errors.RmakeError('rMake requires conary version 1.0.%s'
+                                    ' or 1.1.%s' % (oneZeroVersion,
+                                                    oneOneVersion))
+
     def stateFileVersion(self):
         if not hasattr(state.ConaryState, 'stateVersion'):
             return 0
@@ -51,6 +61,7 @@ class ConaryVersion(object):
         else: # support added in 1.0.31 and 1.1.4
             return state.ConaryStateFromFile(path, repos=repos,
                                              parseSource=parseSource)
+
 
     def supportsCloneCallback(self):
         # support added in 1.0.30 and 1.1.3
@@ -73,3 +84,6 @@ class ConaryVersion(object):
             if oneOneVersion is None:
                 return False
             return self.minorVersion >= oneOneVersion
+
+def checkRequiredVersions():
+    ConaryVersion('1.1.13').checkRequiredVersion()

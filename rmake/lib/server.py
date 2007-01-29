@@ -166,11 +166,15 @@ class Server(object):
             self.warning(self._getExitMessage(pid, status, name))
         self._pids.pop(pid, None)
 
+    def _getPidName(self, pid, name=None):
+        if not name:
+            name = self._pids.get(pid, 'Unknown')
+        return name
+
     def _killPid(self, pid, name=None, sig=signal.SIGTERM, timeout=20):
         if not pid:
             return
-        if not name:
-            name = self._pids.get(pid, 'Unknown')
+        name = self._getPidName(pid, name)
         try:
             os.kill(pid, sig)
         except OSError, err:
