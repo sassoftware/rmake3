@@ -195,7 +195,6 @@ class Daemon(options.MainHandler):
             #let the daemon process do it?
             self.removeLockFile()
 
-
     def getLogFile(self):
         if self._logFile is not None:
             return self._logFile
@@ -218,14 +217,14 @@ class Daemon(options.MainHandler):
         self.logger.warning(msg, *args)
 
     def start(self, fork=True):
-        logPath = os.path.join(self.cfg.logDir, "%s.log" % self.name)
-        self.logger.logToFile(logPath)
         if not os.getuid():
             if self.user:
                 pwent = pwd.getpwnam(self.user)
                 os.setgroups([])
                 os.setgid(pwent.pw_gid)
                 os.setuid(pwent.pw_uid)
+        logPath = os.path.join(self.cfg.logDir, "%s.log" % self.name)
+        self.logger.logToFile(logPath)
 
         pid = self.getPidFromLockFile()
         if pid:
