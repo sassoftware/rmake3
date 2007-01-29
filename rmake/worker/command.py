@@ -103,6 +103,10 @@ class Command(server.Server):
             # "errored" message.
             os._exit(1)
 
+    def _serveLoopHook(self):
+        self.writePipe.handleWriteIfReady()
+        self._collectChildren()
+
     def runCommandNoExit(self):
         try:
             self._try('Command', self._runCommand)
@@ -325,12 +329,11 @@ class SessionCommand(Command):
 
     name = 'session-command'
 
-    def __init__(self, serverCfg, commandId, chrootFactory, command, 
-                 hostInfo):
+    def __init__(self, serverCfg, commandId, chrootFactory, command):
         Command.__init__(self, serverCfg, commandId, 0)
         self.chrootFactory = chrootFactory
         self.command = command
-        self.hostInfo = hostInfo
+        self.hostInfo = []
 
     def getTrove(self):
         return self.trove
@@ -342,10 +345,20 @@ class SessionCommand(Command):
         self.chrootFactory.create()
         self.chroot = self.chrootFactory.start()
         port = self.chroot.startSession(self.command)
-        self.hostInfo.extend((socket.getfqdn(), port))
+        self.writePipe.send((socket.getfqdn(), port))
+        self.writePipe.flush()
+        self.serve_forever()
 
-    def shouldFork(self):
-        return False
+    def _pidDied(self, pid, status, name=None):
+        if pid == self.chroot.pid:
+            self.chrootFactory.unmount()
+            self._halt = True
+
+    def _handleData(self, output):
+        self.hostInfo = output
+
+    def getHostInfo(self):
+        return self.hostInfo
 
 class PipePublisher(subscriber._RmakePublisherProxy):
     """

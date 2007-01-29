@@ -93,13 +93,14 @@ class Worker(server.Server):
         chrootFactory = self.chrootManager.useExistingChroot(chrootPath,
                                                  useChrootUser=not superUser)
         commandId = self.idgen.getSessionCommandId(chrootPath)
-        hostInfo = []
         cmd = self.runCommand(self.commandClasses['session'], self.cfg,
-                              commandId, chrootFactory, commandLine, hostInfo)
+                              commandId, chrootFactory, commandLine)
+        while not cmd.getHostInfo() and not cmd.isErrored():
+            self.handleRequestIfReady(0.1)
+
         if cmd.isErrored():
-            cmd.getResults()
             return False, cmd.getFailureReason()
-        return True, hostInfo
+        return True, cmd.getHostInfo()
 
     def deleteChroot(self, host, chrootPath):
         if host != '_local_':

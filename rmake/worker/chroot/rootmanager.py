@@ -170,6 +170,9 @@ class rMakeChrootServer(object):
     def clean(self):
         return self.chroot.clean()
 
+    def unmount(self):
+        return self.chroot.unmount()
+
     def create(self):
         if self.reuseRoots and not self.strictMode:
             # we're going to keep the old contents of the root and perform
