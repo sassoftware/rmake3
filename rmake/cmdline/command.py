@@ -548,9 +548,13 @@ class ChrootCommand(rMakeCommand):
         argDef['super'] = NO_PARAM
         rMakeCommand.addParameters(self, argDef)
 
+    def _getChroot(self, chroot):
+        return '_local_', chroot
+
     def runCommand(self, client, cfg, argSet, args):
         command, chroot = self.requireParameters(args, ['chrootPath'])
-        chrootConnection = client.client.connectToChroot('_local_', chroot,
+        host, chroot = self._getChroot(chroot)
+        chrootConnection = client.client.connectToChroot(host, chroot,
                                          ['/bin/bash', '-l'],
                                          superUser=argSet.pop('super', False))
         chrootConnection.interact()
@@ -572,15 +576,19 @@ class ArchiveCommand(rMakeCommand):
     def addParameters(self, argDef):
         rMakeCommand.addParameters(self, argDef)
 
+    def _getChroot(self, chroot):
+        return '_local_', chroot
+
     def runCommand(self, client, cfg, argSet, args):
         command, chroot, extra = self.requireParameters(args,
                                                        ['chrootPath'],
                                                         allowExtra=1)
+        host, chroot = self._getChroot(chroot)
         if extra:
             newPath = extra[0]
         else:
             newPath = chroot
-        client.client.archiveChroot('_local_', chroot, newPath)
+        client.client.archiveChroot(host, chroot, newPath)
         print "Chroot moved to archive/%s" % newPath
 register(ArchiveCommand)
 
@@ -598,9 +606,12 @@ class CleanCommand(rMakeCommand):
     def addParameters(self, argDef):
         rMakeCommand.addParameters(self, argDef)
 
+    def _getChroot(self, chroot):
+        return '_local_', chroot
+
     def runCommand(self, client, cfg, argSet, args):
         command, chroot  = self.requireParameters(args, ['chrootPath'])
-        client.client.deleteChroot('_local_', chroot)
+        client.client.deleteChroot(*self._getChroot(chroot))
         print "Chroot %s deleted" % chroot
 register(CleanCommand)
 
