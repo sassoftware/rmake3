@@ -154,6 +154,7 @@ class Daemon(options.MainHandler):
         if not os.getuid():
             if self.user:
                 pwent = pwd.getpwnam(self.user)
+                os.setgroups([])
                 os.setgid(pwent.pw_gid)
                 os.setuid(pwent.pw_uid)
 
@@ -222,6 +223,7 @@ class Daemon(options.MainHandler):
         if not os.getuid():
             if self.user:
                 pwent = pwd.getpwnam(self.user)
+                os.setgroups([])
                 os.setgid(pwent.pw_gid)
                 os.setuid(pwent.pw_uid)
 
