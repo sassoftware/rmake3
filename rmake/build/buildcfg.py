@@ -192,6 +192,12 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
                        and not new[key] == new.getDefaultValue(key))):
                 return True
             return False
+        if self.strictMode:
+            if not conaryConfig:
+                conaryConfig = conarycfg.ConaryConfiguration(False)
+            for key in self.iterkeys():
+                if key not in self._strictOptions and key in conaryConfig:
+                    self.resetToDefault(key)
 
         if not conaryConfig:
             return
