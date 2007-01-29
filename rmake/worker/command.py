@@ -225,7 +225,7 @@ class BuildCommand(Command):
                 trove.getPublisher().reset()
                 PipePublisher(self.writePipe).attach(trove)
                 trove.creatingChroot(self.cfg.getName(),
-                                     self.chrootFactory.getRoot())
+                                     self.chrootFactory.getChrootName())
                 self.chrootFactory.create()
                 self.chroot = self.chrootFactory.start()
             except Exception, err:

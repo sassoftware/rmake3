@@ -56,7 +56,7 @@ class ChrootServer(apirpc.XMLApiServer):
         util.mkdirChain(os.path.dirname(path))
         conaryrc = open(path, 'w')
         conaryrc.write('# This is the actual conary configuration used when\n'
-                       '# building.')
+                       '# building.\n')
         buildCfg.storeConaryCfg(conaryrc)
         conaryrc.close()
 
@@ -114,7 +114,7 @@ class ChrootServer(apirpc.XMLApiServer):
     @api(version=1)
     @api_parameters(1, 'str')
     @api_return(1, 'int')
-    def startSession(self, callData, command=['/bin/sh']):
+    def startSession(self, callData, command=['/bin/bash', '-l']):
         s = socket.socket()
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind(('', 0))
@@ -130,8 +130,12 @@ class ChrootServer(apirpc.XMLApiServer):
             self._sessionPid = pid
             return port
         try:
+            if os.path.exists('/tmp/rmake/builds'):
+                workDir = '/tmp/rmake/builds'
+            else:
+                workDir = '/'
             t = telnetserver.TelnetServerForCommand(('', port), command,
-                                                    workDir='/tmp/rmake')
+                                                    workDir=workDir)
             self._try('Telnet session', t.handle_request)
         finally:
             os._exit(1)
@@ -285,10 +289,12 @@ class ChrootClient(object):
 class ChrootConfig(daemon.DaemonConfig):
     socketPath = '/tmp/rmake/lib/chrootsocket'
     root       = '/'
-    logDir     = '/tmp/rmake/log'
-    lockDir    = '/tmp/rmake/run'
+    logDir     = '/tmp/log'
+    lockDir    = '/tmp/run'
 
     def __init__(self, readConfigFiles=False):
+        self.lockDir = self.lockDir + '.%s' % os.getpid()
+        self.logDir = self.logDir + '.%s' % os.getpid()
         daemon.DaemonConfig.__init__(self)
 
 class StartCommand(daemon.StartCommand):
@@ -308,8 +314,8 @@ class ChrootDaemon(daemon.Daemon):
 
     def runCommand(self, thisCommand, cfg, *args, **kw):
         cfg.socketPath = cfg.root + cfg.socketPath
-        cfg.lockDir = cfg.root + cfg.lockDir
         cfg.logDir = cfg.root + cfg.logDir
+        cfg.lockDir = cfg.root + cfg.lockDir
         util.removeIfExists(cfg.socketPath)
         util.mkdirChain(os.path.dirname(cfg.socketPath))
         util.mkdirChain(cfg.lockDir)

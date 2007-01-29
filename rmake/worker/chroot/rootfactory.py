@@ -243,6 +243,19 @@ class ExistingChroot(rMakeChroot):
     def create(self, root):
         rootfactory.BasicChroot.create(self, root)
 
+    def unmount(self):
+        if not os.path.exists(self.getRoot()):
+            return
+        if self.canChroot():
+            self.logger.info('Running chroot helper to unmount...')
+            util.mkdirChain(self.getRoot() + '/sbin')
+            rc = os.system('%s --unmount %s' % (self.chrootHelperPath, 
+                            self.getRoot()))
+            if rc:
+                raise errors.OpenError(
+                        'Cannot create chroot - chroot helper failed'
+                        ' to clean old chroot')
+
     def install(self):
         pass
 

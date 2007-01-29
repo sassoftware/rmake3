@@ -551,7 +551,7 @@ class ChrootCommand(rMakeCommand):
     def runCommand(self, client, cfg, argSet, args):
         command, chroot = self.requireParameters(args, ['chrootPath'])
         chrootConnection = client.client.connectToChroot('_local_', chroot,
-                                         ['/bin/sh'],
+                                         ['/bin/bash', '-l'],
                                          superUser=argSet.pop('super', False))
         chrootConnection.interact()
 register(ChrootCommand)

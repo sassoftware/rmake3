@@ -56,7 +56,7 @@ class ChrootManager(object):
                 chroots.append('archive/' + name)
         return chroots
 
-    def getRootPath(self, buildTrove):
+    def createRootPath(self, buildTrove):
         name = buildTrove.getName().rsplit(':', 1)[0]
         path =  self.baseDir + '/%s' % name
         count = 1
@@ -86,7 +86,7 @@ class ChrootManager(object):
         if not setArch:
             targetArch = None
 
-        rootDir = self.getRootPath(buildTrove)
+        rootDir = self.createRootPath(buildTrove)
         if (not cfg.strictMode and
               (buildTrove.isRedirectRecipe() or buildTrove.isGroupRecipe()
                or buildTrove.isFilesetRecipe())):
@@ -166,6 +166,9 @@ class rMakeChrootServer(object):
 
     def getRoot(self):
         return self.chroot.getRoot()
+
+    def getChrootName(self):
+        return self.getRoot().rsplit('/', 1)[-1]
 
     def clean(self):
         return self.chroot.clean()
