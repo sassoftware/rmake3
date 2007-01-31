@@ -137,7 +137,8 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
     _defaultSectionType   =  RmakeBuildContext
 
     def __init__(self, readConfigFiles=False, root='', conaryConfig=None, 
-                 serverConfig=None, ignoreErrors=False, log=None):
+                 serverConfig=None, ignoreErrors=False, log=None, 
+                 strictMode=None):
         # we default the value of these items to whatever they
         # are set to on the local system's conaryrc.
         if log is None:
@@ -149,6 +150,8 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
         for info in RmakeBuildContext._getConfigOptions():
             if info[0] not in self:
                 self.addConfigOption(*info)
+        if strictMode is not None:
+            self.strictMode = strictMode
 
         if readConfigFiles:
             if os.path.exists(root + '/etc/rmake/clientrc'):
