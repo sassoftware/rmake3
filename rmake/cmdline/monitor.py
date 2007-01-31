@@ -124,9 +124,9 @@ class JobLogDisplay(_AbstractDisplay):
 
     def _trovePreparingChroot(self, (jobId, troveTuple), host, path):
         if host == '_local_':
-            msg = 'Creating chroot: %s' % path
+            msg = 'Chroot at %s' % path
         else:
-            msg = 'Creating chroot: Node %s:%s' % (host, path)
+            msg = 'Chroot at Node %s:%s' % (host, path)
         self._msg('[%d] - %s - %s' % (jobId, troveTuple[0], msg))
 
     def _primeOutput(self, client, jobId):
