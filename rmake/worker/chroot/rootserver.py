@@ -52,6 +52,10 @@ class ChrootServer(apirpc.XMLApiServer):
             buildCfg.strictMode = False
             buildCfg.useConaryConfig(conaryCfg)
             buildCfg.strictMode = True
+        if self.cfg.root:
+            # test path - we don't have a way to have managed policy
+            # in this case.
+            buildCfg.enforceManagedPolicy = False
         path = '%s/tmp/conaryrc' % self.cfg.root
         util.mkdirChain(os.path.dirname(path))
         conaryrc = open(path, 'w')
