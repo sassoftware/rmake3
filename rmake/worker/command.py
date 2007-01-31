@@ -15,10 +15,12 @@ import errno
 import os
 import socket
 import sys
+import tempfile
 import time
 import traceback
 
 from conary import conaryclient
+from conary.lib import util
 from conary.repository import changeset
 
 from rmake import errors
@@ -241,6 +243,19 @@ class BuildCommand(Command):
             self.chroot.subscribeToBuild(n,v,f)
             if self.logPath:
                 logPath = self.logPath
+            else:
+                # this is for the case where we're not logging over a port.
+                # In that case, we have to link the log file out of the chroot
+                # so that a copy remains after the chroot is cleaned.
+                tempDir = '%s/tmp' % self.cfg.buildDir
+                util.mkdirChain(tempDir)
+                fd, path = tempfile.mkstemp(dir=tempDir)
+                os.remove(path)
+                # if someone replaces path w/ something else in this short
+                # period, then link will fail with EEXISTS.
+                os.link(logPath, path)
+                os.close(fd)
+                logPath = path
             trove.troveBuilding(logPath, pid)
             self.serve_forever()
         except SystemExit, err:
