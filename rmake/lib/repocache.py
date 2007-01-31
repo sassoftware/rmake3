@@ -190,7 +190,8 @@ class RepositoryCache(object):
             csHash = str(self.hashTrove(job[0], job[2][0], job[2][1],
                                         withFiles, withFileContents))
             if self.store.hasFile(csHash):
-                outFile = self.store.openRawFile(csHash)
+                outFile = LazyFile(self.store.hashToPath(csHash))
+                #outFile = self.store.openRawFile(csHash)
                 changesets.append(changeset.ChangeSetFromFile(outFile))
             else:
                 needed.append((job, csHash))
@@ -216,7 +217,8 @@ class RepositoryCache(object):
             # so instead we re-read from disk
             self.store.addFileFromTemp(csHash, tmpName)
 
-            outFile = self.store.openRawFile(csHash)
+            outFile = LazyFile(self.store.hashToPath(csHash))
+            #outFile = self.store.openRawFile(csHash)
             changesets.append(changeset.ChangeSetFromFile(outFile))
 
         return changesets
@@ -278,3 +280,41 @@ class DataStore(datastore.DataStore):
 
 class CacheError(Exception):
     pass
+
+
+class LazyFile(object):
+    """
+        Opens files only when they are actually being read.  Obviously this results in a
+        much larger number of reads and seeks, but it has the advantage of allowing us
+        to have a large number of changeset files open without having to worry about
+        file descriptors.
+    """
+    __slots__ = ['path', 'marker']
+    def __init__(self, path):
+        self.path = path
+        self.marker = (0, 0)
+
+    def read(self, bytes):
+        f = open(self.path, 'r')
+        f.seek(*self.marker)
+        rc = f.read(bytes)
+        self.marker = (f.tell(), 0)
+        f.close()
+        return rc
+
+    def seek(self, loc, type):
+        self.marker = (loc, type)
+
+    def close(self):
+        pass
+
+    def tell(self):
+        if self.marker[1] == 0:
+            return self.marker[0]
+        f = open(self.path, 'r')
+        f.seek(*self.marker)
+        loc = f.tell()
+        self.marker = (loc, 0)
+        f.close()
+        return loc
+
