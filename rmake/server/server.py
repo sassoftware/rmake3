@@ -639,7 +639,9 @@ class rMakeServer(apirpc.XMLApiServer):
             self.plugins = pluginMgr
 
             # any jobs that were running before are not running now
-            self._publisher = publish._RmakeServerPublisher()
+            subscriberLog = logger.Logger('susbscriber',
+                                          self.cfg.getSubscriberLogPath())
+            self._publisher = publish._RmakeServerPublisher(subscriberLog)
 
             self.worker = worker.Worker(self.cfg, self._logger)
             dbLogger = subscriber._JobDbLogger(self.db)

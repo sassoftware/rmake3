@@ -127,6 +127,9 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
     def getReposLogPath(self):
         return self.logDir + '/repos.log'
 
+    def getSubscriberLogPath(self):
+        return self.logDir + '/subscriber.log'
+
     def getRepositoryMap(self):
         if self.isExternalRepos():
             url = self.serverUrl

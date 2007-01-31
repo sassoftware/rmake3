@@ -153,6 +153,12 @@ class _AbstractBuildJob(trovesource.SearchableTroveSource):
     def iterBuildingTroves(self):
         return (x for x in self.troves.itervalues() if x.isBuilding())
 
+    def iterWaitingTroves(self):
+        return (x for x in self.troves.itervalues() if x.isWaiting())
+
+    def iterPreparingTroves(self):
+        return (x for x in self.troves.itervalues() if x.isPreparing())
+
     def hasBuildingTroves(self):
         return self._hasTrovesByCheck('isBuilding')
 

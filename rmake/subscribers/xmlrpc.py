@@ -25,12 +25,13 @@ class BasicXMLRPCStatusSubscriber(StatusSubscriber):
         Receiving end of XMLRPC call with event list.
     """
     listeners = {
-        'JOB_STATE_UPDATED'    : '_jobStateUpdated',
-        'JOB_LOG_UPDATED'      : '_jobLogUpdated',
-        'JOB_TROVES_SET'       : '_jobTrovesSet',
-        'JOB_COMMITTED'        : '_jobCommitted',
-        'TROVE_STATE_UPDATED'  : '_troveStateUpdated',
-        'TROVE_LOG_UPDATED'    : '_troveLogUpdated',
+        'JOB_STATE_UPDATED'     : '_jobStateUpdated',
+        'JOB_LOG_UPDATED'       : '_jobLogUpdated',
+        'JOB_TROVES_SET'        : '_jobTrovesSet',
+        'JOB_COMMITTED'         : '_jobCommitted',
+        'TROVE_STATE_UPDATED'   : '_troveStateUpdated',
+        'TROVE_LOG_UPDATED'     : '_troveLogUpdated',
+        'TROVE_PREPARING_CHROOT' : '_trovePreparingChroot',
     }
 
     def receiveEvents(self, apiVer, eventList):
@@ -53,6 +54,9 @@ class BasicXMLRPCStatusSubscriber(StatusSubscriber):
         pass
 
     def _troveLogUpdated(self, (jobId, troveTuple), state, status):
+        pass
+
+    def _trovePreparingChroot(self, (jobId, troveTuple), host, path):
         pass
 
 class _XMLRPCSubscriberProxy(StatusSubscriber):
@@ -81,6 +85,7 @@ class _XMLRPCSubscriberProxy(StatusSubscriber):
                  'JOB_COMMITTED',
                  'TROVE_LOG_UPDATED',
                  'TROVE_STATE_UPDATED',
+                 'TROVE_PREPARING_CHROOT',
                  ])
 
     def __init__(self, *args, **kw):

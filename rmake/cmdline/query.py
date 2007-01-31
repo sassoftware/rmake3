@@ -142,9 +142,12 @@ def getOldTime(t):
         if days:
             return '1 day, %s hours ago' % hours
         elif hours:
+            if hours == 1:
+                return '1 hour ago'
             return '%s hours ago' % hours
-        else:
-            return '%s minutes ago' % (diff / 60)
+        elif minutes == 1:
+            return '1 minute ago'
+        return '%s minutes ago' % (diff / 60)
 
 def displayOneJob(dcfg, job, troveTupList):
     if dcfg.displayJobs:
@@ -179,7 +182,9 @@ def displayOneJob(dcfg, job, troveTupList):
 def displayJobDetail(dcfg, job):
     total   = len(list(job.iterTroves()))
     unbuilt  = len(list(job.iterUnbuiltTroves()))
+    preparing = len(list(job.iterPreparingTroves()))
     building = len(list(job.iterBuildingTroves()))
+    waiting = len(list(job.iterWaitingTroves()))
     built    = len(list(job.iterBuiltTroves()))
     failed   = len(list(job.iterFailedTroves()))
 
@@ -194,7 +199,7 @@ def displayJobDetail(dcfg, job):
         else:
             totalTime = 'Never finished'
         print '       Started:  %-20s Build Time: %s' % (startTime, totalTime)
-    print '       To Build: %-20s Building: %s' % (unbuilt, building)
+    print '       To Build: %-20s Building: %s' % (unbuilt, building + waiting + preparing)
     print '       Built:    %-20s Failed:   %s' % (built, failed)
     print
 
@@ -224,16 +229,18 @@ def getTroveSpec(dcfg, (name, version, flavor)):
     return '%s=%s%s' % (name, version, flavor)
 
 def displayTrovesByState(dcfg, job, trove, indent='     '):
-    for state in (buildtrove.TROVE_STATE_BUILDING,
-                  buildtrove.TROVE_STATE_BUILDABLE,
-                  buildtrove.TROVE_STATE_FAILED,
-                  buildtrove.TROVE_STATE_BUILT,
-                  buildtrove.TROVE_STATE_INIT):
+    for state in  (buildtrove.TROVE_STATE_WAITING,
+                   buildtrove.TROVE_STATE_PREPARING,
+                   buildtrove.TROVE_STATE_BUILDING,
+                   buildtrove.TROVE_STATE_BUILDABLE,
+                   buildtrove.TROVE_STATE_FAILED,
+                   buildtrove.TROVE_STATE_BUILT,
+                   buildtrove.TROVE_STATE_INIT):
         troves = sorted(job.iterTrovesByState(state))
         if not troves:
             continue
         print
-        print '%s%s Troves [%s]:' % (indent,troves[0].getStateName(), 
+        print '%s%s Troves [%s]:' % (indent,troves[0].getStateName(),
                                       len(troves))
         txt = '  '.join(x.name.split(':')[0] for x in troves)
         lines, cols = getTerminalSize()

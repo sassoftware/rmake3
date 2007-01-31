@@ -129,7 +129,6 @@ class rMakeChroot(ConaryBasedChroot):
         return self.cfg.root
 
     def install(self):
-        self.buildTrove.log('Creating Chroot')
         self.logger.info('Creating chroot')
         ConaryBasedChroot.install(self)
         # copy in the tarball files needed for building this package from

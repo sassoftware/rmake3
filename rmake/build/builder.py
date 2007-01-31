@@ -181,9 +181,9 @@ class Builder(object):
         return False
 
     def buildTrove(self, troveToBuild, buildReqs):
-        troveToBuild.troveQueued('Waiting for build to start')
         self.job.log('Building %s' % troveToBuild.getName())
         targetLabel = self.buildCfg.getTargetLabel(troveToBuild.getVersion())
+        troveToBuild.troveQueued('Waiting to be assigned to chroot')
         troveToBuild.disown()
         self.worker.buildTrove(self.buildCfg, troveToBuild.jobId,
                                troveToBuild, self.eventHandler,

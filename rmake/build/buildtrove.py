@@ -58,6 +58,8 @@ recipeTypeNames = dict([(x[1], x[0].rsplit('_', 1)[-1].capitalize()) \
 
 stateNames.update({
     TROVE_STATE_INIT      : 'Initialized',
+    TROVE_STATE_PREPARING : 'Creating Chroot',
+    TROVE_STATE_WAITING   : 'Queued',
 })
 
 def _getStateName(state):
@@ -348,9 +350,8 @@ class BuildTrove(_FreezableBuildTrove):
         self._setState(TROVE_STATE_WAITING,
                       'Resolved buildreqs include %s other troves scheduled to be built - delaying' % (len(newDeps),))
 
-    def troveQueued(self, command):
-        self._setState(TROVE_STATE_WAITING,
-                      'Waiting to start %s' % command)
+    def troveQueued(self, message):
+        self._setState(TROVE_STATE_WAITING, message)
 
     def creatingChroot(self, hostname, path):
         """
@@ -360,7 +361,7 @@ class BuildTrove(_FreezableBuildTrove):
         """
         self.chrootHost = hostname
         self.chrootPath = path
-        self._setState(TROVE_STATE_PREPARING, 'Creating chroot', hostname, path)
+        self._setState(TROVE_STATE_PREPARING, '', hostname, path)
 
     def chrootFailed(self, err, traceback=''):
         f = failure.ChrootFailed(str(err), traceback)

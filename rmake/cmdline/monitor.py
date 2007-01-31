@@ -112,15 +112,22 @@ class JobLogDisplay(_AbstractDisplay):
     def _troveStateUpdated(self, (jobId, troveTuple), state, status):
         isBuilding = (state == buildtrove.TROVE_STATE_BUILDING)
         state = buildtrove._getStateName(state)
-        self._msg('[%d] %s - State: %s' % (jobId, troveTuple[0], state))
+        self._msg('[%d] - %s - State: %s' % (jobId, troveTuple[0], state))
         if status:
-            self._msg('[%d] %s - %s' % (jobId, troveTuple[0], status))
+            self._msg('[%d] - %s - %s' % (jobId, troveTuple[0], status))
         if isBuilding and self.showBuildLogs:
             self._tailBuildLog(jobId, troveTuple)
 
     def _troveLogUpdated(self, (jobId, troveTuple), state, status):
         state = buildtrove._getStateName(state)
         self._msg('[%d] - %s - %s' % (jobId, troveTuple[0], status))
+
+    def _trovePreparingChroot(self, (jobId, troveTuple), host, path):
+        if host == '_local_':
+            msg = 'Creating chroot: %s' % path
+        else:
+            msg = 'Creating chroot: Node %s:%s' % (host, path)
+        self._msg('[%d] - %s - %s' % (jobId, troveTuple[0], msg))
 
     def _primeOutput(self, client, jobId):
         logMark = 0
@@ -185,6 +192,7 @@ class XMLRPCJobLogReceiver(object):
         if self.showTroveLogs:
             subscriber.watchEvent('TROVE_STATE_UPDATED')
             subscriber.watchEvent('TROVE_LOG_UPDATED')
+            subscriber.watchEvent('TROVE_PREPARING_CHROOT')
         self.jobId = jobId
         self.subscriber = subscriber
         self.client.subscribe(jobId, subscriber)

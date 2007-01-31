@@ -13,13 +13,13 @@
 #
 import traceback
 
-from conary.lib import log
-
-
 class _RmakeServerPublisher(object):
     """
         Sends job events from Rmake Server ->  Subscribers
     """
+    def __init__(self, logger):
+        self.logger = logger
+
     def emitEvents(self, db, jobId, eventList):
         """
             Publish events to all listening subscribers.
@@ -29,8 +29,7 @@ class _RmakeServerPublisher(object):
             try:
                 subscriber._receiveEvents(subscriber.apiVersion, eventList)
             except Exception, err:
-                log.error('Subscriber %s failed: %s\n%s', subscriber,
-                          err, traceback.format_exc())
+                self.logger.error('Subscriber %s failed: %s', subscriber, err)
 
     def _getEventListBySubscriber(self, db, jobId, eventList):
         """
