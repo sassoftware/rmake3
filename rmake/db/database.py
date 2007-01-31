@@ -290,11 +290,12 @@ class Database(DBInterface):
 
     def trovePreparingChroot(self, trove):
         self.jobStore.updateTrove(trove)
+        self.nodeStore.setChrootActive(trove, True)
         self.commit()
 
     def troveBuilding(self, trove):
         self.jobStore.updateTrove(trove)
-        self.nodeStore.setChrootActive(trove, False)
+        self.nodeStore.setChrootActive(trove, True)
         self.commit()
 
     def troveBuilt(self, trove):

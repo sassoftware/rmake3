@@ -184,7 +184,7 @@ class NodeStore(object):
         if not (host and path):
             return
         cu.execute("""UPDATE Chroots SET active=? WHERE nodeName=? and path=?""",
-                    host, path, int(active))
+                    int(active), host, path)
         return
 
     def getChrootsForHost(self, nodeName):
