@@ -145,8 +145,10 @@ def getOldTime(t):
             if hours == 1:
                 return '1 hour ago'
             return '%s hours ago' % hours
-        elif minutes == 1:
+        elif diff / 60 == 1:
             return '1 minute ago'
+        elif diff / 60 == 0:
+            return 'just now'
         return '%s minutes ago' % (diff / 60)
 
 def displayOneJob(dcfg, job, troveTupList):
