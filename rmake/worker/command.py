@@ -253,7 +253,10 @@ class BuildCommand(Command):
                 os.remove(path)
                 # if someone replaces path w/ something else in this short
                 # period, then link will fail with EEXISTS.
-                os.link(logPath, path)
+                if os.path.exists(logPath):
+                    # this log should exist at this point, if it doesn't
+                    # there is some other issue....
+                    os.link(logPath, path)
                 os.close(fd)
                 logPath = path
             trove.troveBuilding(logPath, pid)
