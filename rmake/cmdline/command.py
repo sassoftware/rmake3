@@ -483,6 +483,12 @@ class ListCommand(rMakeCommand):
     help = 'List various information about this rmake server'
     commandGroup = CG_INFO
 
+    docs = {'all' : 'Display active as well as inactive items'}
+
+    def addParameters(self, argDef):
+        argDef['all'] = NO_PARAM
+        rMakeCommand.addParameters(self, argDef)
+
     def runCommand(self, client, cfg, argSet, args):
         command, subCommand = self.requireParameters(args, 'command')
         commandFn = getattr(self, 'list%s' % subCommand.title(), None)
@@ -492,6 +498,7 @@ class ListCommand(rMakeCommand):
         commandFn(client, cfg, argSet)
 
     def listChroots(self, client, cfg, argSet):
+        allChroots = argSet.pop('all', False)
         chrootsByHost =  {}
         for chroot in client.client.listChroots():
             chrootsByHost.setdefault(chroot.host, []).append(chroot)
@@ -499,7 +506,8 @@ class ListCommand(rMakeCommand):
             if host != '_local_':
                 print '%s:' % host
             for chroot in chrootsByHost[host]:
-                self._displayChroot(chroot)
+                if chroot.active or allChroots:
+                    self._displayChroot(chroot)
 
     def _displayChroot(self, chroot):
         if chroot.active:
