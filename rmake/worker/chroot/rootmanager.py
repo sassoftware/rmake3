@@ -112,7 +112,8 @@ class ChrootManager(object):
                                          useTmpfs=self.serverCfg.useTmpfs,
                                          buildLogPath=buildLogPath,
                                          reuseRoots=cfg.reuseRoots,
-                                         strictMode=cfg.strictMode)
+                                         strictMode=cfg.strictMode, 
+                                         logger=self.logger)
 
         self.chroots[rootDir] = chrootServer
         return chrootServer
@@ -126,7 +127,8 @@ class ChrootManager(object):
         chrootServer = rMakeChrootServer(chroot, targetArch=None,
                                          useTmpfs=self.serverCfg.useTmpfs,
                                          buildLogPath=None, reuseRoots=True,
-                                         useChrootUser=useChrootUser)
+                                         useChrootUser=useChrootUser,
+                                         logger=logger)
         self.chroots[chrootPath] = chrootServer
         return chrootServer
 
@@ -153,7 +155,7 @@ class rMakeChrootServer(object):
     """
         Manages starting the rmake chroot server.
     """
-    def __init__(self, chroot, targetArch, buildLogPath,
+    def __init__(self, chroot, targetArch, buildLogPath, logger,
                  useTmpfs=False, reuseRoots=False, strictMode=False,
                  useChrootUser=True):
         self.chroot = chroot
@@ -163,6 +165,7 @@ class rMakeChrootServer(object):
         self.strictMode = strictMode
         self.buildLogPath = buildLogPath
         self.useChrootUser = useChrootUser
+        self.logger = logger
 
     def getRoot(self):
         return self.chroot.getRoot()
@@ -191,6 +194,7 @@ class rMakeChrootServer(object):
         self.socketPath = self.getRoot() + '/tmp/chroot-socket-%s'
         pid = os.fork()
         if pid:
+            self.logger.info("Chroot server starting (pid %s)" % pid)
             self.socketPath = self.socketPath % pid
             return self._waitForChrootServer(pid)
         else:

@@ -128,6 +128,7 @@ def cookTrove(cfg, repos, logger, name, version, flavor, targetLabel,
                 else:
                     logFile.redirectOutput()
                 log.setVerbosity(log.INFO)
+                log.info("Cook process started (pid %s)" % os.getpid())
                 _cookTrove(cfg, repos, name, version, flavor, targetLabel, 
                            csFile, failureFd=outF, logger=logger)
             except Exception, msg:
