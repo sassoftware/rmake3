@@ -287,7 +287,7 @@ class BuildJob(_FreezableBuildJob):
 
         self._setState(JOB_STATE_FAILED, str(failureReason))
         for trove in self.iterTroves():
-            if trove.isUnbuilt() or trove.isBuilding():
+            if trove.isStarted():
                 trove.troveFailed(failureReason)
         self.getPublisher().uncork()
 

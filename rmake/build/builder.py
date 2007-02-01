@@ -126,12 +126,15 @@ class Builder(object):
                 self.logger.error(traceback.format_exc())
                 self.job.exceptionOccurred(err, traceback.format_exc())
                 self.logFile.restoreOutput()
-                if sys.stdin.isatty():
-                    # this sets us back to be connected with the controlling 
-                    # terminal (owned by our parent, the rmake server)
-                    import epdb
-                    epdb.post_mortem(sys.exc_info()[2])
-                os._exit(0)
+                try:
+                    self.worker.stopAllCommands()
+                finally:
+                    if sys.stdin.isatty():
+                        # this sets us back to be connected with the controlling
+                        # terminal (owned by our parent, the rmake server)
+                        import epdb
+                        epdb.post_mortem(sys.exc_info()[2])
+                    os._exit(0)
         finally:
             os._exit(1)
 

@@ -154,9 +154,13 @@ class _AbstractBuildTrove:
     def isWaiting(self):
         return self.state == TROVE_STATE_WAITING
 
+    def isStarted(self):
+        return self.state not in (TROVE_STATE_INIT,
+                                  TROVE_STATE_BUILT, TROVE_STATE_FAILED)
+
     def isUnbuilt(self):
         return self.state in (TROVE_STATE_INIT, TROVE_STATE_BUILDABLE,
-                              TROVE_STATE_WAITING)
+                              TROVE_STATE_WAITING, TROVE_STATE_PREPARING)
 
     def needsBuildreqs(self):
         return self.state == TROVE_STATE_INIT

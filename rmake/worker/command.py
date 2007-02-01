@@ -329,6 +329,11 @@ class StopCommand(Command):
     def runCommand(self):
         self.killFn(self.targetCommand.pid)
 
+    def shouldFork(self):
+        # Because this command runs kill, it must be the parent process 
+        # that runs kill, not some other child.  You can't kill your sibling.
+        return False
+
     def commandDied(self, status):
         Command.commandDied(self, status)
         try:
