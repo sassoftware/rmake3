@@ -130,7 +130,7 @@ class rMakeServer(apirpc.XMLApiServer):
         jobId = self.db.convertToJobId(jobId)
         trove = self.db.getTrove(jobId, *troveTuple)
         if not self.db.hasTroveBuildLog(trove):
-            return True, xmlrpclib.Binary('')
+            return True, xmlrpclib.Binary(''), 0
         f = self.db.openTroveBuildLog(trove)
         if mark < 0:
             f.seek(0, 2)
