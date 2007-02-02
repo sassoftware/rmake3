@@ -298,10 +298,15 @@ def showBuildLog(dcfg, job, trove):
         moreData, data = client.client.getTroveBuildLog(job.jobId,
                                         trove.getNameVersionFlavor(), mark)
 
-def displayTroveDetail(dcfg, job, trove, indent):
+def displayTroveDetail(dcfg, job, trove, indent='     ', out=None):
+    if not out:
+        out = sys.stdout
+    def write(line=''):
+        out.write(line + '\n')
+
     troveSpec = getTroveSpec(dcfg, trove.getNameVersionFlavor())
-    print '%s%s' % (indent, troveSpec)
-    print '%s  State: %-20s' % (indent, trove.getStateName())
+    write('%s%s' % (indent, troveSpec))
+    write('%s  State: %-20s' % (indent, trove.getStateName()))
     if trove.start:
         startTime = time.strftime('%x %X', time.localtime(trove.start))
         if trove.finish:
@@ -310,18 +315,18 @@ def displayTroveDetail(dcfg, job, trove, indent):
             totalTime = getTimeDifference(time.time() - trove.start)
         else:
             totalTime = 'Never finished'
-        print '%s  Start: %-20s Build time: %-20s' % (indent,
-                                                    startTime, totalTime)
-    print '%s  Status: %-20s' % (indent, trove.status)
+        write('%s  Start: %-20s Build time: %-20s' % (indent,
+                                                    startTime, totalTime))
+    write('%s  Status: %-20s' % (indent, trove.status))
     if trove.isFailed():
         failureReason = trove.getFailureReason()
         if dcfg.showTracebacks and failureReason.hasTraceback():
-            print
-            print failureReason.getTraceback()
-            print
-            print
+            write()
+            write(failureReason.getTraceback())
+            write()
+            write()
     elif trove.isBuilt():
-        print '%s  Built Troves:' % (indent,)
+        write('%s  Built Troves:' % (indent,))
         for (n,v,f) in sorted(trove.iterBuiltTroves()):
             if ':' in n: continue
-            print "%s    %s" % (indent, getTroveSpec(dcfg, (n, v, f)))
+            write("%s    %s" % (indent, getTroveSpec(dcfg, (n, v, f))))

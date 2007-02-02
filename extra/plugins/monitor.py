@@ -20,6 +20,7 @@ once.  It doesn't try to print all of their logs at once.
 import select
 import sys
 import time
+import tempfile
 
 from conary.lib import util
 
@@ -92,9 +93,7 @@ class _AbstractDisplay(xmlrpc.BasicXMLRPCStatusSubscriber):
         return self.finished
 
     def _primeOutput(self, client, jobId):
-        job = client.getJob(jobId, withTroves=False)
-        if job.isFinished():
-            self._setFinished()
+        pass
 
     def close(self):
         self.erasePrompt()
@@ -285,19 +284,23 @@ class DisplayState(xmlrpc.BasicXMLRPCStatusSubscriber):
         self.jobId = jobId
         job = self.client.getJob(jobId, withTroves=False)
         self.jobState = job.state
-        if job.isBuilding():
+        if job.isBuilding() or job.isFinished() or job.isFailed():
             self.updateTrovesForJob(jobId)
 
     def jobActive(self, jobId):
-        return self.jobState == JOB_STATE_BUILDING
+        return self.jobState == buildjob.JOB_STATE_BUILDING
 
+    def isBuilding(self, jobId, troveTuple):
+        return self.getTroveState(jobId, troveTuple) in (
+                                            buildtrove.TROVE_STATE_BUILDING,
+                                            buildtrove.TROVE_STATE_PREPARING)
 
     def getTroveState(self, jobId, troveTuple):
         return self.states[jobId, troveTuple]
 
     def getBuildingTroves(self):
-        return [x[0] for x in self.states.iteritems()
-                if x[1] == buildtrove.TROVE_STATE_BUILDING ]
+        return [ x[0] for x in self.states.iteritems()
+                 if x[1] == buildtrove.TROVE_STATE_BUILDING ]
 
     def updateTrovesForJob(self, jobId):
         self.troves = []
@@ -346,8 +349,11 @@ class DisplayManager(object):
     def subscribe(self, jobId):
         self.state.subscribe(jobId)
         self.display._msg('Watching job %s' % jobId)
+        if self.getCurrentTrove():
+            self.displayTrove(*self.getCurrentTrove())
 
     def displayTrove(self, jobId, troveTuple):
+        self.display.setTroveToWatch(jobId, troveTuple)
         state = self.state.getTroveState(jobId, troveTuple)
         state = buildtrove._getStateName(state)
 
@@ -367,6 +373,12 @@ class DisplayManager(object):
                 sys.exit(0)
             elif cmd == 'h':
                 self.do_help()
+            elif cmd == 'b':
+                self.do_next_building()
+            elif cmd == 'i':
+                self.do_info()
+            elif cmd == 'l':
+                self.do_log()
             elif cmd == 's':
                 self.do_status()
 
@@ -375,25 +387,70 @@ class DisplayManager(object):
                 self.display.updateBuildLog(jobId, troveTuple)
 
     def do_next(self):
-        if self.state.troves:
+        if not self.state.troves:
+            return
+        self.troveIndex = (self.troveIndex + 1) % len(self.state.troves)
+        if self.getCurrentTrove():
+            self.displayTrove(*self.getCurrentTrove())
+
+    def do_next_building(self):
+        if not self.state.troves:
+            return
+        startIndex = self.troveIndex
+        self.troveIndex = (self.troveIndex + 1) % len(self.state.troves)
+        while (not self.state.isBuilding(*self.getCurrentTrove())
+               and self.troveIndex != startIndex):
             self.troveIndex = (self.troveIndex + 1) % len(self.state.troves)
-            if self.getCurrentTrove():
-                self.display.setTroveToWatch(*self.getCurrentTrove())
-                self.displayTrove(*self.getCurrentTrove())
+        if self.troveIndex != startIndex:
+            self.displayTrove(*self.getCurrentTrove())
 
     def do_prev(self):
-        if self.state.troves:
-            self.troveIndex = (self.troveIndex - 1) % len(self.state.troves)
-            if self.getCurrentTrove():
-                self.display.setTroveToWatch(*self.getCurrentTrove())
-                self.displayTrove(*self.getCurrentTrove())
+        if not self.state.troves:
+            return
+        self.troveIndex = (self.troveIndex - 1) % len(self.state.troves)
+        if self.getCurrentTrove():
+            self.displayTrove(*self.getCurrentTrove())
+
+    def do_info(self):
+        if not self.getCurrentTrove():
+            return
+        jobId, troveTuple = self.getCurrentTrove()
+        job = self.client.getJob(jobId)
+        trove = job.getTrove(*troveTuple)
+        dcfg = query.DisplayConfig(self.client, showTracebacks=True)
+        self.display.setWatchTroves(False)
+        self.display.erasePrompt()
+        query.displayTroveDetail(dcfg, job, trove, out=self.display.out)
+        self.display.writePrompt()
+
+    def do_log(self):
+        if not self.getCurrentTrove():
+            return
+        jobId, troveTuple = self.getCurrentTrove()
+        job = self.client.getJob(jobId)
+        trove = job.getTrove(*troveTuple)
+        moreData, data, mark = self.client.getTroveBuildLog(jobId,
+                                                            troveTuple, 0)
+        if not data:
+            self.display._msg('No log yet.')
+            return
+        fd, path = tempfile.mkstemp()
+        os.fdopen(fd, 'w').write(data)
+        try:
+            os.system('less %s' % path)
+        finally:
+            os.remove(path)
 
     def do_help(self):
+        print
         print "<space>: Turn on, off log output"
+        print "<left>/<right>: move to next/prev trove in list"
+        print "b: move to next building trove"
         print "h: print help"
-        print "n: move to next trove in list"
-        print "s: display status on all troves"
+        print "i: display info for this trove"
+        print "l: display log for this trove in less"
         print "q: quit"
+        print "s: display status on all troves"
 
     def do_status(self):
         self.display.setWatchTroves(False)
@@ -403,7 +460,7 @@ class DisplayManager(object):
         self.display.setWatchTroves(not self.display.getWatchTroves())
 
     def _isFinished(self):
-        return self.state._isFinished()
+        return False # never exit automatically any more
 
     def close(self):
         self.display.close()
