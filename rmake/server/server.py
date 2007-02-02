@@ -132,8 +132,13 @@ class rMakeServer(apirpc.XMLApiServer):
         if not self.db.hasTroveBuildLog(trove):
             return True, xmlrpclib.Binary('')
         f = self.db.openTroveBuildLog(trove)
-        f.seek(mark)
-        return trove.isBuilding(), xmlrpclib.Binary(f.read())
+        if mark < 0:
+            f.seek(0, 2)
+            end = f.tell()
+            f.seek(max(end + mark, 0))
+        else:
+            f.seek(mark)
+        return trove.isBuilding(), xmlrpclib.Binary(f.read()), f.tell()
 
     @api(version=1)
     @api_parameters(1, None)

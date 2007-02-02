@@ -85,9 +85,9 @@ class JobLogDisplay(_AbstractDisplay):
             return
         for (jobId, troveTuple), mark in self.buildingTroves.items():
             moreData = True
-            moreData, data = self.client.getTroveBuildLog(jobId, troveTuple,
+            moreData, data, mark = self.client.getTroveBuildLog(jobId,
+                                                          troveTuple,
                                                           mark)
-            mark += len(data)
             self.out.write(data)
             if not moreData:
                 del self.buildingTroves[jobId, troveTuple]

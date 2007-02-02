@@ -132,9 +132,9 @@ class rMakeClient(object):
             more logs may be available later.
             @rtype: (boolean, string) tuple.
         """
-        isBuilding, wrappedData = self.proxy.getTroveBuildLog(jobId,
+        isBuilding, wrappedData, mark = self.proxy.getTroveBuildLog(jobId,
                                                               troveTuple, mark)
-        return isBuilding, wrappedData.data
+        return isBuilding, wrappedData.data, mark
 
     def getJob(self, jobId, withTroves=True):
         """
