@@ -23,11 +23,15 @@ from conary.conaryclient.cmdline import parseTroveSpec
 
 from rmake.build import buildtrove
 
-def getTerminalSize():
+def getTerminalSize(out=None):
+    if out is None:
+        out = sys.stdout.fileno()
+    elif not isinstance(out, int):
+        out = out.fileno()
 
     s = struct.pack("HHHH", 0, 0, 0, 0)
     try:
-        lines, cols = struct.unpack("HHHH", fcntl.ioctl(sys.stdout.fileno(),
+        lines, cols = struct.unpack("HHHH", fcntl.ioctl(out,
                                     termios.TIOCGWINSZ, s))[:2]
     except IOError:
         return 25, 80
@@ -206,13 +210,13 @@ def displayJobDetail(dcfg, job):
     print
 
 def printTroves(dcfg, job, troveTupList):
-    if troveTupList is None:
-        troveTupList = job.iterTroveList()
-    if dcfg.displayTroveDetail:
+    if troveTupleList or dcfg.displayTroveDetail:
+        if troveTupList is None:
+            troveTupList = job.iterTroveList()
         for troveTup in sorted(troveTupList):
             printOneTrove(dcfg, job, job.getTrove(*troveTup))
     else:
-        displayTrovesByState(dcfg, job, troveTupList)
+        displayTrovesByState(job)
     print
 
 def getTroveSpec(dcfg, (name, version, flavor)):
@@ -230,7 +234,9 @@ def getTroveSpec(dcfg, (name, version, flavor)):
         flavor = ''
     return '%s=%s%s' % (name, version, flavor)
 
-def displayTrovesByState(dcfg, job, trove, indent='     '):
+def displayTrovesByState(job, indent='     ', out=None):
+    if out is None:
+        out = sys.stdout
     for state in  (buildtrove.TROVE_STATE_WAITING,
                    buildtrove.TROVE_STATE_PREPARING,
                    buildtrove.TROVE_STATE_BUILDING,
@@ -241,15 +247,14 @@ def displayTrovesByState(dcfg, job, trove, indent='     '):
         troves = sorted(job.iterTrovesByState(state))
         if not troves:
             continue
-        print
-        print '%s%s Troves [%s]:' % (indent,troves[0].getStateName(),
-                                      len(troves))
+        out.write('\n%s%s Troves [%s]:\n' % (indent,troves[0].getStateName(),
+                                             len(troves)))
         txt = '  '.join(x.name.split(':')[0] for x in troves)
-        lines, cols = getTerminalSize()
+        lines, cols = getTerminalSize(out)
         if not cols:
             cols = 80
-        print textwrap.fill(txt, initial_indent=indent, subsequent_indent=indent, width=max(cols - len(indent), 20))
-        print
+        out.write(textwrap.fill(txt, initial_indent=indent, subsequent_indent=indent, width=max(cols - len(indent), 20)))
+        out.write('\n\n')
 
 def printOneTrove(dcfg, job, trove, indent='       '):
     displayTroveDetail(dcfg, job, trove, indent)
