@@ -443,7 +443,7 @@ class DisplayManager(object):
 
     def do_help(self):
         print
-        print "<space>: Turn on, off log output"
+        print "<space>: Turn on/off tailing of log"
         print "<left>/<right>: move to next/prev trove in list"
         print "b: move to next building trove"
         print "h: print help"

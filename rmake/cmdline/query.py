@@ -317,7 +317,16 @@ def displayTroveDetail(dcfg, job, trove, indent='     ', out=None):
             totalTime = 'Never finished'
         write('%s  Start: %-20s Build time: %-20s' % (indent,
                                                     startTime, totalTime))
-    write('%s  Status: %-20s' % (indent, trove.status))
+    host = trove.getChrootHost()
+    path = trove.getChrootPath()
+    if host:
+        if host == '_local_':
+            host = ''
+        else: 
+            host += ':'
+        write('%s  Build Path: %s%s' % (indent, host, path))
+    if trove.status:
+        write('%s  Status: %-20s' % (indent, trove.status))
     if trove.isFailed():
         failureReason = trove.getFailureReason()
         if dcfg.showTracebacks and failureReason.hasTraceback():
