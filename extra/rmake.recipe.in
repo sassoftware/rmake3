@@ -51,3 +51,4 @@ class RmakeRecipe(CPackageRecipe):
         r.ComponentRequires({'runtime' : ['gtk']})
         r.UtilizeUser('rmake-chroot', '%(libexecdir)s/rmake/chroothelper')
         r.UtilizeGroup('rmake-chroot', '%(libexecdir)s/rmake/chroothelper')
+        r.Doc('extra/plugins/*.py')
