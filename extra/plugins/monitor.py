@@ -290,6 +290,10 @@ class DisplayState(xmlrpc.BasicXMLRPCStatusSubscriber):
     def jobActive(self, jobId):
         return self.jobState == buildjob.JOB_STATE_BUILDING
 
+    def isFailed(self, jobId, troveTuple):
+        return (self.getTroveState(jobId, troveTuple)
+                == buildtrove.TROVE_STATE_FAILED)
+
     def isBuilding(self, jobId, troveTuple):
         return self.getTroveState(jobId, troveTuple) in (
                                             buildtrove.TROVE_STATE_BUILDING,
@@ -404,6 +408,17 @@ class DisplayManager(object):
         if self.troveIndex != startIndex:
             self.displayTrove(*self.getCurrentTrove())
 
+    def do_next_failed(self):
+        if not self.state.troves:
+            return
+        startIndex = self.troveIndex
+        self.troveIndex = (self.troveIndex + 1) % len(self.state.troves)
+        while (not self.state.isFailed(*self.getCurrentTrove())
+               and self.troveIndex != startIndex):
+            self.troveIndex = (self.troveIndex + 1) % len(self.state.troves)
+        if self.troveIndex != startIndex:
+            self.displayTrove(*self.getCurrentTrove())
+
     def do_prev(self):
         if not self.state.troves:
             return
@@ -446,6 +461,7 @@ class DisplayManager(object):
         print "<space>: Turn on/off tailing of log"
         print "<left>/<right>: move to next/prev trove in list"
         print "b: move to next building trove"
+        print "f: move to next failed trove"
         print "h: print help"
         print "i: display info for this trove"
         print "l: display log for this trove in less"
