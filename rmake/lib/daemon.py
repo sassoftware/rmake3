@@ -12,6 +12,7 @@
 #
 
 import errno
+import grp
 import os
 import pwd
 import signal
@@ -220,7 +221,14 @@ class Daemon(options.MainHandler):
         if not os.getuid():
             if self.user:
                 pwent = pwd.getpwnam(self.user)
-                os.setgroups([])
+                if self.groups:
+                    groupIds = []
+                    for group in self.groups:
+                        grpent = grp.getgrnam(group)
+                        groupIds.append(grpent.gr_gid)
+                    os.setgroups(groupIds)
+                else:
+                    os.setgroups([])
                 os.setgid(pwent.pw_gid)
                 os.setuid(pwent.pw_uid)
         logPath = os.path.join(self.cfg.logDir, "%s.log" % self.name)

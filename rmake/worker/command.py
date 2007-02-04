@@ -243,22 +243,6 @@ class BuildCommand(Command):
             self.chroot.subscribeToBuild(n,v,f)
             if self.logPath:
                 logPath = self.logPath
-            else:
-                # this is for the case where we're not logging over a port.
-                # In that case, we have to link the log file out of the chroot
-                # so that a copy remains after the chroot is cleaned.
-                tempDir = '%s/tmp' % self.cfg.buildDir
-                util.mkdirChain(tempDir)
-                fd, path = tempfile.mkstemp(dir=tempDir)
-                os.remove(path)
-                # if someone replaces path w/ something else in this short
-                # period, then link will fail with EEXISTS.
-                if os.path.exists(logPath):
-                    # this log should exist at this point, if it doesn't
-                    # there is some other issue....
-                    os.link(logPath, path)
-                os.close(fd)
-                logPath = path
             trove.troveBuilding(logPath, pid)
             self.serve_forever()
         except SystemExit, err:
@@ -304,10 +288,6 @@ class BuildCommand(Command):
                              x in cs.iterNewTroveList() ]
                 trove.troveBuilt(troveList)
                 del cs # this makes sure the changeset closes the fd.
-                self.chroot.stop()
-                if self.buildCfg.cleanAfterCook:
-                    self.chrootFactory.clean()
-                return
             else:
                 reason = buildResult.getFailureReason()
                 trove.troveFailed(reason)
@@ -316,6 +296,21 @@ class BuildCommand(Command):
             reason = failure.InternalError(str(e), traceback.format_exc())
             trove.troveFailed(reason)
         self.chroot.stop()
+
+    def _shutDown(self):
+        if not self.logPath:
+            # this is the case where we're not logging over a port.
+            # We need to wait for the build process to copy the log out 
+            # before we clean up the chroot.
+            exists = os.path.exists
+            logPath = self.trove.logPath
+            while exists(logPath):
+                time.sleep(.2)
+        if self.buildCfg.cleanAfterCook:
+            self.chrootFactory.clean()
+        else:
+            self.chrootFactory.unmount()
+        Command._shutDown(self)
 
 class StopCommand(Command):
 

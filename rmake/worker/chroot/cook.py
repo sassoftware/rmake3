@@ -99,12 +99,13 @@ def cookTrove(cfg, repos, logger, name, version, flavor, targetLabel,
     fd, csFile = tempfile.mkstemp(dir=cfg.root + '/tmp',
                                   prefix='rmake-%s-' % name,
                                   suffix='.ccs')
+    os.chmod(csFile, 0640)
     os.close(fd)
-    os.chmod(csFile, 0644) # we need to be able to read this file 
-                           # from the rmake server
-
-    logPath = cfg.root + '/tmp/%s-%s.log' % (name, version.trailingRevision())
+    logPath = cfg.root + '/tmp/rmake/%s-%s.log' % (name,
+                                    version.trailingRevision())
     logFile = logfile.LogFile(logPath)
+    os.chmod(logPath, 0660)
+    os.chmod(cfg.root + '/tmp/rmake', 0770)
 
     results = CookResults(name, version, flavor)
 

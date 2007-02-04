@@ -257,13 +257,13 @@ class Database(DBInterface):
             try:
                 return open(trove.logPath, 'r')
             except (IOError, OSError), err:
-                raise errors.NoSuchLog('Could not open log for %s=%s[%s] from %s: %s' % (trove.getNameVerisonFlavor() + (trove.jobId, err)))
+                raise errors.RmakeError('Could not open log for %s=%s[%s] from %s: %s' % (trove.getNameVersionFlavor() + (trove.jobId, err)))
         else:
             if self.logStore.hasTroveLog(trove):
                 return self.logStore.openTroveLog(trove)
-            raise errors.NoSuchLog('Log for %s=%s[%s] from %s missing' % \
-                                    (trove.getNameVersionFlavor() + 
-                                     (trove.jobId,)))
+            raise errors.RmakeError('Log for %s=%s[%s] from %s missing' % \
+                                     (trove.getNameVersionFlavor() + 
+                                      (trove.jobId,)))
 
     def updateJobStatus(self, job):
         self.jobStore.updateJobLog(job, job.status)
@@ -299,12 +299,22 @@ class Database(DBInterface):
         self.commit()
 
     def troveBuilt(self, trove):
+        logPath = None
         if trove.logPath:
+            logPath = trove.logPath
             self.logStore.addTroveLog(trove)
         self.jobStore.updateTrove(trove)
         self.jobStore.setBinaryTroves(trove, trove.getBinaryTroves())
         self.nodeStore.setChrootActive(trove, False)
         self.commit()
+        if logPath:
+            # FIXME:
+            # we move the log into place and update the log path, and remove
+            # the old copy.  This is the (unfortunate) way we notify single
+            # node builds that the chroot can be erased - all useful info
+            # has been removed.  This should be replaced by logging over a
+            # port eventually.
+            os.remove(logPath)
 
     def troveFailed(self, trove):
         if trove.logPath:

@@ -54,6 +54,7 @@ class rMakeDaemon(daemon.Daemon):
     configClass = servercfg.rMakeConfiguration
     loggerClass = server.ServerLogger
     user = constants.rmakeuser
+    groups = [constants.chrootuser]
     commandList = list(daemon.Daemon.commandList) + [ResetCommand,
                                                      command.HelpCommand]
 
