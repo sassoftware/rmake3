@@ -128,7 +128,9 @@ class JobLogDisplay(_AbstractDisplay):
                      state=state)
         else:
             d = dict(jobId='(None)', name='(None)', state='')
-        if self.watchTroves:
+        if not self.state.jobActive():
+            tailing = 'Job %s' % self.state.getJobStateName()
+        elif self.watchTroves:
             tailing = 'Tailing'
         else:
             tailing = 'Not tailing'
@@ -202,9 +204,8 @@ class JobLogDisplay(_AbstractDisplay):
 
     def _jobTrovesSet(self, jobId, troveList):
         self._msg('[%d] - job troves set' % jobId)
-        if not self.troveToWatch:
-            self.troveToWatch = jobId, troveList[0]
-            self.updatePrompt()
+        self.troveToWatch = jobId, troveList[0]
+        self.updatePrompt()
 
     def _jobStateUpdated(self, jobId, state, status):
         _AbstractDisplay._jobStateUpdated(self, jobId, state, status)
@@ -214,6 +215,7 @@ class JobLogDisplay(_AbstractDisplay):
         self._msg('[%d] - State: %s' % (jobId, state))
         if status:
             self._msg('[%d] - %s' % (jobId, status))
+        self.updatePrompt()
 
     def _jobLogUpdated(self, jobId, state, status):
         self._msg('[%d] %s' % (jobId, status))
@@ -273,11 +275,11 @@ class OutBuffer(object):
 class DisplayState(xmlrpc.BasicXMLRPCStatusSubscriber):
     def __init__(self, client):
         self.troves = []
-        self.jobs = {}
         self.states = {}
         self.buildingTroves = {}
         self.jobId = None
         self.client = client
+        self.jobState = None
 
     def subscribe(self, jobId):
         assert(not self.jobId)
@@ -287,8 +289,14 @@ class DisplayState(xmlrpc.BasicXMLRPCStatusSubscriber):
         if job.isBuilding() or job.isFinished() or job.isFailed():
             self.updateTrovesForJob(jobId)
 
-    def jobActive(self, jobId):
-        return self.jobState == buildjob.JOB_STATE_BUILDING
+    def jobActive(self):
+        return self.jobState in (buildjob.JOB_STATE_BUILD,
+                                 buildjob.JOB_STATE_STARTED)
+
+    def getJobStateName(self):
+        if self.jobState is None:
+            return 'None'
+        return buildjob._getStateName(self.jobState)
 
     def isFailed(self, jobId, troveTuple):
         return (self.getTroveState(jobId, troveTuple)
