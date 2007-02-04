@@ -117,12 +117,10 @@ class RepositoryCache(object):
                                              withFileContents, callback)
         l = []
         for cs, info in itertools.izip(csList, troveList):
-            try:
-                troveCs = cs.getNewTroveVersion(*info)
-            except KeyError:
+            if cs is None:
                 l.append(None)
                 continue
-
+            troveCs = cs.getNewTroveVersion(*info)
             # trove integrity checks don't work when file information is
             # excluded
             t = trove.Trove(troveCs, skipIntegrityChecks = not withFiles)
@@ -184,21 +182,21 @@ class RepositoryCache(object):
             if job[3]:
                 raise CacheError('Cannot cache absolute changesets')
 
-        changesets = []
+        changesets = [None for x in jobList]
         needed = []
-        for job in jobList:
+        for idx, job in enumerate(jobList):
             csHash = str(self.hashTrove(job[0], job[2][0], job[2][1],
                                         withFiles, withFileContents))
             if self.store.hasFile(csHash):
                 outFile = LazyFile(self.store.hashToPath(csHash))
                 #outFile = self.store.openRawFile(csHash)
-                changesets.append(changeset.ChangeSetFromFile(outFile))
+                changesets[idx] = changeset.ChangeSetFromFile(outFile)
             else:
-                needed.append((job, csHash))
+                needed.append((job, csHash, idx))
 
 
         total = len(needed)
-        for idx, (job, csHash) in enumerate(needed):
+        for idx, (job, csHash, csIndex) in enumerate(needed):
             if callback:
                 callback.setChangesetHunk(idx + 1, total)
 
@@ -206,7 +204,7 @@ class RepositoryCache(object):
                                        callback=callback, withFiles=withFiles,
                                        withFileContents=withFileContents)
             if self.readOnly:
-                changesets.append(cs)
+                changesets[csIndex] = cs
                 continue
 
             tmpFd, tmpName = tempfile.mkstemp()
@@ -219,7 +217,7 @@ class RepositoryCache(object):
 
             outFile = LazyFile(self.store.hashToPath(csHash))
             #outFile = self.store.openRawFile(csHash)
-            changesets.append(changeset.ChangeSetFromFile(outFile))
+            changesets[csIndex] = changeset.ChangeSetFromFile(outFile)
 
         return changesets
 
