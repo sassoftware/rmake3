@@ -96,15 +96,7 @@ class RmakeBuildContext(cfg.ConfigSection):
                              'conary:runtime',
                              'conary-build:runtime', 'epdb', 'dev:runtime', 
                              'grep:runtime', 'procps:runtime', 'sed:runtime',
-                             'findutils:runtime', 'gawk:runtime', 
-                             # NOTE: busybox is not actually needed to build
-                             # the trove - it is needed to erase the chroot
-                             # afterwards.  Unfortunately for cross-arch builds
-                             # we cannot copy busybox in from the root system.
-                             # So, instead we add it to the dep list for now.
-                             # Long term we should have a way to install it
-                             # in the chroot after the fact.
-                             'busybox:runtime'])
+                             'findutils:runtime', 'gawk:runtime'])
     enforceManagedPolicy = (CfgBool, False)
     resolveTroves        = (CfgList(CfgQuotedLineList(CfgTroveSpec)),
                             [[('group-dist', None, None)]])

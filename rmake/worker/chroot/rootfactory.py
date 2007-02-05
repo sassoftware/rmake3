@@ -200,7 +200,8 @@ class rMakeChroot(ConaryBasedChroot):
         if self.canChroot():
             self.logger.info('Running chroot helper to clean/unmount...')
             util.mkdirChain(self.getRoot() + '/sbin')
-            rc = os.system('%s %s --clean' % (self.chrootHelperPath, 
+            shutil.copy('/sbin/busybox', self.getRoot() + '/sbin/busybox')
+            rc = os.system('%s %s --clean' % (self.chrootHelperPath,
                             self.getRoot()))
             if rc:
                 raise errors.OpenError(
