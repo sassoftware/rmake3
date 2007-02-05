@@ -52,3 +52,4 @@ class RmakeRecipe(CPackageRecipe):
         r.UtilizeUser('rmake-chroot', '%(libexecdir)s/rmake/chroothelper')
         r.UtilizeGroup('rmake-chroot', '%(libexecdir)s/rmake/chroothelper')
         r.Doc('extra/plugins/*.py')
+        r.Copy('extra/plugins/monitor.py', '%(datadir)s/rmake/extra_plugins/')
