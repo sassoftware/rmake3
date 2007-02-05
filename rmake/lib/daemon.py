@@ -106,6 +106,7 @@ class Daemon(options.MainHandler):
     commandName = 'daemon'
     commandList = _commands
     user   = None
+    groups = None
     loggerClass = logger.Logger
     useConaryOptions = False
 
