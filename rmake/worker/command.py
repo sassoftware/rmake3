@@ -306,7 +306,7 @@ class BuildCommand(Command):
             logPath = self.trove.logPath
             while exists(logPath):
                 time.sleep(.2)
-        if self.buildCfg.cleanAfterCook:
+        if self.buildCfg.cleanAfterCook and self.trove.isBuilt():
             self.chrootFactory.clean()
         else:
             self.chrootFactory.unmount()
