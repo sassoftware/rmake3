@@ -80,7 +80,7 @@ class Worker(server.Server):
     def stopCommand(self, targetCommandId, commandId=None):
         targetCommand = self.getCommandById(targetCommandId)
         if not commandId:
-            commandId = self.idgen.getStopCommandId(trove)
+            commandId = self.idgen.getStopCommandId(targetCommandId)
         self.runCommand(self.commandClasses['stop'], self.cfg, commandId, 
                         targetCommand, self._killPid)
 
