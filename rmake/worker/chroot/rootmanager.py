@@ -128,7 +128,7 @@ class ChrootManager(object):
                                          useTmpfs=self.serverCfg.useTmpfs,
                                          buildLogPath=None, reuseRoots=True,
                                          useChrootUser=useChrootUser,
-                                         logger=logger)
+                                         logger=self.logger)
         self.chroots[chrootPath] = chrootServer
         return chrootServer
 
