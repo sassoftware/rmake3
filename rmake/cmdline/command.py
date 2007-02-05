@@ -160,7 +160,7 @@ class BuildCommand(rMakeCommand):
 
     docs = {'flavor' : "flavor to build with",
             'host'   : "host to limit build to",
-            'no-watch'  : "show build status as it is updated",
+            'no-watch'  : "do not show build status",
             'poll'   : (options.VERBOSE_HELP, 'backwards compatibility option'),
             'quiet'  : "show less build info - don't tail logs",
             'commit' : "commit job when it is done",
