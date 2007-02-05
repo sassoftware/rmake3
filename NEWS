@@ -31,6 +31,7 @@ Changes in @NEW@:
      * Add more error handling for the case when a build fails after
        being removed from the queue but before starting. (RMK-312)
      * Cross-arch builds can now clean up after themselves. (RMK-328).
+       (Thanks to Pavel Volkovitskiy for this patch.)
 
 Changes in 1.0.4:
   o Bug Fixes:
