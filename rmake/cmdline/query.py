@@ -279,23 +279,21 @@ def showBuildLog(dcfg, job, trove):
 
     mark = 0
     moreData = True
-    moreData, data = client.client.getTroveBuildLog(job.jobId,
-                                    trove.getNameVersionFlavor(), mark)
+    moreData, data, mark = client.client.getTroveBuildLog(job.jobId,
+                                        trove.getNameVersionFlavor(), mark)
     if not moreData and not data:
         print 'No build log.'
         return
 
     print
     print data,
-    mark += len(data)
 
     while True:
-        mark += len(data)
         print data,
         if not moreData:
             break
         time.sleep(1)
-        moreData, data = client.client.getTroveBuildLog(job.jobId,
+        moreData, data, mark = client.client.getTroveBuildLog(job.jobId,
                                         trove.getNameVersionFlavor(), mark)
 
 def displayTroveDetail(dcfg, job, trove, indent='     ', out=None):
