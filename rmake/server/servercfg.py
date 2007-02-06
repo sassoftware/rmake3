@@ -34,6 +34,7 @@ class rMakeBuilderConfiguration(daemon.DaemonConfig):
     buildDir          = (CfgPath, '/var/rmake')
     chrootHelperPath  = (CfgPath, "/usr/libexec/rmake/chroothelper")
     slots             = (CfgInt, 1)
+    useCache          = (CfgBool, True)
     useTmpfs          = (CfgBool, False)
     pluginDirs        = (CfgPathList, ['/usr/share/rmake/plugins'])
     usePlugins        = (CfgBool, True)

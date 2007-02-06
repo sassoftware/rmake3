@@ -38,7 +38,7 @@ class ChrootManager(object):
         self.chrootHelperPath = serverCfg.chrootHelperPath
         cacheDir = serverCfg.getCacheDir()
         util.mkdirChain(cacheDir)
-        if self.serverCfg.useCaching:
+        if self.serverCfg.useCache:
             self.csCache = repocache.RepositoryCache(cacheDir)
         else:
             self.csCache = None

@@ -106,8 +106,6 @@ class RmakeBuildContext(cfg.ConfigSection):
     subscribe            = (CfgSubscriberDict(CfgSubscriber), {})
     targetLabel          = (CfgLabel, versions.Label('NONE@local:NONE'))
     uuid                 = (CfgUUID, '')
-    useCache             = (CfgBool, True)
-
 
     def __init__(self, parent, doc=None):
         cfg.ConfigSection.__init__(self, parent, doc=None)
