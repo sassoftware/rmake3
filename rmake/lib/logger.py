@@ -64,6 +64,7 @@ class Logger(object):
                 # if handler not in this list, it's already been cleaned up.
                 if handler in logging._handlers:
                     handler.close()
+                logger.removeHandler(handler)
 
     def setQuietMode(self):
         for logger in self._loggers:
