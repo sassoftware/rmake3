@@ -304,7 +304,7 @@ class rMakeServer(apirpc.XMLApiServer):
             self._initializeNodes()
             self._initialized = True
 
-        while True:
+        while not self._halt:
             # start one job from the cue.  This loop should be
             # exited after one successful start.
             job = self._getNextJob()
@@ -509,85 +509,13 @@ class rMakeServer(apirpc.XMLApiServer):
             self.warning('job %s is not in active job list')
             return
         else:
-            try:
-                os.kill(-job.pid, signal.SIGTERM)
-            except jSError, err:
-                if err.errno == errno.ESRCH:
-                    # the process is already dead!
-                    return
-                raise
-
-            timeSlept = 0
-            while timeSlept < 20:
-                pid, status = os.waitpid(job.pid, os.WNOHANG)
-                if not pid:
-                    time.sleep(.5)
-                    timeSlept += .5
-                    continue
-
-                # yay, our kill worked.
-                if os.WIFEXITED(status):
-                    exitRc = os.WEXITSTATUS(status)
-                    if exitRc:
-                        self.warning('job %s (pid %s) exited with'
-                                    ' exit status %s' % (job.jobId, pid, exitRc))
-                else:
-                    sigNum = os.WTERMSIG(status)
-                    self.warning('job %s (pid %s) exited with'
-                                ' signal %s' % (job.jobId, pid, sigNum))
-                return
-
-            if timeSlept >= 20:
-                # we need to SIGKILL this guy, he did not respond to our
-                # request.
-                self.warning('job %s (pid %s) did not exit, trying harder') 
-                try:
-                    os.kill(-job.pid, signal.SIGTERM)
-                except OSError, err:
-                    if err.errno != errno.ESRCH:
-                        raise
+            self._killPid(job.pid, killGroup=True,
+                          hook=self.handleRequestIfReady)
 
     def _stopAllJobs(self):
         for pid, jobId in self._buildPids.items():
-            try:
-                os.kill(-os.getpgid(pid), signal.SIGTERM)
-            except OSError, err:
-                if err.errno != errno.ESRCH:
-                    raise
-
-        killed = []
-        timeSlept = 0
-        while timeSlept < 90 and self._buildPids:
-            for pid in list(self._buildPids):
-                try:
-                    pid, status = os.waitpid(pid, os.WNOHANG)
-                except OSError, err:
-                    if err.errno in (errno.ESRCH, errno.ECHILD):
-                        jobId = self._buildPids.pop(pid)
-                        killed.append(jobId)
-                        continue
-                    else:
-                        raise
-                else:
-                    if not pid:
-                        continue
-                jobId = self._buildPids.pop(pid)
-                killed.append(jobId)
-            time.sleep(.5)
-            timeSlept += .5
-
-        publishers = []
-        jobs = self.db.getJobs(killed)
-        for job in jobs:
-            self._subscribeToJobInternal(job)
-            publisher = job.getPublisher()
-            publisher.cork()
-            publishers.append(publisher)
-            job.jobFailed('Halted by external event')
-
-        # make all db and emit events at the same time.
-        for publisher in publishers:
-            publisher.uncork()
+            self._killPid(pid, hook=self.handleRequestIfReady, killGroup=True)
+        self._serveLoopHook()
 
     def _exit(self, exitCode):
         sys.exit(exitCode)

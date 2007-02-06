@@ -104,10 +104,7 @@ class Builder(object):
         try:
             signal.signal(sigNum, signal.SIG_DFL)
             self.worker.stopAllCommands()
-            # NOTE: unfortunately, we can't send this out, it's entirely
-            # possible the signal could have come from the rmake server.
-            # instead, we'll have to let the server ensure our 
-            # self.job.jobFailed('Received signal %s' % sigNum)
+            self.job.jobFailed('Received signal %s' % sigNum)
             os.kill(os.getpid(), sigNum)
         finally:
             os._exit(1)
