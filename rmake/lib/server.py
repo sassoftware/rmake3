@@ -158,6 +158,16 @@ class Server(object):
         signal.signal(signal.SIGTERM, self._signalHandler)
         signal.signal(signal.SIGINT, self._signalHandler)
 
+    def _collectChild(self, pid):
+        try:
+            pid, status = os.waitpid(pid, 0)
+        except OSError, err:
+            if err.errno in (errno.ESRCH, errno.ECHILD):
+                pid = None
+        if pid:
+            self._try('pidDied', self._pidDied, pid, status)
+
+
     def _collectChildren(self):
         try:
             pid, status = os.waitpid(-1, os.WNOHANG)
@@ -197,9 +207,12 @@ class Server(object):
             name = self._pids.get(pid, 'Unknown')
         return name
 
-    def _killPid(self, pid, name=None, sig=signal.SIGTERM, timeout=20):
+    def _killPid(self, pid, name=None, sig=signal.SIGTERM, timeout=20, 
+                 hook=None, hookArgs=None):
         if not pid:
             return
+        if not hookArgs:
+            hookArgs = []
         name = self._getPidName(pid, name)
         try:
             os.kill(pid, sig)
@@ -223,11 +236,14 @@ class Server(object):
             else:
                 time.sleep(.5)
                 timeSlept += .5
+            if hook:
+                hook(*hookArgs)
 
         if not found:
             if sig != signal.SIGKILL:
                 self.warning('%s (pid %s) would not die, killing harder...' % (name, pid))
-                self._killPid(pid, name, signal.SIGKILL)
+                self._killPid(pid, name, signal.SIGKILL, hook=hook,
+                              hookArgs=hookArgs)
             else:
                 self.error('%s (pid %s) would not die.' % (name, pid))
             return
