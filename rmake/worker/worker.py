@@ -23,6 +23,7 @@ from rmake.lib import server
 
 from rmake import failure
 from rmake.worker import command
+from rmake.worker import recorder
 from rmake.worker.chroot import rootmanager
 
 class CommandIdGen(object):
@@ -66,11 +67,27 @@ class Worker(server.Server):
     def hasActiveTroves(self):
         return self.commands or self._queuedCommands
 
+    def startTroveLogger(self, trove):
+        r = recorder.BuildLogRecorder()
+        r.attach(trove)
+        logHost = r.getHost()
+        logPort = r.getPort()
+        pid = self._fork('BuildLogger for %s' % trove)
+        if not pid:
+            r.serve_forever()
+        else:
+            r.close()
+            trove.logPid = pid
+        return logHost, logPort
+
     def buildTrove(self, buildCfg, jobId, trove, eventHandler,
                    buildReqs, targetLabel, logHost='', logPort=0, logPath=None,
                    commandId=None):
         if not commandId:
             commandId = self.idgen.getBuildCommandId(trove)
+        if logPath is None:
+            logPath = trove.logPath
+
         chrootFactory = self.chrootManager.getRootFactory(buildCfg, buildReqs,
                                                           trove)
         self.queueCommand(self.commandClasses['build'], self.cfg, commandId,
@@ -81,8 +98,8 @@ class Worker(server.Server):
         targetCommand = self.getCommandById(targetCommandId)
         if not commandId:
             commandId = self.idgen.getStopCommandId(targetCommandId)
-        self.runCommand(self.commandClasses['stop'], self.cfg, commandId, 
-                        targetCommand, self._killPid)
+        self.runCommand(self.commandClasses['stop'], self.cfg, commandId,
+                        targetCommand, self._killPid, self._serveLoopHook)
 
     def startSession(self, host, chrootPath, commandLine, superUser=False):
         if host != '_local_':

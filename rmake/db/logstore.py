@@ -26,6 +26,9 @@ class LogStore(object):
         util.mkdirChain(path)
         self.store = DeletableDataStore(path)
 
+    def getTrovePath(self, trove):
+        return self.store.hashToPath(self.hashTrove(trove))
+
     def hashTrove(self, trove):
         return sha1helper.sha1ToString(
                 sha1helper.sha1String('%s %s=%s[%s]' % (trove.jobId,

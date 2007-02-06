@@ -138,7 +138,7 @@ class rMakeServer(apirpc.XMLApiServer):
             f.seek(max(end + mark, 0))
         else:
             f.seek(mark)
-        return trove.isBuilding(), xmlrpclib.Binary(f.read()), f.tell()
+        return trove.isStarted(), xmlrpclib.Binary(f.read()), f.tell()
 
     @api(version=1)
     @api_parameters(1, None)
@@ -544,7 +544,7 @@ class rMakeServer(apirpc.XMLApiServer):
                 try:
                     os.kill(-job.pid, signal.SIGTERM)
                 except OSError, err:
-                    if err.errno != errno. SRCH:
+                    if err.errno != errno.ESRCH:
                         raise
 
     def _stopAllJobs(self):

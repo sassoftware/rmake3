@@ -299,43 +299,15 @@ class Database(DBInterface):
         self.commit()
 
     def troveBuilt(self, trove):
-        logPath = None
-        if trove.logPath:
-            logPath = trove.logPath
-            self.logStore.addTroveLog(trove)
         self.jobStore.updateTrove(trove)
         self.jobStore.setBinaryTroves(trove, trove.getBinaryTroves())
         self.nodeStore.setChrootActive(trove, False)
         self.commit()
-        if logPath:
-            # FIXME:
-            # we move the log into place and update the log path, and remove
-            # the old copy.  This is the (unfortunate) way we notify single
-            # node builds that the chroot can be erased - all useful info
-            # has been removed.  This should be replaced by logging over a
-            # port eventually.
-            os.remove(logPath)
 
     def troveFailed(self, trove):
-        if trove.logPath:
-            logPath = trove.logPath
-            if os.path.exists(trove.logPath):
-                self.logStore.addTroveLog(trove)
-            else:
-                trove.logPath = ''
-        else:
-            logPath = None
         self.jobStore.updateTrove(trove)
         self.nodeStore.setChrootActive(trove, False)
         self.commit()
-        if logPath:
-            # FIXME:
-            # we move the log into place and update the log path, and remove
-            # the old copy.  This is the (unfortunate) way we notify single
-            # node builds that the chroot can be erased - all useful info
-            # has been removed.  This should be replaced by logging over a
-            # port eventually.
-            os.remove(logPath)
 
     def updateTroveStatus(self, trove):
         self.jobStore.updateTrove(trove)

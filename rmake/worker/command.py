@@ -194,6 +194,7 @@ class BuildCommand(Command):
 
     def _signalHandler(self, signal, frame):
         self.failureReason = failure.Stopped('Signal %s received' % signal)
+        self.trove.troveFailed(self.failureReason)
         Command._signalHandler(self, signal, frame)
 
     def _shutDown(self):
@@ -298,14 +299,6 @@ class BuildCommand(Command):
         self.chroot.stop()
 
     def _shutDown(self):
-        if not self.logPath:
-            # this is the case where we're not logging over a port.
-            # We need to wait for the build process to copy the log out 
-            # before we clean up the chroot.
-            exists = os.path.exists
-            logPath = self.trove.logPath
-            while exists(logPath):
-                time.sleep(.2)
         if self.buildCfg.cleanAfterCook and self.trove.isBuilt():
             self.chrootFactory.clean()
         else:
@@ -316,13 +309,14 @@ class StopCommand(Command):
 
     name = 'stop-command'
 
-    def __init__(self, cfg, commandId, targetCommand, killFn):
+    def __init__(self, cfg, commandId, targetCommand, killFn, hook):
         Command.__init__(self, cfg, commandId, targetCommand.jobId)
         self.targetCommand = targetCommand
         self.killFn = killFn
+        self.hook = hook
 
     def runCommand(self):
-        self.killFn(self.targetCommand.pid)
+        self.killFn(self.targetCommand.pid, hook=self.hook)
 
     def shouldFork(self):
         # Because this command runs kill, it must be the parent process 

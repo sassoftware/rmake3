@@ -404,6 +404,8 @@ class JobStore(object):
 
     def addTrove(self, trove):
         cu = self.db.cursor()
+        if not trove.logPath:
+            trove.logPath = self.db.logStore.getTrovePath(trove)
 
         failureTup = freeze('FailureReason', trove.getFailureReason())
         kw = dict(jobId=trove.jobId,

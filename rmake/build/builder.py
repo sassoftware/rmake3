@@ -74,8 +74,8 @@ class Builder(object):
         self.repos = self.getRepos()
         self.job = job
         self.jobId = job.jobId
-        self.eventHandler = EventHandler(job)
         self.worker = worker.Worker(serverCfg, self.logger, serverCfg.slots)
+        self.eventHandler = EventHandler(job, self.worker)
 
     def _closeLog(self):
         self.logFile.close()
@@ -188,9 +188,10 @@ class Builder(object):
         targetLabel = self.buildCfg.getTargetLabel(troveToBuild.getVersion())
         troveToBuild.troveQueued('Waiting to be assigned to chroot')
         troveToBuild.disown()
+        logHost, logPort = self.worker.startTroveLogger(troveToBuild)
         self.worker.buildTrove(self.buildCfg, troveToBuild.jobId,
-                               troveToBuild, self.eventHandler,
-                                   buildReqs, targetLabel)
+                               troveToBuild, self.eventHandler, buildReqs,
+                               targetLabel, logHost, logPort)
 
     def _checkBuildSanity(self, buildTroves):
         def _referencesOtherTroves(trv):
@@ -222,7 +223,8 @@ class EventHandler(subscriber.StatusSubscriber):
                   'TROVE_BUILDING'         : 'troveBuilding',
                   'TROVE_STATE_UPDATED'    : 'troveStateUpdated' }
 
-    def __init__(self, job):
+    def __init__(self, job, server):
+        self.server = server
         self.job = job
         self._hadEvent = False
         subscriber.StatusSubscriber.__init__(self, None, None)
@@ -236,6 +238,8 @@ class EventHandler(subscriber.StatusSubscriber):
     def troveBuilt(self, (jobId, troveTuple), binaryTroveList):
         self._hadEvent = True
         t = self.job.getTrove(*troveTuple)
+        if hasattr(t, 'logPid'):
+            self.server._collectChild(t.logPid)
         t.troveBuilt(binaryTroveList)
         t.own()
 
@@ -246,6 +250,8 @@ class EventHandler(subscriber.StatusSubscriber):
     def troveFailed(self, (jobId, troveTuple), failureReason):
         self._hadEvent = True
         t = self.job.getTrove(*troveTuple)
+        if hasattr(t, 'logPid'):
+            self.server._collectChild(t.logPid)
         t.troveFailed(failureReason)
         t.own()
 
