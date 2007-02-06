@@ -149,6 +149,8 @@ class Worker(server.Server):
 
     def handleRequestIfReady(self, sleep=0.1):
         ready = []
+        if not self.commands:
+            return
         try:
             ready = select.select(self.commands, [], [], sleep)[0]
         except select.error, err:
@@ -194,6 +196,7 @@ class Worker(server.Server):
                     self.commands.append(command)
             else:
                 command.runCommandNoExit()
+                self.commandCompleted(command.getCommandId())
         except Exception, err:
             self.error(
                 'Command %s got exception: %s: %s' % (commandId, err.__class__.__name__, err))
