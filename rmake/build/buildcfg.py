@@ -31,7 +31,7 @@ from conary.lib.cfgtypes import (CfgBool, CfgPath, CfgList, CfgDict, CfgString,
                                  CfgPathList)
 
 from rmake.lib import apiutils, daemon, logger
-from rmake import compat, subscribers
+from rmake import compat, errors, subscribers
 
 class CfgTroveSpec(CfgType):
     def parseString(self, val):
@@ -65,7 +65,10 @@ class CfgSubscriber(CfgType):
 
     def parseString(self, name, val):
         protocol, uri = val.split(None, 1)
-        s = subscribers.SubscriberFactory(name, protocol, uri)
+        try:
+            s = subscribers.SubscriberFactory(name, protocol, uri)
+        except errors.RmakeError, err:
+            raise ParseError(err)
         return s
 
     def updateFromString(self, s, str):
@@ -142,10 +145,10 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
         # are set to on the local system's conaryrc.
         if log is None:
             log = logger.Logger('buildcfg')
-        if hasattr(self, 'setIgnoreErrors'):
-            self.setIgnoreErrors(ignoreErrors)
 
         conarycfg.ConaryConfiguration.__init__(self, readConfigFiles=False)
+        if hasattr(self, 'setIgnoreErrors'):
+            self.setIgnoreErrors(ignoreErrors)
         for info in RmakeBuildContext._getConfigOptions():
             if info[0] not in self:
                 self.addConfigOption(*info)
