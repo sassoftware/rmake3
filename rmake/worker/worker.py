@@ -218,6 +218,7 @@ class Worker(server.Server):
                     self.chrootManager.rootFinished(command.getChrootFactory())
                 self.commands.remove(command)
                 break
+        server.Server._pidDied(self, pid, status, name)
 
     def commandErrored(self, command, msg, tb=''):
         pass
