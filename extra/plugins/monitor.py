@@ -21,14 +21,16 @@ import select
 import sys
 import time
 import tempfile
+import traceback
 
 from conary.lib import util
 
+from rmake import errors
+from rmake import subscribers
 from rmake.build import buildjob, buildtrove
 from rmake.cmdline import query
 from rmake.lib.apiutils import thaw, freeze
 from rmake.lib import auth, localrpc
-from rmake import subscribers
 from rmake.subscribers import xmlrpc
 
 import termios
@@ -77,7 +79,7 @@ class _AbstractDisplay(xmlrpc.BasicXMLRPCStatusSubscriber):
 
     def _msg(self, msg, *args):
         self.out.write('\r[%s] %s\n' % (time.strftime('%X'), msg))
-        self.out.write('Command (press h for help)>')
+        self.out.write('(h for help)>')
         self.out.flush()
 
     def _jobStateUpdated(self, jobId, state, status):
@@ -112,7 +114,7 @@ class JobLogDisplay(_AbstractDisplay):
         self.buildingTroves = {}
         self.state = state
         self.lastLen = 0
-        self.promptFormat = '%(jobId)s %(name)s - %(state)s - (%(tailing)s) (press h for help)>'
+        self.promptFormat = '%(jobId)s %(name)s - %(state)s - (%(tailing)s) ([h]elp)>'
         self.updatePrompt()
 
     def _msg(self, msg, *args):
@@ -124,16 +126,16 @@ class JobLogDisplay(_AbstractDisplay):
         if self.troveToWatch:
             state = self.state.getTroveState(*self.troveToWatch)
             state = buildtrove._getStateName(state)
-            d = dict(jobId=self.troveToWatch[0], name=self.troveToWatch[1][0],
-                     state=state)
+            name = self.troveToWatch[1][0].split(':', 1)[0] # remove :source
+            d = dict(jobId=self.troveToWatch[0], name=name, state=state)
         else:
             d = dict(jobId='(None)', name='(None)', state='')
         if not self.state.jobActive():
             tailing = 'Job %s' % self.state.getJobStateName()
         elif self.watchTroves:
-            tailing = 'Tailing'
+            tailing = 'Details on'
         else:
-            tailing = 'Not tailing'
+            tailing = 'Details off'
         d['tailing'] = tailing
         self.prompt = self.promptFormat % d
         self.erasePrompt()
@@ -210,8 +212,8 @@ class JobLogDisplay(_AbstractDisplay):
     def _jobStateUpdated(self, jobId, state, status):
         _AbstractDisplay._jobStateUpdated(self, jobId, state, status)
         state = buildjob._getStateName(state)
-        if self._isFinished():
-            self._updateBuildLog()
+        if self._isFinished() and self.troveToWatch:
+            self.updateBuildLog(*self.troveToWatch)
         self._msg('[%d] - State: %s' % (jobId, state))
         if status:
             self._msg('[%d] - %s' % (jobId, status))
@@ -497,10 +499,23 @@ class DisplayManager(object):
             # call display method
             method = getattr(self.state, methodname, None)
             if method:
-                method(*args)
+                try:
+                    method(*args)
+                except errors.uncatchableExceptions:
+                    raise
+                except Exception, err:
+                    print 'Error in handler: %s\n%s' % (err,
+                                                        traceback.format_exc())
             method = getattr(self.display, methodname, None)
             if method:
-                method(*args)
+                try:
+                    raise RuntimeError
+                    method(*args)
+                except errors.uncatchableExceptions:
+                    raise
+                except Exception, err:
+                    print 'Error in handler: %s\n%s' % (err,
+                                                        traceback.format_exc())
             return ''
 
 
