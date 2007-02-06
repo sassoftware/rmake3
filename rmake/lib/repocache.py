@@ -212,6 +212,7 @@ class RepositoryCache(object):
             tmpFd, tmpName = tempfile.mkstemp()
             os.close(tmpFd)
             cs.writeToFile(tmpName)
+            del cs
             # we could use this changeset, but 
             # cs.reset() is not necessarily reliable,
             # so instead we re-read from disk
