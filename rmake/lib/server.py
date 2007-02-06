@@ -48,8 +48,6 @@ class Server(object):
         os._exit(exitRc)
 
     def serve_forever(self):
-        self._halt = False
-        self._haltSignal = None
         startedShutdown = False
         try:
             while True:
