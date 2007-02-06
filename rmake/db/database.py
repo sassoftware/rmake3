@@ -50,12 +50,14 @@ class DBInterface(object):
             Commits after running a function
         """
         self._holdCommits = True
+        self.cursor().execute('BEGIN IMMEDIATE')
         try:
             rv = fn(*args, **kw)
             self._holdCommits = False
             self.commit()
             return rv
         except:
+            self.rollback()
             self._holdCommits = False
             raise
 
