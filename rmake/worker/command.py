@@ -193,24 +193,9 @@ class BuildCommand(Command):
         self.uri = None
 
     def _signalHandler(self, signal, frame):
-        self.failureReason = failure.Stopped('Signal %s received' % signal)
-        self.trove.troveFailed(self.failureReason)
+        failureReason = failure.Stopped('Signal %s received' % signal)
+        self.trove.troveFailed(failureReason)
         Command._signalHandler(self, signal, frame)
-
-    def _shutDown(self):
-        if self.failureReason:
-            self.trove.troveFailed(self.failureReason)
-        try:
-            self.chroot.stop()
-        except OSError, err:
-            if err.errno != errno.ESRCH:
-                raise
-            else:
-                return
-        except errors.OpenError, err:
-            pass
-        self._killPid(self.chroot.pid)
-        Command._shutDown(self)
 
     def _handleData(self, (jobId, eventList)):
         self.eventHandler._receiveEvents(*thaw('EventList', eventList))
@@ -299,6 +284,17 @@ class BuildCommand(Command):
         self.chroot.stop()
 
     def _shutDown(self):
+        try:
+            self.chroot.stop()
+        except OSError, err:
+            if err.errno != errno.ESRCH:
+                raise
+            else:
+                return
+        except errors.OpenError, err:
+            pass
+        self._killPid(self.chroot.pid)
+
         if self.buildCfg.cleanAfterCook and self.trove.isBuilt():
             self.chrootFactory.clean()
         else:
