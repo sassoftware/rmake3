@@ -38,7 +38,10 @@ class ChrootManager(object):
         self.chrootHelperPath = serverCfg.chrootHelperPath
         cacheDir = serverCfg.getCacheDir()
         util.mkdirChain(cacheDir)
-        self.csCache = repocache.RepositoryCache(cacheDir)
+        if self.serverCfg.useCaching:
+            self.csCache = repocache.RepositoryCache(cacheDir)
+        else:
+            self.csCache = None
         self.chroots = {}
         if logger is None:
             logger = logger_.Logger()

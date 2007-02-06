@@ -106,6 +106,7 @@ class RmakeBuildContext(cfg.ConfigSection):
     subscribe            = (CfgSubscriberDict(CfgSubscriber), {})
     targetLabel          = (CfgLabel, versions.Label('NONE@local:NONE'))
     uuid                 = (CfgUUID, '')
+    useCache             = (CfgBool, True)
 
 
     def __init__(self, parent, doc=None):
@@ -130,9 +131,10 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
 
     _hiddenOptions = [ 'buildTroveSpecs', 'resolveTroveTups' ]
 
-    _strictOptions = [ 'buildFlavor', 'buildLabel',
-                       'flavor', 'installLabelPath', 'repositoryMap', 'root',
-                       'user', 'name', 'contact', 'signatureKey', 'dbPath' ]
+    _strictOptions = [ 'buildFlavor', 'buildLabel', 'flavor',
+                       'installLabelPath', 'repositoryMap', 'root',
+                       'user', 'name', 'contact', 'signatureKey', 'dbPath',
+                       'proxy' ]
     _defaultSectionType   =  RmakeBuildContext
 
     def __init__(self, readConfigFiles=False, root='', conaryConfig=None, 

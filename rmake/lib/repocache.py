@@ -162,6 +162,8 @@ class RepositoryCache(object):
                                       allResults[toFind])
                 for (idx, depHash), (depClass, dependency), resultList in iter:
                     found[idx] = resultList
+                    if self.readOnly:
+                        continue
                     depResultList = DependencyResultList()
                     [ depResultList.add(*x) for x in resultList ]
                     s = StringIO()

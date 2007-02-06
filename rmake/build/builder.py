@@ -92,8 +92,10 @@ class Builder(object):
 
     def getRepos(self):
         repos = conaryclient.ConaryClient(self.buildCfg).getRepos()
-        return repocache.CachingTroveSource(repos,
-                                        self.serverCfg.getCacheDir())
+        if self.serverCfg.useCache:
+            return repocache.CachingTroveSource(repos,
+                                            self.serverCfg.getCacheDir())
+        return repos
 
     def info(self, state, message):
         self.logger.info(message)
