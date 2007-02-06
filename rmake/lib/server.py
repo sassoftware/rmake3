@@ -103,7 +103,7 @@ class Server(object):
                 self._try('halt', self._shutDown)
             raise
 
-    def handleRequestIfReady(self, sleepTime):
+    def handleRequestIfReady(self, sleepTime=0.1):
         time.sleep(sleepTime)
 
     def _serveLoopHook(self):
@@ -208,14 +208,17 @@ class Server(object):
         return name
 
     def _killPid(self, pid, name=None, sig=signal.SIGTERM, timeout=20, 
-                 hook=None, hookArgs=None):
+                 hook=None, hookArgs=None, killGroup=False):
         if not pid:
             return
         if not hookArgs:
             hookArgs = []
         name = self._getPidName(pid, name)
         try:
-            os.kill(pid, sig)
+            if killGroup:
+                os.kill(-os.getpgid(pid), sig)
+            else:
+                os.kill(pid, sig)
         except OSError, err:
             if err.errno in (errno.ESRCH,):
                 # the process is already dead!

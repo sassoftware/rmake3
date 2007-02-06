@@ -284,7 +284,7 @@ class XMLApiServer(ApiServer):
         ApiServer._close(self)
         self.server.server_close()
 
-    def handleRequestIfReady(self, sleepTime):
+    def handleRequestIfReady(self, sleepTime=0.1):
         try:
             ready, _, _ = select.select([self.server], [], [], sleepTime)
         except select.error, err:
