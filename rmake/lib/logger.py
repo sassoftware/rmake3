@@ -3,6 +3,13 @@ import os
 
 from conary.lib import util
 
+_loggers = []
+
+def shutdown():
+    for logger in _loggers:
+        logger.close()
+        logger.__class__._dict = {}
+
 class Logger(object):
 
     name = ''
@@ -28,6 +35,7 @@ class Logger(object):
             self.isCopy = True
             return
         else:
+            _loggers.append(self)
             self.__class__._dict[self.name] = self.__dict__
 
         self.fileHandler = None
@@ -41,7 +49,7 @@ class Logger(object):
         logger = logging.getLogger(self.name)
         logger.parent = None
         for handler in logger.handlers:
-            logger.removeHandler(x)
+            logger.removeHandler(handler)
         logger.setLevel(logging.DEBUG)
         self.logger = logger
         if logPath:
