@@ -509,7 +509,6 @@ class DisplayManager(object):
             method = getattr(self.display, methodname, None)
             if method:
                 try:
-                    raise RuntimeError
                     method(*args)
                 except errors.uncatchableExceptions:
                     raise
