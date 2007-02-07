@@ -22,7 +22,7 @@ from conary.lib import log
 from rmake import errors
 
 class ConaryVersion(object):
-    maxKnownVersion = "1.1.15"
+    maxKnownVersion = "1.1.17"
     _warnedUser = False
 
     def __init__(self, conaryVersion=None):
@@ -66,6 +66,10 @@ class ConaryVersion(object):
     def supportsCloneCallback(self):
         # support added in 1.0.30 and 1.1.3
         return self.checkVersion(30, 3)
+
+    def supportsCloneNoTracking(self):
+        # support added in 1.1.17
+        return self.checkVersion(None, 17)
 
     def supportsConfigIsDefault(self):
         # support added in 1.0.33 and 1.1.6

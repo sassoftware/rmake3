@@ -93,6 +93,8 @@ def commitJob(conaryclient, job, rmakeConfig, message=None,
 
         if compat.ConaryVersion().supportsCloneNonRecursive():
             kw['fullRecurse'] = False
+        if compat.ConaryVersion().supportsCloneNoTracking():
+            kw['trackClone'] = False
 
         passed, cs = conaryclient.createCloneChangeSet(
                                             targetBranch,
