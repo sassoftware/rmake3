@@ -238,7 +238,7 @@ class EventHandler(subscriber.StatusSubscriber):
         self._hadEvent = True
         t = self.job.getTrove(*troveTuple)
         if hasattr(t, 'logPid'):
-            self.server._collectChild(t.logPid)
+            self.server._killPid(t.logPid)
         t.troveBuilt(binaryTroveList)
         t.own()
 
@@ -250,7 +250,7 @@ class EventHandler(subscriber.StatusSubscriber):
         self._hadEvent = True
         t = self.job.getTrove(*troveTuple)
         if hasattr(t, 'logPid'):
-            self.server._collectChild(t.logPid)
+            self.server._killPid(t.logPid)
         t.troveFailed(failureReason)
         t.own()
 

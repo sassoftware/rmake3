@@ -72,5 +72,13 @@ class BuildLogRecorder(asyncore.dispatcher, server.Server):
         else:
             os.write(self.logFd, rv)
 
+    def _signalHandler(self, sigNum, frame):
+        server.Server._signalHandler(self, sigNum, frame)
+        # we got a signal, but have not finished reading yet.
+        if self.connected and self.logFd:
+            # keep reading until the socket is closed
+            # or until we're killed again.
+            self._halt = False
+
     def writable(self):
         return False

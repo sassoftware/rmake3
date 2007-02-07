@@ -74,6 +74,7 @@ class Worker(server.Server):
         logPort = r.getPort()
         pid = self._fork('BuildLogger for %s' % trove)
         if not pid:
+            r._installSignalHandlers()
             r.serve_forever()
         else:
             r.close()
