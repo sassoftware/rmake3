@@ -294,6 +294,9 @@ int enter_chroot(const char * chrootDir, const char * socketPath,
     int rc;
     pid_t pid;
     char tempPath[PATH_MAX];
+    char command[PATH_MAX]; /* this may fail as our command could be longer
+                             * than this, but it really shouldn't be 
+                             * unless someone's abusing the system */
 
     /* do the mounting here, since there is no mount capability */
     for(i=0; i < (sizeof(mounts) / sizeof(mounts[0])); i++) {
@@ -379,7 +382,8 @@ int enter_chroot(const char * chrootDir, const char * socketPath,
     do_chroot(chrootDir);
     pid = fork();
     if (pid == 0) {
-        execl("/bin/sh", "/bin/sh", "/root/tagscripts", NULL);
+        /* run with the environment set up inside the shell */
+        execle("/bin/sh", "/bin/sh", "-l", "/root/tagscripts", NULL, NULL);
         perror("execl");
         _exit(1);
     }
@@ -403,10 +407,15 @@ int enter_chroot(const char * chrootDir, const char * socketPath,
         fprintf(stderr, "ERROR: can not assume %s privileges\n", CHROOT_USER);
         return -1;
     }
+    rc = snprintf(command, PATH_MAX, 
+                  "%s start -n --socket %s", CHROOT_SERVER_PATH, socketPath);
+    if (rc >= PATH_MAX) {
+        fprintf(stderr, "ERROR: command too long\n");
+        return 1;
+    }
     if (opt_verbose)
-	printf("executing: %s start -n\n", CHROOT_SERVER_PATH);
-    execl(CHROOT_SERVER_PATH, CHROOT_SERVER_PATH,
-           "start", "-n", "--socket", socketPath, NULL);
+	printf("executing: %s\n", command);
+    execle("/bin/sh", "/bin/sh", "-lc", command, NULL, NULL);
     perror("execl");
     return 1;
 }
