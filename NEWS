@@ -20,6 +20,7 @@ Changes in @NEW@:
      * StrictMode is now default True - to get conary to use your local
        conary configuration files, you'll have to set it to False.
      * rMake now requires conary version 1.0.42 or 1.1.15 to run.
+     * rMake no longer allows redirects to resolve build requirements. (RMK-337)
 
   o Server Changes:
      * Dependency resolution against a particular group is now cached.

@@ -199,6 +199,10 @@ class DependencyHandler(object):
             trove, failReason = toFail.pop()
             for reqTrove, buildReq in depState.getTrovesRequiringTrove(trove):
 
+                if reqTrove == trove:
+                    # don't refail ourselves
+                    continue
+
                 found = False
                 for provTrove in depState.getSolutionsForBuildReq(reqTrove,
                                                                   buildReq):
@@ -320,11 +324,12 @@ class DependencyHandler(object):
             installLabelPath.extend(self.installLabelPath)
             searchFlavor =  client.cfg.flavor
 
+        # don't follow redirects when resolving buildReqs
         result = searchSource.findTroves(installLabelPath,
-                                         trv.getBuildRequirementSpecs(),
-                                         searchFlavor, allowMissing=True,
-                                         acrossLabels=False)
-
+                                     trv.getBuildRequirementSpecs(),
+                                     searchFlavor, allowMissing=True,
+                                     acrossLabels=False,
+                                     troveTypes=trovesource.TROVE_QUERY_NORMAL)
         okay = True
 
         buildReqTups = []
