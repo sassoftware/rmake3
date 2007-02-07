@@ -26,6 +26,9 @@ Changes in @NEW@:
 
   o Server Changes:
      * Dependency resolution against a particular group is now cached.
+     * rMake now cleans out the server environment when entering the rmake
+       chroot, so that it cannot pollute the behavior of any tag 
+       scripts. (RMK-332)
 
   o Bug Fixes:
      * StrictMode now allows signatureKeys.
