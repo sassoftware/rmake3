@@ -45,7 +45,7 @@ class Server(object):
         return self._logger
 
     def _exit(self, exitRc):
-        os._exit(exitRc)
+        sys._exit(exitRc)
 
     def serve_forever(self):
         startedShutdown = False
@@ -56,7 +56,7 @@ class Server(object):
                     coveragehook.save()
                     startedShutdown = True
                     self._try('halt', self._shutDown)
-                    sys.exit(0)
+                    self._exit(0)
                 self._try('loop hook', self._serveLoopHook)
                 self._try('request handling', self.handleRequestIfReady, .1)
         except SystemExit, err:
@@ -85,7 +85,7 @@ class Server(object):
                 coveragehook.save()
                 startedShutdown = True
                 self._try('halt', self._shutDown)
-                sys.exit(0)
+                self._exit(0)
         except SystemExit, err:
             try:
                 coveragehook.save()
@@ -128,7 +128,7 @@ class Server(object):
 
     def _shutDown(self):
         self._killAllPids()
-        sys.exit(0)
+        self._exit(0)
 
     def _killAllPids(self):
         for pid, name in self._pids.items():
