@@ -12,6 +12,7 @@ import time
 import traceback
 
 from conary.lib import options, util
+from conary.lib import coveragehook
 from conary import conarycfg
 from conary import conaryclient
 
@@ -329,5 +330,6 @@ def main(argv):
     sys.exit(rc)
 
 if __name__ == '__main__':
+    coveragehook.install()
     sys.path.insert(0, '/usr/share/rmake')
     sys.exit(main(sys.argv))

@@ -218,9 +218,16 @@ class rMakeChrootServer(object):
             util.mkdirChain(self.getRoot() + '/tmp/rmake/lib')
             args = [prog, 'start', '-n', '--config',
                     'root %s' % self.getRoot(), '--socket', socketPath]
-            os.execve(prog, args,
-                  {'PYTHONPATH' : '%s:%s' % (os.path.dirname(rmakeDir),
-                                             os.path.dirname(conaryDir))})
+            env = {'PYTHONPATH' : '%s:%s' % (os.path.dirname(rmakeDir),
+                                             os.path.dirname(conaryDir))}
+            if 'COVERAGE_DIR' in os.environ:
+                import shutil
+                chrootRmakePath = self.getRoot() + constants.chrootRmakePath
+                realRmakePath = os.path.dirname(os.path.dirname(sys.modules['rmake'].__file__))
+                shutil.rmtree(chrootRmakePath)
+                os.symlink(realRmakePath, chrootRmakePath)
+                env.update(x for x in os.environ.items() if x[0].startswith('COVERAGE'))
+            os.execve(prog, args, env)
 
     def _waitForChrootServer(self, pid):
         # paths passed back from the server will be relative to the chroot
