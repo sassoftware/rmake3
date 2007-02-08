@@ -95,13 +95,19 @@ class RmakeMain(options.MainHandler):
             # and otherwise log.INFO is the default.
             log.setMinVerbosity(log.INFO)
         context = self._getContext(buildConfig, conaryConfig, argSet)
+        usedContext = False
         if conaryConfig and context:
-            conaryConfig.setContext(context)
+            if conaryConfig.hasSection(context):
+                usedContext = True
+                conaryConfig.setContext(context)
 
 
         buildConfig.useConaryConfig(conaryConfig)
-        if context:
+        if context and buildConfig.hasSection(context):
             buildConfig.setContext(context)
+            usedContext = True
+        if not usedContext:
+            raise errors.RmakeError('No such context "%s"' % context)
 
         buildConfig.initializeFlavors()
 

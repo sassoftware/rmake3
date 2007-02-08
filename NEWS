@@ -36,6 +36,7 @@ Changes in @NEW@:
        installed in the root and uses them for buildcfg (RMK-295).
      * Add more error handling for the case when a build fails after
        being removed from the queue but before starting. (RMK-312)
+     * rMake now raises an error when an invalid context is used. (RMK-325)
 
 Changes in 1.0.4:
   o Bug Fixes:
