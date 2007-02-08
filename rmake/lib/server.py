@@ -35,7 +35,7 @@ class Server(object):
         return self._logger
 
     def _exit(self, exitRc):
-        sys._exit(exitRc)
+        sys.exit(exitRc)
 
     def serve_forever(self):
         startedShutdown = False
