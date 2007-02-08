@@ -1,6 +1,7 @@
 #
 # Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
 #
+"""
 The worker is in charge of taking build requests and monitoring them
 until they complete.
 """

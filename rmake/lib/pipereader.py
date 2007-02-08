@@ -1,6 +1,7 @@
 #
 # Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
 #
+"""
 Simple class for reading marshalled data through a pipe.
 """
 import marshal

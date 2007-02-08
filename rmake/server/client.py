@@ -1,6 +1,7 @@
 #
 # Copyright (c) 2006-2007 rPath, Inc.  All rights reserved.
 #
+import time
 
 from rmake.lib import apirpc
 from rmake.lib.apiutils import thaw
