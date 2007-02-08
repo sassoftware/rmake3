@@ -1,6 +1,6 @@
 #/bin/bash
 #
-# Copyright (c) 2006 rPath, Inc.
+# Copyright (c) 2006-2007 rPath, Inc.  All rights reserved.
 #
 # chkconfig: - 81 19
 # description: Starts the rMake Daemon

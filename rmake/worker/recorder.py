@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2007 rPath, Inc.
+# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
 #
 import asyncore
 import os

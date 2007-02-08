@@ -1,7 +1,5 @@
 #
-# Copyright (c) 2006 rPath, Inc.
-# This file is distributed under the terms of the MIT License.
-# A copy is available at http://www.rpath.com/permanent/mit-license.html
+# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
 #
 
 class RmakeRecipe(CPackageRecipe):
