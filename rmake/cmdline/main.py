@@ -106,7 +106,7 @@ class RmakeMain(options.MainHandler):
         if context and buildConfig.hasSection(context):
             buildConfig.setContext(context)
             usedContext = True
-        if not usedContext:
+        if not usedContext and context:
             raise errors.RmakeError('No such context "%s"' % context)
 
         buildConfig.initializeFlavors()
