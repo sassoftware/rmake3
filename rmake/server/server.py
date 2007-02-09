@@ -479,8 +479,14 @@ class rMakeServer(apirpc.XMLApiServer):
                                  # at a time.
 
         if pid == self.repositoryPid:
-            self.error('Internal Repository died - shutting down rMake')
-            self._halt = 1
+            if not self._halt:
+                self.error("""
+    Internal Repository died - shutting down rMake.
+    The Repository can die on startup due to an earlier unclean shutdown of 
+    rMake.  Check for a process that ends in conary/server/server.py.  If such 
+    a process exists, you will have to kill it manually.  Otherwise check
+    %s for a detailed message""" % self.cfg.getReposLogPath())
+                self._halt = 1
             self.repositoryPid = None
         self.plugins.callServerHook('server_pidDied', self, pid, status)
 
