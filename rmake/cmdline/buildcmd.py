@@ -9,7 +9,7 @@ import tempfile
 from conary.build import cook
 from conary.build.cook import signAbsoluteChangeset
 from conary.conaryclient import cmdline
-from conary.lib import log
+from conary.lib import log, util
 from conary import checkin
 from conary import errors as conaryerrors
 from conary import state
@@ -224,15 +224,25 @@ def _shadowAndCommit(conaryclient, recipeDir, stateFile, message):
         toCopy = neededFiles & existingFiles
         toDel = existingFiles - neededFiles
         toAdd = neededFiles - existingFiles
-
         for sourceFile in (toCopy | toAdd):
             newPath = os.path.join(shadowSourceDir, sourceFile)
-            shutil.copyfile(os.path.join(recipeDir, sourceFile), newPath)
+            if os.path.dirname(sourceFile):
+                util.mkdirChain(os.path.dirname(newPath))
+            if os.path.isdir(sourceFile):
+                util.mkdirChain(newPath)
+            else:
+                shutil.copyfile(os.path.join(recipeDir, sourceFile), newPath)
 
         os.chdir(shadowSourceDir)
 
         for f in toDel:
             checkin.removeFile(f)
+        if toDel:
+            # toDel modifies the CONARY file on disk, so reload with the
+            # changes made there.
+            newState = conaryCompat.ConaryStateFromFile(
+                                            shadowSourceDir + '/CONARY',
+                                            repos=repos).getSourceState()
 
         if conaryCompat.stateFileVersion() == 0:
             checkin.addFiles(toAdd)

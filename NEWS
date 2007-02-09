@@ -37,8 +37,10 @@ Changes in @NEW@:
      * Add more error handling for the case when a build fails after
        being removed from the queue but before starting. (RMK-312)
      * rMake now raises an error when an invalid context is used. (RMK-325)
-     * rMake now prints a more useful error message when the internal 
+     * rMake now prints a more useful error message when the internal
        repository dies. (RMK-281)
+     * rMake now handles subdirectories and the new file removal syntax.
+       (RMK-323) (RMK-296)
 
 Changes in 1.0.4:
   o Bug Fixes:
