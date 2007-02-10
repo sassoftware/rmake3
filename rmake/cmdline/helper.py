@@ -301,6 +301,24 @@ class rMakeHelper(object):
         finally:
             os.remove(tmpPath)
 
+    def startChrootSession(self, host, chroot, command, superUser=False):
+        chrootConnection = self.client.connectToChroot(host, chroot,
+                                         command, superUser=superUser)
+        chrootConnection.interact()
+
+    def archiveChroot(self, host, chrootPath, newPath=None):
+        if newPath is None:
+            newPath = chrootPath
+        self.client.archiveChroot(host, chrootPath, newPath)
+        print "Chroot moved to %s" % newPath
+
+    def deleteChroot(self, host, chrootPath):
+        self.client.deleteChroot(host, chrootPath)
+        print "Chroot %s deleted" % chrootPath
+
+    def listChroots(self):
+        return self.client.listChroots()
+
     def watch(self, jobId, showTroveLogs = False, showBuildLogs = False,
              commit = False):
         """

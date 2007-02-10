@@ -493,45 +493,14 @@ class ListCommand(rMakeCommand):
         command, subCommand = self.requireParameters(args, 'command')
         commandFn = getattr(self, 'list%s' % subCommand.title(), None)
         if not commandFn:
-            self.usage('No such list command %s' % subCommand)
+            self.usage()
             raise errors.RmakeError('No such list command %s' % subCommand)
         commandFn(client, cfg, argSet)
 
+
     def listChroots(self, client, cfg, argSet):
         allChroots = argSet.pop('all', False)
-        chrootsByHost =  {}
-        for chroot in client.client.listChroots():
-            chrootsByHost.setdefault(chroot.host, []).append(chroot)
-        for host in sorted(chrootsByHost):
-            if host != '_local_':
-                print '%s:' % host
-            for chroot in chrootsByHost[host]:
-                if chroot.active or allChroots:
-                    self._displayChroot(chroot)
-
-    def _displayChroot(self, chroot):
-        if chroot.active:
-            active = ' (Building)'
-        else:
-            active = ''
-        name = '%s%s:' % (chroot.path, active)
-        troveTuple = ''
-        if chroot.jobId:
-            jobId = '[%s]' % chroot.jobId
-            if chroot.troveTuple:
-                n,v,f = chroot.troveTuple
-                arch = flavorutil.getArch(f)
-                if arch:
-                    arch = '[is: %s]' % arch
-                else:
-                    arch = None
-                troveTuple = ' %s=%s/%s' % (n, v.trailingRevision(),
-                                            arch)
-            jobInfo = '%s%s' % (jobId, troveTuple)
-        else:
-            jobInfo = '[Unknown]'
-
-        print '   %-18s %s' % (name, jobInfo)
+        query.listChroots(client, cfg, allChroots=allChroots)
     listRoots = listChroots
 register(ListCommand)
 
@@ -562,10 +531,9 @@ class ChrootCommand(rMakeCommand):
     def runCommand(self, client, cfg, argSet, args):
         command, chroot = self.requireParameters(args, ['chrootPath'])
         host, chroot = self._getChroot(chroot)
-        chrootConnection = client.client.connectToChroot(host, chroot,
-                                         ['/bin/bash', '-l'],
-                                         superUser=argSet.pop('super', False))
-        chrootConnection.interact()
+        superUser = argSet.pop('super', False)
+        client.startChrootSession(host, chroot, ['/bin/bash', '-l'],
+                                  superUser=superUser)
 register(ChrootCommand)
 
 class ArchiveCommand(rMakeCommand):
@@ -596,8 +564,7 @@ class ArchiveCommand(rMakeCommand):
             newPath = extra[0]
         else:
             newPath = chroot
-        client.client.archiveChroot(host, chroot, newPath)
-        print "Chroot moved to archive/%s" % newPath
+        client.archiveChroot(host, chroot, newPath)
 register(ArchiveCommand)
 
 
@@ -619,8 +586,7 @@ class CleanCommand(rMakeCommand):
 
     def runCommand(self, client, cfg, argSet, args):
         command, chroot  = self.requireParameters(args, ['chrootPath'])
-        client.client.deleteChroot(*self._getChroot(chroot))
-        print "Chroot %s deleted" % chroot
+        client.deleteChroot(*self._getChroot(chroot))
 register(CleanCommand)
 
 

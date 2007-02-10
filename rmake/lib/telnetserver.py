@@ -61,10 +61,11 @@ class TelnetServerProtocolHandler(telnetlib.Telnet):
         elif cmd == SE:
             option = self.sbdataq[0]
             if option == NAWS: # negotiate window size.
-                cols = ord(self.sbdataq[1])
-                rows = ord(self.sbdataq[2])
-                s = struct.pack('HHHH', rows, cols, 0, 0)
-                fcntl.ioctl(self.local, termios.TIOCSWINSZ, s)
+                if len(self.sbdataq) == 3:
+                    cols = ord(self.sbdataq[1])
+                    rows = ord(self.sbdataq[2])
+                    s = struct.pack('HHHH', rows, cols, 0, 0)
+                    fcntl.ioctl(self.local, termios.TIOCSWINSZ, s)
         elif cmd == DONT:
             pass
         else:

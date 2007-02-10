@@ -154,7 +154,10 @@ class BasicChroot(AbstractChroot):
         for (sourceDir, targetDir) in self.dirsToCopy:
             targetDir = self.root + targetDir
             if os.path.exists(targetDir):
-                util.rmtree(targetDir)
+                if os.path.islink(targetDir):
+                    os.unlink(targetDir)
+                else:
+                    util.rmtree(targetDir)
 
             util.mkdirChain(os.path.dirname(targetDir))
             log.debug("copying dir %s into chroot:%s", sourceDir, targetDir)

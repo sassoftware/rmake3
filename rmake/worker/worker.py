@@ -116,7 +116,7 @@ class Worker(server.Server):
     def archiveChroot(self, host, chrootPath, newPath):
         if host != '_local_':
             raise errors.RmakeError('Unknown host %s!' % host)
-        self.chrootManager.archiveChroot(chrootPath, newPath)
+        return self.chrootManager.archiveChroot(chrootPath, newPath)
 
     def queueCommand(self, commandClass, cfg, *args):
         self._queuedCommands.append((commandClass, cfg, args))

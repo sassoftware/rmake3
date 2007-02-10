@@ -149,12 +149,12 @@ class NodeStore(object):
     def moveChroot(self, nodeName, path, newPath):
         cu = self.db.cursor()
         cu.execute("""UPDATE Chroots SET path=? WHERE nodeName=? AND path=?""",
-                      nodeName, newPath, path)
+                      newPath, nodeName, path)
 
     def removeChroot(self, nodeName, path):
         cu = self.db.cursor()
         cu.execute("""SELECT chrootId From Chroots
-                        WHERE nodeName=? AND path=?""")
+                        WHERE nodeName=? AND path=?""", nodeName, path)
         chrootId = self.db._getOne(cu, (nodeName, path))[0]
         cu.execute("""DELETE FROM Chroots WHERE chrootId=?""", chrootId)
         cu.execute("""UPDATE BuildTroves set chrootId=0 WHERE chrootId=?""",

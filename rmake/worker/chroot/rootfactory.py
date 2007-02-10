@@ -244,9 +244,6 @@ class ExistingChroot(rMakeChroot):
     def getRoot(self):
         return self.root
 
-    def clean(self):
-        pass
-
     def _postInstall(self):
         pass
 

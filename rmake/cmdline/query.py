@@ -327,3 +327,39 @@ def displayTroveDetail(dcfg, job, trove, indent='     ', out=None):
         for (n,v,f) in sorted(trove.iterBuiltTroves()):
             if ':' in n: continue
             write("%s    %s" % (indent, getTroveSpec(dcfg, (n, v, f))))
+
+def listChroots(client, cfg, allChroots=False):
+    chrootsByHost =  {}
+    for chroot in client.client.listChroots():
+        chrootsByHost.setdefault(chroot.host, []).append(chroot)
+    for host in sorted(chrootsByHost):
+        if host != '_local_':
+            print '%s:' % host
+        for chroot in chrootsByHost[host]:
+            if chroot.active or allChroots:
+                displayChroot(chroot)
+
+def displayChroot(chroot):
+    if chroot.active:
+        active = ' (Building)'
+    else:
+        active = ''
+    name = '%s%s:' % (chroot.path, active)
+    troveTuple = ''
+    if chroot.jobId:
+        jobId = '[%s]' % chroot.jobId
+        if chroot.troveTuple:
+            n,v,f = chroot.troveTuple
+            arch = flavorutil.getArch(f)
+            if arch:
+                arch = '[is: %s]' % arch
+            else:
+                arch = None
+            troveTuple = ' %s=%s/%s' % (n, v.trailingRevision(),
+                                        arch)
+        jobInfo = '%s%s' % (jobId, troveTuple)
+    else:
+        jobInfo = '[Unknown]'
+
+    print '   %-18s %s' % (name, jobInfo)
+

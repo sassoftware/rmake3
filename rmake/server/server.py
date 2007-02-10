@@ -197,7 +197,7 @@ class rMakeServer(apirpc.XMLApiServer):
     def archiveChroot(self, callData, host, chrootPath, newPath):
         if self.db.chrootIsActive(host, chrootPath):
             raise errors.RmakeError('Chroot is in use!')
-        self.worker.archiveChroot(host, chrootPath, newPath)
+        newPath = self.worker.archiveChroot(host, chrootPath, newPath)
         self.db.moveChroot(host, chrootPath, newPath)
 
     @api(version=1)

@@ -130,7 +130,9 @@ class ChrootManager(object):
         newPath = os.path.realpath(self.archiveDir + '/' + newPath)
         assert(os.path.dirname(chrootPath) == self.baseDir)
         assert(os.path.dirname(newPath) == self.archiveDir)
-        os.system('/bin/mv %s %s' % (chrootPath, newPath))
+        util.mkdirChain(self.archiveDir)
+        util.execute('/bin/mv %s %s' % (chrootPath, newPath))
+        return 'archive/' + os.path.basename(newPath)
 
     def deleteChroot(self, chrootPath):
         if chrootPath.startswith('archive/'):
@@ -142,7 +144,7 @@ class ChrootManager(object):
             assert(os.path.dirname(chrootPath) == self.baseDir)
         chroot = rootfactory.ExistingChroot(chrootPath, self.logger,
                                              self.chrootHelperPath)
-        chroot._clean()
+        chroot.clean()
 
 class rMakeChrootServer(object):
     """
@@ -223,9 +225,10 @@ class rMakeChrootServer(object):
             if 'COVERAGE_DIR' in os.environ:
                 import shutil
                 chrootRmakePath = self.getRoot() + constants.chrootRmakePath
-                realRmakePath = os.path.dirname(os.path.dirname(sys.modules['rmake'].__file__))
+                realRmakePath = os.path.dirname(sys.modules['rmake'].__file__)
                 shutil.rmtree(chrootRmakePath)
-                os.symlink(realRmakePath, chrootRmakePath)
+                os.mkdirChain(chrootRmakePath)
+                os.symlink(realRmakePath, chrootRmakePath + '/rmake')
                 env.update(x for x in os.environ.items() if x[0].startswith('COVERAGE'))
             os.execve(prog, args, env)
 
