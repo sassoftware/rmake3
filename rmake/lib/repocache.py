@@ -275,10 +275,10 @@ class CacheError(Exception):
 
 class LazyFile(object):
     """
-        Opens files only when they are actually being read.  Obviously this results in a
-        much larger number of reads and seeks, but it has the advantage of allowing us
-        to have a large number of changeset files open without having to worry about
-        file descriptors.
+        Opens files only when they are actually being read.  Obviously this 
+        results in a much larger number of reads and seeks, but it has the 
+        advantage of allowing us to have a large number of changeset files 
+        open without having to worry about file descriptors.
     """
     __slots__ = ['path', 'marker']
     def __init__(self, path):
@@ -295,6 +295,11 @@ class LazyFile(object):
 
     def seek(self, loc, type):
         self.marker = (loc, type)
+
+    def trucate(self):
+        f = open(self.path, 'r')
+        f.seek(*self.marker)
+        f.truncate()
 
     def close(self):
         pass
