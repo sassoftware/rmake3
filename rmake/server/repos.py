@@ -49,7 +49,7 @@ def startRepository(cfg = None, fork = True, logger=None):
 
     serverCfg = server.ServerConfig(os.path.join(cfg.getReposDir(), 'serverrc'))
     serverCfg.repositoryDB = ('sqlite', cfg.getReposPath())
-    serverCfg.cacheDB = ('sqlite', cfg.getReposCachePath())
+    #serverCfg.cacheDB = ('sqlite', cfg.getReposCachePath())
     serverCfg.contentsDir = cfg.getContentsPath()
     serverCfg.port = cfg.serverPort
     serverCfg.configKey('serverName', cfg.serverName) # this works with either
