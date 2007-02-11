@@ -4,7 +4,6 @@
 """
 Builder controls the process of building a set of troves.
 """
-
 import signal
 import sys
 import os
@@ -135,14 +134,11 @@ class Builder(object):
         self.job.setBuildTroves(buildTroves)
 
         self.dh = dephandler.DependencyHandler(self.job.getPublisher(),
-                                               self.buildCfg, self.repos,
+                                               self.buildCfg,
                                                self.logger, buildTroves)
 
         if not self._checkBuildSanity(buildTroves):
             return False
-
-        self.job.log('Finding a buildable trove')
-        self.dh.updateBuildableTroves()
         return True
 
     def build(self):
@@ -152,18 +148,16 @@ class Builder(object):
         if not self.initializeBuild():
             return False
 
-        if self.job.hasBuildableTroves():
-            while True:
+        if self.dh.moreToDo():
+            while self.dh.moreToDo():
                 self.worker.handleRequestIfReady()
                 if self.worker._checkForResults():
-                    self.dh.updateBuildableTroves()
+                    self.resolveIfReady()
                 elif self.dh.hasBuildableTroves():
                     trv, buildReqs = self.dh.popBuildableTrove()
                     self.buildTrove(trv, buildReqs)
-                elif self.worker.hasActiveTroves():
-                    self.dh.updateBuildableTroves()
-                else:
-                    break
+                elif not self.resolveIfReady():
+                    time.sleep(0.1)
             if self.dh.jobPassed():
                 self.job.jobPassed("build job finished successfully")
                 return True
@@ -181,6 +175,13 @@ class Builder(object):
         self.worker.buildTrove(self.buildCfg, troveToBuild.jobId,
                                troveToBuild, self.eventHandler, buildReqs,
                                targetLabel, logHost, logPort)
+
+    def resolveIfReady(self):
+        resolveJob = self.dh.getNextResolveJob()
+        if resolveJob:
+            self.worker.resolve(resolveJob, self.eventHandler)
+            return True
+        return False
 
     def _checkBuildSanity(self, buildTroves):
         def _referencesOtherTroves(trv):
@@ -208,6 +209,8 @@ class EventHandler(subscriber.StatusSubscriber):
     listeners = { 'TROVE_PREPARING_CHROOT' : 'trovePreparingChroot',
                   'TROVE_BUILT'            : 'troveBuilt',
                   'TROVE_FAILED'           : 'troveFailed',
+                  'TROVE_RESOLVING'        : 'troveResolving',
+                  'TROVE_RESOLVED'         : 'troveResolutionCompleted',
                   'TROVE_LOG_UPDATED'      : 'troveLogUpdated',
                   'TROVE_BUILDING'         : 'troveBuilding',
                   'TROVE_STATE_UPDATED'    : 'troveStateUpdated' }
@@ -242,6 +245,16 @@ class EventHandler(subscriber.StatusSubscriber):
         if hasattr(t, 'logPid'):
             self.server._killPid(t.logPid)
         t.troveFailed(failureReason)
+        t.own()
+
+    def troveResolving(self, (jobId, troveTuple), chrootHost):
+        t = self.job.getTrove(*troveTuple)
+        t.resolvingDependencies()
+
+    def troveResolutionCompleted(self, (jobId, troveTuple), resolveResults):
+        self._hadEvent = True
+        t = self.job.getTrove(*troveTuple)
+        t.troveResolved(resolveResults)
         t.own()
 
     def trovePreparingChroot(self, (jobId, troveTuple), chrootHost, chrootPath):

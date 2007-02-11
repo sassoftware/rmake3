@@ -112,6 +112,8 @@ class _RmakePublisherProxy(_InternalSubscriber):
         'TROVE_BUILDING',
         'TROVE_BUILT',
         'TROVE_FAILED',
+        'TROVE_RESOLVING',
+        'TROVE_RESOLVED',
         'TROVE_STATE_UPDATED',
         'TROVE_LOG_UPDATED',
         ])
@@ -185,7 +187,6 @@ class _EventListFreezer(object):
     def thaw_JOB_TROVES_SET(class_, apiVer, data):
         return [ data[0], thaw('troveTupleList', data[1]) ]
 
-
     @classmethod
     def freeze_JOB_COMMITTED(class_, apiVer, data):
         return [ data[0], freeze('troveTupleList', data[1]) ]
@@ -209,6 +210,15 @@ class _EventListFreezer(object):
     @classmethod
     def thaw_TROVE_FAILED(class_, apiVer, data):
         return [ data[0], thaw('FailureReason', data[1]) ]
+
+    @classmethod
+    def thaw_TROVE_RESOLVED(class_, apiVer, data):
+        return [ data[0], thaw('ResolveResult', data[1]) ]
+
+    @classmethod
+    def freeze_TROVE_RESOLVED(class_, apiVer, data):
+        return [ data[0], freeze('ResolveResult', data[1]) ]
+
 
     @classmethod
     def __freeze__(class_, eventList):

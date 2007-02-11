@@ -17,9 +17,11 @@ from rmake import errors
 
 from rmake import failure
 from rmake.build import subscriber
+from rmake.worker import resolver
 
 from rmake.lib import logfile
 from rmake.lib import logger
+from rmake.lib import repocache
 from rmake.lib import server
 
 from rmake.lib.apiutils import thaw, freeze
@@ -162,25 +164,14 @@ class Command(server.Server):
     def commandErrored(self, msg, tb=''):
         self.setError(msg, tb)
 
-class BuildCommand(Command):
+class TroveCommand(Command):
 
-    name = 'build-command'
-
-    def __init__(self, serverCfg, commandId, jobId, eventHandler, buildCfg,
-                 chrootFactory, trove, targetLabel, logHost='', logPort=0,
-                 logPath=None, uri=None):
+    def __init__(self, serverCfg, commandId, jobId, eventHandler, trove):
         Command.__init__(self, serverCfg, commandId, jobId)
         self.eventHandler = eventHandler
-        self.buildCfg = buildCfg
-        self.chrootFactory = chrootFactory
         self.trove = trove
-        self.targetLabel = targetLabel
-        self.logHost = logHost
-        self.logPort = logPort
-        self.logPath = logPath
         self.readPipe = None
         self.failureReason = None
-        self.uri = None
 
     def _signalHandler(self, signal, frame):
         failureReason = failure.Stopped('Signal %s received' % signal)
@@ -193,34 +184,12 @@ class BuildCommand(Command):
     def getTrove(self):
         return self.trove
 
-    def getChrootFactory(self):
-        return self.chrootFactory
-
     def runCommand(self):
         try:
-            try:
-                trove = self.trove
-                trove.getPublisher().reset()
-                PipePublisher(self.writePipe).attach(trove)
-                trove.creatingChroot(self.cfg.getName(),
-                                     self.chrootFactory.getChrootName())
-                self.chrootFactory.create()
-                self.chroot = self.chrootFactory.start()
-            except Exception, err:
-                # sends off messages to all listeners that this trove failed.
-                trove.chrootFailed(str(err), traceback.format_exc())
-                return
-            n,v,f = trove.getNameVersionFlavor()
-            logPath, pid = self.chroot.buildTrove(self.buildCfg,
-                                                  self.targetLabel,
-                                                  n, v, f, self.logHost,
-                                                  self.logPort)
-            # sends off message that this trove is building.
-            self.chroot.subscribeToBuild(n,v,f)
-            if self.logPath:
-                logPath = self.logPath
-            trove.troveBuilding(logPath, pid)
-            self.serve_forever()
+            trove = self.trove
+            trove.getPublisher().reset()
+            PipePublisher(self.writePipe).attach(trove)
+            self.runTroveCommand()
         except SystemExit, err:
             self.writePipe.flush()
             raise
@@ -238,16 +207,75 @@ class BuildCommand(Command):
     def _serveLoopHook(self):
         try:
             self.writePipe.handleWriteIfReady()
-            if self.chroot.checkSubscription():
-                self.getResults()
-                self._halt = True
-                return
+            self._troveServeLoopHook()
         except SystemExit, err:
             raise
         except Exception, err:
             reason = failure.InternalError(str(err), traceback.format_exc())
             self.getTrove().troveFailed(reason)
             raise
+
+class BuildCommand(TroveCommand):
+
+    name = 'build-command'
+
+    def __init__(self, serverCfg, commandId, jobId, eventHandler, buildCfg,
+                 chrootFactory, trove, targetLabel, logHost='', logPort=0,
+                 logPath=None, uri=None):
+        TroveCommand.__init__(self, serverCfg, commandId, jobId, eventHandler,
+                              trove)
+        self.buildCfg = buildCfg
+        self.chrootFactory = chrootFactory
+        self.targetLabel = targetLabel
+        self.logHost = logHost
+        self.logPort = logPort
+        self.logPath = logPath
+        self.uri = None
+
+    def _signalHandler(self, signal, frame):
+        failureReason = failure.Stopped('Signal %s received' % signal)
+        self.trove.troveFailed(failureReason)
+        Command._signalHandler(self, signal, frame)
+
+    def _handleData(self, (jobId, eventList)):
+        self.eventHandler._receiveEvents(*thaw('EventList', eventList))
+
+    def getTrove(self):
+        return self.trove
+
+    def getChrootFactory(self):
+        return self.chrootFactory
+
+    def runTroveCommand(self):
+        try:
+            trove = self.trove
+            trove.getPublisher().reset()
+            PipePublisher(self.writePipe).attach(trove)
+            trove.creatingChroot(self.cfg.getName(),
+                                 self.chrootFactory.getChrootName())
+            self.chrootFactory.create()
+            self.chroot = self.chrootFactory.start()
+        except Exception, err:
+            # sends off messages to all listeners that this trove failed.
+            trove.chrootFailed(str(err), traceback.format_exc())
+            return
+        n,v,f = trove.getNameVersionFlavor()
+        logPath, pid = self.chroot.buildTrove(self.buildCfg,
+                                              self.targetLabel,
+                                              n, v, f, self.logHost,
+                                              self.logPort)
+        # sends off message that this trove is building.
+        self.chroot.subscribeToBuild(n,v,f)
+        if self.logPath:
+            logPath = self.logPath
+        trove.troveBuilding(logPath, pid)
+        self.serve_forever()
+
+    def _troveServeLoopHook(self):
+        if self.chroot.checkSubscription():
+            self.getResults()
+            self._halt = True
+            return
 
     def getResults(self):
         try:
@@ -358,6 +386,23 @@ class SessionCommand(Command):
     def getHostInfo(self):
         return self.hostInfo
 
+class ResolveCommand(TroveCommand):
+
+    name = 'resolve-command'
+
+    def __init__(self, cfg, commandId, jobId,  eventHandler, resolveJob):
+        TroveCommand.__init__(self, cfg, commandId, jobId, eventHandler,
+                              resolveJob.getTrove())
+        self.resolveJob = resolveJob
+
+    def runTroveCommand(self):
+        client = conaryclient.ConaryClient(self.resolveJob.getConfig())
+        repos = repocache.CachingTroveSource(client.getRepos(),
+                                             self.cfg.getCacheDir())
+        self.resolver = resolver.DependencyResolver(self.logger, repos)
+        resolveResult = self.resolver.resolve(self.resolveJob)
+        self.trove.troveResolved(resolveResult)
+
 class PipePublisher(subscriber._RmakePublisherProxy):
     """
         Class that transmits events from internal build process -> rMake server.
@@ -376,3 +421,5 @@ class PipePublisher(subscriber._RmakePublisherProxy):
 
 def attach(trove, p):
     _RmakeBusPublisher(client).attach(trove)
+
+

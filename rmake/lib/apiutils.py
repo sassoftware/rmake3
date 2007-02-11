@@ -12,6 +12,7 @@ import traceback
 from conary import versions
 from conary.deps import deps
 from conary.deps.deps import ThawFlavor
+from conary.deps.deps import ThawDependencySet
 
 from rmake.lib import procutil
 
@@ -161,6 +162,23 @@ class api_troveTupleList:
                  ThawFlavor(x[2])) for x in tupList ]
 register(api_troveTupleList)
 
+class api_installJobList:
+    name = 'installJobList'
+
+    @staticmethod
+    def __freeze__(jobList):
+        return [(x[0], x[2][0].freeze(), x[2][1].freeze(), x[3])
+                for x in jobList]
+
+    @staticmethod
+    def __thaw__(jobList):
+        return [(x[0], (None, None),
+                (versions.ThawVersion(x[1]), ThawFlavor(x[2])), x[3]) 
+                for x in jobList]
+register(api_installJobList)
+
+
+
 class api_specList:
     name = 'troveSpecList'
 
@@ -237,6 +255,20 @@ class api_flavor:
     def __thaw__(flavorStr):
         return ThawFlavor(flavorStr)
 register(api_flavor)
+
+
+class api_dependencyList:
+    name = 'dependencyList'
+
+    @staticmethod
+    def __freeze__(depList):
+        return [ x.freeze() for x in depList ]
+
+    @staticmethod
+    def __thaw__(depList):
+        return [ ThawDependencySet(x) for x in depList ]
+register(api_dependencyList)
+
 
 class api_set:
     name = 'set'

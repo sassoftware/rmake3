@@ -16,12 +16,16 @@ class Publisher(object):
         self.listeners = {}
         self.dispatchers = {}
         self._toEmit = {}
-        self._corked = False
+        self._corked = 0
 
     def cork(self):
-        self._corked = True
+        self._corked += 1
 
     def uncork(self):
+        if self._corked:
+            self._corked -= 1
+        if self._corked:
+            return
         toEmit = self._toEmit
         self._toEmit = {}
         for fn, (isDispatcher, eventList) in toEmit.iteritems():
@@ -49,10 +53,12 @@ class Publisher(object):
                     self._toEmit[fn][1].append(data)
 
         else:
+            self.cork()
             for fn in self.dispatchers.get(event, []):
                 fn(constants.subscriberApiVersion, [data])
             for fn in self.listeners.get(event, []):
                 fn(*args)
+            self.uncork()
 
     def subscribe(self, stateList, fn, dispatcher=False):
         if isinstance(stateList, str):

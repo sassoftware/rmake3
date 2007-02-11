@@ -24,6 +24,8 @@ class JobStatusPublisher(publisher.Publisher):
                   'TROVE_PREPARING_CHROOT',
                   'TROVE_BUILDING',
                   'TROVE_BUILT',
+                  'TROVE_RESOLVING',
+                  'TROVE_RESOLVED',
                   'TROVE_FAILED',
                   'JOB_LOG_UPDATED',
                   'JOB_STATE_UPDATED',
@@ -42,6 +44,9 @@ class JobStatusPublisher(publisher.Publisher):
     def buildTrovesSet(self, job):
         self._emit(self.JOB_TROVES_SET, '', job, list(job.iterTroveList()))
 
+    def troveResolved(self, trove, resolveResult):
+        self._emit(self.TROVE_RESOLVED, '', trove, resolveResult)
+
     def jobCommitted(self, job, troveTupleList):
         self._emit(self.JOB_COMMITTED, '', job, troveTupleList)
 
@@ -50,6 +55,8 @@ class JobStatusPublisher(publisher.Publisher):
                    state, buildTrove.status)
         if buildTrove.isPreparing():
             self._emit(self.TROVE_PREPARING_CHROOT, '', buildTrove, *args)
+        elif buildTrove.isResolving():
+            self._emit(self.TROVE_RESOLVING, '', buildTrove, *args)
         if buildTrove.isBuilt():
             self._emit(self.TROVE_BUILT, '', buildTrove, *args)
         elif buildTrove.isBuilding():
