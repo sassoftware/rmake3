@@ -366,6 +366,7 @@ class SessionCommand(Command):
         return self.chrootFactory
 
     def runCommand(self):
+        self.chrootFactory.logger = self.logger
         self.chrootFactory.create()
         self.chroot = self.chrootFactory.start()
         port = self.chroot.startSession(self.command)
