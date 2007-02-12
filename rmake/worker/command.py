@@ -249,8 +249,6 @@ class BuildCommand(TroveCommand):
     def runTroveCommand(self):
         try:
             trove = self.trove
-            trove.getPublisher().reset()
-            PipePublisher(self.writePipe).attach(trove)
             trove.creatingChroot(self.cfg.getName(),
                                  self.chrootFactory.getChrootName())
             self.chrootFactory.create()
@@ -396,6 +394,7 @@ class ResolveCommand(TroveCommand):
         self.resolveJob = resolveJob
 
     def runTroveCommand(self):
+        self.trove.troveResolvingBuildReqs(self.cfg.getName())
         client = conaryclient.ConaryClient(self.resolveJob.getConfig())
         repos = repocache.CachingTroveSource(client.getRepos(),
                                              self.cfg.getCacheDir())
