@@ -1,4 +1,4 @@
-Changes in @NEW@:
+Changes in 1.0.5:
   o Architecture Changes:
      * rMake now supports plugins, located in /etc/rmake/plugins.d (RMK-186).
      * The builder has been split out into builder and dispatcher to enable
