@@ -18,12 +18,13 @@ from rmake.lib.apiutils import freeze, thaw
 troveStates = {
     'TROVE_STATE_INIT'      : 0,
     'TROVE_STATE_FAILED'    : 1,
-    'TROVE_STATE_WAITING'   : 2,
-    'TROVE_STATE_PREPARING' : 3,
-    'TROVE_STATE_BUILDING'  : 4,
-    'TROVE_STATE_BUILT'     : 5,
-    'TROVE_STATE_BUILDABLE' : 6,
-    }
+    'TROVE_STATE_RESOLVING' : 2,
+    'TROVE_STATE_BUILDABLE' : 3,
+    'TROVE_STATE_WAITING'   : 4,
+    'TROVE_STATE_PREPARING' : 5,
+    'TROVE_STATE_BUILDING'  : 6,
+    'TROVE_STATE_BUILT'     : 7,
+}
 
 recipeTypes = {
     'RECIPE_TYPE_UNKNOWN'      : 0,
@@ -135,6 +136,9 @@ class _AbstractBuildTrove:
     def isBuildable(self):
         return self.state == TROVE_STATE_BUILDABLE
 
+    def isResolving(self):
+        return self.state == TROVE_STATE_RESOLVING
+
     def isBuilding(self):
         return self.state == TROVE_STATE_BUILDING
 
@@ -150,7 +154,8 @@ class _AbstractBuildTrove:
 
     def isUnbuilt(self):
         return self.state in (TROVE_STATE_INIT, TROVE_STATE_BUILDABLE,
-                              TROVE_STATE_WAITING, TROVE_STATE_PREPARING)
+                              TROVE_STATE_WAITING, TROVE_STATE_RESOLVING,
+                              TROVE_STATE_PREPARING)
 
     def needsBuildreqs(self):
         return self.state == TROVE_STATE_INIT
@@ -327,13 +332,17 @@ class BuildTrove(_FreezableBuildTrove):
         """
         self._setState(TROVE_STATE_BUILDABLE, status='')
 
-    def troveResolvingBuildReqs(self):
+    def troveResolvingBuildReqs(self, host):
         """
             Log step in dep resolution.
 
             Publishes log message.
         """
-        self.log('Resolving build requirements')
+        self._setState(TROVE_STATE_RESOLVING,
+                       'Resolving build requirements', host)
+
+    def troveResolved(self, resolveResults):
+        self._publisher.troveResolved(self, resolveResults)
 
     def troveResolvedButDelayed(self, newDeps):
         """

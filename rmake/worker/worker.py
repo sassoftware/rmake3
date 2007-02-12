@@ -25,6 +25,10 @@ class CommandIdGen(object):
         str = 'BUILD-%s-%s' % (buildTrove.jobId, buildTrove.getName())
         return self._getCommandId(str)
 
+    def getResolveCommandId(self, buildTrove):
+        str = 'RESOLVE-%s-%s' % (buildTrove.jobId, buildTrove.getName())
+        return self._getCommandId(str)
+
     def getStopCommandId(self, targetCommandId):
         str = 'STOP-%s' % (targetCommandId)
         return self._getCommandId(str)
@@ -33,6 +37,7 @@ class CommandIdGen(object):
         str = 'SESSION-%s' % (chrootPath)
         return self._getCommandId(str)
 
+
     def _getCommandId(self, str):
         self._commandIds.setdefault(str, 0)
         self._commandIds[str] += 1
@@ -40,9 +45,10 @@ class CommandIdGen(object):
         return str
 
 class Worker(server.Server):
-    commandClasses = { 'build' : command.BuildCommand,
-                       'stop'  : command.StopCommand,
-                       'session' : command.SessionCommand }
+    commandClasses = { 'build'    : command.BuildCommand,
+                       'resolve'  : command.ResolveCommand,
+                       'stop'     : command.StopCommand,
+                       'session'  : command.SessionCommand }
 
     def __init__(self, serverCfg, logger, slots=1):
         self.cfg = serverCfg
@@ -85,6 +91,13 @@ class Worker(server.Server):
         self.queueCommand(self.commandClasses['build'], self.cfg, commandId,
                           jobId, eventHandler, buildCfg, chrootFactory,
                           trove, targetLabel, logHost, logPort, logPath)
+
+    def resolve(self, resolveJob, eventHandler, commandId=None):
+        if not commandId:
+            commandId = self.idgen.getResolveCommandId(resolveJob.getTrove())
+        jobId = resolveJob.getTrove().jobId
+        self.queueCommand(self.commandClasses['resolve'], self.cfg, commandId,
+                          jobId, eventHandler, resolveJob)
 
     def stopCommand(self, targetCommandId, commandId=None):
         targetCommand = self.getCommandById(targetCommandId)

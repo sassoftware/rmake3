@@ -7,7 +7,8 @@ class RmakeRecipe(CPackageRecipe):
     version = '@ccsversion@'
 
     buildRequires = [ 'conary:python', 'chkconfig:runtime',
-                      'info-rmake:user',  'libcap:devel',
+                      'info-rmake:user', 'info-rmake-chroot:user',
+                      'libcap:devel',
                       'conary-repository:python', 'desktop-file-utils:runtime',
                       'pygtk:python', ]
 
@@ -19,7 +20,7 @@ class RmakeRecipe(CPackageRecipe):
         r.MakeDirs('%(localstatedir)s/lib/rmake')
         r.MakeDirs('%(localstatedir)s/log/rmake')
         r.MakeDirs('%(localstatedir)s/run/rmake')
-        r.MakeDirs('%(localstatedir)s/rmake', mode=0755)
+        r.MakeDirs('%(localstatedir)s/rmake', mode=0700)
         r.MakeDirs('%(localstatedir)s/rmake/chroots', mode=0700)
         r.MakeDirs('%(localstatedir)s/rmake/archive', mode=0700)
         r.MakeDirs('%(servicedir)s/rmake')
@@ -39,8 +40,13 @@ class RmakeRecipe(CPackageRecipe):
         r.ExcludeDirectories(exceptions='%(servicedir)s/rmake')
         r.ExcludeDirectories(exceptions='%(sysconfdir)s/rmake')
 
+        r.ComponentSpec('libexec', 'chroothelper')
+        r.ComponentSpec('libexec', '%(localstatedir)s/rmake')
+        r.ComponentSpec('libexec', '%(localstatedir)s/rmake/.*')
+        r.ComponentSpec('libexec', '%(localstatedir)s/run/rmake')
         r.SetModes('%(libexecdir)s/rmake/chroothelper', 04755)
-        r.Requires('busybox:runtime', 
+        r.Requires('rmake:libexec', 'rootfactory.py')
+        r.Requires('busybox:runtime',
                    '%(libexecdir)s/rmake/chroothelper')
         r.Requires(exceptDeps='python: epdb')
         r.Requires(exceptDeps='python: rmake.cmdline.password')

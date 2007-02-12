@@ -38,8 +38,8 @@ from rmake import errors
 
 from rmake.lib import apiutils
 from rmake.lib import localrpc
+from rmake.lib import rpclib
 from rmake.lib import server
-from rmake.lib import auth
 from rmake.lib.apiutils import api, api_parameters, api_return
 from rmake.lib import logger
 
@@ -85,7 +85,7 @@ class XMLApiProxy(ApiProxy, localrpc.ServerProxy):
 class _ApiMethod(xmlrpclib._Method):
     """ Api-aware method proxy for xmlrpc.  """
 
-    def __init__(self, request, name, loc, metaApiVersion, clientVersion, 
+    def __init__(self, request, name, loc, metaApiVersion, clientVersion,
                  methodApi):
         """
             @param metaApiVersion: version of apirpc data.
@@ -126,38 +126,26 @@ class BaseRPCLogger(logger.Logger):
 class ApiServer(server.Server):
 
     _debug = False
-    def __init__(self, logger=None):
+    def __init__(self, logger=None, forkByDefault = False):
         if logger is None:
             logger = BaseRPCLogger('server')
         server.Server.__init__(self, logger)
+        self._forkByDefault = forkByDefault
         self._methods = {}
         self._addMethods(self)
 
     def _serveLoopHook(self):
         pass
 
-    def _dispatch(self, methodName, (auth, args)):
+    def _dispatch(self, methodName, (auth, responseHandler, params)):
         try:
-            rv = self._dispatch2(methodName, (auth, args))
+            return self._dispatch2(methodName, auth, responseHandler, params)
         except Exception, err:
             if self._debug:
                 if sys.stdin.isatty() and sys.stdout.isatty():
                     import epdb
                     epdb.post_mortem(sys.exc_info()[2])
-            return False, self._freezeException(err)
-        else:
-            return True, rv
-
-
-    def _freezeException(self, err):
-        errorClass = err.__class__
-        if apiutils.isRegistered(str(errorClass)):
-            frzMethod = str(errorClass)
-        elif apiutils.isRegistered(errorClass.__name__):
-            frzMethod = errorClass.__name__
-        else:
-            frzMethod = 'Exception'
-        return frzMethod, apiutils.freeze(frzMethod, err)
+            responseHandler.sendResponse((False, _freezeException(err)))
 
     def _getMethod(self, methodName):
         if methodName.startswith('_'):
@@ -183,13 +171,17 @@ class ApiServer(server.Server):
         for name, attr in apiServer._listMethods():
             self._methods[name] = attr
 
-    def _dispatch2(self, methodName, (auth, args)):
+    def _shouldMethodFork(self, method):
+        if hasattr(method, 'forking'):
+            return method.forking
+        return self._forkByDefault
+
+    def _dispatch2(self, methodName, auth, responseHandler, args):
         """Dispatches call to methodName, unfreezing data in args, checking
            method version as well.
         """
- 
         method = self._getMethod(methodName)
-        callData = CallData(auth, args[0], self._logger)
+        callData = CallData(auth, args[0], self._logger, method, responseHandler)
         args = args[1:]
         apiVersion    = callData.getApiVersion()
         clientVersion = callData.getClientVersion()
@@ -211,14 +203,19 @@ class ApiServer(server.Server):
 
         timestr = time.strftime('%x %X')
         self._logger.logRPCCall(callData, methodName, args)
-        rv = method(callData, *args)
-        return self.getReturnValue(rv, method, methodVersion)
+        if self._shouldMethodFork(method):
+            responseHandler.forkResponseFn(lambda: self._fork(methodName),
+                                           callData.callFunction, method,
+                                           callData, *args)
+        else:
+            responseHandler.callResponseFn(callData.callFunction,
+                                           method, callData, *args)
 
     def getReturnValue(self, rv, method, methodVersion):
         if rv != None:
-            return _freezeReturn(method, rv, methodVersion)
+            return True, _freezeReturn(method, rv, methodVersion)
         # By default, we return empty string since None is not allowed
-        return ''
+        return True, ''
 
     @api(version=1)
     @api_parameters(1)
@@ -233,20 +230,21 @@ class XMLApiServer(ApiServer):
     # if set to True, will try to send exceptions to a debug prompt on 
     # the console before returning them across the wire
 
-    def __init__(self, uri=None, logger=None):
+    def __init__(self, uri=None, logger=None, forkByDefault=False):
         """ @param serverObj: The XMLRPCServer that will serve data to 
             the _dispatch method.  If None, caller is responsible for 
             giving information to be dispatched.
         """
-        ApiServer.__init__(self, logger)
+        ApiServer.__init__(self, logger, forkByDefault=forkByDefault)
         self.uri = uri
         if uri:
             if isinstance(uri, str):
                 import urllib
                 type, url = urllib.splittype(uri)
                 if type == 'unix':
-                    serverObj = auth.AuthAwareUnixDomainXMLRPCServer(url,
-                                                        logRequests=False)
+                    serverObj = rpclib.UnixDomainDelayableXMLRPCServer(url,
+                                                            logRequests=False)
+                    serverObj.setAuthMethod(rpclib.SocketAuth)
                 elif type == 'http':
                     # path is ignored with simple server.
                     host, path = urllib.splithost(url)
@@ -256,8 +254,9 @@ class XMLApiServer(ApiServer):
                     else:
                         port = 80
 
-                    serverObj = auth.AuthAwareXMLRPCServer((host, port),
-                                                           logRequests=False)
+                    serverObj = rpclib.DelayableXMLRPCServer((host, port),
+                                                             logRequests=False)
+                    serverObj.setAuthMethod(rpclib.HttpAuth)
                 elif type == 'https':
                     raise NotImplementedError
             else:
@@ -298,12 +297,25 @@ def _freezeParams(api, paramList, version):
             yield paramType.__freeze__(param)
 
 def _freezeReturn(api, val, version):
+    if isinstance(val, rpclib.ResponseModifier):
+        return val
     returnType = api.returnType[version]
     if returnType is None:
         return val
     if isinstance(returnType, tuple):
         return returnType[0](val)
     return returnType.__freeze__(val)
+
+def _freezeException(err):
+    errorClass = err.__class__
+    if apiutils.isRegistered(str(errorClass)):
+        frzMethod = str(errorClass)
+    elif apiutils.isRegistered(errorClass.__name__):
+        frzMethod = errorClass.__name__
+    else:
+        frzMethod = 'Exception'
+    return frzMethod, apiutils.freeze(frzMethod, err)
+
 
 def _thawParams(api, paramList, version):
     paramTypes = api.params[version]
@@ -334,14 +346,42 @@ class NoSuchMethodError(ApiError):
 
 class CallData(object):
     __slots__ = ['auth', 'apiVersion', 'clientVersion', 'methodVersion', 
-                 'logger']
-    def __init__(self, auth, callTuple, logger):
+                 'logger', 'method', 'responseHandler']
+    def __init__(self, auth, callTuple, logger, method, responseHandler):
         apiVersion, clientVersion, methodVersion = callTuple
         self.apiVersion = apiVersion
         self.clientVersion = clientVersion
         self.methodVersion = methodVersion
         self.auth = auth
         self.logger = logger
+        self.method = method
+        self.responseHandler = responseHandler
+
+    def callFunction(self, fn, *args, **kw):
+        try:
+            rv =  fn(*args, **kw)
+            if isinstance(rv, rpclib.ResponseModifier):
+                return rv
+            if rv != None:
+                rv =  _freezeReturn(self.method, rv, self.methodVersion)
+            else:
+                rv = ''
+            response = (True, rv)
+        except Exception, err:
+            response = (False, _freezeException(err))
+        return response
+
+    def respondWithFunction(self, fn, *args, **kw):
+        self.responseHandler.callResponseFn(self.callFunction, *args, **kw)
+
+    def respond(self, response):
+        self.responseHandler.sendResponse((True, response))
+
+    def respondWithException(self, exception):
+        self.responseHandler.sendResponse((False, _freezeException(exception)))
+
+    def delay(self):
+        return rpclib.DelayedResponse()
 
     def getApiVersion(self):
         return self.apiVersion

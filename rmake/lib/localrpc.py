@@ -54,7 +54,18 @@ class ShimTransport(xmlrpclib.Transport):
     """
     def request(self, host, handler, request_body, verbose=0):
         params, method = xmlrpclib.loads(request_body)
-        return (host._dispatch(method, (None, params)),)
+        host._dispatch(method, (None, self, params))
+        return (self._response,)
+
+    def forkResponseFn(self, _forkFn, fn, *args, **kw):
+        self._response = fn(*args, **kw)
+
+    def callResponseFn(self, fn, *args, **kw):
+        self._response = fn(*args, **kw)
+
+    def sendResponse(self, response):
+        self._response = response
+
 
 class ServerProxy(xmlrpclib.ServerProxy):
     def __init__(self, uri, transport=None, encoding=None, verbose=0,
@@ -88,9 +99,6 @@ class ServerProxy(xmlrpclib.ServerProxy):
 # server implementation
 
 class UnixDomainHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
-    def __init__(self, *args, **kw):
-        BaseHTTPServer.BaseHTTPRequestHandler.__init__(self, *args, **kw)
-
     def address_string(self):
         return self.client_address
 

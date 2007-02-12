@@ -91,6 +91,8 @@ class ChrootServer(apirpc.XMLApiServer):
     @api_parameters(1, 'str', 'version', 'flavor')
     @api_return(1, 'int')
     def subscribeToBuild(self, callData, name, version, flavor):
+        if not (name, version, flavor) in self._buildInfo:
+            return 0
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.bind(('', 0))
         port = s.getsockname()[1]
@@ -200,17 +202,23 @@ class ChrootClient(object):
         self.root = root
         self.pid = pid
         self.proxy = apirpc.XMLApiProxy(ChrootServer, uri)
+        self.resultsReadySocket = None
 
     def startSession(self, command=['/bin/sh']):
         return self.proxy.startSession(command)
 
     def subscribeToBuild(self, name, version, flavor):
         port = self.proxy.subscribeToBuild(name, version, flavor)
+        if not port:
+            return False
         s = socket.socket()
         s.connect(('localhost', port))
         self.resultsReadySocket = s
+        return True
 
     def checkSubscription(self, timeout=0.1):
+        if not self.resultsReadySocket:
+            return True
         try:
             ready = select.select([self.resultsReadySocket], [], [], timeout)[0]
         except select.error, err:
