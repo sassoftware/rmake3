@@ -179,6 +179,7 @@ class Builder(object):
     def resolveIfReady(self):
         resolveJob = self.dh.getNextResolveJob()
         if resolveJob:
+            resolveJob.getTrove().disown()
             self.worker.resolve(resolveJob, self.eventHandler)
             return True
         return False
@@ -249,7 +250,7 @@ class EventHandler(subscriber.StatusSubscriber):
 
     def troveResolving(self, (jobId, troveTuple), chrootHost):
         t = self.job.getTrove(*troveTuple)
-        t.resolvingDependencies()
+        t.troveResolvingBuildReqs(chrootHost)
 
     def troveResolutionCompleted(self, (jobId, troveTuple), resolveResults):
         self._hadEvent = True
