@@ -232,6 +232,7 @@ def displayTrovesByState(job, indent='     ', out=None):
                    buildtrove.TROVE_STATE_PREPARING,
                    buildtrove.TROVE_STATE_BUILDING,
                    buildtrove.TROVE_STATE_BUILDABLE,
+                   buildtrove.TROVE_STATE_UNBUILDABLE,
                    buildtrove.TROVE_STATE_FAILED,
                    buildtrove.TROVE_STATE_BUILT,
                    buildtrove.TROVE_STATE_INIT):

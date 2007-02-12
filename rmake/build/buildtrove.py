@@ -16,14 +16,15 @@ from rmake.lib import apiutils
 from rmake.lib.apiutils import freeze, thaw
 
 troveStates = {
-    'TROVE_STATE_INIT'      : 0,
-    'TROVE_STATE_FAILED'    : 1,
-    'TROVE_STATE_RESOLVING' : 2,
-    'TROVE_STATE_BUILDABLE' : 3,
-    'TROVE_STATE_WAITING'   : 4,
-    'TROVE_STATE_PREPARING' : 5,
-    'TROVE_STATE_BUILDING'  : 6,
-    'TROVE_STATE_BUILT'     : 7,
+    'TROVE_STATE_INIT'        : 0,
+    'TROVE_STATE_FAILED'      : 1,
+    'TROVE_STATE_RESOLVING'   : 2,
+    'TROVE_STATE_BUILDABLE'   : 3,
+    'TROVE_STATE_WAITING'     : 4,
+    'TROVE_STATE_PREPARING'   : 5,
+    'TROVE_STATE_BUILDING'    : 6,
+    'TROVE_STATE_BUILT'       : 7,
+    'TROVE_STATE_UNBUILDABLE' : 8,
 }
 
 recipeTypes = {
@@ -127,8 +128,11 @@ class _AbstractBuildTrove:
     def getState(self):
         return self.state
 
-    def isFailed(self):
+    def isFailedBuild(self):
         return self.state == TROVE_STATE_FAILED
+
+    def isFailed(self):
+        return self.state in (TROVE_STATE_FAILED, TROVE_STATE_UNBUILDABLE)
 
     def isBuilt(self):
         return self.state == TROVE_STATE_BUILT
@@ -150,7 +154,8 @@ class _AbstractBuildTrove:
 
     def isStarted(self):
         return self.state not in (TROVE_STATE_INIT,
-                                  TROVE_STATE_BUILT, TROVE_STATE_FAILED)
+                                  TROVE_STATE_BUILT, TROVE_STATE_FAILED,
+                                  TROVE_STATE_UNBUILDABLE)
 
     def isUnbuilt(self):
         return self.state in (TROVE_STATE_INIT, TROVE_STATE_BUILDABLE,
@@ -417,7 +422,14 @@ class BuildTrove(_FreezableBuildTrove):
         if isinstance(failureReason, str):
             failureReason = failure.BuildFailed(failureReason)
         self.setFailureReason(failureReason)
-        self._setState(TROVE_STATE_FAILED, str(failureReason), failureReason)
+        if isinstance(failureReason, failure.BuildFailed):
+            state = TROVE_STATE_FAILED
+        else:
+            # most failure reasons result in the trove being put into the
+            # "unbuildable" category, meaning their was something 
+            # wrong with them outside of a error in the recipe.
+            state = TROVE_STATE_UNBUILDABLE
+        self._setState(state, str(failureReason), failureReason)
 
     def troveMissingBuildReqs(self, buildReqs):
         """
