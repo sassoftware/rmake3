@@ -342,7 +342,7 @@ class rMakeServer(apirpc.XMLApiServer):
             self._numEvents = 0
             self._lastEmit = time.time()
             self._emitPid = pid
-            self.debug('_emitEvents forked pid %d' % pid)
+            #self.debug('_emitEvents forked pid %d' % pid)
             return
         try:
             try:
