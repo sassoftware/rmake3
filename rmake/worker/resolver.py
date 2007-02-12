@@ -52,8 +52,10 @@ class ResolveResult(object):
 
     def __freeze__(self):
         d = self.__dict__.copy()
-        d['buildReqs'] = freeze('installJobList', self.buildReqs)
-        d['missingDeps'] = freeze('dependencyList', self.missingDeps)
+        d.update(missingBuildReqs=freeze('troveSpecList',
+                                         self.missingBuildReqs))
+        d.update(buildReqs=freeze('installJobList', self.buildReqs))
+        d.update(missingDeps=freeze('dependencyList', self.missingDeps))
         return d
 
     @classmethod
@@ -62,6 +64,7 @@ class ResolveResult(object):
         self.__dict__.update(d)
         self.buildReqs = thaw('installJobList', self.buildReqs)
         self.missingDeps = thaw('dependencyList', self.missingDeps)
+        self.missingBuildReqs = thaw('troveSpecList', self.missingBuildReqs)
         return self
 register(ResolveResult)
 

@@ -1,10 +1,13 @@
 Changes in @NEW@:
-  o Server Changes
+  o Server Changes:
      * The rMake server is now forking, making it more responsive to multiple
        simultaneous requests.
      * Dependencies are now resolved in forked processes in slots, making
        the builder process more responsive.
      * Troves are now loaded in sorted order. (RMK-344)
+  o Bug Fixes:
+     * Fixed a bug that caused a traceback when build requirements were 
+       missing.
 
 Changes in 1.0.5:
   o Architecture Changes:
