@@ -264,6 +264,12 @@ class DependencyHandler(object):
         else:
             return len(self.priorities)
 
+    def _filterTroves(self, troveList):
+         return [ x for x in troveList
+                  if (x.needsBuildreqs()
+                      and not x in self._resolving
+                      and not x in self._delayed) ]
+
     def getNextResolveJob(self):
         """
             Gets the info for the next trove that needs to be resolved.
@@ -274,12 +280,10 @@ class DependencyHandler(object):
 
         leaves = sorted(depGraph.getLeaves(), key=self.getPriority)
         if not leaves:
+            if self._resolving:
+                return
             return self.getResolveJobFromCycle(depGraph)
-
-        leaves = [ x for x in leaves
-                   if (x.needsBuildreqs()
-                       and not x in self._resolving
-                       and not x in self._delayed) ]
+        leaves = self._filterTroves(leaves)
 
         if leaves:
             self.logger.debug(
@@ -312,17 +316,20 @@ class DependencyHandler(object):
             leafCycles = compGraph.getLeaves()
 
             checkedSomething = False
-            cycleTroves = leafCycles[0]
-            self.logger.debug('cycle involves %s troves' % len(cycleTroves))
+            for cycleTroves in leafCycles:
+                cycleTroves = self._filterTroves(cycleTroves)
+                if not cycleTroves:
+                    continue
+                self.logger.debug('cycle involves %s troves' % len(cycleTroves))
 
-            cycleTroves = [x[1] for x in sorted((_cycleNodeOrder(x), x) \
-                                                for x in cycleTroves)]
-            trv = cycleTroves[0]
-            self._resolving[trv] = True
+                cycleTroves = [x[1] for x in sorted((_cycleNodeOrder(x), x) \
+                                                    for x in cycleTroves)]
+                trv = cycleTroves[0]
+                self._resolving[trv] = True
             return self._getResolveJob(trv, inCycle=True)
 
     def resolutionComplete(self, trv, results):
-        del self._resolving[trv]
+        self._resolving.pop(trv, False)
 
         for wasDelayed, delayers in self._delayed.items():
             delayers.discard(trv)
