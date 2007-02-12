@@ -167,7 +167,6 @@ class Builder(object):
         return False
 
     def buildTrove(self, troveToBuild, buildReqs):
-        self.job.log('Building %s' % troveToBuild.getName())
         targetLabel = self.buildCfg.getTargetLabel(troveToBuild.getVersion())
         troveToBuild.troveQueued('Waiting to be assigned to chroot')
         troveToBuild.disown()
@@ -268,7 +267,9 @@ class EventHandler(subscriber.StatusSubscriber):
 
     def troveStateUpdated(self, (jobId, troveTuple), state, status):
         if state not in (buildtrove.TROVE_STATE_FAILED,
+                         buildtrove.TROVE_STATE_UNBUILDABLE,
                          buildtrove.TROVE_STATE_BUILT,
+                         buildtrove.TROVE_STATE_RESOLVING,
                          buildtrove.TROVE_STATE_PREPARING,
                          buildtrove.TROVE_STATE_BUILDING):
             t = self.job.getTrove(*troveTuple)
