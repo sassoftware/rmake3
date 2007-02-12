@@ -229,6 +229,7 @@ def displayTrovesByState(job, indent='     ', out=None):
     if out is None:
         out = sys.stdout
     for state in  (buildtrove.TROVE_STATE_WAITING,
+                   buildtrove.TROVE_STATE_RESOLVING,
                    buildtrove.TROVE_STATE_PREPARING,
                    buildtrove.TROVE_STATE_BUILDING,
                    buildtrove.TROVE_STATE_BUILDABLE,
