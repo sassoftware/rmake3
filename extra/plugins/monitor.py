@@ -20,7 +20,7 @@ from rmake import subscribers
 from rmake.build import buildjob, buildtrove
 from rmake.cmdline import query
 from rmake.lib.apiutils import thaw, freeze
-from rmake.lib import auth, localrpc
+from rmake.lib import rpclib, localrpc
 from rmake.subscribers import xmlrpc
 
 import termios
@@ -535,8 +535,7 @@ class XMLRPCJobLogReceiver(object):
                         port = int(port)
                     else:
                         port = 80
-                    serverObj = auth.ReusableXMLRPCServer((host, port),
-                                  requestHandler=auth.QuietXMLRPCRequestHandler)
+                    serverObj = rpclib.DelayableXMLRPCServer((host, port))
                 else:
                     raise NotImplmentedError
             else:

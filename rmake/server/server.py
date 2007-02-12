@@ -30,6 +30,7 @@ from rmake.build import subscriber
 from rmake.server import publish
 from rmake.db import database
 from rmake.lib.apiutils import api, api_parameters, api_return, freeze, thaw
+from rmake.lib.apiutils import api_nonforking
 from rmake.lib import apirpc
 from rmake.lib import logger
 from rmake.worker import worker
@@ -214,56 +215,30 @@ class rMakeServer(apirpc.XMLApiServer):
     def startCommit(self, callData, jobId):
         jobId = self.db.convertToJobId(jobId)
         job = self.db.getJob(jobId)
-        pid = self._fork('startCommit')
-        if pid:
-            self.debug('jobCommitting forked pid %d' % pid)
-            return
-        else:
-            try:
-                self._subscribeToJob(job)
-                job.jobCommitting()
-                os._exit(0)
-            finally:
-                os._exit(1)
+        self._subscribeToJob(job)
+        job.jobCommitting()
 
     @api(version=1)
     @api_parameters(1, None, 'str')
     def commitFailed(self, callData, jobId, message):
         jobId = self.db.convertToJobId(jobId)
         job = self.db.getJob(jobId)
-        pid = self._fork('commitFailed')
-        if pid:
-            self.debug('commitFailed forked pid %d' % pid)
-            return
-        else:
-            try:
-                self._subscribeToJob(job)
-                job.jobCommitFailed(message)
-                os._exit(0)
-            finally:
-                os._exit(1)
+        self._subscribeToJob(job)
+        job.jobCommitFailed(message)
 
     @api(version=1)
     @api_parameters(1, None, 'troveTupleList')
     def commitSucceeded(self, callData, jobId, troveTupleList):
         jobId = self.db.convertToJobId(jobId)
         job = self.db.getJob(jobId)
-        pid = self._fork('commitSucceeded for jobId %s' % jobId)
-        if pid:
-            self.debug('commitSucceeded forked pid %d' % pid)
-            return
-        else:
-            try:
-                self._subscribeToJob(job)
-                job.jobCommitted(troveTupleList)
-                os._exit(0)
-            finally:
-                os._exit(1)
+        self._subscribeToJob(job)
+        job.jobCommitted(troveTupleList)
 
     # --- callbacks from Builders
 
     @api(version=1)
     @api_parameters(1, None, 'EventList')
+    @api_nonforking
     def emitEvents(self, callData, jobId, (apiVer, eventList)):
         # currently we assume that this apiVer is extraneous, just
         # a part of the protocol for EventLists.
@@ -560,7 +535,8 @@ class rMakeServer(apirpc.XMLApiServer):
             self.uri = uri
             self.cfg = cfg
             self.repositoryPid = repositoryPid
-            apirpc.XMLApiServer.__init__(self, uri, logger=serverLogger)
+            apirpc.XMLApiServer.__init__(self, uri, logger=serverLogger,
+                                         forkByDefault = True)
             self.db = database.Database(cfg.getDbPath(),
                                         cfg.getDbContentsPath())
             if pluginMgr is None:
