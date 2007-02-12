@@ -6,6 +6,7 @@ import time
 
 from conary import conaryclient
 from conary.conaryclient import resolve
+from conary.lib import log
 from conary.local import database
 from conary.repository import trovesource
 
@@ -123,6 +124,7 @@ class DependencyResolver(object):
                by the reset of the labelPath
             2. Search the label path.
         """
+        log.setMinVerbosity(log.DEBUG)
         trv = resolveJob.getTrove()
         cfg = resolveJob.getConfig()
         client = conaryclient.ConaryClient(cfg)
