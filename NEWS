@@ -8,6 +8,8 @@ Changes in @NEW@:
        to be done in separate processes.
      * You can now perform multiple cook w/in a single job at the same
        time by setting the "slots" configuration variable to > 1.
+     * The rMake server is now forking, making it more responsive to multiple
+       simultaneous requests.
 
   o Client changes:
      * You can now debug failures in a chroot by running 

@@ -116,6 +116,14 @@ def api_return(version, returnType):
         return func
     return deco
 
+def api_nonforking(func):
+    func.forking = False
+    return func
+
+def api_forking(func):
+    func.forking = True
+    return func
+
 # --- generic methods to freeze/thaw based on type
 
 def freeze(apitype, item):
