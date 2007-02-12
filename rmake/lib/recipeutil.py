@@ -228,7 +228,7 @@ def loadSourceTroves(job, repos, troveTupleList):
     return buildTroves
 
 def getSourceTrovesFromJob(job, conaryCfg, repos):
-    troveList = list(job.iterTroveList())
+    troveList = sorted(job.iterTroveList())
     buildFlavor = conaryCfg.buildFlavor
     sourceTroveTups = [ (x[0], x[1],
                          deps.overrideFlavor(buildFlavor, x[2]))

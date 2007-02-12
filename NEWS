@@ -1,3 +1,11 @@
+Changes in @NEW@:
+  o Server Changes
+     * The rMake server is now forking, making it more responsive to multiple
+       simultaneous requests.
+     * Dependencies are now resolved in forked processes in slots, making
+       the builder process more responsive.
+     * Troves are now loaded in sorted order. (RMK-344)
+
 Changes in 1.0.5:
   o Architecture Changes:
      * rMake now supports plugins, located in /etc/rmake/plugins.d (RMK-186).
@@ -8,8 +16,6 @@ Changes in 1.0.5:
        to be done in separate processes.
      * You can now perform multiple cook w/in a single job at the same
        time by setting the "slots" configuration variable to > 1.
-     * The rMake server is now forking, making it more responsive to multiple
-       simultaneous requests.
 
   o Client changes:
      * You can now debug failures in a chroot by running 
