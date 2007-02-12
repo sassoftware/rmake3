@@ -59,9 +59,9 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
         else:
             changeSetList = []
 
-        self.logger.info('Troves To Install:')
-        self.logger.info('\n    '.join('%s=%s[%s]' % (x[0], x[2][0], x[2][1])
-                               for x in sorted(self.jobList)))
+        #self.logger.info('Troves To Install:')
+        #self.logger.info('\n    '.join('%s=%s[%s]' % (x[0], x[2][0], x[2][1])
+        #                       for x in sorted(self.jobList)))
 
         updJob, suggMap = client.updateChangeSet(
             self.jobList, keepExisting=False, resolveDeps=False,
