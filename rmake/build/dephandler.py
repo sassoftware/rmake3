@@ -287,15 +287,15 @@ class DependencyHandler(object):
 
         if leaves:
             self.logger.debug(
-                'buildable: %s - attempting to resolve buildreqs' % leaves)
+                '%s buildable: attempting to resolve buildreqs' % len(leaves))
             trv = leaves[0]
-            self.logger.debug('attempting to resolve buildreqs for %s=%s[%s]' % trv.getNameVersionFlavor())
             self._resolving[trv] = True
             return self._getResolveJob(trv)
 
     def getResolveJobFromCycle(self, depGraph):
         def _cycleNodeOrder(node):
-            """ Helper fn to determine the order in which to try to break cycles.
+            """ 
+            Helper fn to determine the order in which to try to break cycles.
             """
             numParentsChildren = [len(list(depGraph.iterChildren(x)))
                                     for x in depGraph.getParents(node)]
