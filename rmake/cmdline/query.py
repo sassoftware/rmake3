@@ -12,6 +12,7 @@ import time
 from conary.conaryclient.cmdline import parseTroveSpec
 
 from rmake.build import buildtrove
+from rmake.lib import flavorutil
 
 def getTerminalSize(out=None):
     if out is None:
