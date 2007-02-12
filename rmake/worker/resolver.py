@@ -183,7 +183,7 @@ class DependencyResolver(object):
                 buildReqTups.append(sol)
 
         if not okay:
-            self.logger.debug('could not find all buildreqs')
+            self.logger.debug('could not find all buildreqs: %s' % (missingBuildReqs,))
             resolveResult.troveMissingBuildReqs(missingBuildReqs)
             return resolveResult
 
@@ -207,11 +207,15 @@ class DependencyResolver(object):
                       for x in itertools.chain(*suggMap.itervalues()))
         if cannotResolve or depList:
             self.logger.debug('Failed - unresolved deps - took %s seconds' % (time.time() - start))
+            self.logger.debug('Missing: %s' % ((depList + cannotResolve),))
             resolveResult.troveMissingDependencies(depList + cannotResolve)
             return resolveResult
 
         self._addPackages(searchSource, jobSet)
         self.logger.debug('   took %s seconds' % (time.time() - start))
+        self.logger.info('   Resolved troves:')
+        self.logger.info('\n    '.join('%s=%s[%s]' % (x[0], x[2][0], x[2][1])
+                               for x in sorted(jobSet)))
         resolveResult.troveResolved(jobSet)
         return resolveResult
 
