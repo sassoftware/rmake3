@@ -24,6 +24,7 @@ class Server(object):
         self._halt = False
         self._haltSignal = None
         self._pids = {}
+        self._serving = False
 
     def _closeLog(self):
         self._logger.close()
@@ -38,6 +39,7 @@ class Server(object):
         sys.exit(exitRc)
 
     def serve_forever(self):
+        self._serving = True
         startedShutdown = False
         try:
             while True:
@@ -45,8 +47,7 @@ class Server(object):
                     self.info('Shutting down server')
                     coveragehook.save()
                     startedShutdown = True
-                    self._try('halt', self._shutDown)
-                    self._exit(0)
+                    self._shutDownAndExit()
                 self._try('loop hook', self._serveLoopHook)
                 self._try('request handling', self.handleRequestIfReady, .1)
         except SystemExit, err:
@@ -61,10 +62,11 @@ class Server(object):
             except:
                 pass
             if not startedShutdown:
-                self._try('halt', self._shutDown)
+                self._shutDownAndExit()
             raise
 
     def serve_once(self):
+        self._serving = True
         startedShutdown = False
         self._try('loop hook', self._serveLoopHook)
         try:
@@ -74,21 +76,22 @@ class Server(object):
                 self.info('Shutting down server')
                 coveragehook.save()
                 startedShutdown = True
-                self._try('halt', self._shutDown)
-                self._exit(0)
+                self._shutDownAndExit()
         except SystemExit, err:
+            self._serving = False
             try:
                 coveragehook.save()
             except:
                 pass
             self._exit(err.args[0])
         except:
+            self._serving = False
             try:
                 coveragehook.save()
             except:
                 pass
             if not startedShutdown:
-                self._try('halt', self._shutDown)
+                self._shutDownAndExit()
             raise
 
     def handleRequestIfReady(self, sleepTime=0.1):
@@ -119,6 +122,13 @@ class Server(object):
     def _shutDown(self):
         self._killAllPids()
         self._exit(0)
+
+    def _shutDownAndExit(self):
+        try:
+            self._try('halt', self._shutDown)
+            self._exit(0)
+        except:
+            self._exit(1)
 
     def _killAllPids(self):
         for pid, name in self._pids.items():

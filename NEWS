@@ -16,6 +16,8 @@ Changes in @NEW@:
        is running tag scripts.  Depending on the load and the tag scripts
        in question, this could take much longer.   Allow a generous 2 hours.
        (RMK-363)
+     * rMake is now better able to stop jobs that are creating chroots and
+       caching changesets. (RMK-342)
 
 Changes in 1.0.5:
   o Architecture Changes:

@@ -86,7 +86,12 @@ class Command(server.Server):
         return '%s/%s.log' % (base, commandId)
 
     def runCommandAndExit(self):
-        self._installSignalHandlers()
+        # we actually want to die when the command is killed.
+        # We want our entire process group to be killed.
+        # Remove signal handlers and set us to be the leader of our
+        # process group.
+        os.setpgrp()
+        self._resetSignalHandlers()
         try:
             self._try('Command', self._runCommand)
             os._exit(0)
@@ -173,11 +178,6 @@ class TroveCommand(Command):
         self.readPipe = None
         self.failureReason = None
 
-    def _signalHandler(self, signal, frame):
-        failureReason = failure.Stopped('Signal %s received' % signal)
-        self.trove.troveFailed(failureReason)
-        Command._signalHandler(self, signal, frame)
-
     def _handleData(self, (jobId, eventList)):
         self.eventHandler._receiveEvents(*thaw('EventList', eventList))
 
@@ -199,7 +199,7 @@ class TroveCommand(Command):
             # want to retry the build.
             reason = failure.InternalError(str(err), traceback.format_exc())
             trove.troveFailed(reason)
-            raise
+            self._shutDownAndExit()
 
     def handleRequestIfReady(self, sleep):
         time.sleep(sleep)
@@ -213,7 +213,7 @@ class TroveCommand(Command):
         except Exception, err:
             reason = failure.InternalError(str(err), traceback.format_exc())
             self.getTrove().troveFailed(reason)
-            raise
+            self._shutDownAndExit()
 
 class BuildCommand(TroveCommand):
 
@@ -232,17 +232,6 @@ class BuildCommand(TroveCommand):
         self.logPath = logPath
         self.uri = None
 
-    def _signalHandler(self, signal, frame):
-        failureReason = failure.Stopped('Signal %s received' % signal)
-        self.trove.troveFailed(failureReason)
-        Command._signalHandler(self, signal, frame)
-
-    def _handleData(self, (jobId, eventList)):
-        self.eventHandler._receiveEvents(*thaw('EventList', eventList))
-
-    def getTrove(self):
-        return self.trove
-
     def getChrootFactory(self):
         return self.chrootFactory
 
@@ -252,7 +241,8 @@ class BuildCommand(TroveCommand):
             trove.creatingChroot(self.cfg.getName(),
                                  self.chrootFactory.getChrootName())
             self.chrootFactory.create()
-            self.chroot = self.chrootFactory.start()
+            self.chroot = self.chrootFactory.start(
+                                        lambda: self._fork('Chroot server'))
         except Exception, err:
             # sends off messages to all listeners that this trove failed.
             trove.chrootFailed(str(err), traceback.format_exc())
@@ -309,8 +299,7 @@ class BuildCommand(TroveCommand):
                 return
         except errors.OpenError, err:
             pass
-        self._killPid(self.chroot.pid)
-
+        self._killAllPids()
         if self.buildCfg.cleanAfterCook and self.trove.isBuilt():
             self.chrootFactory.clean()
         else:
@@ -321,14 +310,13 @@ class StopCommand(Command):
 
     name = 'stop-command'
 
-    def __init__(self, cfg, commandId, targetCommand, killFn, hook):
+    def __init__(self, cfg, commandId, targetCommand, killFn):
         Command.__init__(self, cfg, commandId, targetCommand.jobId)
         self.targetCommand = targetCommand
         self.killFn = killFn
-        self.hook = hook
 
     def runCommand(self):
-        self.killFn(self.targetCommand.pid, hook=self.hook)
+        self.killFn(self.targetCommand.pid)
 
     def shouldFork(self):
         # Because this command runs kill, it must be the parent process 
@@ -368,7 +356,8 @@ class SessionCommand(Command):
     def runCommand(self):
         self.chrootFactory.logger = self.logger
         self.chrootFactory.create()
-        self.chroot = self.chrootFactory.start()
+        self.chroot = self.chrootFactory.start(
+                                        lambda: self._fork('Chroot Server'))
         port = self.chroot.startSession(self.command)
         self.writePipe.send((socket.getfqdn(), port))
         self.writePipe.flush()

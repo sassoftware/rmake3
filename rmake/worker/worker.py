@@ -103,8 +103,10 @@ class Worker(server.Server):
         targetCommand = self.getCommandById(targetCommandId)
         if not commandId:
             commandId = self.idgen.getStopCommandId(targetCommandId)
+        killFn = lambda pid: self._killPid(pid, killGroup=True,
+                                           hook=self._serveLoopHook)
         self.runCommand(self.commandClasses['stop'], self.cfg, commandId,
-                        targetCommand, self._killPid, self._serveLoopHook)
+                        targetCommand, killFn)
 
     def startSession(self, host, chrootPath, commandLine, superUser=False):
         if host != '_local_':

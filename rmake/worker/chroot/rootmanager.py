@@ -258,10 +258,10 @@ class rMakeChrootServer(object):
             return True
 
 
-        timeSlept = 7200 # fail after an hour of the chroot process running
+        timeSlept = 0    # fail after an hour of the chroot process running
                          # if tag scripts takes longer than that then there's
                          # a problem.
-        while checkPid():
+        while timeSlept < 7200:
             if os.path.exists(self.socketPath):
                 break
             checkPid()
