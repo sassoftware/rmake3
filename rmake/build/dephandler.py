@@ -223,6 +223,14 @@ class DependencyHandler(object):
 
     def troveBuilt(self, trove, troveList):
         self.depState.troveBuilt(trove, troveList)
+        # This trove built successfully, any troves that
+        # were waiting for this trove to finish are now
+        # fair game for dep resolution.
+        for wasDelayed, delayers in self._delayed.items():
+            delayers.discard(trove)
+            if not delayers:
+                self._delayed.pop(wasDelayed)
+
 
     def moreToDo(self):
         return self.depState.moreToDo()
@@ -331,10 +339,6 @@ class DependencyHandler(object):
     def resolutionComplete(self, trv, results):
         self._resolving.pop(trv, False)
 
-        for wasDelayed, delayers in self._delayed.items():
-            delayers.discard(trv)
-            if not delayers:
-                self._delayed.pop(wasDelayed)
 
         if trv in self.priorities:
             self.priorities.remove(trv)
@@ -354,9 +358,10 @@ class DependencyHandler(object):
                 # Try rebuilding those first, it is possible
                 # it will be needed by a lot of things so trying
                 # to build it now might help.
+                # The trove that is delayed has had an extra link
+                # added into the network.
                 for depTrv in newDeps:
                     self.prioritize(depTrv)
-                self._delayed[trv] = set(newDeps)
                 trv.troveResolvedButDelayed(newDeps)
         else:
             if results.hasMissingBuildReqs():

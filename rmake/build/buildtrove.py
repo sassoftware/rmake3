@@ -355,7 +355,9 @@ class BuildTrove(_FreezableBuildTrove):
 
             Publishes log message.
         """
-        self._setState(TROVE_STATE_WAITING,
+        # Move this trove back to initialized state so that dep resolution
+        # will be attempted on it again.
+        self._setState(TROVE_STATE_INIT,
                       'Resolved buildreqs include %s other troves scheduled to be built - delaying' % (len(newDeps),))
 
     def troveQueued(self, message):
