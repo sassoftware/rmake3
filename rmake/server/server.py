@@ -411,7 +411,6 @@ class rMakeServer(apirpc.XMLApiServer):
             # make sure the main process is up and running before we 
             # try to communicate w/ it
             client.ping()
-            self.db.reopen()
             for job in jobs:
                 self._subscribeToJob(job)
                 publisher = job.getPublisher()
@@ -431,7 +430,6 @@ class rMakeServer(apirpc.XMLApiServer):
             # make sure the main process is up and running before we 
             # try to communicate w/ it
             client.ping()
-            self.db.reopen()
             job = self.db.getJob(jobId)
             self._subscribeToJob(job)
             publisher = job.getPublisher()
@@ -490,6 +488,14 @@ class rMakeServer(apirpc.XMLApiServer):
 
     def _exit(self, exitCode):
         sys.exit(exitCode)
+
+    def _fork(self, *args, **kw):
+        pid = apirpc.XMLApiServer._fork(self, *args, **kw)
+        if pid:
+            return pid
+        self.db.close()
+        self.db.reopen()
+        return pid
 
     def _close(self):
         apirpc.XMLApiServer._close(self)
