@@ -8,6 +8,8 @@ Changes in @NEW@:
   o Bug Fixes:
      * Fixed a bug that caused a traceback when build requirements were 
        missing.
+     * Fixed a bug in dep resolution that caused troves that were delayed 
+       due to runtime-only requirements to not be built.
 
 Changes in 1.0.5:
   o Architecture Changes:
