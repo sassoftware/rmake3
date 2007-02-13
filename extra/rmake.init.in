@@ -2,7 +2,7 @@
 #
 # Copyright (c) 2006-2007 rPath, Inc.  All rights reserved.
 #
-# chkconfig: - 81 19
+# chkconfig: 345 81 19
 # description: Starts the rMake Daemon
 
 # Source function library.
