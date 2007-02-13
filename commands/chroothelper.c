@@ -288,7 +288,7 @@ int unmountchroot(const char * chrootDir, int opt_clean) {
  *********************************************************/
 
 int enter_chroot(const char * chrootDir, const char * socketPath,
-                 int useTmpfs, int useChrootUser) {
+                 int useTmpfs, int useChrootUser, int runTagScripts) {
     cap_t cap;
     int i;
     int rc;
@@ -380,26 +380,28 @@ int enter_chroot(const char * chrootDir, const char * socketPath,
 
     /* chroot, then run tag scripts, then switch to chroot uid */
     do_chroot(chrootDir);
-    pid = fork();
-    if (pid == 0) {
-        /* run with the environment set up inside the shell */
-        execle("/bin/sh", "/bin/sh", "-l", "/root/tagscripts", NULL, NULL);
-        perror("execl");
-        _exit(1);
-    }
-    else {
-        int status;
-        if (-1 == waitpid(pid, &status, 0)) {
-            perror("waitpid");
-            return 1;
+    if (runTagScripts) {
+        pid = fork();
+        if (pid == 0) {
+            /* run with the environment set up inside the shell */
+            execle("/bin/sh", "/bin/sh", "-l", "/root/tagscripts", NULL, NULL);
+            perror("execl");
+            _exit(1);
         }
-        else if (!WIFEXITED(status)) {
-            fprintf(stderr, "warning: tag scripts exited abnormally\n");
-            return 1;
-        }
-        else if (WEXITSTATUS(status) != 0) {
-            fprintf(stderr, "warning: tag scripts exited with status %d\n", WEXITSTATUS(status));
-            return 1;
+        else {
+            int status;
+            if (-1 == waitpid(pid, &status, 0)) {
+                perror("waitpid");
+                return 1;
+            }
+            else if (!WIFEXITED(status)) {
+                fprintf(stderr, "warning: tag scripts exited abnormally\n");
+                return 1;
+            }
+            else if (WEXITSTATUS(status) != 0) {
+                fprintf(stderr, "warning: tag scripts exited with status %d\n", WEXITSTATUS(status));
+                return 1;
+            }
         }
     }
 
@@ -516,6 +518,7 @@ int main(int argc, char **argv)
                                  but instead stay as the rmake user.
                                  (useful for debugging)
                                */
+    int opt_noTagScripts = 0; /* set if we should not run tag scripts */
     char * archname = NULL;
     char * chrootDir = NULL;
     char * socketPath = NULL;
@@ -523,6 +526,7 @@ int main(int argc, char **argv)
     struct option main_options[] = {
 	{"tmpfs", no_argument, &opt_tmpfs, 1},
 	{"no-chroot-user", no_argument, &opt_noChrootUser, 1},
+	{"no-tag-scripts", no_argument, &opt_noTagScripts, 1},
 	{"clean", no_argument, &opt_clean, 1},
 	{"unmount", no_argument, &opt_unmount, 1},
 	{"arch", required_argument, NULL, 'a'},
@@ -623,5 +627,6 @@ int main(int argc, char **argv)
 	}
     }
     /* finally, start the work */
-    return enter_chroot(chrootDir, socketPath, opt_tmpfs, !opt_noChrootUser);
+    return enter_chroot(chrootDir, socketPath, opt_tmpfs, !opt_noChrootUser,
+                        !opt_noTagScripts);
 }

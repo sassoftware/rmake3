@@ -121,7 +121,8 @@ class ChrootManager(object):
                                          useTmpfs=self.serverCfg.useTmpfs,
                                          buildLogPath=None, reuseRoots=True,
                                          useChrootUser=useChrootUser,
-                                         logger=self.logger)
+                                         logger=self.logger,
+                                         runTagScripts=False)
         self.chroots[chrootPath] = chrootServer
         return chrootServer
 
@@ -152,7 +153,7 @@ class rMakeChrootServer(object):
     """
     def __init__(self, chroot, targetArch, buildLogPath, logger,
                  useTmpfs=False, reuseRoots=False, strictMode=False,
-                 useChrootUser=True):
+                 useChrootUser=True, runTagScripts=True):
         self.chroot = chroot
         self.targetArch = targetArch
         self.useTmpfs = useTmpfs
@@ -161,6 +162,7 @@ class rMakeChrootServer(object):
         self.buildLogPath = buildLogPath
         self.useChrootUser = useChrootUser
         self.logger = logger
+        self.runTagScripts = runTagScripts
 
     def getRoot(self):
         return self.chroot.getRoot()
@@ -185,9 +187,9 @@ class rMakeChrootServer(object):
             self.chroot.clean()
         self.chroot.create(self.getRoot())
 
-    def start(self):
+    def start(self, forkCommand=os.fork):
         self.socketPath = self.getRoot() + '/tmp/chroot-socket-%s'
-        pid = os.fork()
+        pid = forkCommand()
         if pid:
             self.logger.info("Chroot server starting (pid %s)" % pid)
             self.socketPath = self.socketPath % pid
@@ -210,6 +212,8 @@ class rMakeChrootServer(object):
                 args.append('--tmpfs')
             if not self.useChrootUser:
                 args.append('--no-chroot-user')
+            if not self.runTagScripts:
+                args.append('--no-tag-scripts')
             os.execv(prog, args)
         else:
             # testsuite and FakeRoot path
@@ -251,10 +255,13 @@ class rMakeChrootServer(object):
                 if self.buildLogPath:
                     msg += ' and build log %s' % self.buildLogPath
                 raise errors.OpenError(msg)
+            return True
 
 
-        timeSlept = 0
-        while timeSlept < 180:
+        timeSlept = 7200 # fail after an hour of the chroot process running
+                         # if tag scripts takes longer than that then there's
+                         # a problem.
+        while checkPid():
             if os.path.exists(self.socketPath):
                 break
             checkPid()

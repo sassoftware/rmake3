@@ -10,6 +10,12 @@ Changes in @NEW@:
        missing.
      * Fixed a bug in dep resolution that caused troves that were delayed 
        due to runtime-only requirements to not be built.
+     * allow cleanAfterCook in strictMode.
+     * Don't rerun tagscripts when running the "chroot" command.
+     * Don't time out when creating chroots after 3 minutes.  The chroot 
+       is running tag scripts.  Depending on the load and the tag scripts
+       in question, this could take much longer.   Allow a generous 2 hours.
+       (RMK-363)
 
 Changes in 1.0.5:
   o Architecture Changes:
