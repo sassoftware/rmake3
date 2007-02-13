@@ -119,6 +119,9 @@ class Server(object):
         self._pids[pid] = name
         return pid
 
+    def isKnownPid(self, pid):
+        return pid in self._pids
+
     def _shutDown(self):
         self._killAllPids()
         self._exit(0)

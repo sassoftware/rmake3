@@ -78,6 +78,13 @@ class Worker(server.Server):
             trove.logPid = pid
         return logHost, logPort
 
+    def stopTroveLogger(self, trove):
+        if not hasattr(trove, 'logPid'):
+            return
+        pid = trove.logPid
+        if self._isKnownPid(pid):
+            self._killPid(pid)
+
     def buildTrove(self, buildCfg, jobId, trove, eventHandler,
                    buildReqs, targetLabel, logHost='', logPort=0, logPath=None,
                    commandId=None):

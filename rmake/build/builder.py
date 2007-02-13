@@ -230,8 +230,7 @@ class EventHandler(subscriber.StatusSubscriber):
     def troveBuilt(self, (jobId, troveTuple), binaryTroveList):
         self._hadEvent = True
         t = self.job.getTrove(*troveTuple)
-        if hasattr(t, 'logPid'):
-            self.server._killPid(t.logPid)
+        self.worker.stopTroveLogger(t)
         t.troveBuilt(binaryTroveList)
         t.own()
 
@@ -242,8 +241,7 @@ class EventHandler(subscriber.StatusSubscriber):
     def troveFailed(self, (jobId, troveTuple), failureReason):
         self._hadEvent = True
         t = self.job.getTrove(*troveTuple)
-        if hasattr(t, 'logPid'):
-            self.server._killPid(t.logPid)
+        self.worker.stopTroveLogger(t)
         t.troveFailed(failureReason)
         t.own()
 
