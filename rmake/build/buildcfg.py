@@ -122,7 +122,7 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
 
     _hiddenOptions = [ 'buildTroveSpecs', 'resolveTroveTups' ]
 
-    _strictOptions = [ 'buildFlavor', 'buildLabel', 'flavor',
+    _strictOptions = [ 'buildFlavor', 'buildLabel', 'cleanAfterCook','flavor',
                        'installLabelPath', 'repositoryMap', 'root',
                        'user', 'name', 'contact', 'signatureKey', 'dbPath',
                        'proxy' ]
