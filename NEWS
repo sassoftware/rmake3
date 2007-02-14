@@ -5,6 +5,13 @@ Changes in @NEW@:
      * Dependencies are now resolved in forked processes in slots, making
        the builder process more responsive.
      * Troves are now loaded in sorted order. (RMK-344)
+     * Troves are now split into two categories of failed troves, 
+       'Failed' and 'Unbuildable'.  Unbuildable troves are caused when another
+       trove in the job fails, causing this trove to fail.  That is, they
+       are not due directly to a failure to build but of a failure of other
+       troves in the job to build.  This distinction is useful when building
+       large jobs and trying to figure out what trove is at the heart of a 
+       set of failed troves.
   o Bug Fixes:
      * Fixed a bug that caused a traceback when build requirements were 
        missing.
