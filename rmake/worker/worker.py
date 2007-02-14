@@ -118,6 +118,7 @@ class Worker(server.Server):
                                            hook=self._serveLoopHook)
         self.runCommand(self.commandClasses['stop'], self.cfg, commandId,
                         targetCommand, killFn)
+        targetCommand.trove.troveFailed('Stop requested')
 
     def startSession(self, host, chrootPath, commandLine, superUser=False):
         if host != '_local_':
