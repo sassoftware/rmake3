@@ -290,6 +290,7 @@ class DisplayState(xmlrpc.BasicXMLRPCStatusSubscriber):
             return 'None'
         return buildjob._getStateName(self.jobState)
 
+
     def isFailed(self, jobId, troveTuple):
         return (self.getTroveState(jobId, troveTuple)
                 == buildtrove.TROVE_STATE_FAILED)
@@ -305,6 +306,10 @@ class DisplayState(xmlrpc.BasicXMLRPCStatusSubscriber):
         return self.getTroveState(jobId, troveTuple) in (
                                             buildtrove.TROVE_STATE_FAILED,)
 
+    def findTroveByName(self, troveName):
+        for jobId, troveTuple in self.states:
+            if troveTuple[0].startswith(troveName):
+                return (jobId, troveTuple)
 
     def getTroveState(self, jobId, troveTuple):
         return self.states[jobId, troveTuple]
@@ -394,6 +399,8 @@ class DisplayManager(object):
                 self.do_log()
             elif cmd == 's':
                 self.do_status()
+            elif cmd == 'g':
+                self.do_goto()
 
         if self.showBuildLogs:
             for jobId, troveTuple in self.state.getBuildingTroves():
@@ -429,6 +436,24 @@ class DisplayManager(object):
         if self.troveIndex != startIndex:
             self.displayTrove(*self.getCurrentTrove())
 
+    def do_goto(self):
+        if not self.state.troves:
+            print 'No troves loaded yet'
+            return
+        self.display.erasePrompt()
+        restore_terminal(*self.termInfo)
+        try:
+            troveName = raw_input("\nName or part of name of trove: ")
+            troveInfo = self.state.findTroveByName(troveName)
+            if not troveInfo:
+                print 'No trove starting with "%s"' % troveName
+                self.display.writePrompt()
+                return
+            while not self.getCurrentTrove() == troveInfo:
+                self.troveIndex = (self.troveIndex + 1) % len(self.state.troves)
+            self.displayTrove(*self.getCurrentTrove())
+        finally:
+            self.termInfo = set_raw_mode()
 
     def do_next_failed(self):
         if not self.state.troves:
@@ -484,6 +509,7 @@ class DisplayManager(object):
         print "<left>/<right>: move to next/prev trove in list"
         print "b: move to next building trove"
         print "f: move to next failed trove"
+        print "g: go to a particular trove"
         print "h: print help"
         print "i: display info for this trove"
         print "l: display log for this trove in less"
