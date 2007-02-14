@@ -171,8 +171,6 @@ class DependencyHandler(object):
         return self.depState.getBuildReqTroves(trove)
 
     def troveFailed(self, trove, *args):
-        import epdb
-        epdb.st()
         publisher = trove.getPublisher()
         publisher.unsubscribe(publisher.TROVE_FAILED, self.troveFailed)
         publisher.cork()
