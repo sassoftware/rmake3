@@ -128,6 +128,7 @@ class Command(server.Server):
                 if isinstance(err, SystemExit) and not err.args[0]:
                     self.commandFinished()
                 else:
+                    self.logger.error(traceback.format_exc())
                     self.commandErrored(err, traceback.format_exc())
                 raise
             else:
@@ -194,6 +195,7 @@ class TroveCommand(Command):
             self.writePipe.flush()
             raise
         except Exception, err:
+            self.logger.error(traceback.format_exc())
             self.writePipe.flush()
             # even if there's an exception in here, we don't really
             # want to retry the build.
@@ -211,6 +213,7 @@ class TroveCommand(Command):
         except SystemExit, err:
             raise
         except Exception, err:
+            self.logger.error(traceback.format_exc())
             reason = failure.InternalError(str(err), traceback.format_exc())
             self.getTrove().troveFailed(reason)
             self._shutDownAndExit()
@@ -245,6 +248,7 @@ class BuildCommand(TroveCommand):
                                         lambda: self._fork('Chroot server'))
         except Exception, err:
             # sends off messages to all listeners that this trove failed.
+            self.logger.error(traceback.format_exc())
             trove.chrootFailed(str(err), traceback.format_exc())
             return
         n,v,f = trove.getNameVersionFlavor()
@@ -285,6 +289,7 @@ class BuildCommand(TroveCommand):
                 trove.troveFailed(reason)
                 # passes through to killRoot at the bottom.
         except Exception, e:
+            self.logger.error(traceback.format_exc())
             reason = failure.InternalError(str(e), traceback.format_exc())
             trove.troveFailed(reason)
         self.chroot.stop()
