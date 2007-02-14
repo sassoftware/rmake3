@@ -66,6 +66,10 @@ class Builder(object):
         self.worker = worker.Worker(serverCfg, self.logger, serverCfg.slots)
         self.eventHandler = EventHandler(job, self.worker)
 
+    def _installSignalHandlers(self):
+        signal.signal(signal.SIGTERM, self._signalHandler)
+        signal.signal(signal.SIGINT, self._signalHandler)
+
     def _closeLog(self):
         self.logFile.close()
         self.logger.close()

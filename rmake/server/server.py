@@ -263,7 +263,7 @@ class rMakeServer(apirpc.XMLApiServer):
             buildConfig.user.addServerGlob(serverName, user, password)
 
     def _serveLoopHook(self):
-        if not self._initialized:
+        if not self._initialized and hasattr(self, 'worker'):
             jobsToFail = self.db.getJobsByState(buildjob.JOB_STATE_STARTED)
             self._failCurrentJobs(jobsToFail, 'Server was stopped')
             self._initializeNodes()
@@ -380,7 +380,7 @@ class rMakeServer(apirpc.XMLApiServer):
                     # all its children with one swell foop.
                     os.setpgrp()
                     # Install builder-specific signal handlers.
-                    self.buildMgr._installSignalHandlers()
+                    buildMgr._installSignalHandlers()
                     # need to reinitialize the database in the forked child 
                     # process
                     self.db.reopen()

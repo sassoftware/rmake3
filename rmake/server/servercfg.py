@@ -18,6 +18,8 @@ from conary.lib.cfgtypes import CfgPath, CfgList, CfgString, CfgInt, CfgType
 from conary.lib.cfgtypes import CfgBool, CfgPathList, CfgDict
 from conary.conarycfg import CfgLabel, CfgUserInfo
 
+from rmake import constants
+from rmake import errors
 from rmake.lib import daemon
 
 class rMakeBuilderConfiguration(daemon.DaemonConfig):
@@ -54,6 +56,33 @@ class rMakeBuilderConfiguration(daemon.DaemonConfig):
     def getBuildLogPath(self, jobId):
         return self.logDir + '/buildlogs/%d.log' % jobId
 
+    def _checkDir(self, name, path, requiredOwner=None,
+                   requiredMode=None):
+        if not os.path.exists(path):
+            raise errors.RmakeError('%s does not exist, expected at %s - cannot start server' % (name, path))
+            sys.exit(1)
+        if not (requiredOwner or requiredMode):
+            return
+        statInfo = os.stat(path)
+        if requiredMode and statInfo.st_mode & 0777 != requiredMode:
+            raise errors.RmakeError('%s (%s) must have mode %o' % (path, name, requiredMode))
+        if requiredOwner:
+            ownerName = pwd.getpwuid(statInfo.st_uid).pw_name
+            if ownerName != requiredOwner:
+                raise errors.RmakeError('%s (%s) must have owner %s' % (
+                                            path, name, requiredOwner))
+
+
+    def checkBuildSanity(self):
+        rmakeUser = constants.rmakeuser
+        if pwd.getpwuid(os.getuid()).pw_name == rmakeUser:
+            self._checkDir('buildDir', self.buildDir)
+            self._checkDir('chroot dir (subdirectory of buildDir)',
+                            self.getChrootDir(),
+                            rmakeUser, 0700)
+            self._checkDir('chroot archive dir (subdirectory of buildDir)',
+                            self.getChrootArchiveDir(),
+                            rmakeUser, 0700)
 
 class rMakeConfiguration(rMakeBuilderConfiguration):
     logDir            = (CfgPath, '/var/log/rmake')

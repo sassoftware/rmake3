@@ -65,16 +65,18 @@ class rMakeDaemon(daemon.Daemon):
         else:
             reposPid = None
         misc.removeIfExists(cfg.socketPath)
-        rMakeServer = server.rMakeServer(cfg.getServerUri(), cfg,
-                                         repositoryPid=reposPid,
-                                         pluginMgr=self.plugins)
-        signal.signal(signal.SIGTERM, rMakeServer._signalHandler)
-        signal.signal(signal.SIGINT, rMakeServer._signalHandler)
+        rMakeServer = None
         try:
+            rMakeServer = server.rMakeServer(cfg.getServerUri(), cfg,
+                                             repositoryPid=reposPid,
+                                             pluginMgr=self.plugins)
+            rMakeServer._installSignalHandlers()
             rMakeServer.serve_forever()
         finally:
-            if rMakeServer.repositoryPid is not None:
-                self.killRepos(rMakeServer.repositoryPid)
+            if rMakeServer and not rMakeServer.repositoryPid:
+                return
+            elif reposPid:
+                self.killRepos(reposPid)
 
     def killRepos(self, pid):
         self.logger.info('killing repository at %s' % pid)
