@@ -49,7 +49,9 @@ class SubscriberData(object):
             cu.execute('INSERT INTO SubscriberData VALUES (?, ?)',
                        subscriberId, item)
 
-    def _returnSubscribers(self, results):
+    def _returnSubscribers(self, results, subscriberCache = None):
+        if subscriberCache is None:
+            subscriberCache = {}
         d = {}
         for id, data in results:
             if id not in d:
@@ -57,7 +59,12 @@ class SubscriberData(object):
             else:
                 d[id].append(data)
 
-        return [thaw('Subscriber', x) for x in d.iteritems()]
+        toReturn = []
+        for id, data in d.iteritems():
+            if id not in subscriberCache:
+                subscriberCache[id] = thaw('Subscriber', (id, data))
+            toReturn.append(subscriberCache[id])
+        return toReturn
 
     def getMatches(self, jobId, eventList):
         cu = self.db.cursor()
@@ -69,6 +76,7 @@ class SubscriberData(object):
                        WHERE jobId IN (0,?) AND event IN (?,"ALL")
                   '''
         subCmd = cmd + 'AND subEvent IN (?, "ALL")'
+        subscriberCache = {}
         for (event, subEvent), data in eventList:
             params = [jobId, event]
             if subEvent:
@@ -78,7 +86,8 @@ class SubscriberData(object):
                 thisCmd = cmd
 
             subscribers = \
-                self._returnSubscribers(cu.execute(thisCmd, params).fetchall())
+                self._returnSubscribers(cu.execute(thisCmd, params).fetchall(),
+                                        subscriberCache)
             if subscribers:
                 subscribersByEvent[event, subEvent] = subscribers
                 
