@@ -128,7 +128,7 @@ class _AbstractBuildTrove:
     def getState(self):
         return self.state
 
-    def isFailedBuild(self):
+    def isPrimaryFailure(self):
         return self.state == TROVE_STATE_FAILED
 
     def isFailed(self):
@@ -410,7 +410,7 @@ class BuildTrove(_FreezableBuildTrove):
         self.setBuiltTroves(troveList)
         self._setState(TROVE_STATE_BUILT, '', troveList)
 
-    def troveFailed(self, failureReason):
+    def troveFailed(self, failureReason, isPrimaryFailure=True):
         """
             Sets the trove state to failed.
 
@@ -424,16 +424,19 @@ class BuildTrove(_FreezableBuildTrove):
         if isinstance(failureReason, str):
             failureReason = failure.BuildFailed(failureReason)
         self.setFailureReason(failureReason)
-        if isinstance(failureReason, failure.BuildFailed):
+        if isPrimaryFailure:
             state = TROVE_STATE_FAILED
         else:
-            # most failure reasons result in the trove being put into the
-            # "unbuildable" category, meaning their was something 
-            # wrong with them outside of a error in the recipe.
+            # primary failures are those failures that are directly caused
+            # by something wrong.  Secondary failures are those that are due
+            # to another trove failing.
+            # E.g. a trove missing build reqs that are not part of the job
+            # would be a primary failure.  A trove that could not build
+            # because of another trove missing build reqs would be secondary.
             state = TROVE_STATE_UNBUILDABLE
         self._setState(state, str(failureReason), failureReason)
 
-    def troveMissingBuildReqs(self, buildReqs):
+    def troveMissingBuildReqs(self, buildReqs, isPrimaryFailure=True):
         """
             Sets the trove state to failed, sets failure reason to missing 
             buildreqs.
@@ -443,9 +446,10 @@ class BuildTrove(_FreezableBuildTrove):
             @param buildReqs: missing build reqs
             @type buildReqs: list of strings that are the missing buildreqs.
         """
-        self.troveFailed(failure.MissingBuildreqs(buildReqs))
+        self.troveFailed(failure.MissingBuildreqs(buildReqs),
+                         isPrimaryFailure=isPrimaryFailure)
 
-    def troveMissingDependencies(self, troveAndDepSets):
+    def troveMissingDependencies(self, troveAndDepSets, isPrimaryFailure=True):
         """
             Sets the trove state to failed, sets failure reason to missing 
             dependencies.
@@ -455,7 +459,8 @@ class BuildTrove(_FreezableBuildTrove):
             @param troveAndDepSets: missing dependencies
             @type troveAndDepSets: (trove, depSet) list.
         """
-        self.troveFailed(failure.MissingDependencies(troveAndDepSets))
+        self.troveFailed(failure.MissingDependencies(troveAndDepSets),
+                         isPrimaryFailure=isPrimaryFailure)
 
     def _setState(self, state, status=None, *args):
         oldState = self.state
