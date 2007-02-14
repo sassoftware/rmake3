@@ -299,6 +299,13 @@ class DisplayState(xmlrpc.BasicXMLRPCStatusSubscriber):
                                             buildtrove.TROVE_STATE_BUILDING,
                                             buildtrove.TROVE_STATE_PREPARING)
 
+    def isFailed(self, jobId, troveTuple):
+        # don't iterate through unbuildable - they are failures due to 
+        # secondary causes.
+        return self.getTroveState(jobId, troveTuple) in (
+                                            buildtrove.TROVE_STATE_FAILED,)
+
+
     def getTroveState(self, jobId, troveTuple):
         return self.states[jobId, troveTuple]
 
@@ -379,6 +386,8 @@ class DisplayManager(object):
                 self.do_help()
             elif cmd == 'b':
                 self.do_next_building()
+            elif cmd == 'f':
+                self.do_next_failed()
             elif cmd == 'i':
                 self.do_info()
             elif cmd == 'l':
@@ -402,11 +411,24 @@ class DisplayManager(object):
             return
         startIndex = self.troveIndex
         self.troveIndex = (self.troveIndex + 1) % len(self.state.troves)
+        print self.troveIndex
         while (not self.state.isBuilding(*self.getCurrentTrove())
                and self.troveIndex != startIndex):
             self.troveIndex = (self.troveIndex + 1) % len(self.state.troves)
         if self.troveIndex != startIndex:
             self.displayTrove(*self.getCurrentTrove())
+
+    def do_next_failed(self):
+        if not self.state.troves:
+            return
+        startIndex = self.troveIndex
+        self.troveIndex = (self.troveIndex + 1) % len(self.state.troves)
+        while (not self.state.isFailedBuild(*self.getCurrentTrove())
+               and self.troveIndex != startIndex):
+            self.troveIndex = (self.troveIndex + 1) % len(self.state.troves)
+        if self.troveIndex != startIndex:
+            self.displayTrove(*self.getCurrentTrove())
+
 
     def do_next_failed(self):
         if not self.state.troves:
