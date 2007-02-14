@@ -296,7 +296,7 @@ class LazyFile(object):
     def seek(self, loc, type):
         self.marker = (loc, type)
 
-    def trucate(self):
+    def truncate(self):
         f = open(self.path, 'r')
         f.seek(*self.marker)
         f.truncate()
