@@ -130,6 +130,8 @@ class Server(object):
         try:
             self._try('halt', self._shutDown)
             self._exit(0)
+        except SystemExit, err:
+            self._exit(err.args[0])
         except:
             self._exit(1)
 
