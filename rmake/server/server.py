@@ -367,7 +367,7 @@ class rMakeServer(apirpc.XMLApiServer):
         buildCfg = self.db.getJobConfig(job.jobId)
         buildCfg.setServerConfig(self.cfg)
         buildMgr = self.getBuilder(job, buildCfg)
-        pid = self._fork('Job %s' % job.jobId)
+        pid = self._fork('Job %s' % job.jobId, close=True)
         if pid:
             buildMgr._closeLog()
             self._buildPids[pid] = job.jobId # mark this pid for potential 
@@ -379,13 +379,10 @@ class rMakeServer(apirpc.XMLApiServer):
                     # we want to be able to kill this build process and
                     # all its children with one swell foop.
                     os.setpgrp()
-                    # restore default signal handlers, so we actually respond
-                    # to these.
-                    signal.signal(signal.SIGTERM, signal.SIG_DFL)
-                    signal.signal(signal.SIGINT, signal.default_int_handler)
+                    # Install builder-specific signal handlers.
+                    self.buildMgr._installSignalHandlers()
                     # need to reinitialize the database in the forked child 
                     # process
-                    self._close()
                     self.db.reopen()
                     self._subscribeToBuild(buildMgr)
                     # don't do anything else in here, buildAndExit has 
@@ -489,12 +486,15 @@ class rMakeServer(apirpc.XMLApiServer):
     def _exit(self, exitCode):
         sys.exit(exitCode)
 
-    def _fork(self, *args, **kw):
-        pid = apirpc.XMLApiServer._fork(self, *args, **kw)
+    def _fork(self, name, close=False):
+        pid = apirpc.XMLApiServer._fork(self, name)
         if pid:
             return pid
-        self.db.close()
-        self.db.reopen()
+        if close:
+            self._close()
+        else:
+            self.db.close()
+            self.db.reopen()
         return pid
 
     def _close(self):
