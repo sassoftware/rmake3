@@ -151,7 +151,7 @@ class XMLRPCJobLogReceiver(object):
                 type, url = urllib.splittype(uri)
                 if type == 'unix':
                     util.removeIfExists(url)
-                    serverObj = localrpc.UnixDomainXMLRPCServer(url,
+                    serverObj = rpclib.UnixDomainDelayableXMLRPCServer(url,
                                                        logRequests=False)
                 elif type == 'http':
                     # path is ignored with simple server.
@@ -211,11 +211,11 @@ class XMLRPCJobLogReceiver(object):
         if self.client:
             self.client.unsubscribe(self.subscriber.subscriberId)
 
-    def _dispatch(self, methodname, args):
+    def _dispatch(self, methodname, (callData, responseHandler, args)):
         if methodname.startswith('_'):
             raise NoSuchMethodError(methodname)
         else:
             rv = getattr(self.display, methodname)(*args)
             if rv is None:
-                return ''
-
+                rv = ''
+            responseHandler.sendResponse(rv)
