@@ -29,6 +29,9 @@ Changes in @NEW@:
        are now logged there are well as passed back with the chroot. (RMK-356)
      * Handle case where where user tries to stop a command that is no longer
        active. (RMK-367)
+     * Added sanity checks for buildDir for rMake.  This should cause 
+       configuration errors to show up when you start rMake instead of in 
+       the middle of a build.  (RMK-343)
 
 Changes in 1.0.5:
   o Architecture Changes:
