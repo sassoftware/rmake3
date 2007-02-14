@@ -18,6 +18,8 @@ Changes in @NEW@:
        (RMK-363)
      * rMake is now better able to stop jobs that are creating chroots and
        caching changesets. (RMK-342)
+     * Improved logging for commands in their respective command files - errors
+       are now logged there are well as passed back with the chroot. (RMK-356)
 
 Changes in 1.0.5:
   o Architecture Changes:
