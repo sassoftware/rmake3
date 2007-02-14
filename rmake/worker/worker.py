@@ -108,6 +108,9 @@ class Worker(server.Server):
 
     def stopCommand(self, targetCommandId, commandId=None):
         targetCommand = self.getCommandById(targetCommandId)
+        if not targetCommand:
+            self.warning('Asked to stop unknown command %s' % targetCommandId)
+            return
         if not commandId:
             commandId = self.idgen.getStopCommandId(targetCommandId)
         killFn = lambda pid: self._killPid(pid, killGroup=True,
@@ -184,7 +187,12 @@ class Worker(server.Server):
         return self.commands
 
     def getCommandById(self, commandId):
-        return [ x for x in self.commands if x.getCommandId() == commandId][0]
+        cmds = [ x for x in self.commands if x.getCommandId() == commandId]
+        if not cmds:
+            return None
+        else:
+            assert(len(cmds) == 1)
+            return cmds[0]
 
     def runCommand(self, commandClass, cfg, commandId, *args):
         command = None
