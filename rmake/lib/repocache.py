@@ -297,9 +297,10 @@ class LazyFile(object):
         self.marker = (loc, type)
 
     def truncate(self):
-        f = open(self.path, 'r')
-        f.seek(*self.marker)
-        f.truncate()
+        # NOTE: this is only called when the changeset is empty - something
+        # that should never happen in the cache.  So I think this is a sign
+        # of another bug.
+        raise IOError('Tried to modify a RO file %s' % self.path)
 
     def close(self):
         pass
