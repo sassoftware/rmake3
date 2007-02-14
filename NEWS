@@ -27,6 +27,8 @@ Changes in @NEW@:
        caching changesets. (RMK-342)
      * Improved logging for commands in their respective command files - errors
        are now logged there are well as passed back with the chroot. (RMK-356)
+     * Handle case where where user tries to stop a command that is no longer
+       active. (RMK-367)
 
 Changes in 1.0.5:
   o Architecture Changes:
