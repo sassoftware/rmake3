@@ -231,7 +231,7 @@ class rMakeChrootServer(object):
                 chrootRmakePath = self.getRoot() + constants.chrootRmakePath
                 realRmakePath = os.path.dirname(sys.modules['rmake'].__file__)
                 shutil.rmtree(chrootRmakePath)
-                os.mkdirChain(chrootRmakePath)
+                util.mkdirChain(chrootRmakePath)
                 os.symlink(realRmakePath, chrootRmakePath + '/rmake')
                 env.update(x for x in os.environ.items() if x[0].startswith('COVERAGE'))
             os.execve(prog, args, env)
