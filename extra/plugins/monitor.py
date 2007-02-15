@@ -418,7 +418,6 @@ class DisplayManager(object):
             return
         startIndex = self.troveIndex
         self.troveIndex = (self.troveIndex + 1) % len(self.state.troves)
-        print self.troveIndex
         while (not self.state.isBuilding(*self.getCurrentTrove())
                and self.troveIndex != startIndex):
             self.troveIndex = (self.troveIndex + 1) % len(self.state.troves)
