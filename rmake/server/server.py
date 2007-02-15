@@ -364,12 +364,8 @@ class rMakeServer(apirpc.XMLApiServer):
                         [], chroots)
 
     def _startBuild(self, job):
-        buildCfg = self.db.getJobConfig(job.jobId)
-        buildCfg.setServerConfig(self.cfg)
-        buildMgr = self.getBuilder(job, buildCfg)
         pid = self._fork('Job %s' % job.jobId, close=True)
         if pid:
-            buildMgr._closeLog()
             self._buildPids[pid] = job.jobId # mark this pid for potential 
                                              # killing later
             return job.jobId
@@ -379,12 +375,21 @@ class rMakeServer(apirpc.XMLApiServer):
                     # we want to be able to kill this build process and
                     # all its children with one swell foop.
                     os.setpgrp()
+                    self.db.reopen()
+
+                    buildCfg = self.db.getJobConfig(job.jobId)
+                    buildCfg.setServerConfig(self.cfg)
+                    buildMgr = self.getBuilder(job, buildCfg)
+                    self._subscribeToBuild(buildMgr)
                     # Install builder-specific signal handlers.
                     buildMgr._installSignalHandlers()
                     # need to reinitialize the database in the forked child 
                     # process
-                    self.db.reopen()
-                    self._subscribeToBuild(buildMgr)
+
+                    if buildCfg.jobContext:
+                        jobs = self.db.getJobs(buildCfg.jobContext,
+                                               withTroves=True)
+                        buildMgr.setJobContext(jobs)
                     # don't do anything else in here, buildAndExit has 
                     # handling for ensuring that exceptions are handled 
                     # correctly.
