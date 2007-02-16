@@ -90,10 +90,8 @@ class _JobDbLogger(_InternalSubscriber):
     def jobTrovesSet(self, job, troveList):
         self.db.setBuildTroves(job)
 
-    def jobCommitted(self, job, troveList):
-        # it'd be good to update the trove binary troves here.
-        # put I don't see how to do it.
-        pass
+    def jobCommitted(self, job, troveTupleMap):
+        self.db.jobCommitted(job, troveTupleMap)
 
 class _RmakePublisherProxy(_InternalSubscriber):
     """

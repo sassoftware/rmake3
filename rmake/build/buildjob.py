@@ -296,10 +296,10 @@ class BuildJob(_FreezableBuildJob):
             self._setState(JOB_STATE_FAILED, str(self.failureReason))
         self._setState(JOB_STATE_BUILT, 'Commit failed: %s' % message)
 
-    def jobCommitted(self, troveTupleList):
+    def jobCommitted(self, troveMap):
         self._setState(JOB_STATE_COMMITTED, '')
         publisher = self.getPublisher()
-        publisher.jobCommitted(self, troveTupleList)
+        publisher.jobCommitted(self, troveMap)
 
     def exceptionOccurred(self, err, tb):
         self.jobFailed(failure.InternalError(str(err), tb))

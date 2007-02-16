@@ -4,7 +4,7 @@
 import time
 
 from rmake.lib import apirpc
-from rmake.lib.apiutils import thaw
+from rmake.lib.apiutils import thaw, freeze
 
 from rmake.server import server
 
@@ -208,35 +208,45 @@ class rMakeClient(object):
         """
         self.proxy.unsubscribe(subscriberId)
 
-    def startCommit(self, jobId):
+    def startCommit(self, jobIds):
         """
-            Notify server that jobId is being committed.
+            Notify server that jobIds are being committed.
 
-            @param jobId: jobId or UUID for job.
-            @raises: JobNotFound if job does not exist.
+            @param jobIds: jobIds or UUIDs for jobs.
+            @raises: JobNotFound if one of the jobs does not exist.
         """
-        self.proxy.startCommit(jobId)
+        self.proxy.startCommit(jobIds)
 
-    def commitFailed(self, jobId, message):
+    def commitFailed(self, jobIds, message):
         """
-            Notify server that a job failed to commit due to reason in message.
+            Notify server that the jobs failed to commit due to reason in 
+            message.
 
-            @param jobId: jobId or UUID for job.
+            @param jobId: jobIds or UUIDs for job.
             @param message: description of failure reason
-            @raises: JobNotFound if job does not exist.
+            @raises: JobNotFound if some of jobs do not exist.
         """
-        self.proxy.commitFailed(jobId, message)
+        self.proxy.commitFailed(jobIds, message)
 
-    def commitSucceeded(self, jobId, troveTupleList):
+    def commitSucceeded(self, commitMap):
         """
             Notify server that a job failed to commit due to reason in message.
 
-            @param jobId: jobId or UUID for job.
-            @param troveTupleList: binaries created by committing this job.
-            @type troveTupleList: list of (name, version, flavor) tuples.
+            @param commitMap: jobId -> troveTuple -> binaries
+            Mapping from jobId -> build trove -> list of binaries created by
+            that build trove.
+            @type troveTupleList: {int : {troveTuple : [troveTuple]}} dict.
             @raises: JobNotFound if job does not exist.
         """
-        self.proxy.commitSucceeded(jobId, troveTupleList)
+        jobIds = []
+        finalMap = []
+        for jobId, troveMap in commitMap.items():
+            troveMap = [ (freeze('troveTuple', x[0]),
+                          freeze('troveTupleList', x[1]))
+                          for x in troveMap.items() ]
+            finalMap.append(troveMap)
+            jobIds.append(jobId)
+        self.proxy.commitSucceeded(jobIds, finalMap)
 
     def ping(self, seconds=5, hook=None, sleep=0.1):
         """

@@ -1,8 +1,18 @@
 Changes in @NEW@:
+  o Server Changes:
+     * rMake is now set up for committing multiple jobs at once.  This will
+       not be exposed through the command line until some conary changes have
+       been made to ensure that this will work in all cases.  However, the
+       helper client has been enabled to allow this behavior currently.
+       (RMK-340)
+     * rMake now updates the troves listed as the "binary" troves for a job
+       after a commit - it now points to the versions that were cloned in.
+       This was done as a part of restart work (RMK-3).
   o Client Changes:
      * rMake now supports a initial version of a "restart" command.  You
        can pass the restart command a jobId and it will act as if you had
        rerun that build command from the command line.  (RMK-3)
+
 Changes in 1.0.6:
   o Server Changes:
      * The rMake server is now forking, making it more responsive to multiple

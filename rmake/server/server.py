@@ -219,27 +219,36 @@ class rMakeServer(apirpc.XMLApiServer):
 
     @api(version=1)
     @api_parameters(1, None)
-    def startCommit(self, callData, jobId):
-        jobId = self.db.convertToJobId(jobId)
-        job = self.db.getJob(jobId)
-        self._subscribeToJob(job)
-        job.jobCommitting()
+    def startCommit(self, callData, jobIds):
+        jobIds = self.db.convertToJobIds(jobIds)
+        jobs = self.db.getJobs(jobIds)
+        for job in jobs:
+            self._subscribeToJob(job)
+            job.jobCommitting()
 
     @api(version=1)
     @api_parameters(1, None, 'str')
-    def commitFailed(self, callData, jobId, message):
-        jobId = self.db.convertToJobId(jobId)
-        job = self.db.getJob(jobId)
-        self._subscribeToJob(job)
-        job.jobCommitFailed(message)
+    def commitFailed(self, callData, jobIds, message):
+        jobIds = self.db.convertToJobIds(jobIds)
+        jobs = self.db.getJobs(jobIds)
+        for job in jobs:
+            self._subscribeToJob(job)
+            job.jobCommitFailed(message)
 
     @api(version=1)
-    @api_parameters(1, None, 'troveTupleList')
-    def commitSucceeded(self, callData, jobId, troveTupleList):
-        jobId = self.db.convertToJobId(jobId)
-        job = self.db.getJob(jobId)
-        self._subscribeToJob(job)
-        job.jobCommitted(troveTupleList)
+    @api_parameters(1, None, None)
+    def commitSucceeded(self, callData, jobIds, commitMap):
+        jobIds = self.db.convertToJobIds(jobIds)
+        # split commitMap and recombine
+        finalMap = []
+        for jobId, troveMap in itertools.izip(jobIds, commitMap):
+            troveMap = dict((thaw('troveTuple', x[0]),
+                            thaw('troveTupleList', x[1])) for x in troveMap)
+            finalMap.append((jobId, troveMap))
+        jobs = self.db.getJobs(jobIds, withTroves=True)
+        for (jobId, troveMap), job in itertools.izip(finalMap, jobs):
+            self._subscribeToJob(job)
+            job.jobCommitted(troveMap)
 
     # --- callbacks from Builders
 

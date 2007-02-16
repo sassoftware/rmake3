@@ -226,9 +226,9 @@ class rMakeHelper(object):
                                        primaryTroveList=primaryTroveList)
         return True
 
-    def commitJob(self, jobId, message=None, commitOutdatedSources=False,
-                  commitWithFailures=True, waitForJob=False,
-                  sourceOnly=False):
+    def commitJobs(self, jobIds, message=None, commitOutdatedSources=False,
+                   commitWithFailures=True, waitForJob=False,
+                   sourceOnly=False):
         """
             Commits a job.
 
@@ -252,47 +252,71 @@ class rMakeHelper(object):
             @return: False if job failed to commit, True if it succeeded.
             @raise: JobNotFound: If job does not exist
         """
-        job = self.client.getJob(jobId)
-        if not job.isFinished() and waitForJob:
-            print "Waiting for job %s to complete before committing" % jobId
-            try:
-                self.waitForJob(jobId)
-            except Exception, err:
-                print "Wait interrupted, not committing"
-                print "You can restart commit by running 'rmake commit %s'" % jobId
-                raise
-            job = self.client.getJob(jobId)
-        if not job.isFinished():
-            log.error('This job is not yet finished')
-            return False
-        if job.isFailed() and not commitWithFailures:
-            log.error('This job has failures, not committing')
-            return False
-        if not list(job.iterBuiltTroves()):
-            log.error('This job has no built troves to commit')
-            return False
-        self.client.startCommit(jobId)
+        if not isinstance(jobIds, (list, tuple)):
+            jobIds = [jobIds]
+        jobs = self.client.getJobs(jobIds)
+        finalJobs = []
+        for job in jobs:
+            jobId = job.jobId
+            if not job.isFinished() and waitForJob:
+                print "Waiting for job %s to complete before committing" % jobId
+                try:
+                    self.waitForJob(jobId)
+                except Exception, err:
+                    print "Wait interrupted, not committing"
+                    print "You can restart commit by running 'rmake commit %s'" % jobId
+                    raise
+                job = self.client.getJob(jobId)
+            if not job.isFinished():
+                log.error('Job %s is not yet finished' % jobId)
+                return False
+            if job.isFailed() and not commitWithFailures:
+                log.error('Job %s has failures, not committing' % jobId)
+                return False
+            if not list(job.iterBuiltTroves()):
+                log.error('Job %s has no built troves to commit' % jobId)
+                return False
+            finalJobs.append(job)
+        jobs = finalJobs
+        jobIds = [ x.jobId for x in finalJobs ]
+        self.client.startCommit(jobIds)
         try:
-            succeeded, data = commit.commitJob(self.getConaryClient(), job,
+            succeeded, data = commit.commitJobs(self.getConaryClient(), jobs,
                                    self.rmakeConfig, message,
                                    commitOutdatedSources=commitOutdatedSources,
                                    sourceOnly=sourceOnly)
             if succeeded:
-                self.client.commitSucceeded(jobId, data)
-                print 'Committed:\n',
-                print ''.join('    %s=%s[%s]\n' % x for x in sorted(data)),
+                def _sortCommitted(tup1, tup2):
+                    return cmp((tup1[0].endswith(':source'), tup1),
+                               (tup2[0].endswith(':source'), tup2))
+
+                self.client.commitSucceeded(data)
+
+                for jobId, troveTupleDict in sorted(data.iteritems()):
+                    print
+                    print 'Committed job %s:\n' % jobId,
+                    for buildTroveTup, committedList in \
+                                            sorted(troveTupleDict.iteritems()):
+                        committedList = [ x for x in committedList
+                                            if (':' not in x[0]
+                                                or x[0].endswith(':source')) ]
+                        print '    %s=%s[%s] ->' % buildTroveTup
+                        print ''.join('       %s=%s[%s]\n' % x
+                                      for x in sorted(committedList,
+                                                      _sortCommitted))
                 return True
             else:
-                self.client.commitFailed(jobId, data)
+                self.client.commitFailed(jobIds, data)
                 log.error(data)
                 return False
         except errors.uncatchableExceptions, err:
-            self.client.commitFailed(jobId, str(err))
+            self.client.commitFailed(jobIds, str(err))
             raise
         except Exception, err:
-            self.client.commitFailed(jobId, str(err))
+            self.client.commitFailed(jobIds, str(err))
             log.error(err)
             raise
+    commitJob = commitJobs # for bw compat
 
     def deleteJobs(self, jobIdList):
         """

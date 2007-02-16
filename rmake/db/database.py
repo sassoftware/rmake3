@@ -297,6 +297,15 @@ class Database(DBInterface):
         self.nodeStore.setChrootActive(trove, False)
         self.commit()
 
+    def jobCommitted(self, job,  troveMap):
+        for trove in job.iterTroves():
+            committedTups = troveMap.get(trove.getNameVersionFlavor(), None)
+            binaries = [ x for x in committedTups
+                         if not x[0].endswith(':source') ]
+            if binaries:
+                self.jobStore.setBinaryTroves(trove, binaries)
+        self.commit()
+
     def troveFailed(self, trove):
         self.jobStore.updateTrove(trove)
         self.nodeStore.setChrootActive(trove, False)

@@ -339,6 +339,7 @@ class JobStore(object):
         troveId = self._getTroveId(cu, buildTrove.jobId,
                                    *buildTrove.getNameVersionFlavor())
 
+        cu.execute('DELETE FROM BinaryTroves WHERE troveId=?', troveId)
         for binName, binVersion, binFlavor in troveList:
             cu.execute("INSERT INTO BinaryTroves "
                        "(troveId, troveName, version, flavor) "
