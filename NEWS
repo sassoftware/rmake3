@@ -3,7 +3,7 @@ Changes in @NEW@:
      * rMake now supports a initial version of a "restart" command.  You
        can pass the restart command a jobId and it will act as if you had
        rerun that build command from the command line.  (RMK-3)
-Changes in @NEW@:
+Changes in 1.0.6:
   o Server Changes:
      * The rMake server is now forking, making it more responsive to multiple
        simultaneous requests.
@@ -18,13 +18,13 @@ Changes in @NEW@:
        large jobs and trying to figure out what trove is at the heart of a 
        set of failed troves.
   o Bug Fixes:
-     * Fixed a bug that caused a traceback when build requirements were 
+     * Fixed a bug that caused a traceback when build requirements were
        missing.
-     * Fixed a bug in dep resolution that caused troves that were delayed 
+     * Fixed a bug in dep resolution that caused troves that were delayed
        due to runtime-only requirements to not be built.
      * allow cleanAfterCook in strictMode.
      * Don't rerun tagscripts when running the "chroot" command.
-     * Don't time out when creating chroots after 3 minutes.  The chroot 
+     * Don't time out when creating chroots after 3 minutes.  The chroot
        is running tag scripts.  Depending on the load and the tag scripts
        in question, this could take much longer.   Allow a generous 2 hours.
        (RMK-363)

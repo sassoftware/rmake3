@@ -47,6 +47,9 @@ class BuiltTroveSource(trovesource.SimpleTroveSource):
         trovesource.SimpleTroveSource.__init__(self)
         self.idMap = []
         self.idx = 0
+        for trove in troves:
+            self.addTrove(trove.getNameVersionFlavor(), trove.getProvides(),
+                          trove.getRequires())
 
     def addTrove(self, troveTuple, provides, requires):
         self._trovesByName.setdefault(troveTuple[0],set()).add(troveTuple)
