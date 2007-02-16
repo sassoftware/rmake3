@@ -254,7 +254,9 @@ class RestartCommand(rMakeCommand):
         jobId = client.restartJob(jobId)
         monitorJob = not argSet.pop('no-watch', False)
         if monitorJob:
-            if not client.watch(jobId, commit=commit):
+            if not client.watch(jobId, commit=commit,
+                                showTroveLogs=True,
+                                showBuildLogs=True):
                 return 1
         elif commit:
             if not client.commitJob(jobId, commitWithFailures=False,
