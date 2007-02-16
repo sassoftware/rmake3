@@ -8,6 +8,7 @@ This client wraps around the low-level rMake Server client to provide
 functionality that crosses client/server boundaries.
 """
 
+import copy
 import itertools
 from optparse import OptionParser
 import os
@@ -120,24 +121,33 @@ class rMakeHelper(object):
                                            prettyPrint=prettyPrint)
         self.buildConfig.display()
 
-    def buildTroves(self, troveSpecList,
-                    limitToHosts=None, recurseGroups=False):
-        """
-            Display the current build configuration for this helper.
 
-            @param hidePasswords: If True, display <pasword> instead of
-            the password in the output.
-            @param prettyPrint: If True, print output in human-readable format
-            that may not be parsable by a config reader.  If False, the
-            configuration output should be valid as input for a configuration
-            reader.
-        """
+    def restartJob(self, jobId):
+        jobConfig = self.client.getJobConfig(jobId)
+        troveSpecList = jobConfig.buildTroveSpecs
+
+        # FIXME: how do we determine what parts of the jobConfig get
+        # overridden
+        buildConfig = copy.deepcopy(self.buildConfig)
+        buildConfig.jobContext = jobConfig.jobContext + [jobId]
+        buildConfig.flavor = jobConfig.flavor
+        buildConfig.buildFlavor = jobConfig.buildFlavor
+        buildConfig.resolveTroveTups = jobConfig.resolveTroveTups
+        buildConfig.resolveTrovesOnly = jobConfig.resolveTrovesOnly
+        buildConfig.installLabelPath = jobConfig.installLabelPath
+        return self.buildTroves(troveSpecList, buildConfig=buildConfig)
+
+    def buildTroves(self, troveSpecList,
+                    limitToHosts=None, recurseGroups=False,
+                    buildConfig=None):
+        if buildConfig is None:
+            buildConfig = self.buildConfig
         toBuild = buildcmd.getTrovesToBuild(self.conaryclient,
                                             troveSpecList,
                                             limitToHosts=limitToHosts,
                                             recurseGroups=recurseGroups)
 
-        jobId = self.client.buildTroves(toBuild, self.buildConfig)
+        jobId = self.client.buildTroves(toBuild, buildConfig)
         print 'Added Job %s' % jobId
         for (n,v,f) in sorted(toBuild):
             if f is not None and not f.isEmpty():

@@ -63,8 +63,11 @@ def getTrovesToBuild(conaryclient, troveSpecList, limitToHosts=None,
             log.warning('You will not be able to commit this group build'
                         ' without upgrading conary.')
 
-        if (not troveSpec[1] and not os.path.isdir(troveSpec[0]) 
+        if (not troveSpec[1] and not os.path.isdir(troveSpec[0])
             and os.access(troveSpec[0], os.R_OK)):
+            # don't rely on cwd, but do allow for symlinks to change
+            # when restarting.  Is that sane?  Or should I just do realpath?
+            troveSpec[0] == os.path.abspath(troveSpec[0])
             cfg.buildTroveSpecs.append((troveSpec[0], None, troveSpec[2]))
             recipesToCook.append((os.path.realpath(troveSpec[0]), troveSpec[2]))
             continue

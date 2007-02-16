@@ -96,6 +96,12 @@ See reuseRoots config option for more information. (--no-reuse turns off this
 functionality if it's turned on from the config file).
 .RE
 .TP
+.B restart \fI<jobId>\fP
+Restarts the job specified.  This will find the same sources as if you had specified the same "rmake build" command as you did for job \fI<jobId>\fP.  If those sources are the same as the one found when building job \fI<jobId>\fP, and the same prerequisites would be installed into a root to build that source, the that source will be marked as already built.
+
+In between when the state is marked as potentially already built and when rMake has actually determined that all of the build prerequisites are exactly the same, the trove will be marked as "Prebuilt".  When the trove has been marked as already built it will move into the "Built" status and be indistinguishable from other troves that were actually built as part of the job.
+.RE
+.TP
 .B changeset \fI<jobId>\fP \fI<path>\fP 
 
 Creates a changeset for the given \fIjobId\fP and stores it at \fI<path>\fP.

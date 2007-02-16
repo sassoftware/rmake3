@@ -65,6 +65,8 @@ class Builder(object):
         self.jobId = job.jobId
         self.worker = worker.Worker(serverCfg, self.logger, serverCfg.slots)
         self.eventHandler = EventHandler(job, self.worker)
+        self.jobContext = []
+        self.initialized = False
 
     def _installSignalHandlers(self):
         signal.signal(signal.SIGTERM, self._signalHandler)
@@ -73,6 +75,9 @@ class Builder(object):
     def _closeLog(self):
         self.logFile.close()
         self.logger.close()
+
+    def setJobContext(self, jobList):
+        self.jobContext = jobList
 
     def setWorker(self, worker):
         self.worker = worker
@@ -131,10 +136,12 @@ class Builder(object):
             os._exit(1)
 
     def initializeBuild(self):
+        self.initialized = True
         self.job.log('Build started - loading troves')
         buildTroves = recipeutil.getSourceTrovesFromJob(self.job,
                                                         self.buildCfg,
                                                         self.repos)
+        self._matchTrovesToJobContext(buildTroves, self.jobContext)
         self.job.setBuildTroves(buildTroves)
 
         self.dh = dephandler.DependencyHandler(self.job.getPublisher(),
@@ -149,8 +156,9 @@ class Builder(object):
         self.job.jobStarted("Starting Build %s (pid %s)" % (self.job.jobId,
                             os.getpid()), pid=os.getpid())
         # main loop is here.
-        if not self.initializeBuild():
-            return False
+        if not self.initialized:
+            if not self.initializeBuild():
+                return False
 
         if self.dh.moreToDo():
             while self.dh.moreToDo():
@@ -186,6 +194,29 @@ class Builder(object):
             self.worker.resolve(resolveJob, self.eventHandler)
             return True
         return False
+
+    def _matchTrovesToJobContext(self, buildTroves, jobContext):
+        trovesByNVF = {}
+        for trove in buildTroves:
+            trovesByNVF[trove.getNameVersionFlavor()] = trove
+
+        for job in reversed(jobContext): # go through last job first.
+            for trove in job.iterTroves():
+                if not trove.isBuilt():
+                    continue
+                toBuild = trovesByNVF.pop(trove.getNameVersionFlavor(), None)
+                if toBuild:
+                    buildReqs = None
+                    binaries = trove.getBinaryTroves()
+                    for troveTup in binaries:
+                        if ':' not in troveTup[0]:
+                            trv = self.repos.getTrove(withFiles=False,
+                                                      *troveTup)
+                            buildReqs = trv.getBuildRequirements()
+                            break
+                    if not buildReqs:
+                        continue
+                    toBuild.trovePrebuilt(buildReqs, binaries)
 
     def _checkBuildSanity(self, buildTroves):
         def _referencesOtherTroves(trv):

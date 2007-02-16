@@ -96,6 +96,13 @@ class rMakeServer(apirpc.XMLApiServer):
                  for x in self.db.getJobs(jobIds, withTroves=withTroves) ]
 
     @api(version=1)
+    @api_parameters(1, None)
+    @api_return(1, 'BuildConfiguration')
+    def getJobConfig(self, callData, jobId):
+        jobId = self.db.convertToJobId(jobId)
+        return self.db.getJobConfig(jobId)
+
+    @api(version=1)
     @api_parameters(1, None, None)
     @api_return(1, None)
     def getJobLogs(self, callData, jobId, mark):

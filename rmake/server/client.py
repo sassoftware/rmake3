@@ -31,6 +31,8 @@ class rMakeClient(object):
             trove.
             @param buildEnv: build configuration to use when buildings
             @type buildEnv: BuildConfiguration object.
+            @param jobContext: context 
+            @type buildEnv: BuildConfiguration object.
             @rtype: int 
             @return: jobId of created job.
             @raise: rMakeError: If server cannot add job.
@@ -89,6 +91,15 @@ class rMakeClient(object):
             @rtype: build.buildjob.JOB_STATE_*
         """
         return self.proxy.getStatus(jobId)
+
+    def getJobConfig(self, jobId):
+        """
+            Return the configuration that was used for a job.
+
+            @param jobId: jobId or UUID for job.
+            @rtype: BuildConfiguration
+        """
+        return self.proxy.getJobConfig(jobId)
 
     def getJobLogs(self, jobId, mark = 0):
         """

@@ -232,6 +232,36 @@ class BuildCommand(rMakeCommand):
 
 register(BuildCommand)
 
+class RestartCommand(rMakeCommand):
+    '''Rebuilds the specified job'''
+
+    commands = ['restart']
+    commandGroup = CG_BUILD
+    paramHelp = '<jobId>'
+    help = 'Rebuild an earlier job'
+
+    def addParameters(self, argDef):
+        argDef['commit'] = NO_PARAM
+        argDef['no-watch'] = NO_PARAM
+        rMakeCommand.addParameters(self, argDef)
+
+    def runCommand(self, client, cfg, argSet, args):
+        log.setVerbosity(log.INFO)
+        command, jobId = self.requireParameters(args, 'jobId')
+        jobId = _getJobIdOrUUId(jobId)
+
+        commit  = argSet.pop('commit', False)
+        jobId = client.restartJob(jobId)
+        monitorJob = not argSet.pop('no-watch', False)
+        if monitorJob:
+            if not client.watch(jobId, commit=commit):
+                return 1
+        elif commit:
+            if not client.commitJob(jobId, commitWithFailures=False,
+                                    waitForJob=True):
+                return 1
+        return 0
+register(RestartCommand)
 
 class ChangeSetCommand(rMakeCommand):
     commands = ['changeset']
@@ -593,3 +623,5 @@ register(CleanCommand)
 def addCommands(main):
     for command in _commands:
         main._registerCommand(command)
+
+

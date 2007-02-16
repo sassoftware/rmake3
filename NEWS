@@ -1,4 +1,9 @@
 Changes in @NEW@:
+  o Client Changes:
+     * rMake now supports a initial version of a "restart" command.  You
+       can pass the restart command a jobId and it will act as if you had
+       rerun that build command from the command line.  (RMK-3)
+Changes in @NEW@:
   o Server Changes:
      * The rMake server is now forking, making it more responsive to multiple
        simultaneous requests.

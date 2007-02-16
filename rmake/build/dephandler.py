@@ -341,11 +341,21 @@ class DependencyHandler(object):
     def resolutionComplete(self, trv, results):
         self._resolving.pop(trv, False)
 
-
         if trv in self.priorities:
             self.priorities.remove(trv)
         if results.success:
             buildReqs = results.getBuildReqs()
+            # only compare components, since packages are not necessarily
+            # stored in the build reqs for the trove.
+            buildReqTups = set([ (x[0], x[2][0], x[2][1]) for x in buildReqs if ':' in x[0] ])
+
+            if trv.getPrebuiltRequirements() is not None:
+                preBuiltReqs = set(
+                    [ x for x in trv.getPrebuiltRequirements() if ':' in x[0]])
+                if buildReqTups == preBuiltReqs:
+                    self.depState.depGraph.deleteEdges(trv)
+                    trv.troveBuilt(trv.getPrebuiltBinaries())
+                    return
             if results.inCycle:
                 self.depState.depGraph.deleteEdges(trv)
                 newDeps = None

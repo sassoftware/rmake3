@@ -25,6 +25,7 @@ troveStates = {
     'TROVE_STATE_BUILDING'    : 6,
     'TROVE_STATE_BUILT'       : 7,
     'TROVE_STATE_UNBUILDABLE' : 8,
+    'TROVE_STATE_PREBUILT'    : 9,
 }
 
 recipeTypes = {
@@ -85,7 +86,8 @@ class _AbstractBuildTrove:
                  state=TROVE_STATE_INIT, status='',
                  failureReason=None, logPath='', start=0, finish=0,
                  pid=0, recipeType=RECIPE_TYPE_PACKAGE,
-                 chrootHost='', chrootPath=''):
+                 chrootHost='', chrootPath='', 
+                 preBuiltRequirements=None, preBuiltBinaries=None):
         assert(name.endswith(':source'))
         self.jobId = jobId
         self.name = name
@@ -104,6 +106,8 @@ class _AbstractBuildTrove:
         self.chrootHost = chrootHost
         self.chrootPath = chrootPath
         self.recipeType = recipeType
+        self.preBuiltRequirements = None
+        self.preBuiltBinaries = preBuiltBinaries
 
     def __repr__(self):
         return "<BuildTrove('%s=%s[%s]')>" % (self.getName(),
@@ -125,6 +129,12 @@ class _AbstractBuildTrove:
     def setState(self, newState):
         self.state = newState
 
+    def getPrebuiltRequirements(self):
+        return self.preBuiltRequirements
+
+    def getPrebuiltBinaries(self):
+        return self.preBuiltBinaries
+
     def getState(self):
         return self.state
 
@@ -133,6 +143,9 @@ class _AbstractBuildTrove:
 
     def isFailed(self):
         return self.state in (TROVE_STATE_FAILED, TROVE_STATE_UNBUILDABLE)
+
+    def isPrebuilt(self):
+        return self.state == TROVE_STATE_PREBUILT
 
     def isBuilt(self):
         return self.state == TROVE_STATE_BUILT
@@ -163,7 +176,7 @@ class _AbstractBuildTrove:
                               TROVE_STATE_PREPARING)
 
     def needsBuildreqs(self):
-        return self.state == TROVE_STATE_INIT
+        return self.state in (TROVE_STATE_INIT, TROVE_STATE_PREBUILT)
 
     def isPackageRecipe(self):
         return self.recipeType == RECIPE_TYPE_PACKAGE
@@ -346,6 +359,11 @@ class BuildTrove(_FreezableBuildTrove):
         self._setState(TROVE_STATE_RESOLVING,
                        'Resolving build requirements', host)
 
+    def trovePrebuilt(self, buildReqs, binaryTroves):
+        self._setState(TROVE_STATE_PREBUILT, '', buildReqs)
+        self.preBuiltRequirements = buildReqs
+        self.preBuiltBinaries = binaryTroves
+
     def troveResolved(self, resolveResults):
         self._publisher.troveResolved(self, resolveResults)
 
@@ -378,7 +396,6 @@ class BuildTrove(_FreezableBuildTrove):
         self.hostname = ''
         self.path = ''
         self.troveFailed(f)
-
 
     def troveBuilding(self, logPath='', pid=0):
         """
