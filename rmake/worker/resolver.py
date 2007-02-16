@@ -161,11 +161,6 @@ class DependencyResolver(object):
         self.logger.debug('   finding buildreqs for %s....' % trv.getName())
         start = time.time()
 
-        result = searchSource.findTroves(installLabelPath,
-                                         trv.getBuildRequirementSpecs(),
-                                         searchFlavor, allowMissing=True,
-                                         acrossLabels=False)
-
         # don't follow redirects when resolving buildReqs
         result = searchSource.findTroves(installLabelPath,
                                      trv.getBuildRequirementSpecs(),
