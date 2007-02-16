@@ -52,9 +52,9 @@ class Worker(server.Server):
 
     def __init__(self, serverCfg, logger, slots=1):
         self.cfg = serverCfg
-        self.cfg.checkBuildSanity()
         self.logger = logger
         server.Server.__init__(self, logger)
+        self.cfg.checkBuildSanity()
         self.idgen = CommandIdGen()
         self.chrootManager = rootmanager.ChrootManager(self.cfg, self.logger)
         self._queuedCommands = []
