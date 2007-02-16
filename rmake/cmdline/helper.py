@@ -98,14 +98,23 @@ class rMakeHelper(object):
                 pwPrompt = None
         else:
             pwPrompt = None
+        self.pwPrompt = pwPrompt
 
-        self.conaryclient = conaryclient.ConaryClient(buildConfig,
-                                                      passwordPrompter=pwPrompt)
-        self.repos = self.conaryclient.getRepos()
         self.buildConfig = buildConfig
         self.rmakeConfig = rmakeConfig
         self.buildConfig.setServerConfig(rmakeConfig)
+        self.repos = self.getRepos()
         self.plugins = plugins
+
+    def getConaryClient(self, buildConfig=None):
+        if buildConfig is None:
+            buildConfig = self.buildConfig
+        buildConfig.setServerConfig(self.rmakeConfig)
+        return conaryclient.ConaryClient(buildConfig,
+                                         passwordPrompter=self.pwPrompt)
+
+    def getRepos(self, buildConfig=None):
+        return self.getConaryClient(buildConfig).getRepos()
 
     def displayConfig(self, hidePasswords=True, prettyPrint=True):
         """
@@ -138,11 +147,10 @@ class rMakeHelper(object):
         return self.buildTroves(troveSpecList, buildConfig=buildConfig)
 
     def buildTroves(self, troveSpecList,
-                    limitToHosts=None, recurseGroups=False,
-                    buildConfig=None):
+                    limitToHosts=None, recurseGroups=False, buildConfig=None):
         if buildConfig is None:
             buildConfig = self.buildConfig
-        toBuild = buildcmd.getTrovesToBuild(self.conaryclient,
+        toBuild = buildcmd.getTrovesToBuild(self.getConaryClient(buildConfig),
                                             troveSpecList,
                                             limitToHosts=limitToHosts,
                                             recurseGroups=recurseGroups)
@@ -265,7 +273,7 @@ class rMakeHelper(object):
             return False
         self.client.startCommit(jobId)
         try:
-            succeeded, data = commit.commitJob(self.conaryclient, job,
+            succeeded, data = commit.commitJob(self.getConaryClient(), job,
                                    self.rmakeConfig, message,
                                    commitOutdatedSources=commitOutdatedSources,
                                    sourceOnly=sourceOnly)
