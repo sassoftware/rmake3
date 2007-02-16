@@ -529,10 +529,11 @@ class DisplayManager(object):
         self.display.close()
         restore_terminal(*self.termInfo)
 
-    def _dispatch(self, methodname, args):
+    def _dispatch(self, methodname, (auth, responseHandler, args)):
         if methodname.startswith('_'):
-            raise NoSuchMethodError(methodname)
+            responseHandler.sendError(NoSuchMethodError(methodname))
         else:
+            responseHandler.sendResponse('')
             # call display method
             method = getattr(self.state, methodname, None)
             if method:
@@ -572,7 +573,7 @@ class XMLRPCJobLogReceiver(object):
                 type, url = urllib.splittype(uri)
                 if type == 'unix':
                     util.removeIfExists(url)
-                    serverObj = localrpc.UnixDomainXMLRPCServer(url,
+                    serverObj = rpclib.UnixDomainDelayableXMLRPCServer(url,
                                                        logRequests=False)
                 elif type == 'http':
                     # path is ignored with simple server.
