@@ -87,7 +87,8 @@ class RmakeBuildContext(cfg.ConfigSection):
                             ['bash:runtime',
                              'coreutils:runtime', 'filesystem',
                              'conary:runtime',
-                             'conary-build:runtime', 'epdb', 'dev:runtime', 
+                             'conary-build:runtime', 'epdb:python', 
+                             'dev:runtime',
                              'grep:runtime', 'procps:runtime', 'sed:runtime',
                              'findutils:runtime', 'gawk:runtime'])
     enforceManagedPolicy = (CfgBool, False)
@@ -115,12 +116,13 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
                                           '~/.rmake/plugins.d'])
     usePlugin            = CfgDict(CfgBool)
     usePlugins           = (CfgBool, True)
+    jobContext           = CfgList(CfgInt)
 
     # Here are options that are not visible from the command-line
     # and should not be displayed.  They are job-specific.  However,
     # they must be stored with the job, parsed with the job, etc.
 
-    _hiddenOptions = [ 'buildTroveSpecs', 'resolveTroveTups' ]
+    _hiddenOptions = [ 'buildTroveSpecs', 'resolveTroveTups', 'jobContext' ]
 
     _strictOptions = [ 'buildFlavor', 'buildLabel', 'cleanAfterCook','flavor',
                        'installLabelPath', 'repositoryMap', 'root',
