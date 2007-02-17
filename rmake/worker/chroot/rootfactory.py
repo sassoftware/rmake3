@@ -63,14 +63,20 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
         #self.logger.info('\n    '.join('%s=%s[%s]' % (x[0], x[2][0], x[2][1])
         #                       for x in sorted(self.jobList)))
 
-        updJob, suggMap = client.updateChangeSet(
-            self.jobList, keepExisting=False, resolveDeps=False,
-            recurse=False, checkPathConflicts=False,
-            fromChangesets=changeSetList,
-            migrate=True)
-        util.mkdirChain(self.cfg.root + '/root')
-        client.applyUpdate(updJob, replaceFiles=True,
-                           tagScript=self.cfg.root + '/root/tagscripts')
+        try:
+            updJob, suggMap = client.updateChangeSet(
+                self.jobList, keepExisting=False, resolveDeps=False,
+                recurse=False, checkPathConflicts=False,
+                fromChangesets=changeSetList,
+                migrate=True)
+        except conaryclient.update.NoNewTrovesError:
+            # since we're migrating, this simply means there were no
+            # operations to be performed
+            pass
+        else:
+            util.mkdirChain(self.cfg.root + '/root')
+            client.applyUpdate(updJob, replaceFiles=True,
+                               tagScript=self.cfg.root + '/root/tagscripts')
 
 
     def _copyInConary(self):
@@ -317,14 +323,22 @@ class ChrootCallback(callbacks.UpdateCallback):
         descriptions = []
         jobs.sort()
         for job in jobs:
-            n,v,f = job[0], job[2][0], job[2][1]
+            if job[2][0]:
+                n,v,f = job[0], job[2][0], job[2][1]
+            else:
+                n,v,f = job[0], job[1][0], job[1][1]
+            
             v = '%s/%s' % (v.trailingLabel(), v.trailingRevision())
             archDeps = [x.name for x in f.iterDepsByClass(deps.InstructionSetDependency)]
             if archDeps:
                 f = '[is: %s]' % ' '.join(archDeps)
             else:
                 f = ''
-            descriptions.append('%s=%s%s' % (n,v,f))
+            if job[2][0]:
+                action = ''
+            else:
+                action = 'Erase '
+            descriptions.append('%s%s=%s%s' % (action, n,v,f))
         if self.hunk[1] > 1:
             self._message("installing %d of %d:\n    %s" % \
                             (self.hunk[0], self.hunk[1],
