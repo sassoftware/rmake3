@@ -53,7 +53,7 @@ class Builder(object):
         build.
         @type buildCfg: rmake.build.buildcfg.BuildConfiguration instance.
     """
-    def __init__(self, serverCfg, buildCfg, job):
+    def __init__(self, serverCfg, buildCfg, job, jobContext=None):
         self.serverCfg = serverCfg
         self.buildCfg = buildCfg
         self.logger = BuildLogger(job.jobId,
@@ -65,7 +65,10 @@ class Builder(object):
         self.jobId = job.jobId
         self.worker = worker.Worker(serverCfg, self.logger, serverCfg.slots)
         self.eventHandler = EventHandler(job, self.worker)
-        self.jobContext = []
+        if jobContext:
+            self.setJobContext(jobContext)
+        else:
+            self.jobContext = []
         self.initialized = False
 
     def _installSignalHandlers(self):
