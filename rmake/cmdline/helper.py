@@ -141,7 +141,7 @@ class rMakeHelper(object):
         buildConfig.jobContext = jobConfig.jobContext + [jobId]
         buildConfig.flavor = jobConfig.flavor
         buildConfig.buildFlavor = jobConfig.buildFlavor
-        buildConfig.resolveTroveTups = jobConfig.resolveTroveTups
+        buildConfig.resolveTroves = jobConfig.resolveTroves
         buildConfig.resolveTrovesOnly = jobConfig.resolveTrovesOnly
         buildConfig.installLabelPath = jobConfig.installLabelPath
         return self.buildTroves(troveSpecList, buildConfig=buildConfig)
