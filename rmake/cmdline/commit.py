@@ -16,7 +16,7 @@ from rmake import compat
 
 def commitJobs(conaryclient, jobList, rmakeConfig, message=None,
                commitOutdatedSources=False, sourceOnly = False):
-    jobsToCommit = []
+    jobsToCommit = {}
     alreadyCommitted = []
     finalCs = changeset.ReadOnlyChangeSet()
     mapping = {}
@@ -24,7 +24,8 @@ def commitJobs(conaryclient, jobList, rmakeConfig, message=None,
         if job.isCommitted():
             alreadyCommitted.append(job)
         else:
-            jobsToCommit.append(job)
+            jobsToCommit[job.jobId] = job
+    jobsToCommit = jobsToCommit.values() # dedup job list
 
     if not jobsToCommit:
         err = 'Job already committed'
@@ -67,7 +68,7 @@ def commitJobs(conaryclient, jobList, rmakeConfig, message=None,
                             # our mapping cannot be made - throw up our
                             # hands.
                             message = "Cannot clone two troves with same name, target branch and version in the same commit: %s=%s[%s]" % (nf[0], targetBranch, nf[1])
-                            raise False, message
+                            return False, message
                         trovesByNF[nf] = trove
                 if trove.getVersion().branch() != targetBranch:
                     sourceTup = (trove.getName(), trove.getVersion(),
