@@ -9,6 +9,7 @@ import tempfile
 from conary.build import cook
 from conary.build.cook import signAbsoluteChangeset
 from conary.conaryclient import cmdline
+from conary.deps import deps
 from conary.lib import log, util
 from conary import checkin
 from conary import errors as conaryerrors
@@ -62,6 +63,8 @@ def getTrovesToBuild(conaryclient, troveSpecList, limitToHosts=None,
             and not compat.ConaryVersion().supportsCloneNonRecursive()):
             log.warning('You will not be able to commit this group build'
                         ' without upgrading conary.')
+        if troveSpec[2] is None:
+            troveSpec = (troveSpec[0], troveSpec[1], deps.parseFlavor(''))
 
         if (not troveSpec[1] and not os.path.isdir(troveSpec[0])
             and os.access(troveSpec[0], os.R_OK)):
@@ -221,6 +224,8 @@ def _shadowAndCommit(conaryclient, recipeDir, stateFile, message):
 
         neededFiles = set(x[1] for x in oldState.iterFileList()
                           if os.path.exists(os.path.join(recipeDir, x[1])))
+        autoSourceFiles = set(x[1] for x in oldState.iterFileList()
+                          if oldState.fileIsAutoSource(x[0]))
 
         existingFiles = set(x[1] for x in newState.iterFileList()
                         if os.path.exists(os.path.join(shadowSourceDir, x[1])))
@@ -265,8 +270,10 @@ def _shadowAndCommit(conaryclient, recipeDir, stateFile, message):
 
             for path in (toCopy | toAdd):
                 isConfig = oldState.fileIsConfig(oldPathIds[path])
-                needsRefresh = oldState.fileNeedsRefresh(oldPathIds[path])
                 newState.fileIsConfig(newPathIds[path], isConfig)
+
+            for path in autoSourceFiles:
+                needsRefresh = oldState.fileNeedsRefresh(oldPathIds[path])
                 newState.fileNeedsRefresh(newPathIds[path], needsRefresh)
 
             # we may have modified the state file. Write it back out to 
