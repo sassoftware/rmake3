@@ -273,8 +273,9 @@ def _shadowAndCommit(conaryclient, recipeDir, stateFile, message):
                 newState.fileIsConfig(newPathIds[path], isConfig)
 
             for path in autoSourceFiles:
-                needsRefresh = oldState.fileNeedsRefresh(oldPathIds[path])
-                newState.fileNeedsRefresh(newPathIds[path], needsRefresh)
+                if path in newPathIds:
+                    needsRefresh = oldState.fileNeedsRefresh(oldPathIds[path])
+                    newState.fileNeedsRefresh(newPathIds[path], needsRefresh)
 
             # we may have modified the state file. Write it back out to 
             # disk so it will be picked up by the commit.
