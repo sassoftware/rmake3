@@ -16,8 +16,10 @@ Changes in @NEW@:
      * rMake now works correctly with checkouts that have run "cvc refresh".
        (RMK-354)
      * rMake --reuse works once again when the chroot has not changed at all
-       between operations.  Also removed an error that could occur in the 
+       between operations.  Also removed an error that could occur in the
        output when erasing troves with --reuse. (RMK-364)
+     * Turn off repository caching when building groups as it is
+       broken. (RMK-377)
 
 Changes in 1.0.6:
   o Server Changes:

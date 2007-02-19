@@ -56,7 +56,8 @@ class ChrootServer(apirpc.XMLApiServer):
         conaryrc.close()
 
         repos = conaryclient.ConaryClient(buildCfg).getRepos()
-        repos = repocache.CachingTroveSource(repos,
+        if not name.startswith('group-'):
+            repos = repocache.CachingTroveSource(repos,
                                         self.cfg.root + '/var/rmake/cscache',
                                         readOnly=True)
         logPath, pid, buildInfo = cook.cookTrove(buildCfg, repos, self._logger,
