@@ -282,6 +282,9 @@ Creates a changeset with the troves from the job <jobId> and stores in outFile'
         if len(path) > 1:
             troveSpecs = path[:-1]
             path = path[-1]
+        else:
+            troveSpecs = []
+            path = path[0]
         jobId = _getJobIdOrUUId(jobId)
         client.createChangeSetFile(jobId, path, troveSpecs)
 register(ChangeSetCommand)
