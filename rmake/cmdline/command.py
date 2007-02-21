@@ -232,12 +232,12 @@ class BuildCommand(rMakeCommand):
 
 register(BuildCommand)
 
-class RestartCommand(rMakeCommand):
+class RestartCommand(BuildCommand):
     '''Rebuilds the specified job'''
 
     commands = ['restart']
     commandGroup = CG_BUILD
-    paramHelp = '<jobId>'
+    paramHelp = '<jobId> [<troveSpec>]*'
     help = 'Rebuild an earlier job'
 
     def addParameters(self, argDef):
@@ -247,11 +247,12 @@ class RestartCommand(rMakeCommand):
 
     def runCommand(self, client, cfg, argSet, args):
         log.setVerbosity(log.INFO)
-        command, jobId = self.requireParameters(args, 'jobId')
+        command, jobId, troveSpecs = self.requireParameters(args, 'jobId', 
+                                                            allowExtra=True)
         jobId = _getJobIdOrUUId(jobId)
 
         commit  = argSet.pop('commit', False)
-        jobId = client.restartJob(jobId)
+        jobId = client.restartJob(jobId, troveSpecs)
         monitorJob = not argSet.pop('no-watch', False)
         if monitorJob:
             if not client.watch(jobId, commit=commit,
@@ -269,16 +270,20 @@ class ChangeSetCommand(rMakeCommand):
     commands = ['changeset']
     hidden = True
     paramHelp = '''\
-<jobId> <outfile>
+<jobId> <troveSpec>* <outfile>
 
 Creates a changeset with the troves from the job <jobId> and stores in outFile'
 '''
     help = 'Create a changeset file from the packages in a job'
 
     def runCommand(self, client, cfg, argSet, args):
-        command, jobId, path = self.requireParameters(args, ['jobId', 'path'])
+        command, jobId, path = self.requireParameters(args, ['jobId', 'path'],
+                                                        appendExtra=True)
+        if len(path) > 1:
+            troveSpecs = path[:-1]
+            path = path[-1]
         jobId = _getJobIdOrUUId(jobId)
-        client.createChangeSetFile(jobId, path)
+        client.createChangeSetFile(jobId, path, troveSpecs)
 register(ChangeSetCommand)
 
 class CommitCommand(rMakeCommand):

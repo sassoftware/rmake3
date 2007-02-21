@@ -18,11 +18,13 @@ import time
 
 from conary import conarycfg
 from conary import conaryclient
+from conary.conaryclient import cmdline
 from conary import state
 from conary.build import use
 from conary.deps import deps
 from conary.lib import log
 from conary.lib import options
+from conary.repository import trovesource
 
 from rmake import errors
 from rmake.build import buildcfg
@@ -131,9 +133,11 @@ class rMakeHelper(object):
         self.buildConfig.display()
 
 
-    def restartJob(self, jobId):
+    def restartJob(self, jobId, troveSpecs=None):
         jobConfig = self.client.getJobConfig(jobId)
         troveSpecList = jobConfig.buildTroveSpecs
+        if troveSpecs:
+            troveSpecList.extend(troveSpecs)
 
         # FIXME: how do we determine what parts of the jobConfig get
         # overridden
@@ -179,7 +183,7 @@ class rMakeHelper(object):
     def getJob(self, jobId, withTroves=True):
         return self.client.getJob(jobId, withTroves=withTroves)
 
-    def createChangeSet(self, jobId):
+    def createChangeSet(self, jobId, troveSpecs=None):
         """
             Creates a changeset object with all the built troves for a job.
 
@@ -197,13 +201,18 @@ class rMakeHelper(object):
         if not binTroves:
             log.error('No built troves associated with this job')
             return None
+        if troveSpecs:
+            troveSpecs = cmdline.parseTroveSpecs(troveSpecs)
+            source = trovesource.SimpleTroveSource(binTroves)
+            results = source.findTroves(None, troveSpecs)
+            binTroves = itertools.chain(*results.values())
         jobList = [(x[0], (None, None), (x[1], x[2]), True) for x in binTroves]
         primaryTroveList = [ x for x in binTroves if ':' not in x[0]]
         cs = self.repos.createChangeSet(jobList, recurse=False,
                                         primaryTroveList=primaryTroveList)
         return cs
 
-    def createChangeSetFile(self, jobId, path):
+    def createChangeSetFile(self, jobId, path, troveSpecs=None):
         """
             Creates a changeset file with all the built troves for a job.
 
@@ -220,9 +229,19 @@ class rMakeHelper(object):
         if not binTroves:
             log.error('No built troves associated with this job')
             return False
-        jobList = [(x[0], (None, None), (x[1], x[2]), True) for x in binTroves]
-        primaryTroveList = [ x for x in binTroves if ':' not in x[0]]
-        self.repos.createChangeSetFile(jobList, path, recurse=False, 
+        if troveSpecs:
+            troveSpecs = [ cmdline.parseTroveSpec(x) for x in troveSpecs ]
+            source = trovesource.SimpleTroveSource(binTroves)
+            results = source.findTroves(None, troveSpecs)
+            binTroves = list(itertools.chain(*results.values()))
+            primaryTroveList = binTroves
+            recurse = True
+        else:
+            recurse = False
+            primaryTroveList = [ x for x in binTroves if ':' not in x[0]]
+
+        jobList = [(x[0], (None, None), (x[1], x[2]), True) for x in binTroves ]
+        self.repos.createChangeSetFile(jobList, path, recurse=recurse,
                                        primaryTroveList=primaryTroveList)
         return True
 

@@ -12,6 +12,7 @@ Changes in @NEW@:
      * rMake now supports a initial version of a "restart" command.  You
        can pass the restart command a jobId and it will act as if you had
        rerun that build command from the command line.  (RMK-3)
+     * rMake changeset can now take troveSpec parameters.
   o Bug Fixes:
      * rMake now works correctly with checkouts that have run "cvc refresh".
        (RMK-354)
