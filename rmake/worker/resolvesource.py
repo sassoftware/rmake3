@@ -27,6 +27,11 @@ class DepHandlerSource(trovesource.TroveSourceStack):
         else:
             self.sources = [builtTroveSource, repos]
 
+    def copy(self):
+        inst = self.__class__(self.sources[0], None, self.sources[-1])
+        inst.sources = list(self.sources)
+        return inst
+
     def resolveDependenciesByGroups(self, troveList, depList):
         sugg = self.sources[0].resolveDependencies(None, depList)
         sugg2 = self.repos.resolveDependenciesByGroups(troveList, depList)
