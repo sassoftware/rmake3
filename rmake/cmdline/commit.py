@@ -28,7 +28,7 @@ def commitJobs(conaryclient, jobList, rmakeConfig, message=None,
     jobsToCommit = jobsToCommit.values() # dedup job list
 
     if not jobsToCommit:
-        err = 'Job already committed'
+        err = 'Job(s) already committed'
         return False, err
 
     trovesByBranch = {}

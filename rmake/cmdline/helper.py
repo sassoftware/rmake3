@@ -296,8 +296,14 @@ class rMakeHelper(object):
                 log.error('Job %s has no built troves to commit' % jobId)
                 return False
             finalJobs.append(job)
-        jobs = finalJobs
+
+        jobs = [ x for x in finalJobs if not x.isCommitted() ]
         jobIds = [ x.jobId for x in finalJobs ]
+
+        if not jobs:
+            log.error('Job(s) already committed')
+            return False
+
         self.client.startCommit(jobIds)
         try:
             succeeded, data = commit.commitJobs(self.getConaryClient(), jobs,

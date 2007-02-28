@@ -21,6 +21,8 @@ Changes in @NEW@:
        output when erasing troves with --reuse. (RMK-364)
      * Turn off repository caching when building groups as it is
        broken. (RMK-377)
+     * Committing an already committed job no longer reverts the trove to 
+       "Built". (RMK-252)
 
 Changes in 1.0.6:
   o Server Changes:
