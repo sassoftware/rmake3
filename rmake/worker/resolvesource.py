@@ -68,7 +68,7 @@ class BuiltTroveSource(trovesource.SimpleTroveSource):
             self.addTrove(trvCs.getNewNameVersionFlavor(), trvCs.getProvides(),
                           trvCs.getRequires())
 
-    def resolveDependencies(self, label, depList):
+    def resolveDependencies(self, label, depList, leavesOnly=False):
         suggMap = self.depDb.resolve(label, depList)
         for depSet, solListList in suggMap.iteritems():
             newSolListList = []
