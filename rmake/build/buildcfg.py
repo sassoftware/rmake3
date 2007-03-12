@@ -83,6 +83,8 @@ class CfgUUID(CfgType):
 
 class RmakeBuildContext(cfg.ConfigSection):
 
+    copyInConary         = (CfgBool, False)
+    copyInConfig         = (CfgBool, True)
     defaultBuildReqs     = (CfgList(CfgString),
                             ['bash:runtime',
                              'coreutils:runtime', 'filesystem',
@@ -91,12 +93,11 @@ class RmakeBuildContext(cfg.ConfigSection):
                              'dev:runtime',
                              'grep:runtime', 'procps:runtime', 'sed:runtime',
                              'findutils:runtime', 'gawk:runtime'])
-    enforceManagedPolicy = (CfgBool, False)
     resolveTroves        = (CfgList(CfgQuotedLineList(CfgTroveSpec)),
                             [[('group-dist', None, None)]])
     resolveTrovesOnly    = (CfgBool, False)
     reuseRoots           = (CfgBool, False)
-    strictMode           = (CfgBool, True)
+    strictMode           = (CfgBool, False)
     subscribe            = (CfgSubscriberDict(CfgSubscriber), {})
     targetLabel          = (CfgLabel, versions.Label('NONE@local:NONE'))
     uuid                 = (CfgUUID, '')
@@ -128,6 +129,10 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
                        'installLabelPath', 'repositoryMap', 'root',
                        'user', 'name', 'contact', 'signatureKey', 'dbPath',
                        'proxy' ]
+
+    _dirsToCopy = ['archDirs', 'mirrorDirs', 'siteConfigPath', 'useDirs', 
+                   'componentDirs']
+    _pathsToCopy = ['defaultMacros']
     _defaultSectionType   =  RmakeBuildContext
 
     def __init__(self, readConfigFiles=False, root='', conaryConfig=None, 
@@ -160,6 +165,8 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
 
         if self.strictMode:
             self.enforceManagedPolicy = True
+            self.copyInConary = False
+            self.copyInConfig = False
 
         # these values are not set based on 
         # config file values - we don't want to touch the system database, 
@@ -209,6 +216,11 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
 
         if self.strictMode:
             self.enforceManagedPolicy = True
+            self.copyInConary = False
+            self.copyInConfig = False
+        if not self.copyInConfig:
+            for option in buildCfg._dirsToCopy + buildCfg._pathsToCopy:
+                buildCfg.resetToDefault(option)
 
     def setServerConfig(self, serverCfg):
         self.serverCfg = serverCfg

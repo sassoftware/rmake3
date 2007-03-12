@@ -93,7 +93,9 @@ class ChrootManager(object):
         else:
             chrootClass = rootfactory.FullRmakeChroot
         cfg.root = rootDir
-        copyInConary = not targetArch and not cfg.strictMode
+        copyInConary = (not targetArch
+                        and not cfg.strictMode
+                        and cfg.copyInConary)
 
         chroot = chrootClass(buildTrove,
                              self.chrootHelperPath,
@@ -177,7 +179,7 @@ class rMakeChrootServer(object):
         return self.chroot.unmount()
 
     def create(self):
-        if self.reuseRoots and not self.strictMode:
+        if self.reuseRoots:
             # we're going to keep the old contents of the root and perform
             # as few updates as possible.  However, that still means
             # unmounting those things owned by root so that the rmake process

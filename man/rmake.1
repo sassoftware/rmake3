@@ -283,6 +283,14 @@ can include:
 .PD
 .RS 4
 .TP 4
+.B copyInConary
+Will copy in the conary used to run rMake outside of the chroot into the 
+chroot.  Helpful when testing changes made to conary in the rMake environment,
+for example.  Defaults to False.
+.B copyInConfig
+Copies in files that affect build configuration, such as defaultMacros, 
+useDirs, componentDirs, etc.  This allows rMake to mimic your current cvc 
+configuration.  Defaults to True.  Turned off by strictMode.
 .B defaultBuildReqs
 Defines the troves to install in every build root, even if they are not
 specified as build requirements for the package.  This should include enough
@@ -351,13 +359,13 @@ Strict mode disables the copying in of configuration files from your system.
 The conary instance from your running system will not be copied into the build
 root if strict mode is used; the conary instance installed in that root will
 be used instead. If enforceManagedPolicy is off, strict mode will also turn it
-on.
+on.  If copyInConary or copyInConfig are True, they will be set to False.
 
 The following values are still copied into the chroot: repositoryMap entries,
 proxy info, user info, signature keys, buildFlavor, flavor, cleanAfterCook,
 and installLabelPath.
 
-StrictMode defaults to True
+StrictMode defaults to False
 .TP
 .B targetLabel
 Specifies the label to build troves against.  Modification of this value is

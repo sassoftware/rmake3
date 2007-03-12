@@ -38,7 +38,11 @@ class ChrootServer(apirpc.XMLApiServer):
         buildCfg.lookaside = self.cfg.root + '/tmp/rmake/cache'
         buildCfg.dbPath = '/var/lib/conarydb'
 
-        if buildCfg.strictMode:
+        if not buildCfg.copyInConary:
+            buildCfg.resetToDefault('policyDirs')
+        if not buildCfg.copyInConfig:
+            for option in buildCfg._dirsToCopy + buildCfg._pathsToCopy:
+                buildCfg.resetToDefault(option)
             conaryCfg = conarycfg.ConaryConfiguration(True)
             buildCfg.strictMode = False
             buildCfg.useConaryConfig(conaryCfg)

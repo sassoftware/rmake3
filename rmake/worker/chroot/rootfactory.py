@@ -118,6 +118,9 @@ class rMakeChroot(ConaryBasedChroot):
 
         if copyInConary:
             self._copyInConary()
+            for dir in self.cfg.policyDirs:
+                if os.path.exists(dir):
+                    self.copyDir(dir)
         self._copyInRmake()
         self._cacheBuildFiles()
 
@@ -286,9 +289,9 @@ class FullRmakeChroot(rMakeChroot):
         self.copyFile('/etc/group')
 
 
-        if not self.cfg.strictMode:
-            for option in ['archDirs', 'mirrorDirs', 'policyDirs',
-                           'siteConfigPath', 'useDirs']:
+        if self.cfg.copyInConfig:
+            for option in ['archDirs', 'mirrorDirs',
+                           'siteConfigPath', 'useDirs', 'componentDirs']:
                 for dir in self.cfg[option]:
                     if os.path.exists(dir):
                         self.copyDir(dir)
