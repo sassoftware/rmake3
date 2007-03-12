@@ -290,18 +290,20 @@ can include:
 .RS 4
 .TP 4
 .B copyInConary
-Will copy in the conary used to run rMake outside of the chroot into the 
-chroot.  Helpful when testing changes made to conary in the rMake environment,
+Copies the Conary used to run rMake outside of the chroot into the 
+chroot.  Helpful when testing changes made to Conary in the rMake environment,
 for example.  Defaults to False.
+.TP
 .B copyInConfig
 Copies in files that affect build configuration, such as defaultMacros, 
 useDirs, componentDirs, etc.  This allows rMake to mimic your current cvc 
 configuration.  Defaults to True.  Turned off by strictMode.
+.TP
 .B defaultBuildReqs
 Defines the troves to install in every build root, even if they are not
 specified as build requirements for the package.  This should include enough
 information to create a working chroot with conary and conary-build.
-The default value is bash:runtime, coreutils:runtime conary:runtime,
+The default value is bash:runtime, coreutils:runtime, conary:runtime,
 conary-build:runtime, epdb (a debugging utility), dev:runtime, grep:runtime,
 procps:runtime, sed:runtime, findutils:runtime, and gawk:runtime.
 .TP
@@ -316,6 +318,7 @@ Whether or not to enable plugins.  Defaults to True.  Can also be specified by
 the --disable-plugins command line option.
 
 NOTE: All plugin loading related options, such as this one, cannot be included in contexts, and cannot be overridden with --config command line options, because plugins can affect the behavior of the command line and must be read in before command line processing is done.
+.TP
 .B enablePlugin <name> <bool>
 Enables or disables a particular plugin.  By default all plugins are enabled.
 
