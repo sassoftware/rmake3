@@ -111,14 +111,20 @@ The created changeset contains all the binaries built for this job.  If you spec
 changeset <packages> \fI<path>\fP where packages is a list of troves built by \fIjobId\fP.
 
 .TP
-.B commit \fI<jobId>\fP
+.B commit \fI<jobId>+\fP
 (Alias: ci)
 
-Commits the binaries built in jobId to repository where they were loaded.
+Commits the binaries built in the given jobIds to repository where they were 
+loaded.
 This command is exactly like running several
 \fIconary clone <branch> <packages>\fP commands, where branch is the branch
 that the packages are built from.  Note that if you cooked from a recipe, then 
 the source components are also committed upstream.
+
+\fBNote: committing multiple jobs together may not work.\fP Changes to conary 
+are being made to make this functionality work all of the time, they should be 
+available in conary 1.1.19.  This release supports multiple job commits to 
+have the necessary rMake code available immediately.
 .RS 4
 .TP 4
 .B \-\-commit-outdated-sources

@@ -141,6 +141,9 @@ class rMakeCommand(options.AbstractCommand):
             return args
 
 
+def _getJobIdOrUUIds(val):
+    return [ _getJobIdOrUUId(x) for x in val ]
+
 def _getJobIdOrUUId(val):
     try:
         return int(val)
@@ -309,13 +312,15 @@ repository back into the repository where their source package came from.
         rMakeCommand.addParameters(self, argDef)
 
     def runCommand(self, client, cfg, argSet, args):
-        command, jobId = self.requireParameters(args, ['jobId'])
+        command, jobIds = self.requireParameters(args, ['jobId'],
+                                                 appendExtra=True)
         commitOutdated = argSet.pop('commit-outdated-sources', False)
         sourceOnly = argSet.pop('source-only', False)
-        jobId = _getJobIdOrUUId(jobId)
-        success = client.commitJob(jobId, commitOutdatedSources=commitOutdated,
-                                   commitWithFailures=True, waitForJob=True,
-                                   sourceOnly=sourceOnly)
+        jobIds = _getJobIdOrUUIds(jobIds)
+        success = client.commitJobs(jobIds,
+                                    commitOutdatedSources=commitOutdated,
+                                    commitWithFailures=True, waitForJob=True,
+                                    sourceOnly=sourceOnly)
         if success:
             return 0
         else:

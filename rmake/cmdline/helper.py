@@ -249,7 +249,7 @@ class rMakeHelper(object):
                    commitWithFailures=True, waitForJob=False,
                    sourceOnly=False):
         """
-            Commits a job.
+            Commits a set of jobs.
 
             Committing in rMake is slightly different from committing in 
             conary.  rMake uses the conary "clone" command to move the binary
