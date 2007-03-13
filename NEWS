@@ -1,4 +1,4 @@
-Changes in @NEW@:
+Changes in 1.0.7:
   o Server Changes:
      * rMake is now set up for committing multiple jobs at once.  This will
        not be exposed through the command line until some conary changes have
