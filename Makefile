@@ -15,7 +15,7 @@ extra_files = \
 	Make.defs		\
 	NEWS			\
 	CPL			\
-	EULA
+	LICENSE
 
 dist_files = $(extra_files)
 
