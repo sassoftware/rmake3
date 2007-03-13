@@ -143,7 +143,7 @@ class rMakeChroot(ConaryBasedChroot):
         for path in self.csCache.getFileContentsPaths(client.getRepos(),
                                                       fileContents):
             newPath = path[oldRootLen:]
-            self.copyFile(path, '/var/rmake/cscache/' + newPath,
+            self.copyFile(path, '/tmp/cscache/' + newPath,
                           mode=0755)
 
 
