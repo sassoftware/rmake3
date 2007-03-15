@@ -60,11 +60,12 @@ class TelnetClient(telnetlib.Telnet):
         try:
             while 1:
                 try:
-                    rfd, wfd, xfd = select.select([self, sys.stdin], [], [])
+                    rfd, wfd, xfd = select.select([self, sys.stdin],
+                                                  [sys.stdout, self], [])
                 except select.error, err:
                     if err.args[0] != errno.EINTR: # ignore interrupted select
                         raise
-                if self in rfd:
+                if self in rfd and sys.stdout in wfd:
                     try:
                         text = self.read_eager()
                     except EOFError:
@@ -73,7 +74,7 @@ class TelnetClient(telnetlib.Telnet):
                     if text:
                         sys.stdout.write(text)
                         sys.stdout.flush()
-                if sys.stdin in rfd:
+                if sys.stdin in rfd and self in wfd:
                     line = sys.stdin.read(4096)
                     if not line:
                         break

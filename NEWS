@@ -13,6 +13,8 @@ Changes in @NEW@:
      * the rMake chroot user now has its HOME value set to /tmp/rmake. (RMK-380)
   o Bug Fixes:
      * Command line flavor overrides now work w/ groups (RMK-382)
+     * Make chroot command more resilient against large amounts of data.
+       (RMK-381)
 
 Changes in 1.0.7:
   o Server Changes:
