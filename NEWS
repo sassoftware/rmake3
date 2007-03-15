@@ -17,6 +17,9 @@ Changes in @NEW@:
        (RMK-381)
      * Fix commit failure with partially built job when the job consisted 
        of more than one branch. (RMK-391)
+     * Cache build files now only after the chroot is created, in order
+       to avoid a long wait before "creating chroot".  Also, let the user 
+       know that's what rmake is doing.
 
 Changes in 1.0.7:
   o Server Changes:

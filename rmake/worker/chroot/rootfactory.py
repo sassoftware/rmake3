@@ -143,11 +143,13 @@ class rMakeChroot(ConaryBasedChroot):
         allFiles = list(trv.iterFileList())
         fileContents = [(x[2], x[3]) for x in allFiles]
         oldRootLen = len(self.csCache.root)
-        for path in self.csCache.getFileContentsPaths(client.getRepos(),
-                                                      fileContents):
-            newPath = path[oldRootLen:]
-            self.copyFile(path, '/tmp/cscache/' + newPath,
-                          mode=0755)
+        if fileContents:
+            self.logger.info('Caching %s files' % len(fileContents))
+            for path in self.csCache.getFileContentsPaths(client.getRepos(),
+                                                          fileContents):
+                newPath = path[oldRootLen:]
+                self.copyFile(path, '/tmp/cscache/' + newPath,
+                              mode=0755)
 
 
     def _copyInRmake(self):
