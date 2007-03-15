@@ -49,22 +49,29 @@ def getRecipes(repos, troveTups):
         recipeList.append(recipeFile)
     return recipeList, troves
 
-def loadRecipe(repos, name, version, flavor, recipeFile=None):
+def loadRecipe(repos, name, version, flavor, recipeFile=None, 
+               defaultFlavor=None):
     name = name.split(':')[0]
     try:
+        if defaultFlavor is not None:
+            fullFlavor = deps.overrideFlavor(defaultFlavor, flavor)
+        else:
+            fullFlavor = flavor
         # set up necessary flavors and track used flags before
         # calling loadRecipe, since even loading the class
         # may check some flags that may never be checked inside
         # the recipe
         recipeObj, loader = getRecipeObj(repos, name,
-                                         version, flavor, recipeFile)
+                                         version, fullFlavor, recipeFile)
         relevantFlavor = use.usedFlagsToFlavor(recipeObj.name)
         # always add in the entire arch flavor.  We need to ensure the
         # relevant flavor is unique per architecture, also, arch flavors
         # can affect the macros used.
-        relevantFlavor.union(flavorutil.getArchFlags(flavor))
+        if defaultFlavor is not None:
+            relevantFlavor.union(flavor)
+        relevantFlavor.union(flavorutil.getArchFlags(fullFlavor))
         relevantFlags = flavorutil.getFlavorUseFlags(relevantFlavor)
-        flags = flavorutil.getFlavorUseFlags(flavor)
+        flags = flavorutil.getFlavorUseFlags(fullFlavor)
         use.track(False)
 
         for flagSet in ('Use',):
@@ -90,7 +97,7 @@ def loadRecipe(repos, name, version, flavor, recipeFile=None):
             use.resetUsed()
     except:
         log.error('Error Loading Recipe (%s, %s, %s):\n%s' %
-                                    (name, version, flavor,
+                                    (name, version, fullFlavor,
                                      ''.join(traceback.format_exc())))
         raise
     return loader, recipeObj, relevantFlavor
@@ -182,7 +189,7 @@ def loadRecipeClass(repos, name, version, flavor, recipeFile=None,
     return loader, recipeClass, localFlags, usedFlags
 
 
-def loadSourceTroves(job, repos, troveTupleList):
+def loadSourceTroves(job, repos, buildFlavor, troveTupleList):
     """
        Load the source troves associated set of (name, version, flavor) tuples
        and return a list of source trove tuples with relevant information about
@@ -201,8 +208,9 @@ def loadSourceTroves(job, repos, troveTupleList):
             relevantFlavor = None
             try:
                 (loader, recipeObj, relevantFlavor) = loadRecipe(repos,
-                                                             n, v, f,
-                                                             (recipeFile, trove))
+                                                         n, v, f,
+                                                         (recipeFile, trove),
+                                                         buildFlavor)
                 recipeType = buildtrove.getRecipeType(recipeObj)
                 buildTrove = buildtrove.BuildTrove(None, n, v, relevantFlavor,
                                                    recipeType=recipeType)
@@ -228,9 +236,7 @@ def loadSourceTroves(job, repos, troveTupleList):
     return buildTroves
 
 def getSourceTrovesFromJob(job, conaryCfg, repos):
+    # called by builder.
     troveList = sorted(job.iterTroveList())
     buildFlavor = conaryCfg.buildFlavor
-    sourceTroveTups = [ (x[0], x[1],
-                         deps.overrideFlavor(buildFlavor, x[2]))
-                         for x in troveList ]
-    return loadSourceTroves(job, repos, sourceTroveTups)
+    return loadSourceTroves(job, repos, buildFlavor, troveList)

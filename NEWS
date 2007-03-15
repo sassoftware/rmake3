@@ -10,7 +10,9 @@ Changes in @NEW@:
        will be copied in, your conary files will not.  This option will also
        control the copying in of policy files. (RMK-385)
   o Build Changes:
-     * the rMake chroot user now has its HOME value set.
+     * the rMake chroot user now has its HOME value set to /tmp/rmake. (RMK-380)
+  o Bug Fixes:
+     * Command line flavor overrides now work w/ groups (RMK-382)
 
 Changes in 1.0.7:
   o Server Changes:
