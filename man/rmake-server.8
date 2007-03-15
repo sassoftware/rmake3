@@ -123,7 +123,9 @@ will fill them in with default values: <serverName>, rmake rmake.
 .B useTmpfs
 Causes rMake to mount a tmpfs filesystem at /tmp within the chroot, where
 all rMake builds take place. With this memory-based filesystem in place, rMake
-builds will generally be faster but require more memory and less disk space.
+builds will generally be faster but require more memory and less disk space.  Note that failed builds will not leave around their build directories after the 
+build completes - they will be unmounted when the build finishes, removing all 
+of the contents.
 .TP 4
 .B useCache
 Allows you to disable the rMake internal cache and always download from the 
