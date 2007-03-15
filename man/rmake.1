@@ -119,7 +119,7 @@ loaded.
 This command is exactly like running several
 \fIconary clone <branch> <packages>\fP commands, where branch is the branch
 that the packages are built from.  Note that if you cooked from a recipe, then 
-the source components are also committed upstream.
+the source components are also committed upstream.  (Warning: if you cook from a recipe, you must immediately run cvc up in the checkout after the commit to avoid having to merge conflicts.)
 
 \fBNote: committing multiple jobs together may not work.\fP Changes to conary 
 are being made to make this functionality work all of the time, they should be 
