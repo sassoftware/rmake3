@@ -384,7 +384,7 @@ int enter_chroot(const char * chrootDir, const char * socketPath,
         pid = fork();
         if (pid == 0) {
             /* run with the environment set up inside the shell */
-            execle("/bin/sh", "/bin/sh", "-l", "/root/tagscripts", NULL, NULL);
+            execle("/bin/sh", "/bin/sh", "-l", "/root/tagscripts", NULL, env);
             perror("execl");
             _exit(1);
         }
@@ -417,7 +417,7 @@ int enter_chroot(const char * chrootDir, const char * socketPath,
     }
     if (opt_verbose)
 	printf("executing: %s\n", command);
-    execle("/bin/sh", "/bin/sh", "-lc", command, NULL, NULL);
+    execle("/bin/sh", "/bin/sh", "-lc", command, NULL, env);
     perror("execl");
     return 1;
 }

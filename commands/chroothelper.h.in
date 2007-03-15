@@ -59,3 +59,5 @@ struct mount_t mounts[] = {
     { "/dev/pts", "/dev/pts", "devpts"},
     { "/proc", "/proc", "proc"},
 };
+
+char *env[] = { "HOME=/tmp/rmake", (char *)0 };

@@ -9,6 +9,8 @@ Changes in @NEW@:
        while any changes you've made to your useDirs, macros files, etc,
        will be copied in, your conary files will not.  This option will also
        control the copying in of policy files. (RMK-385)
+  o Build Changes:
+     * the rMake chroot user now has its HOME value set.
 
 Changes in 1.0.7:
   o Server Changes:
