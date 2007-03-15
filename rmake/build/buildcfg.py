@@ -220,7 +220,7 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
             self.copyInConfig = False
         if not self.copyInConfig:
             for option in self._dirsToCopy + self._pathsToCopy:
-                buildCfg.resetToDefault(option)
+                self.resetToDefault(option)
 
     def setServerConfig(self, serverCfg):
         self.serverCfg = serverCfg
