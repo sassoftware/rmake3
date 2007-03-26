@@ -93,6 +93,25 @@ class DependencyBasedBuildState(AbstractBuildState):
                         # otherwise we'll create unnecessary cycles.
                         self.dependsOn(trove, provTrove, buildReq)
 
+            # if we're loading something that we're also building
+            # then we should make sure that we build the thing with the 
+            # loadInstalled line secondly
+            for loadSpec, sourceTup in trove.iterAllLoadedSpecs():
+                name, label, flavor = loadSpec
+                providingTroves = self.trovesByPackage.get(name, [])
+                for provTrove in providingTroves:
+                    if provTrove.getVersion() != sourceTup[1]:
+                        continue
+                    if (flavor is None or
+                        provTrove.getFlavor().toStrongFlavor().satisfies(
+                                                flavor.toStrongFlavor())):
+                        # FIXME: we really shouldn't allow loadInstalled
+                        # loops to occur.  It means that we're building
+                        # two recipes that loadInstall each other which
+                        # means that we can't even trust the buildReqs
+                        # specified for each.
+                        self.dependsOn(trove, provTrove, loadSpec)
+
     def dependsOn(self, trove, provTrove, req):
         self.depGraph.addEdge(trove, provTrove, req)
 

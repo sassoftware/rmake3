@@ -9,6 +9,8 @@ Changes in @NEW@:
        while any changes you've made to your useDirs, macros files, etc,
        will be copied in, your conary files will not.  This option will also
        control the copying in of policy files. (RMK-385)
+     * resolveTroves can now include source components, if you wish to
+       specify a source component to load.
   o Build Changes:
      * the rMake chroot user now has its HOME value set to /tmp/rmake. (RMK-380)
   o Bug Fixes:
@@ -18,8 +20,12 @@ Changes in @NEW@:
      * Fix commit failure with partially built job when the job consisted 
        of more than one branch. (RMK-391)
      * Cache build files now only after the chroot is created, in order
-       to avoid a long wait before "creating chroot".  Also, let the user 
+       to avoid a long wait before "creating chroot".  Also, let the user
        know that's what rmake is doing.
+     * You can now build packages that require a package on another branch,
+       and specify that branch in the buildReqs (RMK-371).
+     * loadInstalled always loads the same thing during the initial loading
+       and during building.
 
 Changes in 1.0.7:
   o Server Changes:

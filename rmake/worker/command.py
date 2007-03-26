@@ -254,7 +254,9 @@ class BuildCommand(TroveCommand):
         n,v,f = trove.getNameVersionFlavor()
         logPath, pid = self.chroot.buildTrove(self.buildCfg,
                                               self.targetLabel,
-                                              n, v, f, self.logHost,
+                                              n, v, f, 
+                                              trove.getLoadedSpecs(),
+                                              self.logHost,
                                               self.logPort)
         # sends off message that this trove is building.
         self.chroot.subscribeToBuild(n,v,f)

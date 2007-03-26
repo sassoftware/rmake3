@@ -95,6 +95,7 @@ class _AbstractBuildTrove:
         self.flavor = flavor
         self.buildRequirements = set()
         self.builtTroves = set()
+        self.loadedSpecs = {}
         self.packages = set([name.split(':')[0]])
         self.state = state
         self.status = status
@@ -202,6 +203,9 @@ class _AbstractBuildTrove:
     def setBuildRequirements(self, buildReqs):
         self.buildRequirements = set(buildReqs)
 
+    def setLoadedSpecs(self, loadedSpecs):
+        self.loadedSpecs = dict(loadedSpecs)
+
     def addBuildRequirements(self, buildReqs):
         self.buildRequirements.update(buildReqs)
 
@@ -214,6 +218,17 @@ class _AbstractBuildTrove:
     def getBuildRequirementSpecs(self):
         return [ cmdline.parseTroveSpec(x) 
                  for x in self.iterBuildRequirements() ]
+
+    def getLoadedSpecs(self):
+        return dict(self.loadedSpecs) 
+
+    def iterAllLoadedSpecs(self):
+        stack = [self.loadedSpecs]
+        while stack:
+            specDict = stack.pop()
+            for troveSpec, (troveTup, subLoadDict) in specDict.iteritems():
+                yield cmdline.parseTroveSpec(troveSpec), troveTup
+                stack.append(subLoadDict)
 
     def setDerivedPackages(self, packages):
         self.packages = set(packages)
@@ -272,6 +287,7 @@ class _FreezableBuildTrove(_AbstractBuildTrove):
                  'finish'            : 'float',
                  'chrootHost'        : 'str',
                  'chrootPath'        : 'str',
+                 'loadedSpecs'       : 'LoadSpecs',
                  }
 
     def __freeze__(self):
@@ -488,3 +504,33 @@ class BuildTrove(_FreezableBuildTrove):
             self._publisher.troveStateUpdated(self, state, oldState, *args)
 
 apiutils.register(apiutils.api_freezable(BuildTrove))
+
+class LoadSpecs(object):
+
+    @staticmethod
+    def __freeze__(loadSpecs):
+        d = {}
+        stack = [(loadSpecs, d)]
+        while stack:
+            loadDict, frozenDict = stack.pop()
+            for spec, (troveTup, subLoadDict) in loadDict.iteritems():
+                newFrzDict = {}
+                frozenDict[spec] = (freeze('troveTuple', troveTup), newFrzDict)
+                if subLoadDict:
+                    stack.append((subLoadDict, newFrzDict))
+        return d
+
+    @staticmethod
+    def __thaw__(frzLoaded):
+        d = {}
+        stack = [(d, frzLoaded)]
+        while stack:
+            loadDict, frozenDict = stack.pop()
+            for spec, (frzTroveTup, newFrzDict) in frozenDict.iteritems():
+                subLoadDict = {}
+                loadDict[spec] = (thaw('troveTuple', frzTroveTup), subLoadDict)
+                if newFrzDict:
+                    stack.append((subLoadDict, newFrzDict))
+        return d
+apiutils.register(LoadSpecs)
+

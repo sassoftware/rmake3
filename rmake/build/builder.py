@@ -143,6 +143,7 @@ class Builder(object):
         self.job.log('Build started - loading troves')
         buildTroves = recipeutil.getSourceTrovesFromJob(self.job,
                                                         self.buildCfg,
+                                                        self.serverCfg,
                                                         self.repos)
         self._matchTrovesToJobContext(buildTroves, self.jobContext)
         self.job.setBuildTroves(buildTroves)

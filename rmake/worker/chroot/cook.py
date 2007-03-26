@@ -14,6 +14,7 @@ from conary.build import cook,use
 from conary.deps import deps
 from conary.lib import epdb
 from conary.lib import log,util
+from conary.local import database
 from conary import versions
 from conary.deps.deps import ThawFlavor
 
@@ -84,7 +85,7 @@ class CookResults(object):
 
 
 def cookTrove(cfg, repos, logger, name, version, flavor, targetLabel,
-              logHost='', logPort=0):
+              loadSpecs=None, logHost='', logPort=0):
     util.mkdirChain(cfg.root + '/tmp')
     fd, csFile = tempfile.mkstemp(dir=cfg.root + '/tmp',
                                   prefix='rmake-%s-' % name,
@@ -121,7 +122,7 @@ def cookTrove(cfg, repos, logger, name, version, flavor, targetLabel,
                 log.setVerbosity(log.INFO)
                 log.info("Cook process started (pid %s)" % os.getpid())
                 _cookTrove(cfg, repos, name, version, flavor, targetLabel, 
-                           csFile, failureFd=outF, logger=logger)
+                           loadSpecs, csFile, failureFd=outF, logger=logger)
             except Exception, msg:
                 errMsg = 'Error cooking %s=%s[%s]: %s' % \
                                         (name, version, flavor, str(msg))
@@ -210,14 +211,18 @@ def _buildFailed(failureFd, errMsg, traceBack):
         os.close(failureFd)
     os._exit(1)
 
-def _cookTrove(cfg, repos, name, version, flavor, targetLabel, csFile,
-               failureFd, logger):
+def _cookTrove(cfg, repos, name, version, flavor, targetLabel, loadSpecs, 
+               csFile, failureFd, logger):
     try:
         logger.debug('Cooking %s=%s[%s] to %s (stored in %s)' % \
                      (name, version, flavor, targetLabel, csFile))
+        db = database.Database(cfg.root, cfg.dbPath)
+        source = recipeutil.RemoveHostSource(targetLabel.getHost(), db)
         (loader, recipeClass, localFlags, usedFlags)  = \
             recipeutil.loadRecipeClass(repos, name, version, flavor,
-                                       ignoreInstalled=False, root=cfg.root)
+                                       ignoreInstalled=False, root=cfg.root,
+                                       loadInstalledSource=source,
+                                       overrides=loadSpecs)
     except Exception, msg:
         errMsg = 'Error loading recipe %s=%s[%s]: %s' % \
                                         (name, version, flavor, str(msg))

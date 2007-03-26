@@ -14,6 +14,7 @@ from conary import conaryclient
 from conary.deps import deps
 from conary.lib import log,util
 from conary.deps.deps import Flavor
+from conary.repository import trovesource
 
 #rmake
 from rmake import errors
@@ -49,8 +50,9 @@ def getRecipes(repos, troveTups):
         recipeList.append(recipeFile)
     return recipeList, troves
 
-def loadRecipe(repos, name, version, flavor, recipeFile=None, 
-               defaultFlavor=None):
+def loadRecipe(repos, name, version, flavor, recipeFile=None,
+               defaultFlavor=None, loadInstalledSource=None,
+               installLabelPath=None):
     name = name.split(':')[0]
     try:
         if defaultFlavor is not None:
@@ -62,7 +64,9 @@ def loadRecipe(repos, name, version, flavor, recipeFile=None,
         # may check some flags that may never be checked inside
         # the recipe
         recipeObj, loader = getRecipeObj(repos, name,
-                                         version, fullFlavor, recipeFile)
+                                       version, fullFlavor, recipeFile,
+                                       loadInstalledSource=loadInstalledSource,
+                                       installLabelPath=installLabelPath)
         relevantFlavor = use.usedFlagsToFlavor(recipeObj.name)
         # always add in the entire arch flavor.  We need to ensure the
         # relevant flavor is unique per architecture, also, arch flavors
@@ -103,30 +107,30 @@ def loadRecipe(repos, name, version, flavor, recipeFile=None,
     return loader, recipeObj, relevantFlavor
 
 
-def getRecipeObj(repos, name, version, flavor, recipeFile=None):
+def getRecipeObj(repos, name, version, flavor, recipeFile,
+                 loadInstalledSource=None, installLabelPath=None, 
+                 loadRecipeSpecs=None):
     cfg = conarycfg.ConaryConfiguration(False)
     cfg.initializeFlavors()
     branch = version.branch()
     label = version.branch().label()
-    cfg.installLabelPath = [label]
+    if not installLabelPath:
+        cfg.installLabelPath = [label]
+    else:
+        cfg.installLabelPath = installLabelPath
     name = name.split(':')[0]
     use.LocalFlags._clear()
     assert(flavorutil.getArch(flavor))
     use.setBuildFlagsFromFlavor(name, flavor, error=False)
     use.resetUsed()
     use.track(True)
-    if recipeFile:
-        loader = loadrecipe.RecipeLoader(recipeFile[0], cfg, repos,
-                                         name + ':source', branch,
-                                         ignoreInstalled=True)
-        recipeClass = loader.getRecipe()
-        recipeClass._trove = recipeFile[1]
-    else:
-        loader = loadrecipe.recipeLoaderFromSourceComponent(name + ':source',
-                                               cfg, repos, version.asString(),
-                                               labelPath=[label],
-                                               ignoreInstalled=True)
-        recipeClass = loader[0].getRecipe()
+    ignoreInstalled = not loadInstalledSource
+    loader = loadrecipe.RecipeLoader(recipeFile[0], cfg, repos,
+                                     name + ':source', branch,
+                                     ignoreInstalled=ignoreInstalled,
+                                     db=loadInstalledSource)
+    recipeClass = loader.getRecipe()
+    recipeClass._trove = recipeFile[1]
     if recipe.isGroupRecipe(recipeClass):
         recipeObj = recipeClass(repos, cfg, label, None,
                                 {'buildlabel' : label.asString()})
@@ -153,7 +157,8 @@ def getRecipeObj(repos, name, version, flavor, recipeFile=None):
     return recipeObj, loader
 
 def loadRecipeClass(repos, name, version, flavor, recipeFile=None,
-                    ignoreInstalled=True, root=None):
+                    ignoreInstalled=True, root=None, 
+                    loadInstalledSource=None, overrides=None):
     cfg = conarycfg.ConaryConfiguration(False)
     cfg.initializeFlavors()
     if root:
@@ -172,14 +177,18 @@ def loadRecipeClass(repos, name, version, flavor, recipeFile=None,
     if recipeFile:
         loader = loadrecipe.RecipeLoader(recipeFile[0], cfg, repos,
                                          name + ':source', branch,
-                                         ignoreInstalled=True)
+                                         ignoreInstalled=True,
+                                         db=loadInstalledSource,
+                                         overrides=overrides)
         recipeClass = loader.getRecipe()
         recipeClass._trove = recipeFile[1]
     else:
         loader = loadrecipe.recipeLoaderFromSourceComponent(name + ':source',
                                                cfg, repos, version.asString(),
                                                labelPath=[label],
-                                               ignoreInstalled=ignoreInstalled)
+                                               ignoreInstalled=ignoreInstalled,
+                                               db=loadInstalledSource,
+                                               overrides=overrides)
         recipeClass = loader[0].getRecipe()
 
     use.track(False)
@@ -188,8 +197,22 @@ def loadRecipeClass(repos, name, version, flavor, recipeFile=None,
     use.LocalFlags._clear()
     return loader, recipeClass, localFlags, usedFlags
 
+def _getLoadedSpecs(recipeClass):
+    loadedSpecs = getattr(recipeClass, '_loadedSpecs', {})
+    if not loadedSpecs:
+        return {}
+    finalDict = {}
+    toParse = [(finalDict, loadedSpecs)]
+    while toParse:
+        specDict, unparsedSpecs = toParse.pop()
+        for troveSpec, (troveTup, recipeClass) in unparsedSpecs.items():
+            newDict = {}
+            specDict[troveSpec] = (troveTup, newDict)
+            toParse.append((newDict, getattr(recipeClass, '_loadedSpecs', {})))
+    return finalDict
 
-def loadSourceTroves(job, repos, buildFlavor, troveTupleList):
+def loadSourceTroves(job, repos, buildFlavor, troveTupleList,
+                     loadInstalledSource=None, installLabelPath=None):
     """
        Load the source troves associated set of (name, version, flavor) tuples
        and return a list of source trove tuples with relevant information about
@@ -208,14 +231,20 @@ def loadSourceTroves(job, repos, buildFlavor, troveTupleList):
             relevantFlavor = None
             try:
                 (loader, recipeObj, relevantFlavor) = loadRecipe(repos,
-                                                         n, v, f,
-                                                         (recipeFile, trove),
-                                                         buildFlavor)
+                                     n, v, f,
+                                     (recipeFile, trove),
+                                     buildFlavor,
+                                     loadInstalledSource=loadInstalledSource,
+                                     installLabelPath=installLabelPath)
                 recipeType = buildtrove.getRecipeType(recipeObj)
                 buildTrove = buildtrove.BuildTrove(None, n, v, relevantFlavor,
                                                    recipeType=recipeType)
-                buildTrove.setBuildRequirements(getattr(recipeObj, 'buildRequires', []))
-                buildTrove.setDerivedPackages(getattr(recipeObj, 'packages', [recipeObj.name]))
+                # remove reference to recipe from the loadedSpecs tuple
+                buildTrove.setLoadedSpecs(_getLoadedSpecs(recipeObj))
+                buildTrove.setBuildRequirements(getattr(recipeObj,
+                                                    'buildRequires', []))
+                buildTrove.setDerivedPackages(getattr(recipeObj, 'packages',
+                                                      [recipeObj.name]))
             except Exception, err:
                 if relevantFlavor is None:
                     relevantFlavor = f
@@ -235,8 +264,86 @@ def loadSourceTroves(job, repos, buildFlavor, troveTupleList):
                 os.remove(recipeFile)
     return buildTroves
 
-def getSourceTrovesFromJob(job, conaryCfg, repos):
+def getSourceTrovesFromJob(job, buildCfg, serverCfg, repos):
     # called by builder.
     troveList = sorted(job.iterTroveList())
-    buildFlavor = conaryCfg.buildFlavor
-    return loadSourceTroves(job, repos, buildFlavor, troveList)
+    buildFlavor = buildCfg.buildFlavor
+    resolveTroveTups = buildCfg.resolveTroveTups
+    # create fake "packages" for all the troves we're building so that
+    # they can be found for loadInstalled.
+    buildTrovePackages = [ (x[0].split(':')[0], x[1], x[2]) for x in troveList ]
+    buildTroveSource = trovesource.SimpleTroveSource(buildTrovePackages)
+    buildTroveSource = RemoveHostSource(buildTroveSource,
+                                        serverCfg.serverName)
+    # don't search the internal repository explicitly for loadRecipe
+    # sources - they may be a part of some bogus build.
+    repos = RemoveHostRepos(repos, serverCfg.serverName)
+
+    loadInstalledList = [ trovesource.TroveListTroveSource(repos, x)
+                            for x in resolveTroveTups ]
+    loadInstalledSource = trovesource.stack(buildTroveSource,
+                                            *loadInstalledList)
+    repos = trovesource.stack(*(loadInstalledList + [repos]))
+    return loadSourceTroves(job, repos, buildFlavor, troveList,
+                            loadInstalledSource=loadInstalledSource,
+                            installLabelPath=buildCfg.installLabelPath)
+
+class RemoveHostRepos(object):
+    def __init__(self, troveSource, host):
+        self.troveSource = troveSource
+        self.host = host
+
+    def __getattr__(self, attr):
+        return getattr(self.troveSource, attr)
+
+    def findTroves(self, labelPath, *args, **kw):
+        if labelPath is not None:
+            newPath = []
+            for label in labelPath:
+                if label.getHost() != self.host:
+                    newPath.append(label)
+            labelPath = newPath
+        return self.troveSource.findTroves(labelPath, *args, **kw)
+
+class RemoveHostSource(trovesource.SearchableTroveSource):
+    def __init__(self, troveSource, host):
+        self.troveSource = troveSource
+        self.host = host
+        trovesource.SearchableTroveSource.__init__(self)
+
+    def trovesByName(self, name):
+        return self.troveSource.trovesByName(name)
+
+    def findTroves(self, labelPath, *args, **kw):
+        if labelPath is not None:
+            newPath = []
+            for label in labelPath:
+                if label.getHost() != self.host:
+                    newPath.append(label)
+            labelPath = newPath
+        return trovesource.SearchableTroveSource.findTroves(self, labelPath,
+                                                            *args, **kw)
+
+    def _filterByVersionQuery(self, versionType, versionList, versionQuery):
+        versionMap = {}
+        for version in versionList:
+            upVersion = version
+            if version.trailingLabel().getHost() == self.host:
+                if version.hasParentVersion():
+                    upVersion = version.parentVersion()
+                elif version.branch().hasParentBranch():
+                    branch = version.branch().parentBranch()
+                    shadowLength = version.shadowLength() - 1
+                    revision = version.trailingRevision().copy()
+                    revision.buildCount.truncateShadowCount(shadowLength)
+                    revision.sourceCount.truncateShadowCount(shadowLength)
+                    upVersion = branch.createVersion(revision)
+                    if list(revision.buildCount.iterCounts())[-1] == 0:
+                        upVersion.incrementBuildCount()
+            versionMap[upVersion] = version
+        results = trovesource.SearchableTroveSource._filterByVersionQuery(
+                                                        self, versionType,
+                                                        versionMap.keys(),
+                                                        versionQuery)
+        return dict((x[0], [versionMap[y] for y in x[1]])
+                     for x in results.items())
