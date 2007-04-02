@@ -110,6 +110,10 @@ this configuration is recommended only for advanced usage. rmake commits
 builds to this repository automatically, and if you are not using the rMake
 repository then rmake cannot reset the repository for you.
 .TP 4
+.B slots
+Maximum number of individual packages (not jobs) to build in parallel within
+a single job on one rMake node.
+.TP 4
 .B socketPath
 Path to rmake connection socket; default is /var/lib/rmake/socket
 .TP 4
