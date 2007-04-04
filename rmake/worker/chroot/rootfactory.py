@@ -84,6 +84,8 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
         self.copyDir(conaryDir)
         self.copyDir(conaryDir,
                      '/usr/lib/python2.4/site-packages/conary')
+        self.copyDir(conaryDir,
+                     '/usr/lib64/python2.4/site-packages/conary')
         if conaryDir.endswith('site-packages/conary'):
             self.copyFile('/usr/bin/conary')
             self.copyFile('/usr/bin/cvc')
