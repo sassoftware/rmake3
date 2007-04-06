@@ -10,7 +10,7 @@ from conary.lib import log
 from conary.local import database
 from conary.repository import trovesource
 
-from rmake.lib import apiutils
+from rmake.lib import apiutils, recipeutil
 from rmake.lib.apiutils import register, freeze, thaw
 from rmake.worker import resolvesource
 
@@ -82,6 +82,13 @@ class DependencyResolver(object):
         builtTroves = self.repos.getTroves(resolveJob.getBuiltTroves(),
                                            withFiles=False)
         builtTroveSource = resolvesource.BuiltTroveSource(builtTroves)
+        if builtTroves:
+            # this makes sure that if someone searches for a buildreq on
+            # :branch, and the only thing we have is on :branch/rmakehost,
+            # the trove will be found.
+            rMakeHost = builtTroves[0].getVersion().trailingLabel().getHost()
+            builtTroveSource = recipeutil.RemoveHostSource(builtTroveSource,
+                                                           rMakeHost)
         if cfg.resolveTroveTups:
             return self.getSourcesWithResolveTroves(cfg, cfg.resolveTroveTups,
                                                     builtTroveSource)

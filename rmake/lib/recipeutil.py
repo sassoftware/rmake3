@@ -325,6 +325,9 @@ class RemoveHostSource(trovesource.SearchableTroveSource):
     def trovesByName(self, name):
         return self.troveSource.trovesByName(name)
 
+    def hasTroves(self, *args, **kw):
+        return self.troveSource.hasTroves(*args, **kw)
+
     def findTroves(self, labelPath, *args, **kw):
         if labelPath is not None:
             newPath = []
@@ -336,8 +339,6 @@ class RemoveHostSource(trovesource.SearchableTroveSource):
                                                             *args, **kw)
 
     def _filterByVersionQuery(self, versionType, versionList, versionQuery):
-        import epdb
-        epdb.st()
         versionMap = {}
         for version in versionList:
             upVersion = version
