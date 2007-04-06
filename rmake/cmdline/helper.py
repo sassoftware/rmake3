@@ -67,7 +67,8 @@ class rMakeHelper(object):
     needed for accessing conary repositories.
     @type guiPassword: boolean
     """
-
+    BUILD_RECURSE_GROUPS_BINARY = buildcmd.BUILD_RECURSE_GROUPS_BINARY
+    BUILD_RECURSE_GROUPS_SOURCE = buildcmd.BUILD_RECURSE_GROUPS_SOURCE
 
     def __init__(self, uri=None, rmakeConfig=None, buildConfig=None, root='/',
                  guiPassword=False, plugins=None):
@@ -421,3 +422,5 @@ class rMakeHelper(object):
         finally:
             os.remove(tmpPath)
     poll = watch # backwards compatibility
+
+

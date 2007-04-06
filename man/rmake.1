@@ -59,7 +59,9 @@ documentation and on the conary Wiki.
 
 rMake can also build groups, redirects and filesets, \fIas long as they are the only trove specfied as part of the job\fP.  If these types of troves are specified as part of a larger job they will be failed.  This limitation may be lifted in a future version of rMake.
 
-If you use the command buildgroup instead of build, groups that are specified at the command line will cause conary to find the matching \fIbinary\fP version of this group, and rebuild the packages within that group with the flavors they were built with previously.
+If you use the command buildgroup instead of build, groups that are specified at the command line will cause rMake to find the source version of this group and build all contained troves.  It does not currently pay attention to removes lines to avoid building troves, and it does not recurse into other groups that are added.
+
+If you add the \-\-binary-search option with buildgroup, rMake will instead find the matching \fIbinary\fP version of this group, and rebuild the packages within that group with the flavors they were built with previously.
 
 .RS 4
 .TP

@@ -5,7 +5,7 @@ from conary.deps import deps
 from conary.lib import log
 from conary.lib import options
 
-from rmake import errors
+from rmake import compat, errors
 from rmake.build import buildcfg
 from rmake.cmdline import query
 from rmake.lib import flavorutil
@@ -170,6 +170,10 @@ class BuildCommand(rMakeCommand):
             'macro'   : ('set macro NAME to VALUE', "'NAME VALUE'"),
             'no-clean': 'do not remove build directory even if build is'
                         ' successful',
+            'binary-search': (options.VERBOSE_HELP,
+                              '(only with buildgroup) Search for the binary'
+                              ' version of this group and build the latest'
+                              ' sources on that branch with the same flavor'),
             'reuse':    ('reuse old chroot if possible instead of removing'
                          ' and recreating')}
 
@@ -181,6 +185,7 @@ class BuildCommand(rMakeCommand):
         argDef['macro'] = MULT_PARAM
         argDef['no-watch'] = NO_PARAM
         argDef['poll'] = NO_PARAM
+        argDef['binary-search'] = NO_PARAM
         argDef['no-clean'] = NO_PARAM
         rMakeCommand.addParameters(self, argDef)
 
@@ -218,7 +223,18 @@ class BuildCommand(rMakeCommand):
         quiet = argSet.pop('quiet', False)
         commit  = argSet.pop('commit', False)
         recurseGroups = command == 'buildgroup'
+        if recurseGroups:
+            if argSet.pop('binary-search', False):
+                recurseGroups = client.BUILD_RECURSE_GROUPS_BINARY
+            elif not compat.ConaryVersion().supportsFindGroupSources():
+                log.warning('Your conary does not support recursing a group'
+                            ' source component, defaulting to searching the'
+                            ' binary version')
+                recurseGroups = client.BUILD_RECURSE_GROUPS_BINARY
+            else:
+                recurseGroups = client.BUILD_RECURSE_GROUPS_SOURCE
         monitorJob = not argSet.pop('no-watch', False)
+
         jobId = client.buildTroves(troveSpecs,
                                    limitToHosts=hosts,
                                    recurseGroups=recurseGroups)

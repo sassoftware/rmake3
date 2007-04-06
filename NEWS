@@ -11,6 +11,8 @@ Changes in @NEW@:
        control the copying in of policy files. (RMK-385)
      * resolveTroves can now include source components, if you wish to
        specify a source component to load.
+     * buildgroup now searches the source version of the group instead of
+       the binary version, unless you specify --binary-search. (RMK-397)
   o Build Changes:
      * the rMake chroot user now has its HOME value set to /tmp/rmake. (RMK-380)
   o Bug Fixes:

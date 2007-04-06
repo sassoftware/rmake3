@@ -52,7 +52,7 @@ def getRecipes(repos, troveTups):
 
 def loadRecipe(repos, name, version, flavor, recipeFile=None,
                defaultFlavor=None, loadInstalledSource=None,
-               installLabelPath=None):
+               installLabelPath=None, buildLabel=None):
     name = name.split(':')[0]
     try:
         if defaultFlavor is not None:
@@ -66,7 +66,8 @@ def loadRecipe(repos, name, version, flavor, recipeFile=None,
         recipeObj, loader = getRecipeObj(repos, name,
                                        version, fullFlavor, recipeFile,
                                        loadInstalledSource=loadInstalledSource,
-                                       installLabelPath=installLabelPath)
+                                       installLabelPath=installLabelPath,
+                                       buildLabel=buildLabel)
         relevantFlavor = use.usedFlagsToFlavor(recipeObj.name)
         # always add in the entire arch flavor.  We need to ensure the
         # relevant flavor is unique per architecture, also, arch flavors
@@ -109,13 +110,14 @@ def loadRecipe(repos, name, version, flavor, recipeFile=None,
 
 def getRecipeObj(repos, name, version, flavor, recipeFile,
                  loadInstalledSource=None, installLabelPath=None, 
-                 loadRecipeSpecs=None):
+                 loadRecipeSpecs=None, buildLabel = None):
     cfg = conarycfg.ConaryConfiguration(False)
     cfg.initializeFlavors()
     branch = version.branch()
-    label = version.branch().label()
+    if not buildLabel:
+        buildLabel = version.branch().label()
     if not installLabelPath:
-        cfg.installLabelPath = [label]
+        cfg.installLabelPath = [buildLabel]
     else:
         cfg.installLabelPath = installLabelPath
     name = name.split(':')[0]
@@ -125,31 +127,39 @@ def getRecipeObj(repos, name, version, flavor, recipeFile,
     use.resetUsed()
     use.track(True)
     ignoreInstalled = not loadInstalledSource
-    loader = loadrecipe.RecipeLoader(recipeFile[0], cfg, repos,
-                                     name + ':source', branch,
-                                     ignoreInstalled=ignoreInstalled,
-                                     db=loadInstalledSource)
-    recipeClass = loader.getRecipe()
-    recipeClass._trove = recipeFile[1]
+    if recipeFile:
+        loader = loadrecipe.RecipeLoader(recipeFile[0], cfg, repos,
+                                         name + ':source', branch,
+                                         ignoreInstalled=ignoreInstalled,
+                                         db=loadInstalledSource)
+        recipeClass = loader.getRecipe()
+        recipeClass._trove = recipeFile[1]
+    else:
+        loader = loadrecipe.recipeLoaderFromSourceComponent(name + ':source',
+                                               cfg, repos, version.asString(),
+                                               labelPath=installLabelPath,
+                                               ignoreInstalled=ignoreInstalled,
+                                               db=loadInstalledSource)[0]
+        recipeClass = loader.getRecipe()
     if recipe.isGroupRecipe(recipeClass):
-        recipeObj = recipeClass(repos, cfg, label, None,
-                                {'buildlabel' : label.asString()})
+        recipeObj = recipeClass(repos, cfg, buildLabel, None,
+                                {'buildlabel' : buildLabel.asString()})
         recipeObj.sourceVersion = version
         recipeObj.setup()
     elif recipe.isPackageRecipe(recipeClass):
         recipeObj = recipeClass(cfg, None, None,
-                                {'buildlabel' : label.asString()},
+                                {'buildlabel' : buildLabel.asString()},
                                 lightInstance=True)
         recipeObj.sourceVersion = version
         recipeObj.loadPolicy()
         recipeObj.setup()
     elif recipe.isInfoRecipe(recipeClass):
         recipeObj = recipeClass(cfg, None, None,
-                                {'buildlabel' : label.asString()})
+                                {'buildlabel' : buildLabel.asString()})
         recipeObj.sourceVersion = version
         recipeObj.setup()
     elif recipe.isRedirectRecipe(recipeClass):
-        recipeObj = recipeClass(repos, cfg, label, flavor)
+        recipeObj = recipeClass(repos, cfg, buildLabel, flavor)
         recipeObj.sourceVersion = version
         recipeObj.setup()
     else:
@@ -158,7 +168,8 @@ def getRecipeObj(repos, name, version, flavor, recipeFile,
 
 def loadRecipeClass(repos, name, version, flavor, recipeFile=None,
                     ignoreInstalled=True, root=None, 
-                    loadInstalledSource=None, overrides=None):
+                    loadInstalledSource=None, overrides=None,
+                    buildLabel=None):
     cfg = conarycfg.ConaryConfiguration(False)
     cfg.initializeFlavors()
     if root:
@@ -325,6 +336,8 @@ class RemoveHostSource(trovesource.SearchableTroveSource):
                                                             *args, **kw)
 
     def _filterByVersionQuery(self, versionType, versionList, versionQuery):
+        import epdb
+        epdb.st()
         versionMap = {}
         for version in versionList:
             upVersion = version

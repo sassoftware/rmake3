@@ -6,7 +6,7 @@ import os
 import shutil
 import tempfile
 
-from conary.build import cook
+from conary.build import cook, grouprecipe
 from conary.build.cook import signAbsoluteChangeset
 from conary.conaryclient import cmdline
 from conary.deps import deps
@@ -18,30 +18,17 @@ from conary import versions
 
 from rmake import errors
 from rmake import compat
+from rmake.lib import recipeutil
 
-def getResolveTroveTups(cfg, repos):
-    # get resolve troves - use installLabelPath and install flavor
-    # for these since they're used for dep resolution
-    try:
-        allResolveTroves = itertools.chain(*cfg.resolveTroves)
-        results = repos.findTroves(cfg.installLabelPath,
-                                   allResolveTroves, cfg.flavor)
-    except Exception, err:
-        raise errors.RmakeError("Could not find resolve troves: %s\n" % err)
-
-    resolveTroves = []
-    for resolveTroveSpecList in cfg.resolveTroves:
-        lst = []
-        for troveSpec in resolveTroveSpecList:
-            lst.extend(results[troveSpec])
-        resolveTroves.append(lst)
-
-    return resolveTroves
-
+BUILD_RECURSE_GROUPS_NONE = 0   # don't recurse groups, build the group only
+BUILD_RECURSE_GROUPS_BINARY = 1 # find and recurse the binary version of the 
+                                # group
+BUILD_RECURSE_GROUPS_SOURCE = 2 # find and recurce the source version of the
+                                # group
 
 
 def getTrovesToBuild(conaryclient, troveSpecList, limitToHosts=None, 
-                     message=None, recurseGroups=False):
+                     message=None, recurseGroups=BUILD_RECURSE_GROUPS_NONE):
     toBuild = []
     toFind = {}
     groupsToFind = []
@@ -49,7 +36,7 @@ def getTrovesToBuild(conaryclient, troveSpecList, limitToHosts=None,
     repos = conaryclient.getRepos()
     cfg = conaryclient.cfg
 
-    cfg.resolveTroveTups = getResolveTroveTups(cfg, repos)
+    cfg.resolveTroveTups = _getResolveTroveTups(cfg, repos)
 
     cfg.limitToHosts = limitToHosts
     cfg.buildTroveSpecs = []
@@ -81,27 +68,21 @@ def getTrovesToBuild(conaryclient, troveSpecList, limitToHosts=None,
         else:
             newTroveSpecs.append(troveSpec)
 
-    results = repos.findTroves(cfg.buildLabel,
-                               groupsToFind, cfg.buildFlavor)
-    groups = repos.getTroves(list(itertools.chain(*results.itervalues())))
-    for group in groups:
-        troveTups = list(group.iterTroveList(strongRefs=True,
-                                             weakRefs=True))
-        troveTups = ((x[0].split(':')[0], x[1], x[2])
-                         for x in troveTups)
-        troveTups = (x for x in troveTups
-                     if not x[0].startswith('group-'))
-        if limitToHosts:
-            troveTups = (x for x in troveTups
-                         if (x[1].trailingLabel().getHost()
-                             in limitToHosts))
-        troveTups = list(set(troveTups))
-        troveList = repos.getTroves(troveTups, withFiles=False)
-        for trove in troveList:
-            n = trove.getSourceName()
-            newTroveSpecs.append((n,
-                        trove.getVersion().getSourceVersion().branch(),
-                        trove.getFlavor()))
+    localTroves = [(_getLocalCook(conaryclient, x[0], message), x[1])
+                     for x in recipesToCook]
+    localTroves = [(x[0][0], x[0][1], x[1]) for x in localTroves]
+    if recurseGroups == BUILD_RECURSE_GROUPS_SOURCE:
+        compat.ConaryVersion().requireFindGroupSources()
+        localGroupTroves = [ x for x in localTroves 
+                             if x[0].startswith('group-') ]
+        localTroves = [ x for x in localTroves if x not in localGroupTroves ]
+        toBuild.extend(_findSourcesForSourceGroup(repos, cfg, groupsToFind,
+                                                  localGroupTroves,
+                                                  limitToHosts))
+    elif recurseGroups == BUILD_RECURSE_GROUPS_BINARY:
+        newTroveSpecs.extend(_findSpecsForBinaryGroup(repos, cfg,
+                                                      groupsToFind,
+                                                      limitToHosts))
 
     for troveSpec in newTroveSpecs:
         sourceName = troveSpec[0].split(':')[0] + ':source'
@@ -122,10 +103,29 @@ def getTrovesToBuild(conaryclient, troveSpecList, limitToHosts=None,
             for flavor in flavorList:
                 toBuild.append((troveTup[0], troveTup[1], flavor))
 
-    localTroves = [(_getLocalCook(conaryclient, x[0], message), x[1])
-                     for x in recipesToCook]
-    toBuild.extend((x[0][0], x[0][1], x[1]) for x in localTroves)
+    toBuild.extend(localTroves)
     return toBuild
+
+def _getResolveTroveTups(cfg, repos):
+    # get resolve troves - use installLabelPath and install flavor
+    # for these since they're used for dep resolution
+    try:
+        allResolveTroves = itertools.chain(*cfg.resolveTroves)
+        results = repos.findTroves(cfg.installLabelPath,
+                                   allResolveTroves, cfg.flavor)
+    except Exception, err:
+        raise errors.RmakeError("Could not find resolve troves: %s\n" % err)
+
+    resolveTroves = []
+    for resolveTroveSpecList in cfg.resolveTroves:
+        lst = []
+        for troveSpec in resolveTroveSpecList:
+            lst.extend(results[troveSpec])
+        resolveTroves.append(lst)
+
+    return resolveTroves
+
+
 
 def _getLocalCook(conaryclient, recipePath, message):
     if not hasattr(cook, 'getRecipeInfoFromPath'):
@@ -363,3 +363,69 @@ def _commitRecipe(conaryclient, recipePath, message):
     finally:
         os.chdir(cwd)
         shutil.rmtree(recipeDir)
+
+
+def _findSpecsForBinaryGroup(repos, cfg, groupsToFind, limitToHosts):
+    newTroveSpecs = []
+    results = repos.findTroves(cfg.buildLabel,
+                               groupsToFind, cfg.buildFlavor)
+    groups = repos.getTroves(list(itertools.chain(*results.itervalues())))
+    for group in groups:
+        troveTups = list(group.iterTroveList(strongRefs=True,
+                                             weakRefs=True))
+        troveTups = ((x[0].split(':')[0], x[1], x[2])
+                         for x in troveTups)
+        troveTups = (x for x in troveTups
+                     if not x[0].startswith('group-'))
+        if limitToHosts:
+            troveTups = (x for x in troveTups
+                         if (x[1].trailingLabel().getHost()
+                             in limitToHosts))
+        troveTups = list(set(troveTups))
+        troveList = repos.getTroves(troveTups, withFiles=False)
+        for trove in troveList:
+            n = trove.getSourceName()
+            newTroveSpecs.append((n,
+                        trove.getVersion().getSourceVersion().branch(),
+                        trove.getFlavor()))
+    return newTroveSpecs
+
+def _findSourcesForSourceGroup(repos, cfg, groupsToFind,
+                               localGroups, limitToHosts):
+    findSpecs = {}
+    for troveSpec in groupsToFind:
+        sourceName = troveSpec[0].split(':')[0] + ':source'
+        l = findSpecs.setdefault((sourceName, troveSpec[1], None), [])
+        l.append(troveSpec[2])
+    results = repos.findTroves(cfg.installLabelPath, findSpecs, cfg.flavor)
+    allTups = []
+    for troveSpec, troveTupList in results.iteritems():
+        flavors = findSpecs[troveSpec]
+        for flavor in flavors:
+            for troveTup in troveTupList:
+                name, version = troveTup[0:2]
+                (loader, recipeObj, relevantFlavor) = \
+                        recipeutil.loadRecipe(repos, name, version, flavor,
+                                      defaultFlavor=cfg.buildFlavor,
+                                      installLabelPath=cfg.installLabelPath)
+                troveTups = grouprecipe.findSourcesForGroup(repos, recipeObj)
+                allTups.extend(troveTups)
+    if localGroups:
+        serverHost = localGroups[0][1].trailingLabel().getHost()
+        localRepos = recipeutil.RemoveHostRepos(repos, serverHost)
+        for name, version, flavor in localGroups:
+            realLabel = version.branch().parentBranch().label()
+            (loader, recipeObj, relevantFlavor) = \
+                    recipeutil.loadRecipe(repos, name, version, flavor,
+                                  defaultFlavor=cfg.buildFlavor,
+                                  installLabelPath=cfg.installLabelPath,
+                                  buildLabel=realLabel)
+            troveTups = grouprecipe.findSourcesForGroup(localRepos, recipeObj)
+            allTups.extend(troveTups)
+
+    if limitToHosts:
+        allTups = [x for x in allTups
+                   if (x[1].trailingLabel().getHost()
+                     in limitToHosts)]
+    allTups = [ x for x in allTups if not x[0].startswith('group-') ]
+    return allTups

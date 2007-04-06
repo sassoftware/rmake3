@@ -14,7 +14,7 @@ from rmake import errors
 testing = False
 
 class ConaryVersion(object):
-    maxKnownVersion = "1.1.19"
+    maxKnownVersion = "1.1.21"
     _warnedUser = False
 
     def __init__(self, conaryVersion=None):
@@ -48,10 +48,25 @@ class ConaryVersion(object):
             raise errors.RmakeError('rMake requires conary'
                                     ' version %s or greater' % version)
 
+    def requireVersion(self, oneZeroVersion, oneOneVersion, msg):
+        if not self.checkVersion(oneZeroVersion, oneOneVersion):
+            version = ''
+            if oneZeroVersion:
+                version = '1.0.%s or ' % oneZeroVersion
+            version += '1.1.%s' % oneOneVersion
+            raise errors.RmakeError('rMake requires a conary version %s or grater for %' % (version, msg))
+        return True
+
     def stateFileVersion(self):
         if not hasattr(state.ConaryState, 'stateVersion'):
             return 0
         return state.ConaryState.stateVersion
+
+    def supportsFindGroupSources(self):
+        return self.checkVersion(None, 21)
+
+    def requireFindGroupSources(self):
+        return self.requireVersion(None, 21, 'building group sources')
 
     def ConaryStateFromFile(self, path, repos=None, parseSource=True):
         if self.stateFileVersion() == 0: 
@@ -59,7 +74,6 @@ class ConaryVersion(object):
         else: # support added in 1.0.31 and 1.1.4
             return state.ConaryStateFromFile(path, repos=repos,
                                              parseSource=parseSource)
-
 
     def supportsCloneCallback(self):
         # support added in 1.0.30 and 1.1.3

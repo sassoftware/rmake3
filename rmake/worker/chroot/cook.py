@@ -217,7 +217,10 @@ def _cookTrove(cfg, repos, name, version, flavor, targetLabel, loadSpecs,
         logger.debug('Cooking %s=%s[%s] to %s (stored in %s)' % \
                      (name, version, flavor, targetLabel, csFile))
         db = database.Database(cfg.root, cfg.dbPath)
-        source = recipeutil.RemoveHostSource(targetLabel.getHost(), db)
+        if targetLabel:
+            source = recipeutil.RemoveHostSource(db, targetLabel.getHost())
+        else:
+            source = db
         (loader, recipeClass, localFlags, usedFlags)  = \
             recipeutil.loadRecipeClass(repos, name, version, flavor,
                                        ignoreInstalled=False, root=cfg.root,
