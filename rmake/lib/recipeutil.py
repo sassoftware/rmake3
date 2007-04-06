@@ -292,9 +292,10 @@ def getSourceTrovesFromJob(job, buildCfg, serverCfg, repos):
 
     loadInstalledList = [ trovesource.TroveListTroveSource(repos, x)
                             for x in resolveTroveTups ]
+    loadInstalledList.append(repos)
     loadInstalledSource = trovesource.stack(buildTroveSource,
                                             *loadInstalledList)
-    repos = trovesource.stack(*(loadInstalledList + [repos]))
+    repos = trovesource.stack(*loadInstalledList)
     return loadSourceTroves(job, repos, buildFlavor, troveList,
                             loadInstalledSource=loadInstalledSource,
                             installLabelPath=buildCfg.installLabelPath)
@@ -355,6 +356,7 @@ class RemoveHostSource(trovesource.SearchableTroveSource):
                     if list(revision.buildCount.iterCounts())[-1] == 0:
                         upVersion.incrementBuildCount()
             versionMap[upVersion] = version
+            versionMap[version] = version
         results = trovesource.SearchableTroveSource._filterByVersionQuery(
                                                         self, versionType,
                                                         versionMap.keys(),
