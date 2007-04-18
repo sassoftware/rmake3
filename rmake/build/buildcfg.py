@@ -10,7 +10,7 @@ import re
 
 from conary import conarycfg
 from conary import versions
-from conary.lib import cfg
+from conary.lib import cfg,cfgtypes
 from conary.lib import log
 from conary.lib import sha1helper
 from conary.conarycfg import CfgLabel
@@ -302,7 +302,10 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
         d = {}
         for name, cfgItem in self._options.iteritems():
             val = self[name]
-            if val == cfgItem.default:
+            # _Path objects may change even when there at the default.
+            if (val == cfgItem.default and not isinstance(val, cfgtypes._Path)
+                and not (isinstance(val, list)
+                         and val and isinstance(val[0], cfgtypes._Path))):
                 continue
             if val is None:
                 continue
