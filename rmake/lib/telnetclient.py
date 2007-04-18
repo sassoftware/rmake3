@@ -71,9 +71,9 @@ class TelnetClient(telnetlib.Telnet):
                         if err.args[0] != errno.EINTR: # ignore interrupted select
                             raise
                     readyReaders.extend(rfd)
-                    [neededReaders.remove(x) for x in rfd]
+                    [neededReaders.remove(x) for x in rfd if x in neededReaders]
                     readyWriters.extend(wfd)
-                    [neededWriters.remove(x) for x in wfd]
+                    [neededWriters.remove(x) for x in wfd if x in neededWriters]
                     if self in readyReaders:
                         if sys.stdout in readyWriters:
                             break
