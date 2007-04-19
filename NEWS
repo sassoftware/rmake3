@@ -1,4 +1,4 @@
-Changes in @NEW@:
+Changes in 1.0.8:
   o Client Changes:
      * "rmake commit" now will take multiple jobIds.  This functionality
         requires an unreleased conary to be deployed on all related servers
