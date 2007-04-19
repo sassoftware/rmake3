@@ -66,13 +66,39 @@ def setLocalFlags(flags):
     for flag in flags:
         LocalFlags.__setattr__(flag._name, flag._get())
 
-def getArchFlags(flavor):
+def getArchFlags(flavor, getTarget=True, withFlags=True):
     archFlavor = Flavor()
     flavorInsSet = flavor.getDepClasses().get(deps.DEP_CLASS_IS, None)
     if flavorInsSet is not None:
         for insSet in flavorInsSet.getDeps():
+            if not withFlags:
+                insSet = deps.Dependency(insSet.name)
             archFlavor.addDep(deps.InstructionSetDependency, insSet)
+    if not getTarget:
+        return archFlavor
+
+    flavorInsSet = flavor.getDepClasses().get(deps.DEP_CLASS_TARGET_IS, None)
+    if flavorInsSet is not None:
+        for insSet in flavorInsSet.getDeps():
+            if not withFlags:
+                insSet = deps.Dependency(insSet.name)
+            archFlavor.addDep(deps.TargetInstructionSetDependency, insSet)
     return archFlavor
+
+crossFlavor = deps.parseFlavor('cross')
+def getCrossCompile(flavor):
+    flavorTargetSet = flavor.getDepClasses().get(deps.DEP_CLASS_TARGET_IS, None)
+    if flavorTargetSet is None:
+        return None
+
+    targetFlavor = Flavor()
+    for insSet in flavorTargetSet.getDeps():
+        targetFlavor.addDep(deps.InstructionSetDependency, insSet)
+    isCrossTool = flavor.stronglySatisfies(crossFlavor)
+    return None, targetFlavor, isCrossTool
+
+def isCrossCompiler(flavor):
+    return hasTarget(flavor) and flavor.stronglySatisfies(crossFlavor)
 
 def getArchMacros(arch):
     return {}
@@ -120,3 +146,51 @@ def getTargetArch(flavor, currentArch = None):
         return setArch, targetArch
     else:
         return False, None
+
+def removeDepClasses(depSet, classes):
+    d = depSet.__class__()
+    [ d.addDep(*x) for x in depSet.iterDeps() if x[0].tag not in classes ]
+    return d
+
+def removeFileDeps(depSet):
+    return removeDepClasses(depSet, [deps.DEP_CLASS_FILES])
+
+def removeInstructionSetFlavor(depSet):
+    return removeDepClasses(depSet, [deps.DEP_CLASS_IS])
+
+def removeTargetFlavor(depSet):
+    return removeDepClasses(depSet, [deps.DEP_CLASS_TARGET_IS])
+
+def setISFromTargetFlavor(flavor):
+    targetISD = deps.TargetInstructionSetDependency
+    ISD = deps.InstructionSetDependency
+    targetDeps = list(flavor.iterDepsByClass(targetISD))
+    newFlavor = removeDepClasses(flavor, [ISD.tag, targetISD.tag])
+    for dep in targetDeps:
+        newFlavor.addDep(ISD, dep)
+    return newFlavor
+
+def hasTarget(flavor):
+    return flavor.hasDepClass(deps.TargetInstructionSetDependency)
+
+def getBuiltFlavor(flavor):
+    if not hasTarget(flavor):
+        return flavor
+    if flavor.stronglySatisfies(crossFlavor):
+        return flavor
+    return setISFromTargetFlavor(flavor)
+
+def getSysRootFlavor(flavor):
+    assert(hasTarget(flavor))
+    return setISFromTargetFlavor(flavor)
+
+def getSysRootPath(flavor):
+    # FIXME: if we wanted to get this exactly right, we'd have to load the 
+    # macros from /etc/macros and use those values for sysroot. 
+    # Best would be to do that at the same time as we load the recipe itself
+    # and store it w/ the trove, because otherwise it's misleading.
+    if hasTarget(flavor):
+        flavor = getSysRootFlavor(flavor)
+    use.setBuildFlagsFromFlavor(None, flavor, error=False)
+    target = '%s-unknown-linux' % use.Arch._getMacro('targetarch')
+    return '/opt/cross-target-%s/sys-root' % target

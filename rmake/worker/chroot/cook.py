@@ -110,7 +110,7 @@ def cookTrove(cfg, repos, logger, name, version, flavor, targetLabel,
             try:
                 signal.signal(signal.SIGTERM, signal.SIG_DFL)
                 os.close(inF)
-                os.setpgrp()
+                #os.setpgrp()
                 # don't accidentally make world writable files
                 os.umask(0022)
                 # don't allow us to create core dumps
@@ -217,6 +217,8 @@ def _cookTrove(cfg, repos, name, version, flavor, targetLabel, loadSpecs,
         logger.debug('Cooking %s=%s[%s] to %s (stored in %s)' % \
                      (name, version, flavor, targetLabel, csFile))
         db = database.Database(cfg.root, cfg.dbPath)
+        cfg.buildFlavor = deps.overrideFlavor(cfg.buildFlavor, flavor)
+        cfg.initializeFlavors()
         if targetLabel:
             source = recipeutil.RemoveHostSource(db, targetLabel.getHost())
         else:
@@ -243,10 +245,10 @@ def _cookTrove(cfg, repos, name, version, flavor, targetLabel, loadSpecs,
         # we are in a fork
         flavorutil.setLocalFlags(localFlags)
         packageName = name.split(':')[0]
-        cfg.buildFlavor = deps.overrideFlavor(cfg.buildFlavor, flavor)
         use.setBuildFlagsFromFlavor(packageName, cfg.buildFlavor, error=False)
         use.resetUsed()
         use.setUsed(usedFlags)
+        crossCompile = flavorutil.getCrossCompile(cfg.buildFlavor)
 
         # we don't want to sign packages here, if necessary, we can sign
         # them at a higher level.
@@ -282,7 +284,8 @@ def _cookTrove(cfg, repos, name, version, flavor, targetLabel, loadSpecs,
                                 changeSetFile=csFile,
                                 alwaysBumpCount=False,
                                 ignoreDeps=False,
-                                logBuild=True, crossCompile=None,
+                                logBuild=True,
+                                crossCompile=crossCompile,
                                 requireCleanSources=True)
     except Exception, msg:
         errMsg = 'Error building recipe %s=%s[%s]: %s' % (name, version,

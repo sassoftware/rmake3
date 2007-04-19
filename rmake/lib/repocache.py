@@ -68,6 +68,7 @@ class RepositoryCache(object):
         self.root = cacheDir
         self.store = DataStore(cacheDir)
         self.readOnly = readOnly
+        self.fileCache = LazyFileCache(300)
 
     def hashGroupDeps(self, groupTroves, depClass, dependency):
         depSet = deps.DependencySet()
@@ -180,7 +181,7 @@ class RepositoryCache(object):
             csHash = str(self.hashTrove(job[0], job[2][0], job[2][1],
                                         withFiles, withFileContents))
             if self.store.hasFile(csHash):
-                outFile = LazyFile(self.store.hashToPath(csHash))
+                outFile = self.fileCache.open(self.store.hashToPath(csHash))
                 #outFile = self.store.openRawFile(csHash)
                 changesets[idx] = changeset.ChangeSetFromFile(outFile)
             else:
@@ -208,7 +209,7 @@ class RepositoryCache(object):
             # so instead we re-read from disk
             self.store.addFileFromTemp(csHash, tmpName)
 
-            outFile = LazyFile(self.store.hashToPath(csHash))
+            outFile = self.fileCache.open(self.store.hashToPath(csHash))
             #outFile = self.store.openRawFile(csHash)
             changesets[csIndex] = changeset.ChangeSetFromFile(outFile)
 
@@ -272,46 +273,10 @@ class DataStore(datastore.DataStore):
 class CacheError(Exception):
     pass
 
+class LazyFileCache(util.LazyFileCache):
+    # derive from util LazyFileCache which tries to read /proc/self/fd 
+    # to get the total number of open files.  Unfortunately, when you 
+    # drop privileges as aprt v
 
-class LazyFile(object):
-    """
-        Opens files only when they are actually being read.  Obviously this 
-        results in a much larger number of reads and seeks, but it has the 
-        advantage of allowing us to have a large number of changeset files 
-        open without having to worry about file descriptors.
-    """
-    __slots__ = ['path', 'marker']
-    def __init__(self, path):
-        self.path = path
-        self.marker = (0, 0)
-
-    def read(self, bytes):
-        f = open(self.path, 'r')
-        f.seek(*self.marker)
-        rc = f.read(bytes)
-        self.marker = (f.tell(), 0)
-        f.close()
-        return rc
-
-    def seek(self, loc, type):
-        self.marker = (loc, type)
-
-    def truncate(self):
-        # NOTE: this is only called when the changeset is empty - something
-        # that should never happen in the cache.  So I think this is a sign
-        # of another bug.
-        raise IOError('Tried to modify a RO file %s' % self.path)
-
-    def close(self):
-        pass
-
-    def tell(self):
-        if self.marker[1] == 0:
-            return self.marker[0]
-        f = open(self.path, 'r')
-        f.seek(*self.marker)
-        loc = f.tell()
-        self.marker = (loc, 0)
-        f.close()
-        return loc
-
+    def _getFdCount(self):
+        return self._fdCounter

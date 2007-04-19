@@ -1,6 +1,7 @@
 #
 # Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
 #
+import copy
 import itertools
 from conary.deps import deps
 from conary.local import deptable
@@ -8,24 +9,33 @@ from conary.local import deptable
 from conary.conaryclient import resolve
 from conary.repository import trovesource
 
+from rmake.lib import flavorutil
+
 class DepHandlerSource(trovesource.TroveSourceStack):
-    def __init__(self, builtTroveSource, troveListList, repos,
+    def __init__(self, builtTroveSource, troveListList, repos=None,
                  useInstallLabelPath=True):
         self.repos = repos
-        if troveListList:
-            troveSources = []
-            for troveList in troveListList:
-                allTroves = [ x.getNameVersionFlavor() for x in troveList ]
-                childTroves = itertools.chain(*
-                               (x.iterTroveList(weakRefs=True, strongRefs=True)
-                                for x in troveList))
-                allTroves.extend(childTroves)
-                troveSources.append(trovesource.SimpleTroveSource(allTroves))
-            self.sources = [builtTroveSource] + troveSources
-            if useInstallLabelPath:
+        if isinstance(troveListList, trovesource.SimpleTroveSource):
+            self.sources = [ builtTroveSource, troveListList]
+            if repos:
                 self.sources.append(repos)
         else:
-            self.sources = [builtTroveSource, repos]
+            if troveListList:
+                troveSources = []
+                for troveList in troveListList:
+                    allTroves = [ x.getNameVersionFlavor() for x in troveList ]
+                    childTroves = itertools.chain(*
+                                   (x.iterTroveList(weakRefs=True, strongRefs=True)
+                                    for x in troveList))
+                    allTroves.extend(childTroves)
+                    source = trovesource.SimpleTroveSource(allTroves)
+                    source.searchWithFlavor()
+                    troveSources.append(source)
+                self.sources = [builtTroveSource] + troveSources
+                if useInstallLabelPath:
+                    self.sources.append(repos)
+            else:
+                self.sources = [builtTroveSource, repos]
 
     def copy(self):
         inst = self.__class__(self.sources[0], None, self.sources[-1])
@@ -55,6 +65,7 @@ class BuiltTroveSource(trovesource.SimpleTroveSource):
         for trove in troves:
             self.addTrove(trove.getNameVersionFlavor(), trove.getProvides(),
                           trove.getRequires())
+        self.searchWithFlavor()
 
     def addTrove(self, troveTuple, provides, requires):
         self._trovesByName.setdefault(troveTuple[0],set()).add(troveTuple)
@@ -78,22 +89,37 @@ class BuiltTroveSource(trovesource.SimpleTroveSource):
         return suggMap
 
 
-class DepResolutionByTroveLists(resolve.DepResolutionMethod):
+class DepResolutionByTroveLists(resolve.ResolutionStack):
     """ 
         Resolve by trove list first and then resort back to label
         path.  Also respects intra-trove deps.  If foo:runtime
         requires foo:lib, it requires exactly the same version of foo:lib.
     """
-    def __init__(self, cfg, db, troveLists):
-        self.installLabelPath = cfg.installLabelPath
-        self.searchByLabelPath = False
-        self.troveListsIndex = 0
+    def __init__(self, cfg, builtTroveSource, troveLists, repos):
+        self.removeFileDependencies = False
+        self.builtTroveSource = builtTroveSource
         self.troveLists = troveLists
-        self.depList = None
-        resolve.DepResolutionMethod.__init__(self, cfg, db)
+        self.repos = repos
+        self.cfg = cfg
+        self.repos = repos
+        self.flavor = cfg.flavor
+        sources = []
+        builtResolveSource = resolve.BasicResolutionMethod(cfg, None)
+        builtResolveSource.setTroveSource(builtTroveSource)
+        sources = [builtResolveSource]
+        if troveLists:
+            troveListSources = [resolve.DepResolutionByTroveList(cfg, None, x)
+                                 for x in troveLists]
+            [ x.setTroveSource(self.repos) for x in troveListSources ]
+            sources.extend(troveListSources)
+
+        resolve.ResolutionStack.__init__(self, *sources)
 
     def setLabelPath(self, labelPath):
-        self.installLabelPath = labelPath
+        if labelPath:
+            source = resolve.DepResolutionByLabelPath(self.cfg, None, labelPath)
+            source.setTroveSource(self.repos)
+            self.sources.append(source)
 
     def _getIntraTroveDeps(self, depList):
         suggsByDep = {}
@@ -109,41 +135,19 @@ class DepResolutionByTroveLists(resolve.DepResolutionMethod):
                     intraDeps.setdefault(depSet, {}).setdefault(dep, l)
         return intraDeps
 
+    def filterDependencies(self, depList):
+        if self.removeFileDependencies:
+            depList = [(x[0], flavorutil.removeFileDeps(x[1]))
+                       for x in depList ]
+            return [ x for x in depList if not x[1].isEmpty() ]
+        return depList
+
     def prepareForResolution(self, depList):
-        newDepList = [x[1] for x in depList]
-        if not depList:
-            self.index = 0 
-            self.troveListsIndex = 0
-            return False
-        if newDepList == self.depList:
-            # no new dep resolution matches, increment counters
-            # if lists are exhausted, return False.
-            if not self.searchByLabelPath:
-                self.troveListsIndex += 1
-                if self.troveListsIndex == len(self.troveLists):
-                    if not self.installLabelPath:
-                        self.troveListsIndex = 0
-                        return False
-                    self.searchByLabelPath = True
-                    self.index = 0
-            else:
-                self.index += 1
-                if self.index == len(self.installLabelPath):
-                    self.index = 0
-                    self.troveListsIndex = 0
-                    return False
-        else:
-            self.searchByLabelPath = not self.troveLists
-            self.troveListsIndex = 0
-            self.index = 0
-
-        self.depList = newDepList
-
         # need to get intratrove deps while we still have the full dependency
         # request information - including what trove the dep arises from.
         intraDeps = self._getIntraTroveDeps(depList)
         self.intraDeps = intraDeps
-        return True
+        return resolve.ResolutionStack.prepareForResolution(self, depList)
 
     def _resolveIntraTroveDeps(self, intraDeps):
         trovesToGet = []
@@ -162,23 +166,13 @@ class DepResolutionByTroveLists(resolve.DepResolutionMethod):
                 d[dep] = [ x for x in troveTups if hasTroves[x] ]
         return results
 
-
     def resolveDependencies(self):
+        sugg = resolve.ResolutionStack.resolveDependencies(self)
         intraDepSuggs = self._resolveIntraTroveDeps(self.intraDeps)
-        if self.searchByLabelPath:
-            sugg = self.troveSource.resolveDependencies(
-                                          self.installLabelPath[self.index],
-                                          self.depList)
-        else:
-            sugg = self.troveSource.resolveDependenciesByGroups(
-                                        self.troveLists[self.troveListsIndex],
-                                        self.depList)
-
         for depSet, intraDeps in self.intraDeps.iteritems():
             for idx, (depClass, dep) in enumerate(depSet.iterDeps(sort=True)):
                 if depClass.tag == deps.DEP_CLASS_TROVES:
                     if (dep in intraDepSuggs[depSet]
                         and intraDepSuggs[depSet][dep]):
                         sugg[depSet][idx] = intraDepSuggs[depSet][dep]
-
         return sugg

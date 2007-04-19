@@ -5,6 +5,7 @@
 Dependency Handler and DependencyState classes
 """
 
+import itertools
 import time
 
 from conary.deps import deps
@@ -13,16 +14,19 @@ from conary.lib import graph
 from rmake.build.buildstate import AbstractBuildState
 
 from rmake.lib.apiutils import freeze,thaw,register
+from rmake.lib import flavorutil
 
 FAILURE_REASON_FAILED = 0
 FAILURE_REASON_BUILDREQ = 1
 FAILURE_REASON_DEP = 2
 
 class ResolveJob(object):
-    def __init__(self, trove, buildCfg, builtTroves, inCycle=False):
+    def __init__(self, trove, buildCfg, builtTroves, crossTroves, 
+                 inCycle=False):
         self.trove = trove
         self.buildCfg = buildCfg
         self.builtTroves = builtTroves
+        self.crossTroves = crossTroves
         self.inCycle = inCycle
 
     def getConfig(self):
@@ -34,10 +38,18 @@ class ResolveJob(object):
     def getBuiltTroves(self):
         return self.builtTroves
 
+    def getCrossTroves(self):
+        # crossTroves are troves that were cross compiled, exclding
+        # cross compilers themselves.  They shouldn't be installed in /
+        # for other troves that are being cross compiled.  This is 
+        # only important when cross compiling for your current arch.
+        return self.crossTroves
+
     def __freeze__(self):
         d = dict(trove=freeze('BuildTrove', self.trove),
                  buildCfg=freeze('BuildConfiguration', self.buildCfg),
                  builtTroves=freeze('troveTupleList', self.builtTroves),
+                 crossTroves=freeze('troveTupleList', self.crossTroves),
                  inCycle=self.inCycle)
         return d
 
@@ -47,6 +59,7 @@ class ResolveJob(object):
         self.trove = thaw('BuildTrove', self.trove)
         self.buildCfg = thaw('BuildConfiguration', self.buildCfg)
         self.builtTroves = thaw('troveTupleList', self.builtTroves)
+        self.crossTroves = thaw('troveTupleList', self.crossTroves)
         return self
 register(ResolveJob)
 
@@ -63,10 +76,44 @@ class DependencyBasedBuildState(AbstractBuildState):
 
         self.depGraph = graph.DirectedGraph()
         self.builtTroves = []
+        self.rejectedDeps = {}
 
         self._defaultBuildReqs = cfg.defaultBuildReqs
 
         AbstractBuildState.__init__(self, sourceTroves)
+
+    def _addReq(self, trove, buildReq, isCross=False):
+        name, label, flavor = buildReq
+        pkg = name.split(':')[0]
+        providingTroves = self.trovesByPackage.get(pkg, [])
+        for provTrove in providingTroves:
+            # this trove must be built after the providing trove,
+            # which means that provTrove should be a leaf first.
+            if (not isCross and trove.hasTargetArch()
+                and provTrove.isCrossCompiled()):
+                self.rejectDep(trove, provTrove, isCross)
+            elif self._flavorsMatch(trove.getFlavor(), provTrove.getFlavor(),
+                                  flavor, isCross):
+                # only add edges for nodes that are
+                # likely to be on a satisfying branch or flavor,
+                # otherwise we'll create unnecessary cycles.
+                self.dependsOn(trove, provTrove, (isCross, buildReq))
+            else:
+                self.rejectDep(trove, provTrove, isCross)
+
+    def _flavorsMatch(self, troveFlavor, provFlavor, reqFlavor, isCross):
+        if isCross:
+            troveFlavor = flavorutil.getSysRootFlavor(troveFlavor)
+        archFlavor = flavorutil.getArchFlags(troveFlavor, getTarget=False,
+                                              withFlags=False)
+        if reqFlavor is None:
+            reqFlavor = archFlavor
+        else:
+            reqFlavor = deps.overrideFlavor(archFlavor, reqFlavor)
+        if flavorutil.getBuiltFlavor(provFlavor).toStrongFlavor().satisfies(
+                                                reqFlavor.toStrongFlavor()):
+            return True
+        return False
 
     def addTroves(self, sourceTroves):
         AbstractBuildState.addTroves(self, sourceTroves)
@@ -79,19 +126,10 @@ class DependencyBasedBuildState(AbstractBuildState):
         for trove in sourceTroves:
             trove.addBuildRequirements(self._defaultBuildReqs)
             for buildReq in trove.getBuildRequirementSpecs():
-                name, label, flavor = buildReq
-                pkg = name.split(':')[0]
-                providingTroves = self.trovesByPackage.get(pkg, [])
-                for provTrove in providingTroves:
-                    # this trove must be built after the providing trove,
-                    # which means that provTrove should be a leaf first.
-                    if (flavor is None or
-                        provTrove.getFlavor().toStrongFlavor().satisfies(
-                                                flavor.toStrongFlavor())):
-                        # only add edges for nodes that are 
-                        # likely to be on a satisfying branch or flavor,
-                        # otherwise we'll create unnecessary cycles.
-                        self.dependsOn(trove, provTrove, buildReq)
+                self._addReq(trove, buildReq, False)
+
+            for crossReq in trove.getCrossRequirementSpecs():
+                self._addReq(trove, crossReq, True)
 
             # if we're loading something that we're also building
             # then we should make sure that we build the thing with the 
@@ -110,25 +148,55 @@ class DependencyBasedBuildState(AbstractBuildState):
                         # two recipes that loadInstall each other which
                         # means that we can't even trust the buildReqs
                         # specified for each.
-                        self.dependsOn(trove, provTrove, loadSpec)
+                        self.dependsOn(trove, provTrove, (False, loadSpec))
 
     def dependsOn(self, trove, provTrove, req):
+        if trove == provTrove:
+            return
         self.depGraph.addEdge(trove, provTrove, req)
+
+    def rejectDep(self, trove, provTrove, isCross):
+        self.rejectedDeps.setdefault(trove, []).append((provTrove, isCross))
+
+    def isRejectedDep(self, trove, provTrove, isCross):
+        return (provTrove, isCross) in self.rejectedDeps.setdefault(trove, [])
 
     def troveBuilt(self, trove, binaryTroveList):
         self.builtTroves.extend(binaryTroveList)
         self.buildReqTroves.pop(trove, False)
         self.depGraph.delete(trove)
 
-    def getBuiltBinaries(self):
+    def getAllBinaries(self):
         return self.builtTroves
+
+    def getCrossCompiledBinaries(self):
+        return list(itertools.chain(*[x.getBinaryTroves() for x in self.troves
+                                     if x.isBuilt() and x.isCrossCompiled()]))
+
+    def getNonCrossCompiledBinaries(self):
+        return list(itertools.chain(*[x.getBinaryTroves() for x in self.troves
+                                  if x.isBuilt() and not x.isCrossCompiled()]))
 
     def troveFailed(self, trove):
         self.depGraph.delete(trove)
         self.buildReqTroves.pop(trove, False)
 
-    def troveBuildable(self, trove, buildReqs):
-        self.buildReqTroves[trove] = buildReqs
+    def troveBuildable(self, trove, buildReqs, crossReqs):
+        self.buildReqTroves[trove] = (buildReqs, crossReqs)
+
+    def hasCrossRequirements(self, trove):
+        for childTrove, reason in self.depGraph.getChildren(trove,
+                                                            withEdges=True):
+            if reason[0]:
+                return True
+        return False
+
+    def hasCrossRequirers(self, trove):
+        for parentTrove, reason in self.depGraph.getParents(trove,
+                                                            withEdges=True):
+            if reason[0]:
+                return True
+        return False
 
     def hasBuildableTroves(self):
         return bool(self.buildReqTroves)
@@ -223,11 +291,11 @@ class DependencyHandler(object):
                     toFail.append((reqTrove, buildReq))
 
             if failReason:
-                if isinstance(failReason[0], str):
-                    trove.troveMissingBuildReqs([failReason],
+                if isinstance(failReason[1][0], str):
+                    trove.troveMissingBuildReqs([failReason[1]],
                                                 isPrimaryFailure=False)
                 else:
-                    trove.troveMissingDependencies([failReason],
+                    trove.troveMissingDependencies([failReason[1]],
                                                    isPrimaryFailure=False)
                 depState.troveFailed(trove)
             else:
@@ -256,32 +324,53 @@ class DependencyHandler(object):
     def moreToDo(self):
         return self.depState.moreToDo()
 
-    def _addResolutionDeps(self, trv, jobSet):
+    def _addResolutionDeps(self, trv, jobSet, crossJobSet):
         found = set()
-        for name, oldInfo, newInfo, isAbs in jobSet:
-            providingTroves = self.depState.getTrovesByPackage(
+        for jobs, isCross in ((jobSet, False), (crossJobSet, True)):
+            for (name, oldInfo, newInfo, isAbs) in jobs:
+                providingTroves = self.depState.getTrovesByPackage(
                                                             name.split(':')[0])
-            if not providingTroves:
-                continue
-            if (name, newInfo[0], newInfo[1]) in self.depState.builtTroves:
-                continue
+                if not providingTroves:
+                    continue
+                if (name, newInfo[0], newInfo[1]) in self.depState.builtTroves:
+                    continue
 
-            for provTrove in providingTroves:
-                if self.depState.isUnbuilt(provTrove):
-                    if provTrove == trv:
-                        # no point in delaying this trove if the only
-                        # dependency is on ourselves!
-                        continue
-                    found.add(provTrove)
-                    # FIXME: we need to have the actual dependency name!
-                    self.depState.dependsOn(trv, provTrove, 
-                                       (trv.getNameVersionFlavor(),
-                                        deps.parseDep('trove: %s' % name)))
+                for provTrove in providingTroves:
+                    if self.depState.isUnbuilt(provTrove):
+                        if provTrove == trv:
+                            # no point in delaying this trove if the only
+                            # dependency is on ourselves!
+                            continue
+                        if (not isCross and trv.hasTargetArch()
+                            and provTrove.isCrossCompiled()):
+                            continue
+                        if (flavorutil.isCrossCompiler(newInfo[1]) !=
+                            flavorutil.isCrossCompiler(provTrove.getFlavor())):
+                            continue
+                        if not self.depState._flavorsMatch(trv.getFlavor(),
+                                       provTrove.getFlavor(), None, isCross):
+                            # if this trove is for the wrong architecture
+                            # (due to cross compiling), don't delay for it.
+                            continue
+                        if self.depState.isRejectedDep(trv, provTrove, isCross):
+                            continue
+                        found.add(provTrove)
+                        # FIXME: we need to have the actual dependency name!
+                        self.depState.dependsOn(trv, provTrove,
+                                           (isCross, 
+                                            (trv.getNameVersionFlavor(),
+                                            deps.parseDep('trove: %s' % name))))
         return found
 
     def _getResolveJob(self, buildTrove, inCycle=False):
-        return ResolveJob(buildTrove, self.cfg,
-                          self.depState.getBuiltBinaries(),
+        if buildTrove.hasTargetArch():
+            builtTroves = self.depState.getNonCrossCompiledBinaries()
+            crossTroves = self.depState.getCrossCompiledBinaries()
+        else:
+            builtTroves = self.depState.getAllBinaries()
+            crossTroves = []
+
+        return ResolveJob(buildTrove, self.cfg, builtTroves, crossTroves,
                           inCycle=inCycle)
 
     def prioritize(self, trv):
@@ -299,7 +388,7 @@ class DependencyHandler(object):
                       and not x in self._resolving
                       and not x in self._delayed) ]
 
-    def getNextResolveJob(self):
+    def getNextResolveJob(self, breakCycles=True):
         """
             Gets the info for the next trove that needs to be resolved.
         """
@@ -309,7 +398,7 @@ class DependencyHandler(object):
 
         leaves = sorted(depGraph.getLeaves(), key=self.getPriority)
         if not leaves:
-            if self._resolving:
+            if self._resolving or not breakCycles:
                 return
             return self.getResolveJobFromCycle(depGraph)
         leaves = self._filterTroves(leaves)
@@ -326,12 +415,18 @@ class DependencyHandler(object):
             """ 
             Helper fn to determine the order in which to try to break cycles.
             """
+            hasCrossReqs = self.depState.hasCrossRequirements(node)
+            hasCrossProvs = self.depState.hasCrossRequirers(node)
+            if hasCrossProvs and not hasCrossReqs:
+                # This is something required by other cross
+                return -1
             numParentsChildren = [len(list(depGraph.iterChildren(x)))
                                     for x in depGraph.getParents(node)]
             if numParentsChildren:
-                return min(numParentsChildren)
+                numParentsChildren = min(numParentsChildren)
             else:
-                return 0
+                numParentsChildren = 0
+            return numParentsChildren
         # no leaves in the dep graph at this point - we've got to break a dep
         # cycle.  There's no great way to break a cycle, unless you have some 
         # external knowledge about what packages are more 'basic'.
@@ -351,8 +446,7 @@ class DependencyHandler(object):
                     continue
                 self.logger.debug('cycle involves %s troves' % len(cycleTroves))
 
-                cycleTroves = [x[1] for x in sorted((_cycleNodeOrder(x), x) \
-                                                    for x in cycleTroves)]
+                cycleTroves.sort(key=_cycleNodeOrder)
                 trv = cycleTroves[0]
                 self._resolving[trv] = True
             return self._getResolveJob(trv, inCycle=True)
@@ -364,9 +458,11 @@ class DependencyHandler(object):
             self.priorities.remove(trv)
         if results.success:
             buildReqs = results.getBuildReqs()
+            crossReqs = results.getCrossReqs()
             # only compare components, since packages are not necessarily
             # stored in the build reqs for the trove.
-            buildReqTups = set([ (x[0], x[2][0], x[2][1]) for x in buildReqs if ':' in x[0] ])
+            buildReqTups = set([ (x[0], x[2][0], x[2][1])
+                                for x in buildReqs if ':' in x[0] ])
 
             if trv.getPrebuiltRequirements() is not None:
                 preBuiltReqs = set(
@@ -379,10 +475,10 @@ class DependencyHandler(object):
                 self.depState.depGraph.deleteEdges(trv)
                 newDeps = None
             else:
-                newDeps = self._addResolutionDeps(trv, buildReqs)
+                newDeps = self._addResolutionDeps(trv, buildReqs, crossReqs)
             if not newDeps:
                 trv.troveBuildable()
-                self.depState.troveBuildable(trv, buildReqs)
+                self.depState.troveBuildable(trv, buildReqs, crossReqs)
             else:
                 # there are runtime reqs that are being
                 # rebuild.

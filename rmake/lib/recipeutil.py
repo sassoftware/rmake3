@@ -69,6 +69,7 @@ def loadRecipe(repos, name, version, flavor, recipeFile=None,
                                        installLabelPath=installLabelPath,
                                        buildLabel=buildLabel)
         relevantFlavor = use.usedFlagsToFlavor(recipeObj.name)
+        relevantFlavor = flavorutil.removeInstructionSetFlavor(relevantFlavor)
         # always add in the entire arch flavor.  We need to ensure the
         # relevant flavor is unique per architecture, also, arch flavors
         # can affect the macros used.
@@ -120,6 +121,7 @@ def getRecipeObj(repos, name, version, flavor, recipeFile,
         cfg.installLabelPath = [buildLabel]
     else:
         cfg.installLabelPath = installLabelPath
+    cfg.buildFlavor = flavor
     name = name.split(':')[0]
     use.LocalFlags._clear()
     assert(flavorutil.getArch(flavor))
@@ -178,6 +180,7 @@ def loadRecipeClass(repos, name, version, flavor, recipeFile=None,
     label = version.branch().label()
     cfg.installLabelPath = [label]
     cfg.buildLabel = label
+    cfg.buildFlavor = flavor
     name = name.split(':')[0]
 
     use.LocalFlags._clear()
@@ -250,12 +253,10 @@ def loadSourceTroves(job, repos, buildFlavor, troveTupleList,
                 recipeType = buildtrove.getRecipeType(recipeObj)
                 buildTrove = buildtrove.BuildTrove(None, n, v, relevantFlavor,
                                                    recipeType=recipeType)
-                # remove reference to recipe from the loadedSpecs tuple
                 buildTrove.setLoadedSpecs(_getLoadedSpecs(recipeObj))
-                buildTrove.setBuildRequirements(getattr(recipeObj,
-                                                    'buildRequires', []))
-                buildTrove.setDerivedPackages(getattr(recipeObj, 'packages',
-                                                      [recipeObj.name]))
+                buildTrove.setBuildRequirements(getattr(recipeObj, 'buildRequires', []))
+                buildTrove.setCrossRequirements(getattr(recipeObj, 'crossRequires', []))
+                buildTrove.setDerivedPackages(getattr(recipeObj, 'packages', [recipeObj.name]))
             except Exception, err:
                 if relevantFlavor is None:
                     relevantFlavor = f
@@ -310,18 +311,29 @@ class RemoveHostRepos(object):
 
     def findTroves(self, labelPath, *args, **kw):
         if labelPath is not None:
-            newPath = []
-            for label in labelPath:
-                if label.getHost() != self.host:
-                    newPath.append(label)
-            labelPath = newPath
+            labelPath = [ x for x in labelPath if x.getHost() != self.host]
         return self.troveSource.findTroves(labelPath, *args, **kw)
+
+    def findTrove(self, labelPath, *args, **kw):
+        if labelPath is not None:
+            labelPath = [ x for x in labelPath if x.getHost() != self.host]
+        return self.troveSource.findTrove(labelPath, *args, **kw)
 
 class RemoveHostSource(trovesource.SearchableTroveSource):
     def __init__(self, troveSource, host):
         self.troveSource = troveSource
         self.host = host
         trovesource.SearchableTroveSource.__init__(self)
+        self._bestFlavor = troveSource._bestFlavor
+        self._getLeavesOnly = troveSource._getLeavesOnly
+        self._flavorCheck = troveSource._flavorCheck
+        self._allowNoLabel = troveSource._allowNoLabel
+
+    def resolveDependencies(self, *args, **kw):
+        return self.troveSource.resolveDependencies(*args, **kw)
+
+    def resolveDependenciesByGroups(self, *args, **kw):
+        return self.troveSource.resolveDependenciesByGroups(*args, **kw)
 
     def trovesByName(self, name):
         return self.troveSource.trovesByName(name)

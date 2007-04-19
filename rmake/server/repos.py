@@ -47,6 +47,9 @@ def startRepository(cfg = None, fork = True, logger=None):
     util.mkdirChain('%s/contents' % baseDir)
 
 
+    serverConfig = os.path.join(cfg.getReposDir(), 'serverrc')
+    if os.path.exists(serverConfig):
+        os.unlink(serverConfig)
     serverCfg = server.ServerConfig(os.path.join(cfg.getReposDir(), 'serverrc'))
     serverCfg.repositoryDB = ('sqlite', cfg.getReposPath())
     #serverCfg.cacheDB = ('sqlite', cfg.getReposCachePath())
@@ -124,7 +127,6 @@ def addUser(cfg, name, password=None, write=False):
 
     netRepos.auth.addUser(name, password)
     netRepos.auth.addAcl(name, None, None, write, False, False)
-
 
 if __name__ == '__main__':
     sys.excepthook = util.genExcepthook()
