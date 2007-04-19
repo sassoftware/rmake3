@@ -68,7 +68,7 @@ class RepositoryCache(object):
         self.root = cacheDir
         self.store = DataStore(cacheDir)
         self.readOnly = readOnly
-        self.fileCache = util.LazyFileCache()
+        self.fileCache = LazyFileCache(300)
 
     def hashGroupDeps(self, groupTroves, depClass, dependency):
         depSet = deps.DependencySet()
@@ -273,3 +273,10 @@ class DataStore(datastore.DataStore):
 class CacheError(Exception):
     pass
 
+class LazyFileCache(util.LazyFileCache):
+    # derive from util LazyFileCache which tries to read /proc/self/fd 
+    # to get the total number of open files.  Unfortunately, when you 
+    # drop privileges as aprt v
+
+    def _getFdCount(self):
+        return self._fdCounter
