@@ -40,6 +40,7 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
         self.logger = logger
         self.csCache = csCache
         if targetFlavor is not None:
+            cfg.initializeFlavors()
             self.sysroot = flavorutil.getSysRootPath(targetFlavor)
 
         self.addDir('/tmp', mode=01777)
