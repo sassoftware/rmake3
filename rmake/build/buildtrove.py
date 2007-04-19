@@ -14,6 +14,7 @@ from rmake import failure
 from rmake.build import publisher
 from rmake.lib import apiutils
 from rmake.lib.apiutils import freeze, thaw
+from rmake.lib import flavorutil
 
 troveStates = {
     'TROVE_STATE_INIT'        : 0,
@@ -94,6 +95,7 @@ class _AbstractBuildTrove:
         self.version = version
         self.flavor = flavor
         self.buildRequirements = set()
+        self.crossRequirements = set()
         self.builtTroves = set()
         self.loadedSpecs = {}
         self.packages = set([name.split(':')[0]])
@@ -141,6 +143,17 @@ class _AbstractBuildTrove:
 
     def isPrimaryFailure(self):
         return self.state == TROVE_STATE_FAILED
+
+    def hasTargetArch(self):
+        return flavorutil.hasTarget(self.flavor)
+
+    def isCrossCompiled(self):
+        # cross compiler tool chain tools are not cross compiled.
+        # At least, in our simplified world they're not.
+        if not self.hasTargetArch():
+            return False
+        isCrossTool = flavorutil.getCrossCompile(self.flavor)[2]
+        return not isCrossTool
 
     def isFailed(self):
         return self.state in (TROVE_STATE_FAILED, TROVE_STATE_UNBUILDABLE)
@@ -203,6 +216,9 @@ class _AbstractBuildTrove:
     def setBuildRequirements(self, buildReqs):
         self.buildRequirements = set(buildReqs)
 
+    def setCrossRequirements(self, crossReqs):
+        self.crossRequirements = set(crossReqs)
+
     def setLoadedSpecs(self, loadedSpecs):
         self.loadedSpecs = dict(loadedSpecs)
 
@@ -212,12 +228,20 @@ class _AbstractBuildTrove:
     def iterBuildRequirements(self):
         return iter(self.buildRequirements)
 
+
     def getBuildRequirements(self):
         return list(self.buildRequirements)
 
     def getBuildRequirementSpecs(self):
         return [ cmdline.parseTroveSpec(x) 
                  for x in self.iterBuildRequirements() ]
+
+    def getCrossRequirements(self):
+        return iter(self.crossRequirements)
+
+    def getCrossRequirementSpecs(self):
+        return [ cmdline.parseTroveSpec(x)
+                 for x in self.getCrossRequirements() ]
 
     def getLoadedSpecs(self):
         return dict(self.loadedSpecs) 
@@ -275,6 +299,7 @@ class _FreezableBuildTrove(_AbstractBuildTrove):
                  'name'              : 'str',
                  'version'           : 'version',
                  'flavor'            : 'flavor',
+                 'crossRequirements' : 'set',
                  'buildRequirements' : 'set',
                  'builtTroves'       : 'troveTupleList',
                  'failureReason'     : 'FailureReason',

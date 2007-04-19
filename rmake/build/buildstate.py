@@ -12,6 +12,7 @@ class AbstractBuildState(object):
 
     def __init__(self, sourceTroves):
         self.troves = []
+        self.trovesByNVF = {}
 
         self.states = dict((x, set()) for x in buildtrove.TROVE_STATE_LIST)
         self.statesByTrove = {}
@@ -20,8 +21,12 @@ class AbstractBuildState(object):
     def addTroves(self, sourceTroves):
         self.troves.extend(sourceTroves)
         for sourceTrove in sourceTroves:
+            self.trovesByNVF[sourceTrove.getNameVersionFlavor()] = sourceTrove
             self.states[sourceTrove.state].add(sourceTrove)
             self.statesByTrove[sourceTrove.getNameVersionFlavor()] = sourceTrove.state
+
+    def getTrove(self, name, version, flavor):
+        return self.trovesByNVF[name, version, flavor]
 
     def _setState(self, sourceTrove, newState):
         nvf = sourceTrove.getNameVersionFlavor()

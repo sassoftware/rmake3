@@ -67,7 +67,7 @@ class ChrootManager(object):
         if root in self.chroots:
             del self.chroots[root]
 
-    def getRootFactory(self, cfg, jobList, buildTrove):
+    def getRootFactory(self, cfg, buildReqList, crossReqList, buildTrove):
         cfg = copy.deepcopy(cfg)
         cfg.threaded = False
 
@@ -99,7 +99,8 @@ class ChrootManager(object):
 
         chroot = chrootClass(buildTrove,
                              self.chrootHelperPath,
-                             cfg, self.serverCfg, jobList, self.logger,
+                             cfg, self.serverCfg, buildReqList, crossReqList,
+                             self.logger,
                              csCache=self.csCache,
                              copyInConary=copyInConary)
         buildLogPath = self.serverCfg.getBuildLogPath(buildTrove.jobId)

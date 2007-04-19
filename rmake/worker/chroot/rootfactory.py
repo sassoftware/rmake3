@@ -21,6 +21,7 @@ from conary.lib import util, log
 #rmake
 from rmake import constants
 from rmake import errors
+from rmake.lib import flavorutil
 from rmake.lib import rootfactory
 
 class ConaryBasedChroot(rootfactory.BasicChroot):
@@ -29,55 +30,75 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
         the necessary files for the root to be usuable, and cleaning up
         after itself as much as possible.
     """
-    def __init__(self, jobList, logger, cfg, csCache=None):
+    def __init__(self, jobList, crossJobList, logger, cfg, csCache=None,
+                 targetFlavor=None):
         rootfactory.BasicChroot.__init__(self)
         self.cfg = cfg
         self.jobList = jobList
+        self.crossJobList = crossJobList
         self.callback = None
         self.logger = logger
         self.csCache = csCache
+        if targetFlavor is not None:
+            self.sysroot = flavorutil.getSysRootPath(targetFlavor)
 
         self.addDir('/tmp', mode=01777)
         self.addDir('/var/tmp', mode=01777)
         self.addDir('/etc')
         self.addDir('/etc/rmake')
         self.addDir('/etc/conary')
+
         self.addDir(self.cfg.tmpDir, mode=01777)
+        if self.crossJobList:
+            self.addDir('%s/lib' % self.sysroot)
+            self.addDir('%s/usr/lib' % self.sysroot)
 
     def install(self):
-        if not self.jobList:
+        if not self.jobList and not self.crossJobList:
             # should only be true in debugging situations
             return
         assert(self.cfg.root == self.root)
-        client = conaryclient.ConaryClient(self.cfg)
-        client.setUpdateCallback(self.callback)
 
-        if self.csCache:
-            changeSetList = self.csCache.getChangeSets(client.getRepos(),
-                                                       self.jobList,
-                                                       callback=self.callback)
-        else:
-            changeSetList = []
+        def _install(jobList):
+            client = conaryclient.ConaryClient(self.cfg)
+            client.setUpdateCallback(self.callback)
+            if self.csCache:
+                changeSetList = self.csCache.getChangeSets(client.getRepos(),
+                                                           jobList,
+                                                           callback=self.callback)
+            else:
+                changeSetList = []
 
-        #self.logger.info('Troves To Install:')
-        #self.logger.info('\n    '.join('%s=%s[%s]' % (x[0], x[2][0], x[2][1])
-        #                       for x in sorted(self.jobList)))
+            #self.logger.info('Troves To Install:')
+            #self.logger.info('\n    '.join('%s=%s[%s]' % (x[0], x[2][0], x[2][1])
+            #                       for x in sorted(self.jobList)))
 
+            try:
+                updJob, suggMap = client.updateChangeSet(
+                    jobList, keepExisting=False, resolveDeps=False,
+                    recurse=False, checkPathConflicts=False,
+                    fromChangesets=changeSetList,
+                    migrate=True)
+            except conaryclient.update.NoNewTrovesError:
+                # since we're migrating, this simply means there were no
+                # operations to be performed
+                pass
+            else:
+                util.mkdirChain(self.cfg.root + '/root')
+                client.applyUpdate(updJob, replaceFiles=True,
+                                   tagScript=self.cfg.root + '/root/tagscripts')
+
+        if self.jobList:
+            _install(self.jobList)
+
+        if not self.crossJobList:
+            return
+        oldRoot = self.cfg.root
         try:
-            updJob, suggMap = client.updateChangeSet(
-                self.jobList, keepExisting=False, resolveDeps=False,
-                recurse=False, checkPathConflicts=False,
-                fromChangesets=changeSetList,
-                migrate=True)
-        except conaryclient.update.NoNewTrovesError:
-            # since we're migrating, this simply means there were no
-            # operations to be performed
-            pass
-        else:
-            util.mkdirChain(self.cfg.root + '/root')
-            client.applyUpdate(updJob, replaceFiles=True,
-                               tagScript=self.cfg.root + '/root/tagscripts')
-
+            self.cfg.root += self.sysroot
+            _install(self.crossJobList)
+        finally:
+            self.cfg.root = oldRoot
 
     def _copyInConary(self):
         conaryDir = os.path.dirname(sys.modules['conary'].__file__)
@@ -104,14 +125,14 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
 class rMakeChroot(ConaryBasedChroot):
 
     def __init__(self, buildTrove, chrootHelperPath, cfg, serverCfg,
-                 jobList, logger, uid=None, gid=None, csCache=None,
-                 copyInConary=True):
+                 jobList, crossJobList, logger, uid=None, gid=None, 
+                 csCache=None, copyInConary=True):
         """ 
             uid/gid:  the uid/gid which special files in the chroot should be 
                       owned by
         """
-        ConaryBasedChroot.__init__(self, jobList, logger, cfg, csCache)
-
+        ConaryBasedChroot.__init__(self, jobList, crossJobList, logger, cfg,
+                                   csCache, buildTrove.getFlavor())
         self.jobId = buildTrove.jobId
         self.buildTrove = buildTrove
         self.chrootHelperPath = chrootHelperPath
@@ -124,7 +145,6 @@ class rMakeChroot(ConaryBasedChroot):
                 if os.path.exists(dir):
                     self.copyDir(dir)
         self._copyInRmake()
-        self._cacheBuildFiles()
 
     def getRoot(self):
         return self.cfg.root

@@ -1,16 +1,18 @@
 #
 # Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
 #
+import copy
 import itertools
 import time
 
 from conary import conaryclient
 from conary.conaryclient import resolve
+from conary.deps import deps
 from conary.lib import log
 from conary.local import database
 from conary.repository import trovesource
 
-from rmake.lib import apiutils, recipeutil
+from rmake.lib import apiutils, flavorutil, recipeutil
 from rmake.lib.apiutils import register, freeze, thaw
 from rmake.worker import resolvesource
 
@@ -18,6 +20,7 @@ class ResolveResult(object):
     def __init__(self, inCycle=False):
         self.success = False
         self.buildReqs = []
+        self.crossReqs = []
         self.missingBuildReqs = []
         self.missingDeps = []
         self.inCycle = inCycle
@@ -25,6 +28,10 @@ class ResolveResult(object):
     def getBuildReqs(self):
         assert(self.success)
         return self.buildReqs
+
+    def getCrossReqs(self):
+        assert(self.success)
+        return self.crossReqs
 
     def getMissingBuildReqs(self):
         return self.missingBuildReqs
@@ -38,9 +45,10 @@ class ResolveResult(object):
     def hasMissingDeps(self):
         return bool(self.missingDeps)
 
-    def troveResolved(self, buildReqs):
+    def troveResolved(self, buildReqs, crossReqs):
         self.success = True
         self.buildReqs = buildReqs
+        self.crossReqs = crossReqs
 
     def troveMissingBuildReqs(self, buildReqs):
         self.success = False
@@ -55,7 +63,8 @@ class ResolveResult(object):
         d.update(missingBuildReqs=freeze('troveSpecList',
                                          self.missingBuildReqs))
         d.update(buildReqs=freeze('installJobList', self.buildReqs))
-        d.update(missingDeps=freeze('dependencyList', self.missingDeps))
+        d.update(crossReqs=freeze('installJobList', self.crossReqs))
+        d.update(missingDeps=freeze('dependencyMissingList', self.missingDeps))
         return d
 
     @classmethod
@@ -63,7 +72,8 @@ class ResolveResult(object):
         self = class_()
         self.__dict__.update(d)
         self.buildReqs = thaw('installJobList', self.buildReqs)
-        self.missingDeps = thaw('dependencyList', self.missingDeps)
+        self.crossReqs = thaw('installJobList', self.crossReqs)
+        self.missingDeps = thaw('dependencyMissingList', self.missingDeps)
         self.missingBuildReqs = thaw('troveSpecList', self.missingBuildReqs)
         return self
 register(ResolveResult)
@@ -77,10 +87,22 @@ class DependencyResolver(object):
         self.logger = logger
         self.repos = repos
 
-    def getSources(self, resolveJob):
+    def getSources(self, resolveJob, cross=False):
         cfg = resolveJob.getConfig()
-        builtTroves = self.repos.getTroves(resolveJob.getBuiltTroves(),
-                                           withFiles=False)
+
+        if cross:
+            buildFlavor = deps.overrideFlavor(resolveJob.buildCfg.buildFlavor,
+                                              resolveJob.getTrove().getFlavor())
+            buildFlavor = deps.overrideFlavor(buildFlavor,
+                                              deps.parseFlavor('!cross'))
+            builtTroveTups = (resolveJob.getCrossTroves()
+                              + resolveJob.getBuiltTroves())
+            cfg = copy.deepcopy(cfg)
+            cfg.flavor = [ flavorutil.setISFromTargetFlavor(buildFlavor) ]
+        else:
+            builtTroveTups = resolveJob.getBuiltTroves()
+
+        builtTroves = self.repos.getTroves(builtTroveTups, withFiles=False)
         builtTroveSource = resolvesource.BuiltTroveSource(builtTroves)
         if builtTroves:
             # this makes sure that if someone searches for a buildreq on
@@ -90,13 +112,18 @@ class DependencyResolver(object):
             builtTroveSource = recipeutil.RemoveHostSource(builtTroveSource,
                                                            rMakeHost)
         if cfg.resolveTroveTups:
-            return self.getSourcesWithResolveTroves(cfg, cfg.resolveTroveTups,
+            searchSource, resolveSource = self.getSourcesWithResolveTroves(cfg,
+                                                    cfg.resolveTroveTups,
                                                     builtTroveSource)
-
-        searchSource = resolvesource.DepHandlerSource(builtTroveSource,
-                                                      [], self.repos)
-        resolveSource = resolvesource.DepResolutionByTroveLists(cfg, None, [])
-        return searchSource, resolveSource 
+        else:
+            searchSource = resolvesource.DepHandlerSource(builtTroveSource,
+                                                          [], self.repos)
+            resolveSource = resolvesource.DepResolutionByTroveLists(cfg,
+                                                        builtTroveSource, [],
+                                                        self.repos)
+        if cross:
+            resolveSource.removeFileDependencies = True
+        return searchSource, resolveSource
 
     def getSourcesWithResolveTroves(self, cfg, resolveTroveTups,
                                     builtTroveSource):
@@ -117,8 +144,10 @@ class DependencyResolver(object):
                            searchSourceTroves,
                            self.repos,
                            useInstallLabelPath=not cfg.resolveTrovesOnly)
-        resolveSource = resolvesource.DepResolutionByTroveLists(cfg, None,
-                                                        searchSourceTroves)
+        resolveSource = resolvesource.DepResolutionByTroveLists(cfg, 
+                                                        builtTroveSource,
+                                                        searchSourceTroves,
+                                                        self.repos)
         return searchSource, resolveSource
 
     def resolve(self, resolveJob):
@@ -156,21 +185,64 @@ class DependencyResolver(object):
 
         resolveResult = ResolveResult(inCycle=resolveJob.inCycle)
 
-        if not trv.getBuildRequirements():
-            resolveResult.troveResolved([])
+        buildReqs = trv.getBuildRequirementSpecs()
+        crossReqs = trv.getCrossRequirementSpecs()
+        if not (buildReqs or crossReqs):
+            resolveResult.troveResolved([], [])
             return resolveResult
+        self.logger.debug('   finding buildreqs for %s....' % trv.getName())
+        self.logger.debug('   resolving deps for %s...' % trv.getName())
+        start = time.time()
+        buildReqJobs = crossReqJobs = []
+        if buildReqs:
+            success, results = self._resolve(cfg, resolveResult, trv,
+                                             searchSource, resolveSource,
+                                             installLabelPath, searchFlavor,
+                                             buildReqs)
+            if success:
+                buildReqJobs = results
+            else:
+                return resolveResult
+        if crossReqs:
+            searchSource, resolveSource = self.getSources(resolveJob,
+                                                          cross=True)
+            searchFlavor = resolveSource.flavor
+            success, results = self._resolve(cfg, resolveResult, trv,
+                                             searchSource, resolveSource,
+                                             installLabelPath, searchFlavor,
+                                             crossReqs)
+            if success:
+                crossReqJobs = results
+            else:
+                return resolveResult
+        self.logger.debug('   took %s seconds' % (time.time() - start))
+        self.logger.info('   Resolved troves:')
+        if crossReqJobs:
+            self.logger.info('   Cross Requirements:')
+            self.logger.info('\n    '.join(['%s=%s[%s]' % (x[0], x[2][0], x[2][1])
+                                   for x in sorted(crossReqJobs)]))
+        if buildReqJobs:
+            self.logger.info('   Build Requirements:')
+            self.logger.info('\n    '.join(['%s=%s[%s]' % (x[0],
+                                                          x[2][0], x[2][1])
+                               for x in sorted(buildReqJobs)]))
+        resolveResult.troveResolved(buildReqJobs, crossReqJobs)
+        return resolveResult
+
+
+    def _resolve(self, cfg, resolveResult, trove, searchSource, resolveSource,
+                 installLabelPath, searchFlavor, reqs):
+        client = conaryclient.ConaryClient(cfg)
 
         finalToInstall = {}
 
         # we allow build requirements to be matched against anywhere on the
         # install label.  Create a list of all of this trove's labels,
         # from latest on branch to earliest to use as search labels.
-        self.logger.debug('   finding buildreqs for %s....' % trv.getName())
-        start = time.time()
 
         # don't follow redirects when resolving buildReqs
         result = searchSource.findTroves(installLabelPath,
-                                     trv.getBuildRequirementSpecs(),
+                                     reqs,
                                      searchFlavor, allowMissing=True,
                                      acrossLabels=False,
                                      troveTypes=trovesource.TROVE_QUERY_NORMAL)
@@ -178,22 +250,20 @@ class DependencyResolver(object):
 
         buildReqTups = []
         missingBuildReqs = []
-        for troveSpec in trv.getBuildRequirementSpecs():
+        for troveSpec in reqs:
             solutions = result.get(troveSpec, [])
             if not solutions:
                 missingBuildReqs.append(troveSpec)
                 okay = False
             else:
-                sol = _findBestSolution(trv, troveSpec, solutions, searchFlavor)
+                sol = _findBestSolution(trove, troveSpec, solutions, searchFlavor)
                 buildReqTups.append(sol)
 
         if not okay:
             self.logger.debug('could not find all buildreqs: %s' % (missingBuildReqs,))
             resolveResult.troveMissingBuildReqs(missingBuildReqs)
-            return resolveResult
+            return False, None
 
-        self.logger.debug('   resolving deps for %s...' % trv.getName())
-        start = time.time()
         itemList = [ (x[0], (None, None), (x[1], x[2]), True)
                                                 for x in buildReqTups ]
 
@@ -211,18 +281,12 @@ class DependencyResolver(object):
         jobSet.update((x[0], (None, None), (x[1], x[2]), False) 
                       for x in itertools.chain(*suggMap.itervalues()))
         if cannotResolve or depList:
-            self.logger.debug('Failed - unresolved deps - took %s seconds' % (time.time() - start))
             self.logger.debug('Missing: %s' % ((depList + cannotResolve),))
             resolveResult.troveMissingDependencies(depList + cannotResolve)
-            return resolveResult
+            return False, resolveResult
 
         self._addPackages(searchSource, jobSet)
-        self.logger.debug('   took %s seconds' % (time.time() - start))
-        self.logger.info('   Resolved troves:')
-        self.logger.info('\n    '.join('%s=%s[%s]' % (x[0], x[2][0], x[2][1])
-                               for x in sorted(jobSet)))
-        resolveResult.troveResolved(jobSet)
-        return resolveResult
+        return True, jobSet
 
     def _addPackages(self, searchSource, jobSet):
         """

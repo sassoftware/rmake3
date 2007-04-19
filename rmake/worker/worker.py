@@ -87,15 +87,15 @@ class Worker(server.Server):
             self._killPid(pid)
 
     def buildTrove(self, buildCfg, jobId, trove, eventHandler,
-                   buildReqs, targetLabel, logHost='', logPort=0, logPath=None,
-                   commandId=None):
+                   buildReqs, crossReqs, targetLabel, logHost='', logPort=0, 
+                   logPath=None, commandId=None):
         if not commandId:
             commandId = self.idgen.getBuildCommandId(trove)
         if logPath is None:
             logPath = trove.logPath
 
         chrootFactory = self.chrootManager.getRootFactory(buildCfg, buildReqs,
-                                                          trove)
+                                                          crossReqs, trove)
         self.queueCommand(self.commandClasses['build'], self.cfg, commandId,
                           jobId, eventHandler, buildCfg, chrootFactory,
                           trove, targetLabel, logHost, logPort, logPath)

@@ -170,8 +170,8 @@ class Builder(object):
                 if self.worker._checkForResults():
                     self.resolveIfReady()
                 elif self.dh.hasBuildableTroves():
-                    trv, buildReqs = self.dh.popBuildableTrove()
-                    self.buildTrove(trv, buildReqs)
+                    trv, (buildReqs, crossReqs) = self.dh.popBuildableTrove()
+                    self.buildTrove(trv, buildReqs, crossReqs)
                 elif not self.resolveIfReady():
                     time.sleep(0.1)
             if self.dh.jobPassed():
@@ -182,14 +182,14 @@ class Builder(object):
             self.job.jobFailed('Did not find any buildable troves')
         return False
 
-    def buildTrove(self, troveToBuild, buildReqs):
+    def buildTrove(self, troveToBuild, buildReqs, crossReqs):
         targetLabel = self.buildCfg.getTargetLabel(troveToBuild.getVersion())
         troveToBuild.troveQueued('Waiting to be assigned to chroot')
         troveToBuild.disown()
         logHost, logPort = self.worker.startTroveLogger(troveToBuild)
         self.worker.buildTrove(self.buildCfg, troveToBuild.jobId,
                                troveToBuild, self.eventHandler, buildReqs,
-                               targetLabel, logHost, logPort)
+                               crossReqs, targetLabel, logHost, logPort)
 
     def resolveIfReady(self):
         resolveJob = self.dh.getNextResolveJob()

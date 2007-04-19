@@ -15,6 +15,7 @@ Changes in @NEW@:
        the binary version, unless you specify --binary-search. (RMK-397)
   o Build Changes:
      * the rMake chroot user now has its HOME value set to /tmp/rmake. (RMK-380)
+     * rMake now supports cross compiling. (RMK-396)
   o Bug Fixes:
      * Command line flavor overrides now work w/ groups (RMK-382)
      * Make chroot command more resilient against large amounts of data.

@@ -277,6 +277,20 @@ class api_dependencyList:
         return [ ThawDependencySet(x) for x in depList ]
 register(api_dependencyList)
 
+class api_dependencyMissingList:
+    name = 'dependencyMissingList'
+
+    @staticmethod
+    def __freeze__(depList):
+        return [ (freeze('troveTuple', x[0]), x[1].freeze()) for x in depList ]
+
+    @staticmethod
+    def __thaw__(depList):
+        return [ (thaw('troveTuple', x[0]), ThawDependencySet(x[1])) 
+                        for x in depList ]
+register(api_dependencyMissingList)
+
+
 
 class api_set:
     name = 'set'
