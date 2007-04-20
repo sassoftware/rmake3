@@ -279,4 +279,4 @@ class LazyFileCache(util.LazyFileCache):
     # drop privileges as aprt v
 
     def _getFdCount(self):
-        return self._fdCounter
+        return len([ x for x in self._fdMap.values() if x._realFd is not None])

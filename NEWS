@@ -1,3 +1,8 @@
+Changes in 1.0.8.1:
+  o Bug Fixes:
+    * A bug in rMake's changeset caching caused rMake to fail when building
+      jobs that required more than 300 components be installed. (RMK-425)
+
 Changes in 1.0.8:
   o Client Changes:
      * "rmake commit" now will take multiple jobIds.  This functionality
