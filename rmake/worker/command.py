@@ -223,12 +223,13 @@ class BuildCommand(TroveCommand):
     name = 'build-command'
 
     def __init__(self, serverCfg, commandId, jobId, eventHandler, buildCfg,
-                 chrootFactory, trove, targetLabel, logHost='', logPort=0,
-                 logPath=None, uri=None):
+                 chrootFactory, trove, builtTroves, targetLabel, logHost='', 
+                 logPort=0, logPath=None, uri=None):
         TroveCommand.__init__(self, serverCfg, commandId, jobId, eventHandler,
                               trove)
         self.buildCfg = buildCfg
         self.chrootFactory = chrootFactory
+        self.builtTroves = builtTroves
         self.targetLabel = targetLabel
         self.logHost = logHost
         self.logPort = logPort
@@ -254,8 +255,9 @@ class BuildCommand(TroveCommand):
         n,v,f = trove.getNameVersionFlavor()
         logPath, pid = self.chroot.buildTrove(self.buildCfg,
                                               self.targetLabel,
-                                              n, v, f, 
+                                              n, v, f,
                                               trove.getLoadedSpecs(),
+                                              self.builtTroves,
                                               self.logHost,
                                               self.logPort)
         # sends off message that this trove is building.

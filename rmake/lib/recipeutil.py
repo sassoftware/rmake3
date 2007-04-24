@@ -52,7 +52,7 @@ def getRecipes(repos, troveTups):
 
 def loadRecipe(repos, name, version, flavor, recipeFile=None,
                defaultFlavor=None, loadInstalledSource=None,
-               installLabelPath=None, buildLabel=None):
+               installLabelPath=None, buildLabel=None, groupRecipeSource=None):
     name = name.split(':')[0]
     try:
         if defaultFlavor is not None:
@@ -67,7 +67,8 @@ def loadRecipe(repos, name, version, flavor, recipeFile=None,
                                        version, fullFlavor, recipeFile,
                                        loadInstalledSource=loadInstalledSource,
                                        installLabelPath=installLabelPath,
-                                       buildLabel=buildLabel)
+                                       buildLabel=buildLabel, 
+                                       groupRecipeSource=groupRecipeSource)
         relevantFlavor = use.usedFlagsToFlavor(recipeObj.name)
         relevantFlavor = flavorutil.removeInstructionSetFlavor(relevantFlavor)
         # always add in the entire arch flavor.  We need to ensure the
@@ -111,7 +112,8 @@ def loadRecipe(repos, name, version, flavor, recipeFile=None,
 
 def getRecipeObj(repos, name, version, flavor, recipeFile,
                  loadInstalledSource=None, installLabelPath=None, 
-                 loadRecipeSpecs=None, buildLabel = None):
+                 loadRecipeSpecs=None, buildLabel = None,
+                 groupRecipeSource=None):
     cfg = conarycfg.ConaryConfiguration(False)
     cfg.initializeFlavors()
     branch = version.branch()
@@ -148,6 +150,9 @@ def getRecipeObj(repos, name, version, flavor, recipeFile,
                                 {'buildlabel' : buildLabel.asString()})
         recipeObj.sourceVersion = version
         recipeObj.setup()
+        if groupRecipeSource:
+            sourceComponents = recipeObj._findSources(groupRecipeSource)
+            recipeObj.delayedRequires = sourceComponents
     elif recipe.isPackageRecipe(recipeClass):
         recipeObj = recipeClass(cfg, None, None,
                                 {'buildlabel' : buildLabel.asString()},
@@ -226,7 +231,8 @@ def _getLoadedSpecs(recipeClass):
     return finalDict
 
 def loadSourceTroves(job, repos, buildFlavor, troveTupleList,
-                     loadInstalledSource=None, installLabelPath=None):
+                     loadInstalledSource=None, installLabelPath=None,
+                     groupRecipeSource=None):
     """
        Load the source troves associated set of (name, version, flavor) tuples
        and return a list of source trove tuples with relevant information about
@@ -249,14 +255,18 @@ def loadSourceTroves(job, repos, buildFlavor, troveTupleList,
                                      (recipeFile, trove),
                                      buildFlavor,
                                      loadInstalledSource=loadInstalledSource,
-                                     installLabelPath=installLabelPath)
+                                     installLabelPath=installLabelPath,
+                                     groupRecipeSource=groupRecipeSource)
                 recipeType = buildtrove.getRecipeType(recipeObj)
                 buildTrove = buildtrove.BuildTrove(None, n, v, relevantFlavor,
                                                    recipeType=recipeType)
                 buildTrove.setLoadedSpecs(_getLoadedSpecs(recipeObj))
+                buildTrove.setDerivedPackages(getattr(recipeObj, 'packages',
+                                                      [recipeObj.name]))
+                if 'delayedRequires' in recipeObj.__dict__:
+                    buildTrove.setDelayedRequirements(recipeObj.delayedRequires)
                 buildTrove.setBuildRequirements(getattr(recipeObj, 'buildRequires', []))
                 buildTrove.setCrossRequirements(getattr(recipeObj, 'crossRequires', []))
-                buildTrove.setDerivedPackages(getattr(recipeObj, 'packages', [recipeObj.name]))
             except Exception, err:
                 if relevantFlavor is None:
                     relevantFlavor = f
@@ -297,9 +307,13 @@ def getSourceTrovesFromJob(job, buildCfg, serverCfg, repos):
     loadInstalledSource = trovesource.stack(buildTroveSource,
                                             *loadInstalledList)
     repos = trovesource.stack(*loadInstalledList)
+
+    groupRecipeSource = trovesource.SimpleTroveSource(troveList)
+
     return loadSourceTroves(job, repos, buildFlavor, troveList,
                             loadInstalledSource=loadInstalledSource,
-                            installLabelPath=buildCfg.installLabelPath)
+                            installLabelPath=buildCfg.installLabelPath,
+                            groupRecipeSource=groupRecipeSource)
 
 class RemoveHostRepos(object):
     def __init__(self, troveSource, host):
@@ -329,8 +343,30 @@ class RemoveHostSource(trovesource.SearchableTroveSource):
         self._flavorCheck = troveSource._flavorCheck
         self._allowNoLabel = troveSource._allowNoLabel
 
-    def resolveDependencies(self, *args, **kw):
-        return self.troveSource.resolveDependencies(*args, **kw)
+    def resolveDependencies(self, label, *args, **kw):
+        if self._allowNoLabel:
+            return self.troveSource.resolveDependencies(label, *args, **kw)
+
+        suggMap = self.troveSource.resolveDependencies(None, *args, **kw)
+        for depSet, solListList in suggMap.iteritems():
+            newSolListList = []
+            for solList in solListList:
+                newSolList = []
+                for sol in solList:
+                    trailingLabel = sol[1].trailingLabel()
+                    if trailingLabel == label:
+                        newSolList.append(sol)
+                    if trailingLabel.getHost() != self.host:
+                        continue
+                    if not sol[1].branch().hasParentBranch():
+                        continue
+                    if sol[1].branch().parentBranch().label() != label:
+                        continue
+                    newSolList.append(sol)
+                newSolListList.append(newSolList)
+            suggMap[depSet] = newSolListList
+        return suggMap
+
 
     def resolveDependenciesByGroups(self, *args, **kw):
         return self.troveSource.resolveDependenciesByGroups(*args, **kw)
@@ -375,3 +411,5 @@ class RemoveHostSource(trovesource.SearchableTroveSource):
                                                         versionQuery)
         return dict((x[0], [versionMap[y] for y in x[1]])
                      for x in results.items())
+
+

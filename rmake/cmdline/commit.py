@@ -31,56 +31,55 @@ def commitJobs(conaryclient, jobList, rmakeConfig, message=None,
         err = 'Job(s) already committed'
         return False, err
 
+    allTroves = []
     trovesByBranch = {}
     for job in jobsToCommit:
         mapping[job.jobId] = {}
         for troveTup in job.iterTroveList():
             trove = job.getTrove(*troveTup)
+            allTroves.append(trove)
             troveVersion = trove.getVersion()
             if troveVersion.getHost() == rmakeConfig.serverName:
-                if troveVersion.branch().hasParentBranch():
-                    targetBranch = troveVersion.branch().parentBranch()
-                else:
+                if not troveVersion.branch().hasParentBranch():
                     message = ('Cannot commit filesystem cook %s - '
                                ' nowhere to commit to!' % troveTup[0])
                     return False, message
-            else:
-                targetBranch = trove.getVersion().branch()
-            trovesByBranch.setdefault(targetBranch, []).append(trove)
-    assert(trovesByBranch)
+    assert(allTroves)
 
     repos = conaryclient.getRepos()
 
-    cloneTroves = {}
     trovesByNBF = {}
     sourcesToCheck = []
-    for targetBranch, troves in trovesByBranch.iteritems():
-        cloneTroves[targetBranch] = []
-        for trove in troves:
-            builtTroves = list(trove.iterBuiltTroves())
-            if builtTroves:
-                if not sourceOnly:
-                    cloneTroves[targetBranch].extend(builtTroves)
-                    for troveTup in builtTroves:
-                        # add mapping so that when the cloning is done
-                        # we can tell what commit resulted in what binaries.
-                        nbf = (troveTup[0], targetBranch, troveTup[2])
-                        if nbf in trovesByNBF:
-                            # our mapping cannot be made - throw up our
-                            # hands.
-                            message = "Cannot clone two troves with same name, target branch and version in the same commit: %s=%s[%s]" % (nf[0], targetBranch, nf[1])
-                            return False, message
-                        trovesByNBF[nbf] = trove
-                if trove.getVersion().branch() != targetBranch:
-                    sourceTup = (trove.getName(), trove.getVersion(),
-                                 Flavor())
-                    cloneTroves[targetBranch].append(sourceTup)
-                    trovesByNBF[trove.getName(), targetBranch, Flavor()] = trove
-                    sourcesToCheck.append(sourceTup)
-        if not cloneTroves[targetBranch]:
-            del cloneTroves[targetBranch]
+    branchMap = {}
+    trovesToClone = []
+    for trove in allTroves:
+        builtTroves = list(trove.iterBuiltTroves())
+        if builtTroves:
+            if not sourceOnly:
+                for troveTup in builtTroves:
+                    branch = troveTup[1].branch()
+                    targetBranch = branch.parentBranch()
+                    # add mapping so that when the cloning is done
+                    # we can tell what commit resulted in what binaries.
+                    nbf = (troveTup[0], targetBranch, troveTup[2])
+                    if nbf in trovesByNBF:
+                        # our mapping cannot be made - throw up our
+                        # hands.
+                        message = "Cannot clone two troves with same name, target branch and version in the same commit: %s=%s[%s]" % (nf[0], targetBranch, nf[1])
+                        return False, message
+                    trovesByNBF[nbf] = trove
+                    branchMap[branch] = targetBranch
+                    trovesToClone.append(troveTup)
+            troveVersion = trove.getVersion()
+            if troveVersion.getHost() == rmakeConfig.serverName:
+                sourceTup = (trove.getName(), troveVersion, Flavor())
+                targetBranch = troveVersion.branch().parentBranch()
+                branchMap[troveVersion.branch()] = targetBranch
+                trovesToClone.append(sourceTup)
+                trovesByNBF[trove.getName(), targetBranch, Flavor()] = trove
+                sourcesToCheck.append(sourceTup)
 
-    if not cloneTroves:
+    if not trovesToClone:
         if sourceOnly:
             err = 'Could not find sources to commit'
         else:
@@ -97,36 +96,28 @@ def commitJobs(conaryclient, jobList, rmakeConfig, message=None,
                    '\n'.join(outdated))
             return False, err
 
-    for targetBranch, trovesToClone in cloneTroves.iteritems():
-        kw = {}
-        callback = callbacks.CloneCallback(conaryclient.cfg, message)
-        kw['callback'] = callback
-        kw['fullRecurse'] = False
-
-        if compat.ConaryVersion().supportsCloneNoTracking():
-            kw['trackClone'] = False
-
-        passed, cs = conaryclient.createCloneChangeSet(
-                                            targetBranch,
-                                            trovesToClone,
-                                            updateBuildInfo=True,
-                                            **kw)
-        if passed:
-            for troveCs in cs.iterNewTroveList():
-                n,v,f = troveCs.getNewNameVersionFlavor()
-                trove = trovesByNBF[n, v.branch(), f]
-                troveNVF = trove.getNameVersionFlavor()
-                # map jobId -> trove -> binaries
-                mapping[trove.jobId].setdefault(troveNVF, []).append((n,v,f))
-            finalCs.merge(cs)
-        else:
-            return False, 'Creating clone failed'
+    callback = callbacks.CloneCallback(conaryclient.cfg, message)
+    passed, cs = conaryclient.createTargetedCloneChangeSet(
+                                        branchMap, trovesToClone,
+                                        updateBuildInfo=True,
+                                        cloneSources=False,
+                                        trackClone=False,
+                                        callback=callback, fullRecurse=False)
+    if passed:
+        for troveCs in cs.iterNewTroveList():
+            n,v,f = troveCs.getNewNameVersionFlavor()
+            trove = trovesByNBF[n, v.branch(), f]
+            troveNVF = trove.getNameVersionFlavor()
+            # map jobId -> trove -> binaries
+            mapping[trove.jobId].setdefault(troveNVF, []).append((n,v,f))
+    else:
+        return False, 'Creating clone failed'
 
     # Sign the troves if we have a signature key.
     signatureKey = conaryclient.cfg.signatureKey
     if signatureKey:
-        finalCs = signAbsoluteChangeset(finalCs, signatureKey)
-    repos.commitChangeSet(finalCs, callback=callback)
+        finalCs = signAbsoluteChangeset(cs, signatureKey)
+    repos.commitChangeSet(cs, callback=callback)
     return True, mapping
 
 def _checkOutdatedSources(repos, sourceTups):

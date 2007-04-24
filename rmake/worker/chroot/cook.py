@@ -23,6 +23,7 @@ from rmake.lib import flavorutil
 from rmake.lib import logfile
 from rmake.lib import recipeutil
 from rmake.lib.apiutils import thaw, freeze
+from rmake.worker import resolvesource
 
 class CookResults(object):
     def __init__(self, name, version, flavor):
@@ -85,7 +86,7 @@ class CookResults(object):
 
 
 def cookTrove(cfg, repos, logger, name, version, flavor, targetLabel,
-              loadSpecs=None, logHost='', logPort=0):
+              loadSpecs=None, builtTroves=None, logHost='', logPort=0):
     util.mkdirChain(cfg.root + '/tmp')
     fd, csFile = tempfile.mkstemp(dir=cfg.root + '/tmp',
                                   prefix='rmake-%s-' % name,
@@ -115,14 +116,15 @@ def cookTrove(cfg, repos, logger, name, version, flavor, targetLabel,
                 os.umask(0022)
                 # don't allow us to create core dumps
                 resource.setrlimit(resource.RLIMIT_CORE, (0,0))
-                if logHost:
-                    logFile.logToPort(logHost, logPort)
-                else:
-                    logFile.redirectOutput()
+                #if logHost:
+                #    logFile.logToPort(logHost, logPort)
+                #else:
+                #    logFile.redirectOutput()
                 log.setVerbosity(log.INFO)
                 log.info("Cook process started (pid %s)" % os.getpid())
                 _cookTrove(cfg, repos, name, version, flavor, targetLabel, 
-                           loadSpecs, csFile, failureFd=outF, logger=logger)
+                           loadSpecs, builtTroves,
+                           csFile, failureFd=outF, logger=logger)
             except Exception, msg:
                 errMsg = 'Error cooking %s=%s[%s]: %s' % \
                                         (name, version, flavor, str(msg))
@@ -212,7 +214,7 @@ def _buildFailed(failureFd, errMsg, traceBack):
     os._exit(1)
 
 def _cookTrove(cfg, repos, name, version, flavor, targetLabel, loadSpecs, 
-               csFile, failureFd, logger):
+               builtTroves, csFile, failureFd, logger):
     try:
         logger.debug('Cooking %s=%s[%s] to %s (stored in %s)' % \
                      (name, version, flavor, targetLabel, csFile))
@@ -263,10 +265,30 @@ def _cookTrove(cfg, repos, name, version, flavor, targetLabel, loadSpecs,
             and hasattr(cfg, 'defaultBuildReqs')):
             recipeClass.buildRequires += cfg.defaultBuildReqs
 
+        if builtTroves:
+            # FIXME: is this cached? 
+            builtTroves = repos.getTroves(builtTroves, withFiles=False)
+
+            builtTroves = resolvesource.BuiltTroveSource(builtTroves)
+            builtTroves.searchAsRepository()
+            if targetLabel:
+                builtTroves = recipeutil.RemoveHostSource(builtTroves,
+                                                          targetLabel.getHost())
+            else:
+                builtTroves = recipeutil.RemoveHostSource(builtTroves,
+                                              version.trailingLabel().getHost())
+
+            # this should only make a difference when cooking groups, redirects,
+            # etc.
+            oldRepos = repos
+            repos = resolvesource.TroveSourceMesh(builtTroves, repos)
+            repos.TROVE_QUERY_ALL = oldRepos.TROVE_QUERY_ALL
+
         # if we're already on the target label, we'll assume no targeting 
         # is necessary
         if targetLabel == version.trailingLabel():
             targetLabel = None
+
     except Exception, msg:
         errMsg = 'Error initializing cook environment %s=%s[%s]: %s' % \
                                             (name, version, flavor, str(msg))
@@ -284,7 +306,7 @@ def _cookTrove(cfg, repos, name, version, flavor, targetLabel, loadSpecs,
                                 changeSetFile=csFile,
                                 alwaysBumpCount=False,
                                 ignoreDeps=False,
-                                logBuild=True,
+                                logBuild=False,
                                 crossCompile=crossCompile,
                                 requireCleanSources=True)
     except Exception, msg:

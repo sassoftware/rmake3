@@ -1,6 +1,7 @@
 #
 # Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
 #
+import itertools
 import sys
 import time
 
@@ -126,6 +127,10 @@ class _AbstractBuildJob(trovesource.SearchableTroveSource):
 
     def iterTroves(self):
         return self.troves.itervalues()
+
+    def getBuiltTroveList(self):
+        return list(itertools.chain(*[ x.getBinaryTroves() for x in 
+                                    self.iterTroves()]))
 
     def getTrovesByName(self, name):
         name = name.split(':')[0] + ':source'

@@ -258,6 +258,9 @@ class FakeRmakeRoot(rMakeChroot):
     def canChroot(self):
         return False
 
+    def install(self):
+        pass
+
     def clean(self):
         pass
 

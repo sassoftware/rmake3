@@ -180,7 +180,7 @@ class RepositoryCache(object):
         for idx, job in enumerate(jobList):
             csHash = str(self.hashTrove(job[0], job[2][0], job[2][1],
                                         withFiles, withFileContents))
-            if self.store.hasFile(csHash):
+            if False and self.store.hasFile(csHash):
                 outFile = self.fileCache.open(self.store.hashToPath(csHash))
                 #outFile = self.store.openRawFile(csHash)
                 changesets[idx] = changeset.ChangeSetFromFile(outFile)
@@ -259,8 +259,8 @@ class DataStore(datastore.DataStore):
         """
         path = self.hashToPath(hash)
         self.makeDir(path)
-        if os.path.exists(path): return
-
+        if os.path.exists(path):
+            os.remove(path)
         try:
             util.rename(tmpPath, path)
         except OSError, err:
@@ -276,7 +276,8 @@ class CacheError(Exception):
 class LazyFileCache(util.LazyFileCache):
     # derive from util LazyFileCache which tries to read /proc/self/fd 
     # to get the total number of open files.  Unfortunately, when you 
-    # drop privileges as aprt v
+    # drop privileges as a part of starting the daemon you lose the ability
+    # to read /proc/self/fd
 
     def _getFdCount(self):
         return len([ x for x in self._fdMap.values() if x._realFd is not None])

@@ -95,6 +95,7 @@ class _AbstractBuildTrove:
         self.version = version
         self.flavor = flavor
         self.buildRequirements = set()
+        self.delayedRequirements = set()
         self.crossRequirements = set()
         self.builtTroves = set()
         self.loadedSpecs = {}
@@ -212,6 +213,15 @@ class _AbstractBuildTrove:
 
     def iterBuiltTroves(self):
         return iter(self.builtTroves)
+
+    def setDelayedRequirements(self, delayedReqs):
+        self.delayedRequirements = delayedReqs
+
+    def getDelayedRequirements(self):
+        return self.delayedRequirements
+
+    def isDelayed(self):
+        return bool(self.delayedRequirements)
 
     def setBuildRequirements(self, buildReqs):
         self.buildRequirements = set(buildReqs)

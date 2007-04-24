@@ -150,6 +150,21 @@ class DependencyBasedBuildState(AbstractBuildState):
                         # specified for each.
                         self.dependsOn(trove, provTrove, (False, loadSpec))
 
+            # Troves like groups, redirects, etc, have requirements
+            # that control when they can be built.
+            for sourceTup in trove.getDelayedRequirements():
+                name, version, flavor = sourceTup
+                package = name.split(':')[0]
+                providingTroves = self.trovesByPackage.get(package, [])
+                for provTrove in providingTroves:
+                    if provTrove.getVersion() != sourceTup[1]:
+                        continue
+                    if (flavor is None or
+                        provTrove.getFlavor().toStrongFlavor().satisfies(
+                                                flavor.toStrongFlavor())):
+                        self.dependsOn(trove, provTrove, 
+                                        (name, version, flavor))
+
     def dependsOn(self, trove, provTrove, req):
         if trove == provTrove:
             return

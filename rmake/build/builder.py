@@ -187,9 +187,14 @@ class Builder(object):
         troveToBuild.troveQueued('Waiting to be assigned to chroot')
         troveToBuild.disown()
         logHost, logPort = self.worker.startTroveLogger(troveToBuild)
+        if troveToBuild.isDelayed():
+            builtTroves = self.job.getBuiltTroveList()
+        else:
+            builtTroves = []
         self.worker.buildTrove(self.buildCfg, troveToBuild.jobId,
                                troveToBuild, self.eventHandler, buildReqs,
-                               crossReqs, targetLabel, logHost, logPort)
+                               crossReqs, targetLabel, logHost, logPort,
+                               builtTroves=builtTroves)
 
     def resolveIfReady(self):
         resolveJob = self.dh.getNextResolveJob()
@@ -223,13 +228,13 @@ class Builder(object):
                     toBuild.trovePrebuilt(buildReqs, binaries)
 
     def _checkBuildSanity(self, buildTroves):
-        def _referencesOtherTroves(trv):
-            return (trv.isGroupRecipe() or trv.isRedirectRecipe()
-                    or trv.isFilesetRecipe())
+        def _isSolitaryTrove(trv):
+            return (trv.isRedirectRecipe() or trv.isFilesetRecipe())
 
-        delayed = [ x for x in buildTroves if _referencesOtherTroves(x) ]
+
+        delayed = [ x for x in buildTroves if _isSolitaryTrove(x) ]
         if delayed and len(buildTroves) > 1:
-            err = ('group, redirect, and fileset packages must'
+            err = ('redirect and fileset packages must'
                    ' be alone in their own job')
             for trove in delayed:
                 # publish failed status
@@ -237,6 +242,12 @@ class Builder(object):
             troveNames = ', '.join(x.getName().split(':')[0] for x in delayed)
             self.job.jobFailed(failure.FailureReason("Job failed sanity check: %s: %s" % (err, troveNames)))
             return False
+
+        isGroup = [ x for x in buildTroves if x.isGroupRecipe() ]
+        if isGroup and len(buildTroves) > 1:
+            self.job.log("WARNING: Combining group troves with other troves"
+                         " is EXPERIMENTAL - use at your own risk")
+            time.sleep(3)
         return True
 
 class BuildLogger(logger.Logger):

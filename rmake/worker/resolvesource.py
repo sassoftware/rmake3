@@ -84,7 +84,10 @@ class BuiltTroveSource(trovesource.SimpleTroveSource):
         for depSet, solListList in suggMap.iteritems():
             newSolListList = []
             for solList in solListList:
-                newSolListList.append([ self.idMap[x] for x in solList ])
+                if not self._allowNoLabel and label:
+                    newSolListList.append([ self.idMap[x] for x in solList if self.idMap[x][1].trailingLabel == label])
+                else:
+                    newSolListList.append([ self.idMap[x] for x in solList ])
             suggMap[depSet] = newSolListList
         return suggMap
 
@@ -175,4 +178,68 @@ class DepResolutionByTroveLists(resolve.ResolutionStack):
                     if (dep in intraDepSuggs[depSet]
                         and intraDepSuggs[depSet][dep]):
                         sugg[depSet][idx] = intraDepSuggs[depSet][dep]
+        return sugg
+
+class TroveSourceMesh(trovesource.SearchableTroveSource):
+    def __init__(self, source, repos):
+        self.source = source
+        self.repos = repos
+        trovesource.SearchableTroveSource.__init__(self)
+        self.searchAsRepository()
+
+    def hasTroves(self, *args, **kw):
+        return self.repos.hasTroves(*args, **kw)
+
+    def getTroves(self, troveList, *args, **kw):
+        return self.repos.getTroves(troveList, *args, **kw)
+
+    def _mergeTroveQuery(self, resultD, response):
+        for troveName, troveVersions in response.iteritems():
+            if not resultD.has_key(troveName):
+                resultD[troveName] = {}
+            versionDict = resultD[troveName]
+            for version, flavors in troveVersions.iteritems():
+                if version not in versionDict:
+                    versionDict[version] = []
+                resultD[troveName][version].extend(flavors)
+        return resultD
+
+    def _call(self, fn, query, *args, **kw):
+        d1 = getattr(self.source, fn)(query, *args, **kw)
+        result = {}
+        self._mergeTroveQuery(result, d1)
+        for name in query.keys():
+            if name in d1 and len(query[name]) == 1:
+                del query[name]
+        d2 = getattr(self.repos, fn)(query, *args, **kw)
+        self._mergeTroveQuery(result, d2)
+        return result
+
+    def getTroveLeavesByLabel(self, query, *args, **kw):
+        return self._call('getTroveLeavesByLabel', query, *args, **kw)
+
+    def getTroveVersionsByLabel(self, query, *args, **kw):
+        return self._call('getTroveVersionsByLabel', query, *args, **kw)
+
+    def getTroveLeavesByBranch(self, query, *args, **kw):
+        return self._call('getTroveLeavesByBranch', query, *args, **kw)
+
+    def getTroveVersionsByBranch(self, query, *args, **kw):
+        return self._call('getTroveVersionsByBranch', query, *args, **kw)
+
+    def getTroveVersionFlavors(self, query, *args, **kw):
+        return self._call('getTroveVersionFlavors', query, *args, **kw)
+
+    def resolveDependenciesWithFilter(self, label, depAndTupList, filter,
+                                      *args, **kw):
+        suggMap = {}
+        depList = [x[1] for x in depAndTupList ]
+        sugg = self.source.resolveDependencies(label, depList, *args, **kw)
+        sugg2 = self.repos.resolveDependencies(label, depList, *args, **kw)
+        newTroves = dict.fromkeys((x[0], x[2][0], x[2][1]) for x in
+                                  filter(depAndTupList, sugg, suggMap))
+        for depSet, trovesByDep in sugg.iteritems():
+            for idx, troveList in enumerate(trovesByDep):
+                if not [ x for x in troveList if x in newTroves ]:
+                    troveList.extend(sugg2[depSet][idx])
         return sugg
