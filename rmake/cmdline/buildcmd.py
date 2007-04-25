@@ -112,7 +112,7 @@ def _getResolveTroveTups(cfg, repos):
     try:
         allResolveTroves = itertools.chain(*cfg.resolveTroves)
         results = repos.findTroves(cfg.installLabelPath,
-                                   allResolveTroves, cfg.flavor)
+                                   list(allResolveTroves), cfg.flavor)
     except Exception, err:
         raise errors.RmakeError("Could not find resolve troves: %s\n" % err)
 
