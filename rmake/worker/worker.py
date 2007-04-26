@@ -12,6 +12,7 @@ import traceback
 from rmake.lib import pipereader
 from rmake.lib import server
 
+from rmake import errors
 from rmake import failure
 from rmake.worker import command
 from rmake.worker import recorder
@@ -126,11 +127,15 @@ class Worker(server.Server):
     def startSession(self, host, chrootPath, commandLine, superUser=False):
         if host != '_local_':
             raise errors.RmakeError('Unknown host %s!' % host)
-        chrootFactory = self.chrootManager.useExistingChroot(chrootPath,
-                                                 useChrootUser=not superUser)
-        commandId = self.idgen.getSessionCommandId(chrootPath)
-        cmd = self.runCommand(self.commandClasses['session'], self.cfg,
-                              commandId, chrootFactory, commandLine)
+        try:
+            chrootFactory = self.chrootManager.useExistingChroot(chrootPath,
+                                                     useChrootUser=not superUser)
+            commandId = self.idgen.getSessionCommandId(chrootPath)
+            cmd = self.runCommand(self.commandClasses['session'], self.cfg,
+                                  commandId, chrootFactory, commandLine)
+        except errors.RmakeError, err:
+            f = failure.ChrootFailed('%s: %s' % (chrootPath, err))
+            return False, f
         while not cmd.getHostInfo() and not cmd.isErrored():
             self.serve_once()
 

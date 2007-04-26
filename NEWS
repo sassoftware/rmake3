@@ -5,6 +5,9 @@ Changes in @NEW@:
   o Client Changes:
      * "rMake q" now displays flavor information more often, and also displays
        tag information by default (the part after the : in labels). (RMK-432)
+  o Bug Fixes:
+     * rMake now behaves better when an "rmake chroot" command cannot find
+       the chroot you're trying to enter. (RMK-438)
 
 Changes in 1.0.8:
   o Client Changes:

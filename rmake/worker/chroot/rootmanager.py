@@ -117,7 +117,8 @@ class ChrootManager(object):
     def useExistingChroot(self, chrootPath, useChrootUser=True):
         if not chrootPath.startswith(self.baseDir):
             chrootPath = self.baseDir + '/' +  chrootPath
-        assert(os.path.exists(chrootPath))
+        if not os.path.exists(chrootPath):
+            raise errors.OpenError("No such chroot exists")
         chroot = rootfactory.ExistingChroot(chrootPath, self.logger,
                                              self.chrootHelperPath)
         chrootServer = rMakeChrootServer(chroot, targetArch=None,
