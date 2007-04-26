@@ -15,7 +15,6 @@ from rmake.lib import server
 from rmake import errors
 from rmake import failure
 from rmake.worker import command
-from rmake.worker import recorder
 from rmake.worker.chroot import rootmanager
 
 class CommandIdGen(object):
@@ -66,20 +65,6 @@ class Worker(server.Server):
     def hasActiveTroves(self):
         return self.commands or self._queuedCommands
 
-    def startTroveLogger(self, trove):
-        r = recorder.BuildLogRecorder()
-        r.attach(trove)
-        logHost = r.getHost()
-        logPort = r.getPort()
-        pid = self._fork('BuildLogger for %s' % trove)
-        if not pid:
-            r._installSignalHandlers()
-            r.serve_forever()
-        else:
-            r.close()
-            trove.logPid = pid
-        return logHost, logPort
-
     def stopTroveLogger(self, trove):
         if not hasattr(trove, 'logPid'):
             return
@@ -88,7 +73,7 @@ class Worker(server.Server):
             self._killPid(pid)
 
     def buildTrove(self, buildCfg, jobId, trove, eventHandler,
-                   buildReqs, crossReqs, targetLabel, logHost='', logPort=0, 
+                   buildReqs, crossReqs, targetLabel, logData=None,
                    logPath=None, commandId=None, builtTroves=None):
         if not commandId:
             commandId = self.idgen.getBuildCommandId(trove)
@@ -101,7 +86,7 @@ class Worker(server.Server):
                                                           crossReqs, trove)
         self.queueCommand(self.commandClasses['build'], self.cfg, commandId,
                           jobId, eventHandler, buildCfg, chrootFactory,
-                          trove, builtTroves, targetLabel, logHost, logPort, 
+                          trove, builtTroves, targetLabel, logData,
                           logPath)
 
     def resolve(self, resolveJob, eventHandler, commandId=None):

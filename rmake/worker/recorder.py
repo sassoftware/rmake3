@@ -10,11 +10,12 @@ from conary.lib import util
 from rmake.lib import server
 
 class BuildLogRecorder(asyncore.dispatcher, server.Server):
-    def __init__(self):
+    def __init__(self, key=None):
         server.Server.__init__(self)
         self.port = None
         self.logPath = None
         self.logFd = None
+        self.key = key
 
     def _exit(self, rc=0):
         return os._exit(rc)
@@ -51,6 +52,11 @@ class BuildLogRecorder(asyncore.dispatcher, server.Server):
 
     def handle_accept(self):
         csock, caddr = self.accept()
+        if self.key:
+            key = csock.recv(len(self.key) + 1)
+            if key != (self.key + '\n'):
+                csock.close()
+            csock.send('OK\n')
         # we only need to accept one request.
         self.del_channel()
         self.set_socket(csock)

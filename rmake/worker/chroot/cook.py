@@ -86,7 +86,7 @@ class CookResults(object):
 
 
 def cookTrove(cfg, repos, logger, name, version, flavor, targetLabel,
-              loadSpecs=None, builtTroves=None, logHost='', logPort=0):
+              loadSpecs=None, builtTroves=None, logData=None):
     util.mkdirChain(cfg.root + '/tmp')
     fd, csFile = tempfile.mkstemp(dir=cfg.root + '/tmp',
                                   prefix='rmake-%s-' % name,
@@ -111,15 +111,15 @@ def cookTrove(cfg, repos, logger, name, version, flavor, targetLabel,
             try:
                 signal.signal(signal.SIGTERM, signal.SIG_DFL)
                 os.close(inF)
-                #os.setpgrp()
+                os.setpgrp()
                 # don't accidentally make world writable files
                 os.umask(0022)
                 # don't allow us to create core dumps
                 resource.setrlimit(resource.RLIMIT_CORE, (0,0))
-                #if logHost:
-                #    logFile.logToPort(logHost, logPort)
-                #else:
-                #    logFile.redirectOutput()
+                if logData:
+                    logFile.logToPort(*logData)
+                else:
+                    logFile.redirectOutput()
                 log.setVerbosity(log.INFO)
                 log.info("Cook process started (pid %s)" % os.getpid())
                 _cookTrove(cfg, repos, name, version, flavor, targetLabel, 
@@ -306,7 +306,7 @@ def _cookTrove(cfg, repos, name, version, flavor, targetLabel, loadSpecs,
                                 changeSetFile=csFile,
                                 alwaysBumpCount=False,
                                 ignoreDeps=False,
-                                logBuild=False,
+                                logBuild=True,
                                 crossCompile=crossCompile,
                                 requireCleanSources=True)
     except Exception, msg:

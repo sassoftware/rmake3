@@ -4,6 +4,7 @@
 """
 Builder controls the process of building a set of troves.
 """
+import random
 import signal
 import sys
 import os
@@ -21,6 +22,7 @@ from rmake.lib import logfile
 from rmake.lib import logger
 from rmake.lib import recipeutil
 from rmake.lib import repocache
+from rmake.worker import recorder
 from rmake.worker import worker
 
 class Builder(object):
@@ -186,14 +188,15 @@ class Builder(object):
         targetLabel = self.buildCfg.getTargetLabel(troveToBuild.getVersion())
         troveToBuild.troveQueued('Waiting to be assigned to chroot')
         troveToBuild.disown()
-        logHost, logPort = self.worker.startTroveLogger(troveToBuild)
+
+        logData = self.startTroveLogger(troveToBuild)
         if troveToBuild.isDelayed():
             builtTroves = self.job.getBuiltTroveList()
         else:
             builtTroves = []
         self.worker.buildTrove(self.buildCfg, troveToBuild.jobId,
                                troveToBuild, self.eventHandler, buildReqs,
-                               crossReqs, targetLabel, logHost, logPort,
+                               crossReqs, targetLabel, logData,
                                builtTroves=builtTroves)
 
     def resolveIfReady(self):
@@ -249,6 +252,25 @@ class Builder(object):
                          " is EXPERIMENTAL - use at your own risk")
             time.sleep(3)
         return True
+
+    def startTroveLogger(self, trove):
+        key = ''.join([ chr(random.randrange(ord('a'), ord('z'))) 
+                      for x in range(10) ])
+        r = recorder.BuildLogRecorder(key)
+        r.attach(trove)
+        logHost = r.getHost()
+        logPort = r.getPort()
+        pid = self.worker._fork('BuildLogger for %s' % trove)
+        if not pid:
+            try:
+                r._installSignalHandlers()
+                r.serve_forever()
+            finally:
+                os._exit(3)
+        else:
+            r.close()
+            trove.logPid = pid
+        return logHost, logPort, key
 
 class BuildLogger(logger.Logger):
    def __init__(self, jobId, path):

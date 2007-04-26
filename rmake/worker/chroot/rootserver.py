@@ -30,11 +30,11 @@ class ChrootServer(apirpc.XMLApiServer):
     @api(version=1)
     @api_parameters(1, 'BuildConfiguration', 'label',
                        'str', 'version', 'flavor', 'LoadSpecs',
-                       'troveTupleList', 'str', 'int')
+                       'troveTupleList', None)
     @api_return(1, None)
     def buildTrove(self, callData, buildCfg, targetLabel,
                    name, version, flavor, loadSpecs, builtTroves,
-                   logHost, logPort):
+                   logData):
         buildCfg.root = self.cfg.root
         buildCfg.buildPath = self.cfg.root + '/tmp/rmake/builds'
         buildCfg.lookaside = self.cfg.root + '/tmp/rmake/cache'
@@ -69,7 +69,7 @@ class ChrootServer(apirpc.XMLApiServer):
         logPath, pid, buildInfo = cook.cookTrove(buildCfg, repos, self._logger,
                                                  name, version, flavor,
                                                  targetLabel, loadSpecs,
-                                                 builtTroves, logHost, logPort)
+                                                 builtTroves, logData) 
         pid = buildInfo[1]
         self._buildInfo[name, version, flavor] = buildInfo
         return logPath, pid
@@ -244,15 +244,17 @@ class ChrootClient(object):
         return self.pid
 
     def buildTrove(self, buildCfg, targetLabel, name, version, flavor,
-                   loadSpecs=None, builtTroves=None, logHost='', logPort=0):
+                   loadSpecs=None, builtTroves=None, logData=None):
         if loadSpecs is None:
             loadSpecs = {}
         if builtTroves is None:
             builtTroves = []
+        if logData is None:
+            logData = []
         logPath, pid = self.proxy.buildTrove(buildCfg, targetLabel,
                                              name, version, flavor,
                                              loadSpecs, builtTroves,
-                                             logHost, logPort)
+                                             logData)
         logPath = self.root + logPath
         self.subscribeToBuild(name, version, flavor)
         return logPath, pid

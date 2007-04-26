@@ -9,6 +9,7 @@ import sys
 import time
 
 from conary.lib import util
+from rmake import errors
 
 class LogFile(object):
 
@@ -62,9 +63,14 @@ class LogFile(object):
         os.dup2(self.fd, sys.stdout.fileno())
         os.dup2(self.fd, sys.stderr.fileno())
 
-    def logToPort(self, host, port):
+    def logToPort(self, host, port, key=None):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect((host, port))
+        if key:
+            s.send(key + '\n')
+        status = s.recv(3)
+        if status != 'OK\n':
+            raise errors.OpenError("Could not connect to socket")
         socketFd = s.fileno()
         self.tee = Tee()
         outFile = self.tee.tee(self.fd, socketFd)
