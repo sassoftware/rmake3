@@ -10,6 +10,7 @@ import textwrap
 import time
 
 from conary.conaryclient.cmdline import parseTroveSpec
+from conary.deps import deps
 
 from rmake.build import buildtrove
 from rmake.lib import flavorutil
@@ -121,6 +122,7 @@ def displayJobInfo(client, jobId=None, troveSpecs=[], displayTroves=False,
 
     jobList = getJobsToDisplay(dcfg, client, jobId, troveSpecs)
     for job, troveTupList in jobList:
+        dcfg.flavorsByName = getFlavorSpecs(job)
         displayOneJob(dcfg, job, troveTupList)
 
 def getOldTime(t):
@@ -217,18 +219,41 @@ def getTroveSpec(dcfg, (name, version, flavor)):
         version = '%s/%s' % (version.trailingLabel(), 
                              version.trailingRevision())
     else:
-        version = version.trailingRevision()
+        version = ':%s/%s' % (version.trailingLabel().branch, 
+                              version.trailingRevision())
 
     if dcfg.showFullFlavors:
         flavor = '[%s]' % flavor
     else:
-        flavor = ''
+        flavor = dcfg.flavorsByName[name, flavor]
+        if not flavor.isEmpty():
+            flavor = '[%s]' % flavor
     return '%s=%s%s' % (name, version, flavor)
+
+def getFlavorSpecs(job):
+    flavorsByName = {}
+    for nvf in job.iterTroveList():
+        flavorsByName.setdefault(nvf[0], []).append(nvf[2])
+    for trove in job.iterTroves():
+        if not trove:
+            continue
+        for nvf in trove.iterBuiltTroves():
+            flavorsByName.setdefault(nvf[0], []).append(nvf[2])
+    for name, flavorList in flavorsByName.items():
+        diffs = deps.flavorDifferences(flavorList)
+        for flavor in flavorList:
+            archFlags = flavorutil.getArchFlags(flavor, withFlags=False)
+            archFlags.union(diffs[flavor])
+            flavorsByName[name, flavor] = archFlags
+    return flavorsByName
 
 def displayTrovesByState(job, indent='     ', out=None):
     if out is None:
         out = sys.stdout
-    for state in  (buildtrove.TROVE_STATE_WAITING,
+
+    flavorsByName = getFlavorSpecs(job)
+
+    for state in (buildtrove.TROVE_STATE_WAITING,
                    buildtrove.TROVE_STATE_RESOLVING,
                    buildtrove.TROVE_STATE_PREPARING,
                    buildtrove.TROVE_STATE_BUILDING,
@@ -242,7 +267,7 @@ def displayTrovesByState(job, indent='     ', out=None):
             continue
         out.write('\n%s%s Troves [%s]:\n' % (indent,troves[0].getStateName(),
                                              len(troves)))
-        txt = '  '.join(x.name.split(':')[0] for x in troves)
+        txt = '  '.join('%s[%s]' % (x.getName().split(':')[0], flavorsByName[x.getName(), x.getFlavor()])  for x in troves)
         lines, cols = getTerminalSize(out)
         if not cols:
             cols = 80
@@ -288,6 +313,7 @@ def showBuildLog(dcfg, job, trove):
         time.sleep(1)
         moreData, data, mark = client.client.getTroveBuildLog(job.jobId,
                                         trove.getNameVersionFlavor(), mark)
+
 
 def displayTroveDetail(dcfg, job, trove, indent='     ', out=None):
     if not out:

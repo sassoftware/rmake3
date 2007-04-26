@@ -2,6 +2,10 @@ Changes in @NEW@:
   o Build Changes:
      * You can now build groups in the same job as packages.  File sets and
        redirects still must be in their own job.  (RMK-169)
+  o Client Changes:
+     * "rMake q" now displays flavor information more often, and also displays
+       tag information by default (the part after the : in labels). (RMK-432)
+
 Changes in 1.0.8:
   o Client Changes:
      * "rmake commit" now will take multiple jobIds.  This functionality
