@@ -180,7 +180,7 @@ class RepositoryCache(object):
         for idx, job in enumerate(jobList):
             csHash = str(self.hashTrove(job[0], job[2][0], job[2][1],
                                         withFiles, withFileContents))
-            if False and self.store.hasFile(csHash):
+            if self.store.hasFile(csHash):
                 outFile = self.fileCache.open(self.store.hashToPath(csHash))
                 #outFile = self.store.openRawFile(csHash)
                 changesets[idx] = changeset.ChangeSetFromFile(outFile)
