@@ -152,12 +152,14 @@ class rMakeHelper(object):
         return self.buildTroves(troveSpecList, buildConfig=buildConfig)
 
     def buildTroves(self, troveSpecList,
-                    limitToHosts=None, recurseGroups=False, buildConfig=None):
+                    limitToHosts=None, limitToLabels=None,
+                    recurseGroups=False, buildConfig=None):
         if buildConfig is None:
             buildConfig = self.buildConfig
         toBuild = buildcmd.getTrovesToBuild(self.getConaryClient(buildConfig),
                                             troveSpecList,
                                             limitToHosts=limitToHosts,
+                                            limitToLabels=limitToLabels,
                                             recurseGroups=recurseGroups)
 
         jobId = self.client.buildTroves(toBuild, buildConfig)

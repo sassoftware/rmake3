@@ -80,6 +80,10 @@ Can be used multiple times.  Limits a build to the given host(s).  This
 command is useful when building groups using rmake, when you only have
 control over commit access to a few labels.
 .TP
+.B \-\-label=LABEL
+Can be used multiple times.  Limits a build to the given label(s).  This
+command is similar to \-\-host above, but it is more specific.
+.TP
 .B \-\-macro="NAME VALUE"
 Uses the value VALUE for macro NAME for each recipe.  Equivalent to the same
 option for cvc cook.

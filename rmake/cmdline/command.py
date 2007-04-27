@@ -163,6 +163,7 @@ class BuildCommand(rMakeCommand):
 
     docs = {'flavor' : "flavor to build with",
             'host'   : "host to limit build to",
+            'label'  : "label to limit build to",
             'no-watch'  : "do not show build status",
             'poll'   : (options.VERBOSE_HELP, 'backwards compatibility option'),
             'quiet'  : "show less build info - don't tail logs",
@@ -180,6 +181,7 @@ class BuildCommand(rMakeCommand):
     def addParameters(self, argDef):
         argDef['flavor'] = ONE_PARAM
         argDef['host'] = MULT_PARAM
+        argDef['label'] = MULT_PARAM
         argDef['quiet'] = NO_PARAM
         argDef['commit'] = NO_PARAM
         argDef['macro'] = MULT_PARAM
@@ -220,6 +222,7 @@ class BuildCommand(rMakeCommand):
             client.buildConfig.configLine('macros ' + macro)
 
         hosts = argSet.pop('host', [])
+        labels = argSet.pop('label', [])
         quiet = argSet.pop('quiet', False)
         commit  = argSet.pop('commit', False)
         recurseGroups = command == 'buildgroup'
@@ -236,7 +239,7 @@ class BuildCommand(rMakeCommand):
         monitorJob = not argSet.pop('no-watch', False)
 
         jobId = client.buildTroves(troveSpecs,
-                                   limitToHosts=hosts,
+                                   limitToHosts=hosts, limitToLabels=labels,
                                    recurseGroups=recurseGroups)
         if monitorJob:
             if not client.watch(jobId, showTroveLogs=not quiet,

@@ -27,7 +27,7 @@ BUILD_RECURSE_GROUPS_SOURCE = 2 # find and recurce the source version of the
                                 # group
 
 
-def getTrovesToBuild(conaryclient, troveSpecList, limitToHosts=None, 
+def getTrovesToBuild(conaryclient, troveSpecList, limitToHosts=None, limitToLabels=None,
                      message=None, recurseGroups=BUILD_RECURSE_GROUPS_NONE):
     toBuild = []
     toFind = {}
@@ -39,6 +39,7 @@ def getTrovesToBuild(conaryclient, troveSpecList, limitToHosts=None,
     cfg.resolveTroveTups = _getResolveTroveTups(cfg, repos)
 
     cfg.limitToHosts = limitToHosts
+    cfg.limitToLabels = limitToLabels
     cfg.buildTroveSpecs = []
     newTroveSpecs = []
     recipesToCook = []
@@ -78,11 +79,11 @@ def getTrovesToBuild(conaryclient, troveSpecList, limitToHosts=None,
         localTroves = [ x for x in localTroves if x not in localGroupTroves ]
         toBuild.extend(_findSourcesForSourceGroup(repos, cfg, groupsToFind,
                                                   localGroupTroves,
-                                                  limitToHosts))
+                                                  limitToHosts, limitToLabels))
     elif recurseGroups == BUILD_RECURSE_GROUPS_BINARY:
         newTroveSpecs.extend(_findSpecsForBinaryGroup(repos, cfg,
                                                       groupsToFind,
-                                                      limitToHosts))
+                                                      limitToHosts, limitToLabels))
 
     for troveSpec in newTroveSpecs:
         sourceName = troveSpec[0].split(':')[0] + ':source'
@@ -365,7 +366,7 @@ def _commitRecipe(conaryclient, recipePath, message):
         shutil.rmtree(recipeDir)
 
 
-def _findSpecsForBinaryGroup(repos, cfg, groupsToFind, limitToHosts):
+def _findSpecsForBinaryGroup(repos, cfg, groupsToFind, limitToHosts, limitToLabels):
     newTroveSpecs = []
     results = repos.findTroves(cfg.buildLabel,
                                groupsToFind, cfg.buildFlavor)
@@ -381,6 +382,9 @@ def _findSpecsForBinaryGroup(repos, cfg, groupsToFind, limitToHosts):
             troveTups = (x for x in troveTups
                          if (x[1].trailingLabel().getHost()
                              in limitToHosts))
+        if limitToLabels:
+            troveTups = (x for x in troveTups
+                         if (str(x[1].trailingLabel()) not in limitToLabels))
         troveTups = list(set(troveTups))
         troveList = repos.getTroves(troveTups, withFiles=False)
         for trove in troveList:
@@ -391,7 +395,7 @@ def _findSpecsForBinaryGroup(repos, cfg, groupsToFind, limitToHosts):
     return newTroveSpecs
 
 def _findSourcesForSourceGroup(repos, cfg, groupsToFind,
-                               localGroups, limitToHosts):
+                               localGroups, limitToHosts, limitToLabels):
     findSpecs = {}
     for troveSpec in groupsToFind:
         sourceName = troveSpec[0].split(':')[0] + ':source'
@@ -427,5 +431,9 @@ def _findSourcesForSourceGroup(repos, cfg, groupsToFind,
         allTups = [x for x in allTups
                    if (x[1].trailingLabel().getHost()
                      in limitToHosts)]
+    if limitToLabels:
+        allTups = [x for x in allTups
+                   if (str(x[1].trailingLabel())
+                     in limitToLabels)]
     allTups = [ x for x in allTups if not x[0].startswith('group-') ]
     return allTups
