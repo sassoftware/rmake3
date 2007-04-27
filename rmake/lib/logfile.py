@@ -68,9 +68,9 @@ class LogFile(object):
         s.connect((host, port))
         if key:
             s.send(key + '\n')
-        status = s.recv(3)
-        if status != 'OK\n':
-            raise errors.OpenError("Could not connect to socket")
+            status = s.recv(3)
+            if status != 'OK\n':
+                raise errors.OpenError("Could not connect to socket")
         socketFd = s.fileno()
         self.tee = Tee()
         outFile = self.tee.tee(self.fd, socketFd)
