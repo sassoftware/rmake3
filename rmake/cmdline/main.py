@@ -101,7 +101,6 @@ class RmakeMain(options.MainHandler):
                 usedContext = True
                 conaryConfig.setContext(context)
 
-
         buildConfig.useConaryConfig(conaryConfig)
         if context and buildConfig.hasSection(context):
             buildConfig.setContext(context)

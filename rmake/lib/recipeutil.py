@@ -230,24 +230,27 @@ def _getLoadedSpecs(recipeClass):
             toParse.append((newDict, getattr(recipeClass, '_loadedSpecs', {})))
     return finalDict
 
-def loadSourceTroves(job, repos, buildFlavor, troveTupleList,
+def loadSourceTroves(job, repos, buildFlavor, troveList,
                      loadInstalledSource=None, installLabelPath=None,
-                     groupRecipeSource=None):
+                     groupRecipeSource=None, total=0, count=0):
     """
        Load the source troves associated set of (name, version, flavor) tuples
        and return a list of source trove tuples with relevant information about
        their packages and build requirements.
     """
-    total = len(troveTupleList)
-    job.log('Downloading %s recipes...' % total)
-    recipes, troves = getRecipes(repos, troveTupleList)
+    if not total:
+        total = len(troveList)
+    job.log('Downloading %s recipes...' % len(troveList))
+    recipes, troves = getRecipes(repos,
+                          [x.getNameVersionFlavor() for x in troveList])
 
     buildTroves = []
     try:
-        for idx, ((n,v,f), recipeFile, trove) in enumerate(itertools.izip(
-                                                           troveTupleList, recipes,
+        for idx, (buildTrove, recipeFile, trove) in enumerate(itertools.izip(
+                                                           troveList, recipes,
                                                            troves)):
-            job.log('Loading %s out of %s: %s' % (idx + 1, total, n))
+            n,v,f = buildTrove.getNameVersionFlavor()
+            job.log('Loading %s out of %s: %s' % (count + idx + 1, total, n))
             relevantFlavor = None
             try:
                 (loader, recipeObj, relevantFlavor) = loadRecipe(repos,
@@ -258,8 +261,8 @@ def loadSourceTroves(job, repos, buildFlavor, troveTupleList,
                                      installLabelPath=installLabelPath,
                                      groupRecipeSource=groupRecipeSource)
                 recipeType = buildtrove.getRecipeType(recipeObj)
-                buildTrove = buildtrove.BuildTrove(None, n, v, relevantFlavor,
-                                                   recipeType=recipeType)
+                buildTrove.setFlavor(relevantFlavor)
+                buildTrove.setRecipeType(recipeType)
                 buildTrove.setLoadedSpecs(_getLoadedSpecs(recipeObj))
                 buildTrove.setDerivedPackages(getattr(recipeObj, 'packages',
                                                       [recipeObj.name]))
@@ -270,7 +273,7 @@ def loadSourceTroves(job, repos, buildFlavor, troveTupleList,
             except Exception, err:
                 if relevantFlavor is None:
                     relevantFlavor = f
-                buildTrove = buildtrove.BuildTrove(None, n, v, relevantFlavor)
+                buildTrove.setFlavor(relevantFlavor)
                 if isinstance(err, errors.RmakeError):
                     # we assume our internal errors have enough info
                     # to determine what the bug is.
@@ -286,11 +289,10 @@ def loadSourceTroves(job, repos, buildFlavor, troveTupleList,
                 os.remove(recipeFile)
     return buildTroves
 
-def getSourceTrovesFromJob(job, buildCfg, serverCfg, repos):
+def getSourceTrovesFromJob(job, serverCfg, repos):
     # called by builder.
     troveList = sorted(job.iterTroveList())
-    buildFlavor = buildCfg.buildFlavor
-    resolveTroveTups = buildCfg.resolveTroveTups
+
     # create fake "packages" for all the troves we're building so that
     # they can be found for loadInstalled.
     buildTrovePackages = [ (x[0].split(':')[0], x[1], x[2]) for x in troveList ]
@@ -301,19 +303,35 @@ def getSourceTrovesFromJob(job, buildCfg, serverCfg, repos):
     # sources - they may be a part of some bogus build.
     repos = RemoveHostRepos(repos, serverCfg.serverName)
 
-    loadInstalledList = [ trovesource.TroveListTroveSource(repos, x)
-                            for x in resolveTroveTups ]
-    loadInstalledList.append(repos)
-    loadInstalledSource = trovesource.stack(buildTroveSource,
-                                            *loadInstalledList)
-    repos = trovesource.stack(*loadInstalledList)
-
     groupRecipeSource = trovesource.SimpleTroveSource(troveList)
 
-    return loadSourceTroves(job, repos, buildFlavor, troveList,
-                            loadInstalledSource=loadInstalledSource,
-                            installLabelPath=buildCfg.installLabelPath,
-                            groupRecipeSource=groupRecipeSource)
+    trovesByConfig = {}
+    for trove in job.iterTroves():
+        trovesByConfig.setdefault(trove.getContext(), []).append(trove)
+
+    allTroves = []
+    total = len(list(job.iterTroves()))
+    count = 0
+    for context, troveList in trovesByConfig.items():
+        buildCfg = troveList[0].cfg
+
+        buildFlavor = buildCfg.buildFlavor
+
+        resolveTroveTups = buildCfg.resolveTroveTups
+        loadInstalledList = [ trovesource.TroveListTroveSource(repos, x)
+                                for x in resolveTroveTups ]
+        loadInstalledList.append(repos)
+        loadInstalledSource = trovesource.stack(buildTroveSource,
+                                                *loadInstalledList)
+        repos = trovesource.stack(*loadInstalledList)
+
+        allTroves.extend(loadSourceTroves(job, repos, buildFlavor, troveList,
+                         total=total, count=count,
+                         loadInstalledSource=loadInstalledSource,
+                         installLabelPath=buildCfg.installLabelPath,
+                         groupRecipeSource=groupRecipeSource))
+        count = len(allTroves)
+    return allTroves
 
 class RemoveHostRepos(object):
     def __init__(self, troveSource, host):

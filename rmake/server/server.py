@@ -48,13 +48,14 @@ class rMakeServer(apirpc.XMLApiServer):
     _CLASS_API_VERSION = 1
 
     @api(version=1)
-    @api_parameters(1, 'troveTupleList', 'BuildConfiguration')
+    @api_parameters(1, 'BuildJob')
     @api_return(1, 'int')
-    def buildTroves(self, callData, sourceTroveTups, buildCfg):
-        callData.logger.logRPCDetails('buildTroves',
-                                      sourceTroveTups=sourceTroveTups)
-        self.updateBuildConfig(buildCfg)
-        job = self.newJob(buildCfg, sourceTroveTups)
+    def buildTroves(self, callData, job):
+        callData.logger.logRPCDetails('buildTroves')
+        for buildCfg in job.iterConfigList():
+            self.updateBuildConfig(buildCfg)
+        job.uuid = job.getMainConfig().uuid
+        self.db.addJob(job)
         self._subscribeToJobInternal(job)
         self.db.queueJob(job)
         job.jobQueued()
@@ -83,17 +84,19 @@ class rMakeServer(apirpc.XMLApiServer):
         if state == '':
             state = None
         data = self.db.listTrovesByState(jobId, state)
-        return [(x[0], freeze('troveTupleList', x[1])) for x in data.iteritems()]
+        return [(x[0], freeze('troveContextTupleList', x[1])) for x in data.iteritems()]
 
     @api(version=1)
-    @api_parameters(1, None, 'bool')
+    @api_parameters(1, None, 'bool', 'bool')
     @api_return(1, None)
-    def getJobs(self, callData, jobIds, withTroves=True):
+    def getJobs(self, callData, jobIds, withTroves=True, withConfigs=True):
         callData.logger.logRPCDetails('getJobs', jobIds=jobIds,
-                                      withTroves=withTroves)
+                                      withTroves=withTroves,
+                                      withConfigs=withConfigs)
         jobIds = self.db.convertToJobIds(jobIds)
         return [ freeze('BuildJob', x)
-                 for x in self.db.getJobs(jobIds, withTroves=withTroves) ]
+                 for x in self.db.getJobs(jobIds, withTroves=withTroves,
+                                          withConfigs=withConfigs) ]
 
     @api(version=1)
     @api_parameters(1, None)
@@ -115,14 +118,14 @@ class rMakeServer(apirpc.XMLApiServer):
                     for data in self.db.getJobLogs(jobId, mark) ]
 
     @api(version=1)
-    @api_parameters(1, None, 'troveTuple', 'int')
+    @api_parameters(1, None, 'troveContextTuple', 'int')
     @api_return(1, None)
     def getTroveLogs(self, callData, jobId, troveTuple, mark):
         jobId = self.db.convertToJobId(jobId)
         return [ tuple(str(x) for x in data) for data in self.db.getTroveLogs(jobId, troveTuple, mark) ]
 
     @api(version=1)
-    @api_parameters(1, None, 'troveTuple', 'int')
+    @api_parameters(1, None, 'troveContextTuple', 'int')
     @api_return(1, None)
     def getTroveBuildLog(self, callData, jobId, troveTuple, mark):
         jobId = self.db.convertToJobId(jobId)
@@ -242,7 +245,7 @@ class rMakeServer(apirpc.XMLApiServer):
         # split commitMap and recombine
         finalMap = []
         for jobId, troveMap in itertools.izip(jobIds, commitMap):
-            troveMap = dict((thaw('troveTuple', x[0]),
+            troveMap = dict((thaw('troveContextTuple', x[0]),
                             thaw('troveTupleList', x[1])) for x in troveMap)
             finalMap.append((jobId, troveMap))
         jobs = self.db.getJobs(jobIds, withTroves=True)
@@ -262,14 +265,8 @@ class rMakeServer(apirpc.XMLApiServer):
         self._numEvents += len(eventList)
     # --- internal functions
 
-    def newJob(self, buildCfg, sourceTroveTups):
-        job = buildjob.NewBuildJob(self.db, sourceTroveTups, buildCfg,
-                                   state=buildjob.JOB_STATE_QUEUED,
-                                   uuid=buildCfg.uuid)
-        return job
-
-    def getBuilder(self, job, buildConfig):
-        b = builder.Builder(self.cfg, buildConfig, job)
+    def getBuilder(self, job):
+        b = builder.Builder(self.cfg, job)
         self.plugins.callServerHook('server_builderInit', self, b)
         return b
 
@@ -393,9 +390,9 @@ class rMakeServer(apirpc.XMLApiServer):
                     os.setpgrp()
                     self.db.reopen()
 
-                    buildCfg = self.db.getJobConfig(job.jobId)
-                    buildCfg.setServerConfig(self.cfg)
-                    buildMgr = self.getBuilder(job, buildCfg)
+                    for buildCfg in job.iterConfigList():
+                        buildCfg.setServerConfig(self.cfg)
+                    buildMgr = self.getBuilder(job)
                     self._subscribeToBuild(buildMgr)
                     # Install builder-specific signal handlers.
                     buildMgr._installSignalHandlers()
@@ -404,7 +401,8 @@ class rMakeServer(apirpc.XMLApiServer):
 
                     if buildCfg.jobContext:
                         jobs = self.db.getJobs(buildCfg.jobContext,
-                                               withTroves=True)
+                                               withTroves=True,
+                                               withConfigs=True)
                         buildMgr.setJobContext(jobs)
                     # don't do anything else in here, buildAndExit has 
                     # handling for ensuring that exceptions are handled 

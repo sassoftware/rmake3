@@ -1,14 +1,15 @@
 #
 # Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
 #
+import copy
 import itertools
+import re
 import os
 import shutil
 import tempfile
 
 from conary.build import cook, grouprecipe
 from conary.build.cook import signAbsoluteChangeset
-from conary.conaryclient import cmdline
 from conary.deps import deps
 from conary.lib import log, util
 from conary import checkin
@@ -18,7 +19,9 @@ from conary import versions
 
 from rmake import errors
 from rmake import compat
+from rmake.cmdline import cmdutil
 from rmake.lib import recipeutil
+from rmake.build import buildjob, buildtrove
 
 BUILD_RECURSE_GROUPS_NONE = 0   # don't recurse groups, build the group only
 BUILD_RECURSE_GROUPS_BINARY = 1 # find and recurse the binary version of the 
@@ -26,16 +29,69 @@ BUILD_RECURSE_GROUPS_BINARY = 1 # find and recurse the binary version of the
 BUILD_RECURSE_GROUPS_SOURCE = 2 # find and recurce the source version of the
                                 # group
 
+def getBuildJob(buildConfig, conaryclient, troveSpecList, limitToHosts=None, 
+                limitToLabels=None, message=None,
+                recurseGroups=BUILD_RECURSE_GROUPS_NONE, configDict=None):
 
-def getTrovesToBuild(conaryclient, troveSpecList, limitToHosts=None, limitToLabels=None,
-                     message=None, recurseGroups=BUILD_RECURSE_GROUPS_NONE):
+    trovesByContext = {}
+
+    for troveSpec in list(troveSpecList):
+        if not isinstance(troveSpec, tuple):
+            troveSpec = cmdutil.parseTroveSpec(troveSpec)
+
+        if len(troveSpec) == 3:
+            context = ''
+        else:
+            context = troveSpec[3]
+            troveSpec = troveSpec[:3]
+
+        if troveSpec[2] is None:
+            troveSpec = (troveSpec[0], troveSpec[1], deps.parseFlavor(''))
+        trovesByContext.setdefault(context, []).append(troveSpec)
+
+    job = buildjob.BuildJob()
+
+    # don't store all the contexts with this job - they're useless past the
+    # initialization step.
+    if configDict:
+        job.setMainConfig(configDict[''])
+    else:
+        cfg = copy.deepcopy(buildConfig)
+        cfg.dropContexts()
+        job.setMainConfig(cfg)
+
+    for contextStr, troveSpecList in trovesByContext.iteritems():
+        if configDict:
+            cfg = configDict[contextStr]
+        elif contextStr:
+            # making this a copy is critical
+            cfg = copy.deepcopy(buildConfig)
+            for context in contextStr.split(','):
+                cfg.setContext(context)
+            cfg.dropContexts()
+            cfg.initializeFlavors()
+        else:
+            cfg = job.getMainConfig()
+            contextStr = ''
+        troveSpecList = list(set(troveSpecList))
+        troveList = getTrovesToBuild(cfg, conaryclient, troveSpecList,
+                         limitToHosts=limitToHosts, limitToLabels=limitToLabels,
+                         message=None,
+                         recurseGroups=recurseGroups)
+        for name, version, flavor in troveList:
+            #flavor = deps.overrideFlavor(cfg.buildFlavor, flavor)
+            bt = buildtrove.BuildTrove(None, name, version, flavor,
+                                       context=contextStr)
+            job.addTrove(name, version, flavor, contextStr, bt)
+            job.setTroveConfig(bt, cfg)
+    return job
+
+def getTrovesToBuild(cfg, conaryclient, troveSpecList, limitToHosts=None, limitToLabels=None, message=None, recurseGroups=BUILD_RECURSE_GROUPS_NONE):
     toBuild = []
     toFind = {}
     groupsToFind = []
 
     repos = conaryclient.getRepos()
-    cfg = conaryclient.cfg
-
     cfg.resolveTroveTups = _getResolveTroveTups(cfg, repos)
 
     cfg.limitToHosts = limitToHosts
@@ -45,7 +101,12 @@ def getTrovesToBuild(conaryclient, troveSpecList, limitToHosts=None, limitToLabe
     recipesToCook = []
     for troveSpec in list(troveSpecList):
         if not isinstance(troveSpec, tuple):
-            troveSpec = cmdline.parseTroveSpec(troveSpec)
+            troveSpec = cmdutil.parseTroveSpec(troveSpec)
+        if len(troveSpec) == 3:
+            context = ''
+        else:
+            context = troveSpec[3]
+            troveSpec = troveSpec[:3]
 
         if (troveSpec[0].startswith('group-') and not recurseGroups
             and not compat.ConaryVersion().supportsCloneNonRecursive()):
@@ -366,7 +427,8 @@ def _commitRecipe(conaryclient, recipePath, message):
         shutil.rmtree(recipeDir)
 
 
-def _findSpecsForBinaryGroup(repos, cfg, groupsToFind, limitToHosts, limitToLabels):
+def _findSpecsForBinaryGroup(repos, cfg, groupsToFind, limitToHosts, 
+                            limitToLabels):
     newTroveSpecs = []
     results = repos.findTroves(cfg.buildLabel,
                                groupsToFind, cfg.buildFlavor)

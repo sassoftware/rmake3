@@ -3,6 +3,8 @@
 #
 import time
 
+from rmake.build import buildjob
+from rmake.build import buildtrove
 from rmake.lib import apirpc
 from rmake.lib.apiutils import thaw, freeze
 
@@ -20,24 +22,27 @@ class rMakeClient(object):
         self.uri = uri
         self.proxy = apirpc.XMLApiProxy(server.rMakeServer, uri)
 
-    def buildTroves(self, sourceTroveTups, buildEnv):
+    def buildTroves(self, troveList, cfg):
         """
             Request to build the given sources and build environment.
             jobId of created job
 
-            @param sourceTroveTups: list of source troves to build.
-            @type sourceTroveTups: List of (name, version, flavor) tuples, where
-            the flavor indicated the flavor to build the name=version source 
-            trove.
-            @param buildEnv: build configuration to use when buildings
-            @type buildEnv: BuildConfiguration object.
-            @param jobContext: context 
-            @type buildEnv: BuildConfiguration object.
+            @param job: buildJob containing the troves to build and their
+            configuration
+            @type job: buildJob
             @rtype: int 
             @return: jobId of created job.
             @raise: rMakeError: If server cannot add job.
         """
-        return self.proxy.buildTroves(sourceTroveTups, buildEnv)
+        job = buildjob.BuildJob()
+        troveList = [ buildtrove.BuildTrove(None, *x) for x in troveList ]
+        for trove in troveList:
+            job.addTrove(buildTrove=trove, *trove.getNameVersionFlavor())
+        job.setMainConfig(cfg)
+        return self.buildJob(job)
+
+    def buildJob(self, job):
+        return self.proxy.buildTroves(job)
 
     def stopJob(self, jobId):
         """
@@ -80,7 +85,7 @@ class rMakeClient(object):
         if state is None:
             state = ''
         results = self.proxy.listTrovesByState(jobId, state)
-        return dict((x[0], thaw('troveTupleList', x[1])) for x in results)
+        return dict((x[0], thaw('troveContextTupleList', x[1])) for x in results)
 
     def getStatus(self, jobId):
         """
@@ -137,7 +142,7 @@ class rMakeClient(object):
                                                               troveTuple, mark)
         return isBuilding, wrappedData.data, mark
 
-    def getJob(self, jobId, withTroves=True):
+    def getJob(self, jobId, withTroves=True, withConfigs=False):
         """
             Return job instance.
             @param jobId: jobId or UUID for job.
@@ -146,9 +151,9 @@ class rMakeClient(object):
             @rtype: build.buildjob.BuildJob
             @raises: JobNotFound if job does not exist.
         """
-        return self.getJobs([jobId], withTroves)[0]
+        return self.getJobs([jobId], withTroves, withConfigs)[0]
 
-    def getJobs(self, jobIds, withTroves=True):
+    def getJobs(self, jobIds, withTroves=True, withConfigs=False):
         """
             Return job instance.
             @param jobId: jobId or UUID for job.
@@ -158,7 +163,7 @@ class rMakeClient(object):
             @raises: JobNotFound if job does not exist.
         """
         return [ thaw('BuildJob', x)
-                 for x in self.proxy.getJobs(jobIds, withTroves) ]
+                 for x in self.proxy.getJobs(jobIds, withTroves, withConfigs) ]
 
     def listSubscribers(self, jobId):
         """
@@ -241,7 +246,7 @@ class rMakeClient(object):
         jobIds = []
         finalMap = []
         for jobId, troveMap in commitMap.items():
-            troveMap = [ (freeze('troveTuple', x[0]),
+            troveMap = [ (freeze('troveContextTuple', x[0]),
                           freeze('troveTupleList', x[1]))
                           for x in troveMap.items() ]
             finalMap.append(troveMap)

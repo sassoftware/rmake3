@@ -9,9 +9,9 @@ import termios
 import textwrap
 import time
 
-from conary.conaryclient.cmdline import parseTroveSpec
 from conary.deps import deps
 
+from rmake.cmdline import cmdutil
 from rmake.build import buildtrove
 from rmake.lib import flavorutil
 
@@ -70,8 +70,8 @@ def getTimeDifference(totalSeconds):
 
 def getJobsToDisplay(dcfg, client, jobId=None, troveSpecs=[]):
     if troveSpecs:
-        troveSpecs = ( parseTroveSpec(x) for x in troveSpecs )
-        troveSpecs = [ (x[0].split(':')[0] + ':source', x[1], x[2]) for x in troveSpecs ]
+        troveSpecs = ( cmdutil.parseTroveSpec(x) for x in troveSpecs )
+        troveSpecs = [ (x[0].split(':')[0] + ':source', x[1], x[2], x[3]) for x in troveSpecs ]
 
     if not jobId:
         jobList = client.client.getJobs(client.client.listJobs(), 
@@ -82,8 +82,8 @@ def getJobsToDisplay(dcfg, client, jobId=None, troveSpecs=[]):
     newJobList = []
     if troveSpecs:
         for job in jobList:
-            results = job.findTroves(None, troveSpecs, None,
-                                       allowMissing=True)
+            results = job.findTrovesWithContext(None, troveSpecs, None,
+                                                allowMissing=True)
             allTups = list(itertools.chain(*results.itervalues()))
             if allTups:
                 newJobList.append((job, allTups))
@@ -321,6 +321,8 @@ def displayTroveDetail(dcfg, job, trove, indent='     ', out=None):
     def write(line=''):
         out.write(line + '\n')
 
+    if not hasattr(dcfg, 'flavorsByName'):
+        dcfg.flavorsByName = getFlavorSpecs(job)
     troveSpec = getTroveSpec(dcfg, trove.getNameVersionFlavor())
     write('%s%s' % (indent, troveSpec))
     write('%s  State: %-20s' % (indent, trove.getStateName()))

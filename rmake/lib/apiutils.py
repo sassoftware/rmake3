@@ -170,6 +170,32 @@ class api_troveTupleList:
                  ThawFlavor(x[2])) for x in tupList ]
 register(api_troveTupleList)
 
+class api_troveContextTupleList:
+    name = 'troveContextTupleList'
+
+    @staticmethod
+    def __freeze__(tupList):
+        results = []
+        for x in tupList:
+            if len(x) == 3 or not x[3]:
+                results.append((x[0], x[1].freeze(), (x[2] is not None) and x[2].freeze() or ''))
+            else:
+                results.append((x[0], x[1].freeze(), (x[2] is not None) and x[2].freeze() or '', x[3]))
+        return results
+
+    @staticmethod
+    def __thaw__(tupList):
+        results = []
+        for tup in tupList:
+            if len(tup) == 3 or not tup[3]:
+                context = ''
+            else:
+                context = tup[3]
+            results.append((tup[0], versions.ThawVersion(tup[1]), ThawFlavor(tup[2]), context))
+        return results
+register(api_troveContextTupleList)
+
+
 class api_installJobList:
     name = 'installJobList'
 
@@ -213,7 +239,30 @@ class api_troveTuple:
         return (n, versions.ThawVersion(v), ThawFlavor(f))
 register(api_troveTuple)
 
+class api_troveContextTuple:
+    name = 'troveContextTuple'
 
+    @staticmethod
+    def __freeze__(item):
+        if len(item) == 3:
+            context = ''
+            n,v,f = item
+        else:
+            n,v,f,context = item
+
+        if not context:
+            return (n, v.freeze(), (f is not None) and f.freeze() or '')
+        return (n, v.freeze(), (f is not None) and f.freeze() or '', context)
+
+    @staticmethod
+    def __thaw__(item):
+        if len(item) == 3:
+            context = ''
+            n,v,f = item
+        else:
+            n,v,f,context = item
+        return (n, versions.ThawVersion(v), ThawFlavor(f), context)
+register(api_troveContextTuple)
 
 class api_jobList:
     name = 'jobList'

@@ -135,41 +135,58 @@ class rMakeHelper(object):
 
 
     def restartJob(self, jobId, troveSpecs=None):
-        jobConfig = self.client.getJobConfig(jobId)
-        troveSpecList = jobConfig.buildTroveSpecs
-        if troveSpecs:
-            troveSpecList.extend(troveSpecs)
-
-        # FIXME: how do we determine what parts of the jobConfig get
-        # overridden
-        buildConfig = copy.deepcopy(self.buildConfig)
-        buildConfig.jobContext = jobConfig.jobContext + [jobId]
-        buildConfig.flavor = jobConfig.flavor
-        buildConfig.buildFlavor = jobConfig.buildFlavor
-        buildConfig.resolveTroves = jobConfig.resolveTroves
-        buildConfig.resolveTrovesOnly = jobConfig.resolveTrovesOnly
-        buildConfig.installLabelPath = jobConfig.installLabelPath
-        return self.buildTroves(troveSpecList, buildConfig=buildConfig)
+        job = self.client.getJob(jobId, withConfigs=True)
+        configDict = {}
+        troveSpecList = []
+        configDict = {}
+        mainConfig = copy.deepcopy(self.buildConfig)
+        for contextStr, jobConfig in job.getConfigDict().iteritems():
+            troveSpecList += [ (x[0], x[1], x[2], contextStr)
+                                for x in jobConfig.buildTroveSpecs ]
+            if not contextStr:
+                cfg = mainConfig
+            else:
+                cfg = copy.deepcopy(self.buildConfig)
+            configDict[contextStr] = cfg
+            for context in contextStr.split(','):
+                if context:
+                    if cfg.hasSection(context):
+                        cfg.setContext(context)
+                    else:
+                        log.warning('Context %s used in job %s does not exist' % (context, jobId))
+                # FIXME: how do we determine what parts of the jobConfig get
+                # overridden
+                cfg.flavor = jobConfig.flavor
+                cfg.buildFlavor = jobConfig.buildFlavor
+                cfg.resolveTroves = jobConfig.resolveTroves
+                cfg.resolveTrovesOnly = jobConfig.resolveTrovesOnly
+                cfg.installLabelPath = jobConfig.installLabelPath
+        mainConfig.jobContext += [jobId]
+        return self.buildTroves(troveSpecList, buildConfig=mainConfig,
+                                configDict=configDict)
 
     def buildTroves(self, troveSpecList,
-                    limitToHosts=None, limitToLabels=None,
-                    recurseGroups=False, buildConfig=None):
+                    limitToHosts=None, limitToLabels=None, recurseGroups=False,
+                    buildConfig=None, configDict=None):
         if buildConfig is None:
             buildConfig = self.buildConfig
-        toBuild = buildcmd.getTrovesToBuild(self.getConaryClient(buildConfig),
-                                            troveSpecList,
-                                            limitToHosts=limitToHosts,
-                                            limitToLabels=limitToLabels,
-                                            recurseGroups=recurseGroups)
+        job = buildcmd.getBuildJob(buildConfig,
+                                   self.getConaryClient(buildConfig),
+                                   troveSpecList,
+                                   limitToHosts=limitToHosts,
+                                   limitToLabels=None,
+                                   recurseGroups=recurseGroups,
+                                   configDict=configDict)
 
-        jobId = self.client.buildTroves(toBuild, buildConfig)
+        jobId = self.client.buildJob(job)
         print 'Added Job %s' % jobId
-        for (n,v,f) in sorted(toBuild):
+        for (n,v,f) in sorted(job.iterTroveList()):
             if f is not None and not f.isEmpty():
                 f = '[%s]' % f
             else:
                 f = ''
-            print '  %s=%s/%s%s' % (n, v.trailingLabel(), v.trailingRevision(), f)
+            print '  %s=%s/%s%s' % (n, v.trailingLabel(),
+                                       v.trailingRevision(), f)
 
         return jobId
 
@@ -198,8 +215,7 @@ class rMakeHelper(object):
         """
         job = self.client.getJob(jobId)
         binTroves = []
-        for troveTup in job.iterTroveList():
-            trove = job.getTrove(*troveTup)
+        for trove in job.iterTroves():
             binTroves.extend(trove.iterBuiltTroves())
         if not binTroves:
             log.error('No built troves associated with this job')
@@ -226,8 +242,7 @@ class rMakeHelper(object):
         """
         job = self.client.getJob(jobId)
         binTroves = []
-        for troveTup in job.iterTroveList():
-            trove = job.getTrove(*troveTup)
+        for trove in job.iterTroves():
             binTroves.extend(trove.iterBuiltTroves())
         if not binTroves:
             log.error('No built troves associated with this job')
@@ -317,6 +332,17 @@ class rMakeHelper(object):
                 def _sortCommitted(tup1, tup2):
                     return cmp((tup1[0].endswith(':source'), tup1),
                                (tup2[0].endswith(':source'), tup2))
+                def _formatTup(tup):
+                    args = [tup[0], tup[1]]
+                    if tup[2].isEmpty():
+                        args.append('')
+                    else:
+                        args.append('[%s]' % buildTroveTup[2])
+                    if not tup[3]:
+                        args.append('')
+                    else:
+                        args.append('{%s}' % buildTroveTup[3])
+                    return '%s=%s%s%s' % tuple(args)
 
                 self.client.commitSucceeded(data)
 
@@ -328,7 +354,7 @@ class rMakeHelper(object):
                         committedList = [ x for x in committedList
                                             if (':' not in x[0]
                                                 or x[0].endswith(':source')) ]
-                        print '    %s=%s[%s] ->' % buildTroveTup
+                        print '    %s ->' % _formatTup(buildTroveTup)
                         print ''.join('       %s=%s[%s]\n' % x
                                       for x in sorted(committedList,
                                                       _sortCommitted))

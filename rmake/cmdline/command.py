@@ -158,7 +158,7 @@ class BuildCommand(rMakeCommand):
 
     commands = ['build', 'buildgroup']
     commandGroup = CG_BUILD
-    paramHelp = '<troveSpec> [<troveSpec>]*'
+    paramHelp = '<troveSpec>[{context}] [<troveSpec>][{context}]*'
     help = 'Build packages or recipes'
 
     docs = {'flavor' : "flavor to build with",

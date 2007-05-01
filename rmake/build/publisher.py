@@ -42,7 +42,7 @@ class JobStatusPublisher(publisher.Publisher):
         self._emit(self.JOB_LOG_UPDATED, '', job, job.state, message)
 
     def buildTrovesSet(self, job):
-        self._emit(self.JOB_TROVES_SET, '', job, list(job.iterTroveList()))
+        self._emit(self.JOB_TROVES_SET, '', job, list(job.iterTroveList(True)))
 
     def troveResolved(self, trove, resolveResult):
         self._emit(self.TROVE_RESOLVED, '', trove, resolveResult)

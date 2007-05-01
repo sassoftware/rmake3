@@ -8,7 +8,7 @@ from rmake import errors
 
 # NOTE: this schema is sqlite-specific
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 def createJobs(db):
     cu = db.cursor()
@@ -39,17 +39,21 @@ def createJobConfig(db):
         cu.execute("""
         CREATE TABLE JobConfig (
             jobId       INTEGER NOT NULL,
+            context     STRING NOT NULL DEFAULT "",
             key         STRING NOT NULL,
             ord         INTEGER NOT NULL,
             value       STRING NOT NULL
         )""")
         db.tables["JobConfig"] = []
-        if db.createIndex("JobConfig", "JobConfigIdx", "jobId",
-                          unique = False):
-            commit = True
-        if db.createIndex("JobConfig", "JobConfigKeyIdx", "jobId, key",
-                          unique = False):
-            commit = True
+    if db.createIndex("JobConfig", "JobConfigIdx", "jobId",
+                      unique = False):
+        commit = True
+    if db.createIndex("JobConfig", "JobContextIdx", "jobId, context",
+                      unique = False):
+        commit = True
+    if db.createIndex("JobConfig", "JobConfigContextKeyIdx", 
+                      "jobId, context, key", unique = False):
+        commit = True
     if commit:
         db.commit()
         db.loadSchema()
@@ -122,6 +126,7 @@ def createBuildTroves(db):
             troveName      STRING NOT NULL,
             version        STRING NOT NULL,
             flavor         STRING NOT NULL,
+            context        STRING NOT NULL DEFAULT '',
             state          INTEGER NOT NULL,
             status         STRING NOT NULL DEFAULT '',
             failureReason  STRING NOT NULL DEFAULT '',
@@ -138,7 +143,12 @@ def createBuildTroves(db):
         db.tables["BuildTroves"] = []
         commit = True
     if db.createIndex("BuildTroves", "BuildTrovesIdx",
-                      "jobId, troveName, version, flavor", unique = True):
+                      "jobId, troveName, version, flavor",
+                      unique = False):
+        commit = True
+    if db.createIndex("BuildTroves", "BuildTrovesContextIdx",
+                      "jobId, troveName, version, flavor, context",
+                      unique = True):
         commit = True
     if db.createIndex("BuildTroves", "BuildTroveJobIdIdx", "jobId",
                       unique = False):
@@ -389,6 +399,16 @@ class Migrator(AbstractMigrator):
         createNodes(self.db)
         createPluginVersionTable(self.db)
         return 6
+
+    def migrateFrom6(self):
+        self._addColumn('BuildTroves', "context",
+                        "STRING NOT NULL DEFAULT ''")
+        self._addColumn('JobConfig',  "context",
+                        "STRING NOT NULL DEFAULT ''")
+        createJobConfig(self.db) # add index
+        createBuildTroves(self.db) # add indexes
+        return 7
+
 
 
 class PluginSchemaManager(AbstractSchemaManager):

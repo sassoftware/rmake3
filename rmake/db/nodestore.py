@@ -137,7 +137,7 @@ class NodeStore(object):
         host = trove.getChrootHost()
         path = trove.getChrootPath()
         troveId = self.db.jobStore._getTroveId(cu, trove.jobId, 
-                                               *trove.getNameVersionFlavor())
+                                             *trove.getNameVersionFlavor(True))
         return self._createChrootId(cu, host, path, troveId)
 
     def _createChrootId(self, cu, nodeName, path, troveId):

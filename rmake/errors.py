@@ -53,7 +53,7 @@ apiutils.register(JobNotFound)
 
 class TroveNotFound(RmakeError):
     def __str__(self):
-        return "TroveNotFound: Could not find trove %s=%s[%s] with jobId %s" % (self.args[1:] + self.args[0:1])
+        return "TroveNotFound: Could not find trove %s=%s[%s]{%s} with jobId %s" % (self.args[1:] + self.args[0:1])
 
     @classmethod
     def __thaw__(class_, data):

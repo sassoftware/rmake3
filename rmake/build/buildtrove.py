@@ -88,7 +88,8 @@ class _AbstractBuildTrove:
                  failureReason=None, logPath='', start=0, finish=0,
                  pid=0, recipeType=RECIPE_TYPE_PACKAGE,
                  chrootHost='', chrootPath='', 
-                 preBuiltRequirements=None, preBuiltBinaries=None):
+                 preBuiltRequirements=None, preBuiltBinaries=None,
+                 context=''):
         assert(name.endswith(':source'))
         self.jobId = jobId
         self.name = name
@@ -112,11 +113,16 @@ class _AbstractBuildTrove:
         self.recipeType = recipeType
         self.preBuiltRequirements = None
         self.preBuiltBinaries = preBuiltBinaries
+        self.context = context
 
     def __repr__(self):
-        return "<BuildTrove('%s=%s[%s]')>" % (self.getName(),
+        if self.getContext():
+            context = '{%s}' % self.getContext()
+        else:
+            context = ''
+        return "<BuildTrove('%s=%s[%s]%s')>" % (self.getName(),
                                           self.getVersion().trailingLabel(),
-                                          self.getFlavor())
+                                          self.getFlavor(), context)
 
     def getName(self):
         return self.name
@@ -127,8 +133,29 @@ class _AbstractBuildTrove:
     def getFlavor(self):
         return self.flavor
 
-    def getNameVersionFlavor(self):
+    def getNameVersionFlavor(self, withContext=False):
+        if withContext:
+            return (self.name, self.version, self.flavor, self.context)
         return (self.name, self.version, self.flavor)
+
+    def getContext(self):
+        return self.context
+
+    def getContextStr(self):
+        if self.context:
+            return '{%s}' % self.context
+        else:
+            return ''
+
+    def setFlavor(self, flavor):
+        self.flavor = flavor
+
+    def setRecipeType(self, recipeType):
+        self.recipeType = recipeType
+
+
+    def setConfig(self, configObj):
+        self.cfg = configObj
 
     def setState(self, newState):
         self.state = newState
@@ -291,11 +318,14 @@ class _AbstractBuildTrove:
     def getChrootPath(self):
         return self.chrootPath
 
+    def getConfig(self):
+        return self.cfg
+
     def __hash__(self):
-        return hash(self.getNameVersionFlavor())
+        return hash(self.getNameVersionFlavor(True))
 
     def __eq__(self, other):
-        return self.getNameVersionFlavor() == other.getNameVersionFlavor()
+        return self.getNameVersionFlavor(True) == other.getNameVersionFlavor(True)
 
     def __cmp__(self, other):
         return cmp(self.getNameVersionFlavor(), other.getNameVersionFlavor())
@@ -309,6 +339,7 @@ class _FreezableBuildTrove(_AbstractBuildTrove):
                  'name'              : 'str',
                  'version'           : 'version',
                  'flavor'            : 'flavor',
+                 'context'           : 'str',
                  'crossRequirements' : 'set',
                  'buildRequirements' : 'set',
                  'builtTroves'       : 'troveTupleList',
@@ -330,6 +361,8 @@ class _FreezableBuildTrove(_AbstractBuildTrove):
         for attr, attrType in self.attrTypes.iteritems():
             d[attr] = freeze(attrType, getattr(self, attr))
         d['packages'] = list(d['packages'])
+        if self.jobId is None:
+            d['jobId'] = ''
         return d
 
     @classmethod
@@ -341,6 +374,8 @@ class _FreezableBuildTrove(_AbstractBuildTrove):
                      thaw(types['flavor'], d.pop('flavor')),
                      thaw(types['state'], d.pop('state')))
         d['packages'] = set(d['packages'])
+        if new.jobId == '':
+            new.jobId = None
 
         for attr, value in d.iteritems():
             setattr(new, attr, thaw(types[attr], value))

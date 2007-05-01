@@ -21,15 +21,15 @@ class AbstractBuildState(object):
     def addTroves(self, sourceTroves):
         self.troves.extend(sourceTroves)
         for sourceTrove in sourceTroves:
-            self.trovesByNVF[sourceTrove.getNameVersionFlavor()] = sourceTrove
+            self.trovesByNVF[sourceTrove.getNameVersionFlavor(True)] = sourceTrove
             self.states[sourceTrove.state].add(sourceTrove)
-            self.statesByTrove[sourceTrove.getNameVersionFlavor()] = sourceTrove.state
+            self.statesByTrove[sourceTrove.getNameVersionFlavor(True)] = sourceTrove.state
 
-    def getTrove(self, name, version, flavor):
-        return self.trovesByNVF[name, version, flavor]
+    def getTrove(self, name, version, flavor, context=''):
+        return self.trovesByNVF[name, version, flavor, context]
 
     def _setState(self, sourceTrove, newState):
-        nvf = sourceTrove.getNameVersionFlavor()
+        nvf = sourceTrove.getNameVersionFlavor(True)
         oldState = self.statesByTrove[nvf]
         self.states[oldState].discard(sourceTrove)
         self.statesByTrove[nvf] = newState

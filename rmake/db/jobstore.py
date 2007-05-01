@@ -41,7 +41,7 @@ class JobStore(object):
 
     def listTrovesByState(self, jobId, state=None):
         cu = self.db.cursor()
-        cmd = """SELECT troveName, version, flavor, state 
+        cmd = """SELECT troveName, version, flavor, context, state 
                  FROM BuildTroves 
                  WHERE jobId=?"""
         params = [jobId]
@@ -49,18 +49,19 @@ class JobStore(object):
             cmd += ' AND state=?'
             params.append(state)
         results = {}
-        for (name, version, flavor, state) in cu.execute(cmd, params):
+        for (name, version, flavor, context, state) in cu.execute(cmd, params):
             version, flavor = thaw('version', version), thaw('flavor', flavor)
             if state in results:
-                results[state].append((name, version, flavor))
+                results[state].append((name, version, flavor, context))
             else:
-                results[state] = [(name, version, flavor)]
+                results[state] = [(name, version, flavor, context)]
         return results
 
-    def getJob(self, jobId, withTroves=False):
-        return self.getJobs([jobId], withTroves=withTroves)[0]
+    def getJob(self, jobId, withTroves=False, withConfigs=True):
+        return self.getJobs([jobId], withTroves=withTroves, 
+                            withConfigs=withConfigs)[0]
 
-    def getJobs(self, jobIdList, withTroves=False):
+    def getJobs(self, jobIdList, withTroves=False, withConfigs=False):
         cu = self.db.cursor()
         cu.execute("""
         CREATE TEMPORARY TABLE tjobIdList(
@@ -99,9 +100,9 @@ class JobStore(object):
                 results = cu.execute(
                 """
                     SELECT jobId, BuildTroves.troveId, troveName, version,
-                        flavor, state, status, failureReason, failureData,
-                        start, finish, logPath, pid, recipeType, Chroots.path,
-                        Chroots.nodeName
+                        flavor, context, state, status, failureReason, 
+                        failureData, start, finish, logPath, pid, recipeType, 
+                        Chroots.path, Chroots.nodeName
                         FROM tJobIdList
                         JOIN BuildTroves USING(jobId)
                         LEFT JOIN Chroots USING(chrootId)
@@ -109,9 +110,10 @@ class JobStore(object):
 
                 trovesById = {}
 
-                for (jobId, troveId, name, version, flavor, state, status,
-                     failureReason, failureData, start, finish,
-                     logPath, pid, recipeType, chrootPath, chrootHost) in results:
+                for (jobId, troveId, name, version, flavor, context,
+                     state, status, failureReason, failureData, start, finish,
+                     logPath, pid, recipeType,
+                     chrootPath, chrootHost) in results:
 
                     if chrootPath is None:
                         chrootPath = ''
@@ -128,9 +130,11 @@ class JobStore(object):
                                                failureReason=failureReason,
                                                pid=pid, recipeType=recipeType,
                                                chrootPath=chrootPath,
-                                               chrootHost=chrootHost)
+                                               chrootHost=chrootHost,
+                                               context=context)
                     trovesById[troveId] = buildTrove
-                    jobsById[jobId].addTrove(name, version, flavor, buildTrove)
+                    jobsById[jobId].addTrove(name, version, flavor, context,
+                                             buildTrove)
 
                 results = cu.execute("""SELECT troveId, BinaryTroves.troveName, 
                                                 BinaryTroves.version,
@@ -153,18 +157,32 @@ class JobStore(object):
                 ''')
                 for (jobId, n,v,f) in results:
                     jobsById[jobId].addTrove(n, versions.ThawVersion(v), ThawFlavor(f))
+            if withConfigs:
+                cu.execute("""SELECT jobId, context, key, value
+                              FROM tJobIdList
+                              JOIN JobConfig USING(jobId) 
+                              ORDER by key, ord""")
+                jobConfigD = {}
+                for jobId, context, key, value in cu:
+                    configD = jobConfigD.setdefault(jobId, {})
+                    d = configD.setdefault(context, {})
+                    d.setdefault(key, []).append(value)
+                for jobId, configDict in jobConfigD.items():
+                    configDict = dict((x[0], thaw('BuildConfiguration', x[1]))
+                                       for x in configD.iteritems())
+                    jobsById[jobId].setConfigs(configDict)
             return [jobsById[jobId] for jobId in jobIdList]
         finally:
             cu.execute("DROP TABLE tJobIdList", start_transaction = False)
 
-    def _getTroveId(self, cu, jobId, name, version, flavor):
+    def _getTroveId(self, cu, jobId, name, version, flavor, context=''):
         cu.execute(
             '''
             SELECT troveId
                 FROM BuildTroves
-                WHERE jobId=? AND troveName=? AND version=?  AND flavor=?
+                WHERE jobId=? AND troveName=? AND version=?  AND flavor=? AND context=?
             ''',
-            jobId, name, version.freeze(), flavor.freeze())
+            jobId, name, version.freeze(), flavor.freeze(), context)
 
         return self.db._getOne(cu, (jobId, name, version, flavor))[0]
 
@@ -183,8 +201,8 @@ class JobStore(object):
             jobIds.append(self.db._getOne(cu, uuid)[0])
         return jobIds
 
-    def getTrove(self, jobId, name, version, flavor):
-        return self.getTroves([(jobId, name, version, flavor)])[0]
+    def getTrove(self, jobId, name, version, flavor, context=''):
+        return self.getTroves([(jobId, name, version, flavor, context)])[0]
 
     def getTroves(self, troveList):
         cu = self.db.cursor()
@@ -192,30 +210,32 @@ class JobStore(object):
                           jobId INT,
                           troveName STR,
                           version STR,
-                          flavor
+                          flavor STR,
+                          context STR
                       )''', start_transaction=False)
 
-        for jobId, troveName, version, flavor in troveList:
-            cu.execute('''INSERT INTO tTroveInfo VALUES (?, ?, ?, ?)''',
-                       (jobId, troveName, version.freeze(), flavor.freeze()),
-                       start_transaction=False)
+        for jobId, troveName, version, flavor, context in troveList:
+            cu.execute('''INSERT INTO tTroveInfo VALUES (?, ?, ?, ?, ?)''',
+                       (jobId, troveName, version.freeze(), flavor.freeze(),
+                       context), start_transaction=False)
 
         results = cu.execute(
         """
-            SELECT BuildTroves.troveId, jobId, pid, troveName, version, 
-                flavor, state, status, failureReason, failureData, start, 
-                finish, logPath, recipeType, Chroots.nodeName, Chroots.path
+            SELECT BuildTroves.troveId, jobId, pid, troveName, version,
+                flavor, context, state, status, failureReason, failureData,
+                start, finish, logPath, recipeType,
+                Chroots.nodeName, Chroots.path
                 FROM tTroveInfo
-                JOIN BuildTroves USING(jobId, troveName, version, flavor)
+                JOIN BuildTroves USING(jobId, troveName, version, flavor, context)
                 LEFT JOIN Chroots USING(chrootId)
         """)
 
         trovesById = {}
         trovesByNVF = {}
         # FIXME From here on out it's mostly duplication from getJobs code
-        for (troveId, jobId, pid, troveName, version, flavor, state, status,
-             failureReason, failureData, start, finish, logPath, recipeType,
-             chrootHost, chrootPath) \
+        for (troveId, jobId, pid, troveName, version, flavor, context, state, 
+             status, failureReason, failureData, start, finish, logPath, 
+             recipeType, chrootHost, chrootPath) \
              in results:
             if chrootPath is None:
                 chrootPath = chrootHost = ''
@@ -224,7 +244,7 @@ class JobStore(object):
             failureReason = thaw('FailureReason',
                                  (failureReason, failureData))
             buildTrove = buildtrove.BuildTrove(jobId, troveName, version,
-                                           flavor, pid=pid,
+                                           flavor, context=context, pid=pid,
                                            state=state, start=float(start),
                                            finish=float(finish),
                                            logPath=logPath, status=status,
@@ -233,7 +253,8 @@ class JobStore(object):
                                            chrootPath=chrootPath,
                                            chrootHost=chrootHost)
             trovesById[troveId] = buildTrove
-            trovesByNVF[(jobId, troveName, version, flavor)] = buildTrove
+            trovesByNVF[(jobId, troveName, version, 
+                         flavor, context)] = buildTrove
 
         results = cu.execute(
         """
@@ -266,9 +287,14 @@ class JobStore(object):
         return cu.fetchall()
 
     # return all the log messages since last mark
-    def getTroveLogs(self, jobId, (name, version, flavor), mark = 0):
+    def getTroveLogs(self, jobId, troveTuple, mark = 0):
+        if len(troveTuple) == 3:
+            (name, version, flavor) = troveTuple
+            context = ''
+        else:
+            (name, version, flavor, context) = troveTuple
         cu = self.db.cursor()
-        troveId = self._getTroveId(cu, jobId, name, version, flavor)
+        troveId = self._getTroveId(cu, jobId, name, version, flavor, context)
         ret = []
         cu.execute("""
         SELECT changed, message, args FROM StateLogs
@@ -276,12 +302,11 @@ class JobStore(object):
         """, (jobId, troveId, 100, mark))
         return cu.fetchall()
 
-
     def getJobConfig(self, jobId):
         cu = self.db.cursor()
         d = {}
         cu.execute("""SELECT key, value FROM JobConfig
-                       WHERE jobId=? ORDER by key, ord""", jobId)
+                       WHERE jobId=? AND context='' ORDER by key, ord""", jobId)
         for key, value in cu:
             d.setdefault(key, []).append(value)
         return thaw('BuildConfiguration', d)
@@ -297,12 +322,14 @@ class JobStore(object):
         cu.execute("INSERT INTO Jobs (jobId, uuid, state) VALUES (NULL, ?, ?)", 
                    job.uuid, job.state)
         jobId = cu.lastrowid
-        for (troveName, version, flavor) in job.iterTroveList():
+        for troveName, version, flavor, context in job.iterTroveList(True):
             cu.execute("INSERT INTO BuildTroves "
-                       "(jobId, troveName, version, flavor, state) "
-                       "VALUES (?, ?, ?, ?, ?)", (
+                       "(jobId, troveName, version, flavor, state, context) "
+                       "VALUES (?, ?, ?, ?, ?, ?)", (
                 jobId, troveName, version.freeze(),
-                flavor.freeze(), TROVE_STATE_INIT))
+                flavor.freeze(), TROVE_STATE_INIT, context))
+        for context, jobConfig in job.getConfigDict().items():
+            self.addJobConfig(jobId, context, jobConfig)
         self.db.commit()
         job.jobId = jobId
         return jobId
@@ -325,19 +352,22 @@ class JobStore(object):
                 cu.execute('DELETE FROM %s WHERE jobId=?' % table, jobId)
         return troveList
 
-    def addJobConfig(self, jobId, jobConfig):
+    def addJobConfig(self, jobId, context, jobConfig):
         cu = self.db.cursor()
-        cu.execute('DELETE FROM JobConfig where jobId=?', jobId)
+        cu.execute('DELETE FROM JobConfig where jobId=? and context=?', jobId,
+                    context)
         d = freeze('BuildConfiguration', jobConfig)
         for key, values in d.iteritems():
             for idx, value in enumerate(values):
-                cu.execute('''INSERT INTO JobConfig (jobId, key, ord, value)
-                              VALUES (?, ?, ?, ?)''', jobId, key, idx, value)
+                cu.execute('''INSERT INTO JobConfig 
+                              (jobId, context, key, ord, value)
+                              VALUES (?, ?, ?, ?, ?)''', jobId, context, key,
+                                                      idx, value)
 
     def setBinaryTroves(self, buildTrove, troveList):
         cu = self.db.cursor()
         troveId = self._getTroveId(cu, buildTrove.jobId,
-                                   *buildTrove.getNameVersionFlavor())
+                                   *buildTrove.getNameVersionFlavor(True))
 
         cu.execute('DELETE FROM BinaryTroves WHERE troveId=?', troveId)
         for binName, binVersion, binFlavor in troveList:
@@ -412,7 +442,7 @@ class JobStore(object):
                   state=trove.state,
                   failureReason=failureTup[0],
                   failureData=failureTup[1],
-                  )
+                  context=trove.getContext())
         fieldList = ', '.join(kw.keys())
         valueList = kw.values()
         qList = ','.join('?' for x in xrange(len(kw.keys())))
@@ -431,7 +461,7 @@ class JobStore(object):
     def updateTroveLog(self, trove, message):
         cu = self.db.cursor()
         troveId = self._getTroveId(cu, trove.jobId, 
-                                   *trove.getNameVersionFlavor())
+                                   *trove.getNameVersionFlavor(True))
         cu.execute("INSERT INTO StateLogs (jobId, troveId, message, args)"
                    " VALUES (?, ?, ?, ?)",
                    (trove.jobId, troveId, message, ''))

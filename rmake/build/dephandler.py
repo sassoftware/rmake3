@@ -70,15 +70,15 @@ class DependencyBasedBuildState(AbstractBuildState):
         are buildable and also, there dependency relationships.
     """
 
-    def __init__(self, sourceTroves, cfg):
+    def __init__(self, sourceTroves, logger):
+        self.logger = logger
         self.trovesByPackage = {}
         self.buildReqTroves = {}
 
         self.depGraph = graph.DirectedGraph()
-        self.builtTroves = []
+        self.builtTroves = {}
         self.rejectedDeps = {}
-
-        self._defaultBuildReqs = cfg.defaultBuildReqs
+        self.disallowed = set()
 
         AbstractBuildState.__init__(self, sourceTroves)
 
@@ -124,7 +124,7 @@ class DependencyBasedBuildState(AbstractBuildState):
                 self.trovesByPackage.setdefault(package, []).append(trove)
 
         for trove in sourceTroves:
-            trove.addBuildRequirements(self._defaultBuildReqs)
+            trove.addBuildRequirements(trove.cfg.defaultBuildReqs)
             for buildReq in trove.getBuildRequirementSpecs():
                 self._addReq(trove, buildReq, False)
 
@@ -162,7 +162,7 @@ class DependencyBasedBuildState(AbstractBuildState):
                     if (flavor is None or
                         provTrove.getFlavor().toStrongFlavor().satisfies(
                                                 flavor.toStrongFlavor())):
-                        self.dependsOn(trove, provTrove, 
+                        self.dependsOn(trove, provTrove,
                                         (name, version, flavor))
 
     def dependsOn(self, trove, provTrove, req):
@@ -177,20 +177,35 @@ class DependencyBasedBuildState(AbstractBuildState):
         return (provTrove, isCross) in self.rejectedDeps.setdefault(trove, [])
 
     def troveBuilt(self, trove, binaryTroveList):
-        self.builtTroves.extend(binaryTroveList)
         self.buildReqTroves.pop(trove, False)
         self.depGraph.delete(trove)
 
+        newBuilt = {}
+        for binaryTup in binaryTroveList:
+            nbf = binaryTup[0], binaryTup[1].branch(), binaryTup[2]
+            # if we already used this in 
+            if nbf in self.builtTroves:
+                self.logger.warning("Already built %s - will not commit %s" % (self.builtTroves[nbf], trove))
+                self.disallow(trove)
+                return
+            newBuilt[nbf] = binaryTup
+        self.builtTroves.update(newBuilt)
+
     def getAllBinaries(self):
-        return self.builtTroves
+        return self.builtTroves.values()
+
+    def disallow(self, trove):
+        self.disallowed.add(trove)
 
     def getCrossCompiledBinaries(self):
         return list(itertools.chain(*[x.getBinaryTroves() for x in self.troves
-                                     if x.isBuilt() and x.isCrossCompiled()]))
+                                     if x.isBuilt() and x.isCrossCompiled()
+                                        and x not in self.disallowed]))
 
     def getNonCrossCompiledBinaries(self):
         return list(itertools.chain(*[x.getBinaryTroves() for x in self.troves
-                                  if x.isBuilt() and not x.isCrossCompiled()]))
+                                  if x.isBuilt() and not x.isCrossCompiled()
+                                     and x not in self.disallowed]))
 
     def troveFailed(self, trove):
         self.depGraph.delete(trove)
@@ -247,13 +262,13 @@ class DependencyHandler(object):
     """
         Updates what troves are buildable based on dependency information.
     """
-    def __init__(self, statusLog, cfg, logger, buildTroves):
-        self.depState = DependencyBasedBuildState(buildTroves, cfg)
+    def __init__(self, statusLog, logger, buildTroves):
+        self.depState = DependencyBasedBuildState(buildTroves, logger)
         self.logger = logger
-        self.cfg = cfg
         self._resolving = {}
         self.priorities = []
         self._delayed = {}
+        self._cycleTroves = []
 
         statusLog.subscribe(statusLog.TROVE_BUILT, self.troveBuilt)
         statusLog.subscribe(statusLog.TROVE_BUILDING, self.troveBuilding)
@@ -385,7 +400,7 @@ class DependencyHandler(object):
             builtTroves = self.depState.getAllBinaries()
             crossTroves = []
 
-        return ResolveJob(buildTrove, self.cfg, builtTroves, crossTroves,
+        return ResolveJob(buildTrove, buildTrove.cfg, builtTroves, crossTroves,
                           inCycle=inCycle)
 
     def prioritize(self, trv):
@@ -449,6 +464,11 @@ class DependencyHandler(object):
         self.logger.debug('cycle detected!')
 
         while True:
+            if self._cycleTroves:
+                trv = self._cycleTroves[0]
+                self._cycleTroves = self._cycleTroves[1:]
+                self._resolving[trv] = True
+                return self._getResolveJob(trv, inCycle=True)
             start = time.time()
             compGraph = depGraph.getStronglyConnectedGraph()
             self.logger.debug('building graph took %0.2f seconds' % (time.time() - start))
@@ -464,7 +484,8 @@ class DependencyHandler(object):
                 cycleTroves.sort(key=_cycleNodeOrder)
                 trv = cycleTroves[0]
                 self._resolving[trv] = True
-            return self._getResolveJob(trv, inCycle=True)
+                self._cycleTroves = cycleTroves[1:]
+                return self._getResolveJob(trv, inCycle=True)
 
     def resolutionComplete(self, trv, results):
         self._resolving.pop(trv, False)
@@ -506,6 +527,11 @@ class DependencyHandler(object):
                     self.prioritize(depTrv)
                 trv.troveResolvedButDelayed(newDeps)
         else:
+            if results.inCycle and self._cycleTroves:
+                # there more troves in this cycle that may be buildable
+                # check around to see if there's a better order to build things
+                # in.
+                return
             if results.hasMissingBuildReqs():
                 trv.troveMissingBuildReqs(results.getMissingBuildReqs())
             else:

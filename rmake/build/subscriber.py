@@ -117,7 +117,7 @@ class _RmakePublisherProxy(_InternalSubscriber):
         ])
 
     def _freezeTroveEvent(self, event, buildTrove, eventData, eventList):
-        newData = [ (buildTrove.jobId, buildTrove.getNameVersionFlavor()) ]
+        newData = [ (buildTrove.jobId, buildTrove.getNameVersionFlavor(True)) ]
         newData.extend(eventData)
         eventList.append((event, newData))
 
@@ -179,19 +179,19 @@ class _EventListFreezer(object):
 
     @classmethod
     def freeze_JOB_TROVES_SET(class_, apiVer, data):
-        return [ data[0], freeze('troveTupleList', data[1]) ]
+        return [ data[0], freeze('troveContextTupleList', data[1]) ]
 
     @classmethod
     def thaw_JOB_TROVES_SET(class_, apiVer, data):
-        return [ data[0], thaw('troveTupleList', data[1]) ]
+        return [ data[0], thaw('troveContextTupleList', data[1]) ]
 
     @classmethod
     def freeze_JOB_COMMITTED(class_, apiVer, data):
-        return [ data[0], freeze('troveTupleList', data[1]) ]
+        return [ data[0], freeze('troveContextTupleList', data[1]) ]
 
     @classmethod
     def thaw_JOB_COMMITTED(class_, apiVer, data):
-        return [ data[0], thaw('troveTupleList', data[1]) ]
+        return [ data[0], thaw('troveContextTupleList', data[1]) ]
 
     @classmethod
     def freeze_TROVE_BUILT(class_, apiVer, data):
@@ -224,7 +224,7 @@ class _EventListFreezer(object):
         newEventList = []
         for ((event, subevent), data) in eventList:
             if not isinstance(data[0], int):
-                data = [(data[0][0], freeze('troveTuple', data[0][1]))] + data[1:]
+                data = [(data[0][0], freeze('troveContextTuple', data[0][1]))] + data[1:]
             fn = getattr(class_, 'freeze_' + event, None)
             if fn is not None:
                 data = fn(apiVer, data)
@@ -238,7 +238,7 @@ class _EventListFreezer(object):
         newEventList = []
         for ((event, subevent), data) in eventList:
             if not isinstance(data[0], int):
-                data = [(data[0][0], thaw('troveTuple', data[0][1]))] + data[1:]
+                data = [(data[0][0], thaw('troveContextTuple', data[0][1]))] + data[1:]
             fn = getattr(class_, 'thaw_' + event, None)
             if fn is not None:
                 data = fn(apiVer, data)

@@ -214,6 +214,20 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
             if  _shouldOverwrite(key, self, conaryConfig):
                 self[key] = conaryConfig[key]
 
+        for sectionName in conaryConfig.iterSectionNames():
+            conarySection = conaryConfig.getSection(sectionName)
+            if not self.hasSection(sectionName):
+                self._addSection(sectionName, self._defaultSectionType(self))
+            mySection = self.getSection(sectionName)
+            for key in mySection.iterkeys():
+                if key == 'buildLabel':
+                    import epdb
+                    epdb.st('f')
+                if self.strictMode and key not in self._strictOptions:
+                    continue
+                if  _shouldOverwrite(key, mySection, conarySection):
+                    mySection[key] = conarySection[key]
+
         if self.strictMode:
             self.enforceManagedPolicy = True
             self.copyInConary = False
@@ -272,6 +286,9 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
             return targetLabel
         else:
             return version.getTrailingLabel()
+
+    def dropContexts(self):
+        self._sections = {}
 
     def storeConaryCfg(self, out):
         conaryCfg = conarycfg.ConaryConfiguration(False)

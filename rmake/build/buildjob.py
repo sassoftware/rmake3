@@ -8,9 +8,11 @@ import time
 from conary.lib import log
 from conary.repository import trovesource
 
+from rmake import errors
 from rmake import failure
 from rmake.lib import apiutils
 from rmake.lib.apiutils import thaw, freeze
+from rmake.build import buildtrove
 from rmake.build import publisher
 
 jobStates = {
@@ -50,18 +52,21 @@ class _AbstractBuildJob(trovesource.SearchableTroveSource):
     """
     def __init__(self, jobId=None, troveList=[], state=JOB_STATE_INIT,
                  start=0, status='', finish=0, failureReason=None,
-                 uuid='', pid=0):
+                 uuid='', pid=0, configs=None):
         trovesource.SearchableTroveSource.__init__(self)
         self.jobId = jobId
         self.uuid = uuid
         self.pid = pid
         self.state = state
         self.status = status
+        self.troveContexts = {}
         self.troves = {}
         self.start = start
         self.finish = finish
         self.failureReason = failureReason
         self.searchAsDatabase()
+        if not configs:
+            self.configs = {}
         for troveTup in troveList:
             self.addTrove(*troveTup)
 
@@ -73,14 +78,67 @@ class _AbstractBuildJob(trovesource.SearchableTroveSource):
             with this job.
         """
         if name.endswith(':source'):
-            return [ x for x in self.troves if x[0] == name ]
+            return [ x for x in self.troveContexts if x[0] == name ]
         else:
             troveTups = []
-            for trove in self.troves.itervalues():
+            for trove in self.iterTroves():
                 for troveTup in trove.getBinaryTroves():
                     if troveTup[0] == name:
                         troveTups.append(troveTup)
             return troveTups
+
+    def hasTrove(self, name, version, flavor, context=''):
+        return (name, version, flavor, context) in self.troves
+
+    def findTrovesWithContext(self, labelPath, troveSpecList, *args, **kw):
+        contextLists = {}
+        for n,v,f,c in troveSpecList:
+            contextLists.setdefault((n,v,f), []).append(c)
+        results = self.findTroves(labelPath, contextLists, *args, **kw)
+        finalResults = {}
+        for troveSpec, troveList in results.iteritems():
+            for context in contextLists[troveSpec]:
+                l = []
+                finalResults[troveSpec + (context,)] = l
+                for troveTup in troveList:
+                    if context is None:
+                        for context in self.troveContexts[troveTup]:
+                            l.append(troveTup + (context,))
+                    elif context in self.troveContexts[troveTup]:
+                        l.append(troveTup + (context,))
+        return finalResults
+
+    def addTrove(self, name, version, flavor, context='', buildTrove=None):
+        if buildTrove:
+            assert(buildTrove.getContext() == context)
+            buildTrove.setPublisher(self.getPublisher())
+        else:
+            buildTrove = buildtrove.BuildTrove(None, name, version, flavor,
+                                               context=context)
+        self.troves[name, version, flavor, context] = buildTrove
+        self.troveContexts.setdefault((name, version, flavor), []).append(context)
+
+    def setBuildTroves(self, buildTroves):
+        self.troves = {}
+        self.troveContexts = {}
+        for trove in buildTroves:
+            trove.jobId = self.jobId
+            self.troves[trove.getNameVersionFlavor(withContext=True)] = trove
+            self.troveContexts.setdefault(trove.getNameVersionFlavor(), 
+                                          []).append(trove.getContext())
+
+    def iterTroveList(self, withContexts=False):
+        if withContexts:
+            return self.troves.iterkeys()
+        else:
+            return self.troveContexts.iterkeys()
+
+    def getTrove(self, name, version, flavor, context=''):
+        return self.troves[name, version, flavor, context]
+
+    def iterTroves(self):
+        return self.troves.itervalues()
+
 
     def getStateName(self):
         """
@@ -114,19 +172,13 @@ class _AbstractBuildJob(trovesource.SearchableTroveSource):
         return self.state == JOB_STATE_COMMITTED
 
     def trovesInProgress(self):
-        for trove in self.troves:
+        for trove in self.iterTroves():
             if trove.isBuilding() or trove.isBuildable():
                 return True
         return False
 
-    def iterTroveList(self):
-        return self.troves.iterkeys()
-
     def iterTrovesByState(self, state):
         return (x for x in self.iterTroves() if x.state == state)
-
-    def iterTroves(self):
-        return self.troves.itervalues()
 
     def getBuiltTroveList(self):
         return list(itertools.chain(*[ x.getBinaryTroves() for x in 
@@ -134,55 +186,68 @@ class _AbstractBuildJob(trovesource.SearchableTroveSource):
 
     def getTrovesByName(self, name):
         name = name.split(':')[0] + ':source'
-        return [ x for x in self.troves if x[0] == name ]
+        return [ x for x in self.troveContexts if x[0] == name ]
 
     def iterFailedTroves(self):
-        return (x for x in self.troves.itervalues() if x.isFailed())
+        return (x for x in self.iterTroves() if x.isFailed())
 
     def iterBuiltTroves(self):
-        return (x for x in self.troves.itervalues() if x.isBuilt())
+        return (x for x in self.iterTroves() if x.isBuilt())
 
     def iterUnbuiltTroves(self):
-        return (x for x in self.troves.itervalues() if x.isUnbuilt())
+        return (x for x in self.iterTroves() if x.isUnbuilt())
 
     def iterBuildingTroves(self):
-        return (x for x in self.troves.itervalues() if x.isBuilding())
+        return (x for x in self.iterTroves() if x.isBuilding())
 
     def iterWaitingTroves(self):
-        return (x for x in self.troves.itervalues() if x.isWaiting())
+        return (x for x in self.iterTroves() if x.isWaiting())
 
     def iterPreparingTroves(self):
-        return (x for x in self.troves.itervalues() if x.isPreparing())
+        return (x for x in self.iterTroves() if x.isPreparing())
 
     def hasBuildingTroves(self):
         return self._hasTrovesByCheck('isBuilding')
 
     def iterBuildableTroves(self):
-        return (x for x in self.troves.itervalues() if x.isBuildable())
+        return (x for x in self.iterTroves() if x.isBuildable())
 
     def hasBuildableTroves(self):
         return self._hasTrovesByCheck('isBuildable')
 
     def _hasTrovesByCheck(self, check):
-        for trove in self.troves.itervalues():
+        for trove in self.iterTroves():
             if getattr(trove, check)():
                 return True
         return False
 
-    def getTrove(self, name, version, flavor):
-        return self.troves[name, version, flavor]
+    def getMainConfig(self):
+        return self.configs['']
 
-    def addTrove(self, name, version, flavor, buildTrove=None):
-        if buildTrove:
-            buildTrove.setPublisher(self.getPublisher())
-        self.troves[name, version, flavor] = buildTrove
+    def setMainConfig(self, config):
+        self.configs[''] = config
+        for trove in self.iterTroves():
+            if not trove.getContext():
+                trove.cfg = config
 
-    def setBuildTroves(self, buildTroves):
-        self.troves = {}
-        for trove in buildTroves:
-            trove.jobId = self.jobId
-            self.troves[trove.getNameVersionFlavor()] = trove
+    def getConfigDict(self):
+        return dict(self.configs)
 
+    def setConfigs(self, configDict):
+        self.configs = configDict
+        for trove in self.iterTroves():
+            trove.setConfig(configDict[trove.getContext()])
+
+    def iterConfigList(self):
+        return self.configs.itervalues()
+
+    def setTroveConfig(self, buildTrove, configObj):
+        if buildTrove.getContext() not in self.configs:
+            self.configs[buildTrove.context] = configObj
+        buildTrove.setConfig(configObj)
+
+    def getTroveConfig(self, buildTrove):
+        return self.configs[buildTrove.getContext()]
 
 class _FreezableBuildJob(_AbstractBuildJob):
     """
@@ -198,17 +263,22 @@ class _FreezableBuildJob(_AbstractBuildJob):
                  'start'          : 'float',
                  'finish'         : 'float',
                  'failureReason'  : 'FailureReason',
-                 'troves'         : 'manual'}
+                 'troves'         : 'manual',
+                 'configs'        : 'manual'}
 
 
     def __freeze__(self):
         d = {}
         for attr, attrType in self.attrTypes.iteritems():
             d[attr] = freeze(attrType, getattr(self, attr))
+        if self.jobId is None:
+            d['jobId'] = ''
 
-        d['troves'] = [ (freeze('troveTuple', x[0]),
-                        x[1] and freeze('BuildTrove', x[1]) or '')
+        d['troves'] = [ (freeze('troveContextTuple', x[0]),
+                         x[1] and freeze('BuildTrove', x[1]) or '')
                         for x in self.troves.iteritems() ]
+        d['configs'] = [ (x[0], freeze('BuildConfiguration', x[1]))
+                          for x in self.configs.items() ]
         return d
 
     @classmethod
@@ -217,13 +287,21 @@ class _FreezableBuildJob(_AbstractBuildJob):
 
         new = class_(thaw(types['jobId'], d.pop('jobId')), [],
                      thaw(types['state'], d.pop('state')))
+        if new.jobId is '':
+            new.jobId = None
 
         for attr, value in d.iteritems():
             setattr(new, attr, thaw(types[attr], value))
 
-        new.troves = dict((thaw('troveTuple', x[0]),
+        new.troves = dict((thaw('troveContextTuple', x[0]),
                            x[1] and thaw('BuildTrove', x[1] or None))
                             for x in new.troves)
+        for (n,v,f,c) in new.troves:
+            new.troveContexts.setdefault((n,v,f), []).append(c)
+        configs = dict((x[0], thaw('BuildConfiguration', x[1]))
+                       for x in d['configs'])
+        if configs:
+            new.setConfigs(configs)
         return new
 
 
@@ -325,5 +403,7 @@ def NewBuildJob(db, troveTups, jobConfig=None, state=JOB_STATE_INIT, uuid=''):
         the job a jobId.
     """
     job = BuildJob(None, troveTups, state=state, uuid=uuid)
-    db.addJob(job, jobConfig)
+    if jobConfig:
+        job.setMainConfig(jobConfig)
+    db.addJob(job)
     return job

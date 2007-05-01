@@ -104,10 +104,9 @@ class Database(DBInterface):
         """
         _JobDbLogger(self).attach(job)
 
-    def addJob(self, job, jobConfig=None):
+    def addJob(self, job):
         jobId = self.jobStore.addJob(job)
-        if jobConfig:
-            self.jobStore.addJobConfig(jobId, jobConfig)
+        for jobConfig in job.iterConfigList():
             for subscriber in jobConfig.subscribe.values():
                 self.subscriberStore.add(jobId, subscriber)
         self.commit()
@@ -119,18 +118,20 @@ class Database(DBInterface):
         self.commit()
         return jobIdList
 
-    def getJob(self, jobId, withTroves=True):
+    def getJob(self, jobId, withTroves=True, withConfigs=True):
         try:
-            return self.jobStore.getJob(jobId, withTroves=withTroves)
+            return self.jobStore.getJob(jobId, withTroves=withTroves,
+                                        withConfigs=withConfigs)
         except KeyError:
             raise errors.JobNotFound(jobId)
 
     def _getChrootIdForTrove(self, trove):
         return self.nodeStore.getOrCreateChrootId(trove)
 
-    def getJobs(self, jobIds, withTroves=True):
+    def getJobs(self, jobIds, withTroves=True, withConfigs=True):
         try:
-            return self.jobStore.getJobs(jobIds, withTroves=withTroves)
+            return self.jobStore.getJobs(jobIds, withTroves=withTroves,
+                                         withConfigs=withConfigs)
         except KeyError, err:
             raise errors.JobNotFound(err.args[0])
 
@@ -140,11 +141,11 @@ class Database(DBInterface):
         trove.logPath = logPath
         self.updateTrove(trove)
 
-    def getTrove(self, jobId, name, version, flavor):
+    def getTrove(self, jobId, name, version, flavor, context=''):
         try:
-            return self.jobStore.getTrove(jobId, name, version, flavor)
+            return self.jobStore.getTrove(jobId, name, version, flavor, context)
         except KeyError:
-            raise errors.TroveNotFound(jobId, name, version, flavor)
+            raise errors.TroveNotFound(jobId, name, version, flavor, context)
 
     def getTroves(self, troveList):
         try:
@@ -299,7 +300,7 @@ class Database(DBInterface):
 
     def jobCommitted(self, job,  troveMap):
         for trove in job.iterTroves():
-            committedTups = troveMap.get(trove.getNameVersionFlavor(), None)
+            committedTups = troveMap.get(trove.getNameVersionFlavor(withContext=True), None)
             if committedTups:
                 binaries = [ x for x in committedTups
                              if not x[0].endswith(':source') ]

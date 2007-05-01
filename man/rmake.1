@@ -9,7 +9,7 @@ rmake \- Environment-controlled package building tool
 of programs. It differs from the \fBcvc\fR tool in that it can build a
 collection of packages in a set of related builds, and it builds a chroot
 based on the build requirements of the package.  Packages are built and
-stored in a local repository until you wish to commit them.  
+stored in a local repository until you wish to commit them.
 
 After packages have been built and stored into this exclusive rmake local
 repository, they are then cloned from this repository to your main repository
@@ -37,7 +37,7 @@ build foo from that repository.
 The following \fBcommands\fP are used to start, query, monitor, and commit
 builds using rMake.
 .TP 4
-.B [build|buildgroup] [<\fItrovename\fP[=\fI<versionSpec>\fP\fI[<flavor>]\fP>]|<recipe>]\fP
+.B [build|buildgroup] [<\fItrovename\fP[=\fI<versionSpec>\fP\fI[<flavor>]\fP>]|<recipe>]\fI[<flavor>]\fP\fI[{context]]\fP
 Builds the packages specified.  If a versionSpec is specified, it should
 point to a source version of \fI<troveName>\fP. Although this command finds
 source packages to build, the :source component part of the name is implicit.
@@ -53,6 +53,10 @@ commit them; these builds only generate changesets.
 Example: \fIrmake build 'glib=foresight.rpath.org@fl:desktop/1.0-1[!mysql]'\fP
 would build glib from the foresight repository, with the mysql flavor turned
 off.
+
+In rMake only, a context may be specified at the end of the trove spec.  The context will only be applied to the one trove it is attached to.  This context will be added into any default context specified for all troves.
+
+Example:  \fIrmake build glib{x86_64} glib{x86} --context foresight\fP would build glibc for both x86_64 and x86 platforms, assuming there is are contexts [x86_64] and [x86] in your rmake or conary configuration.  Both would pick up the base configuration from the [foresight] context.
 
 More information on version specs and flavors is available in the conary
 documentation and on the conary Wiki.

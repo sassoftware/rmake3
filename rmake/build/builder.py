@@ -55,9 +55,9 @@ class Builder(object):
         build.
         @type buildCfg: rmake.build.buildcfg.BuildConfiguration instance.
     """
-    def __init__(self, serverCfg, buildCfg, job, jobContext=None):
+    def __init__(self, serverCfg, job, jobContext=None):
         self.serverCfg = serverCfg
-        self.buildCfg = buildCfg
+        self.buildCfg = job.getMainConfig()
         self.logger = BuildLogger(job.jobId,
                                   serverCfg.getBuildLogPath(job.jobId))
         self.logFile = logfile.LogFile(
@@ -144,16 +144,13 @@ class Builder(object):
         self.initialized = True
         self.job.log('Build started - loading troves')
         buildTroves = recipeutil.getSourceTrovesFromJob(self.job,
-                                                        self.buildCfg,
                                                         self.serverCfg,
                                                         self.repos)
         self._matchTrovesToJobContext(buildTroves, self.jobContext)
         self.job.setBuildTroves(buildTroves)
 
         self.dh = dephandler.DependencyHandler(self.job.getPublisher(),
-                                               self.buildCfg,
                                                self.logger, buildTroves)
-
         if not self._checkBuildSanity(buildTroves):
             return False
         return True
@@ -185,7 +182,7 @@ class Builder(object):
         return False
 
     def buildTrove(self, troveToBuild, buildReqs, crossReqs):
-        targetLabel = self.buildCfg.getTargetLabel(troveToBuild.getVersion())
+        targetLabel = troveToBuild.cfg.getTargetLabel(troveToBuild.getVersion())
         troveToBuild.troveQueued('Waiting to be assigned to chroot')
         troveToBuild.disown()
 
@@ -194,7 +191,7 @@ class Builder(object):
             builtTroves = self.job.getBuiltTroveList()
         else:
             builtTroves = []
-        self.worker.buildTrove(self.buildCfg, troveToBuild.jobId,
+        self.worker.buildTrove(troveToBuild.cfg, troveToBuild.jobId,
                                troveToBuild, self.eventHandler, buildReqs,
                                crossReqs, targetLabel, logData,
                                builtTroves=builtTroves)
