@@ -47,8 +47,7 @@ repository, then rmake will shadow that recipe to rmake's internal repository
 and commit your local changes to that shadow.  Then, when you commit that
 job, the related source component(s) will be also be committed.  
 
-You can also build recipes that are not source checkouts, but you cannot
-commit them; these builds only generate changesets.
+You can also build recipes that are not source checkouts.  They will be committed to the branch that is your buildLabel, as if you'd done "cvc newpkg <pkg>; cd <pkg>; rmake build <pkg>.recipe; rmake commit".
 
 Example: \fIrmake build 'glib=foresight.rpath.org@fl:desktop/1.0-1[!mysql]'\fP
 would build glib from the foresight repository, with the mysql flavor turned
