@@ -251,6 +251,8 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
     def getTargetLabel(self, versionOrLabel):
         if isinstance(versionOrLabel, versions.Label):
             cookLabel = versionOrLabel
+        elif isinstance(versionOrLabel, versions.Branch):
+            cookLabel = versionOrLabel.label()
         else:
             cookLabel = versionOrLabel.trailingLabel()
 

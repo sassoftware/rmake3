@@ -211,6 +211,9 @@ def _getLocalCook(conaryclient, recipePath, message):
                 if stateFile.getVersion() != versions.NewVersion():
                     return _shadowAndCommit(conaryclient, recipeDir, stateFile, 
                                             message)
+                else:
+                    return _commitRecipe(conaryclient, recipePath, message,
+                                         branch=stateFile.getBranch())
         return _commitRecipe(conaryclient, recipePath, message)
     finally:
         conaryclient.cfg.signatureKey = oldKey
@@ -367,7 +370,7 @@ def _doCommit(recipePath, repos, cfg, message):
                                 " local file %s" % recipePath)
     return rv
 
-def _commitRecipe(conaryclient, recipePath, message):
+def _commitRecipe(conaryclient, recipePath, message, branch=None):
     cfg = conaryclient.cfg
     repos = conaryclient.getRepos()
     conaryCompat = compat.ConaryVersion()
@@ -384,13 +387,24 @@ def _commitRecipe(conaryclient, recipePath, message):
     try:
         fileNames = []
         # Create a source trove that matches the recipe we're trying to cook
-        cfg.buildLabel = cfg.getTargetLabel(cfg.buildLabel)
-        if not repos.getTroveLeavesByLabel(
-            { sourceName : { cfg.buildLabel : None } }).get(sourceName, None):
-            checkin.newTrove(repos, cfg, recipeClass.name, dir=recipeDir)
+        if not branch:
+            branch = versions.Branch([cfg.buildLabel])
+        targetLabel = cfg.getTargetLabel(branch)
+        if compat.ConaryVersion().supportsNewPkgBranch():
+            buildBranch = branch.createShadow(targetLabel)
+            kw = dict(buildBranch=buildBranch)
+        else:
+            buildBranch = versions.Branch(targetLabel)
+            kw={}
+            cfg.buildLabel = targetLabel
+
+        if not repos.getTroveLeavesByBranch(
+            { sourceName : { buildBranch : None } }).get(sourceName, None):
+            checkin.newTrove(repos, cfg, recipeClass.name, dir=recipeDir, **kw)
         else:
             # see if this package exists on our build branch
-            checkin.checkout(repos, cfg, recipeDir, [sourceName])
+            checkin.checkout(repos, cfg, recipeDir,
+                             ['%s=%s' % (sourceName, buildBranch)])
 
         os.chdir(recipeDir)
 
