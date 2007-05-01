@@ -15,6 +15,8 @@ Changes in @NEW@:
   o Bug Fixes:
      * rMake now behaves better when an "rmake chroot" command cannot find
        the chroot you're trying to enter. (RMK-438)
+     * Clients no longer ignore the Conary configuration parameter
+       "conaryProxy" when strictMode is set to True. (RMK-443)
 
 Changes in 1.0.8:
   o Client Changes:
