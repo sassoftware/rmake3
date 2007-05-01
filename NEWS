@@ -9,6 +9,10 @@ Changes in @NEW@:
      * You can now build groups in the same job as packages.  This support is 
        EXPERIMENTAL and should not be used for critical group builds.
        File sets and redirects still must be in their own job.  (RMK-169)
+     * You can now build recipes that have never been committed before and 
+       commit afterwards.  They will be committed to your buildLabel unless 
+       they have been created via cvc newpkg or just when editing a recipe.  
+       This requires conary version 1.1.25. (RMK-211).
   o Client Changes:
      * "rMake q" now displays flavor information more often, and also displays
        tag information by default (the part after the : in labels). (RMK-432)

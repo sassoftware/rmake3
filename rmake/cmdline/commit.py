@@ -174,11 +174,11 @@ def _checkOutdatedSources(repos, sourceTups):
                     shadowedFrom[shadowSpecs[troveSpec]] = version.parentVersion()
                     found = True
                     break
-            assert(found)
         return shadowedFrom
 
     def _getLatest(repos, latestSpecs):
-        results = repos.findTroves(None, latestSpecs, None)
+        results = repos.findTroves(None, latestSpecs, None,
+                                   allowMissing=True)
         versions = [x[0][1] for x in results.values()]
         return dict(itertools.izip(results.keys(), versions))
 
@@ -191,9 +191,10 @@ def _checkOutdatedSources(repos, sourceTups):
         shadowSpecs[name, version.branch(), flavor] = upstreamSpec
 
     shadowedFrom = _getShadowedFrom(repos, shadowSpecs)
-    latest = _getLatest(repos, latestSpecs)
-    for troveSpec, shadowedFrom in shadowedFrom.iteritems():
-        latestVersion = latest[troveSpec]
-        if latestVersion != shadowedFrom:
-            outdated.append((troveSpec[0], shadowedFrom, latestVersion))
+    if shadowedFrom:
+        latest = _getLatest(repos, latestSpecs)
+        for troveSpec, shadowedFrom in shadowedFrom.iteritems():
+            latestVersion = latest[troveSpec]
+            if latestVersion != shadowedFrom:
+                outdated.append((troveSpec[0], shadowedFrom, latestVersion))
     return outdated

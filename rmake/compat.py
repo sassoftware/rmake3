@@ -14,7 +14,7 @@ from rmake import errors
 testing = False
 
 class ConaryVersion(object):
-    maxKnownVersion = "1.1.21"
+    maxKnownVersion = "1.1.25"
     _warnedUser = False
 
     def __init__(self, conaryVersion=None):
@@ -64,6 +64,9 @@ class ConaryVersion(object):
 
     def supportsFindGroupSources(self):
         return self.checkVersion(None, 21)
+
+    def supportsNewPkgBranch(self):
+        return self.checkVersion(None, 25)
 
     def requireFindGroupSources(self):
         return self.requireVersion(None, 21, 'building group sources')
