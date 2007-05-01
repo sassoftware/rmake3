@@ -128,7 +128,7 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
     _strictOptions = [ 'buildFlavor', 'buildLabel', 'cleanAfterCook','flavor',
                        'installLabelPath', 'repositoryMap', 'root',
                        'user', 'name', 'contact', 'signatureKey', 'dbPath',
-                       'proxy' ]
+                       'proxy', 'conaryProxy' ]
 
     _dirsToCopy = ['archDirs', 'mirrorDirs', 'siteConfigPath', 'useDirs', 
                    'componentDirs']
