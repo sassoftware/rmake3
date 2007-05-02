@@ -37,7 +37,7 @@ build foo from that repository.
 The following \fBcommands\fP are used to start, query, monitor, and commit
 builds using rMake.
 .TP 4
-.B [build|buildgroup] [<\fItrovename\fP[=\fI<versionSpec>\fP\fI[<flavor>]\fP>]|<recipe>]\fI[<flavor>]\fP\fI[{context]]\fP
+.B [build|buildgroup] [<\fItrovename\fP[=\fI<versionSpec>\fP\fI[<flavor>]\fP>]|<recipe>]\fI[<flavor>]\fP\fI[{context}]\fP
 Builds the packages specified.  If a versionSpec is specified, it should
 point to a source version of \fI<troveName>\fP. Although this command finds
 source packages to build, the :source component part of the name is implicit.
@@ -55,7 +55,7 @@ off.
 
 In rMake only, a context may be specified at the end of the trove spec.  The context will only be applied to the one trove it is attached to.  This context will be added into any default context specified for all troves.
 
-Example:  \fIrmake build glib{x86_64} glib{x86} --context foresight\fP would build glibc for both x86_64 and x86 platforms, assuming there is are contexts [x86_64] and [x86] in your rmake or conary configuration.  Both would pick up the base configuration from the [foresight] context.
+Example:  \fIrmake build glib{x86_64} glib{x86} --context foresight\fP would build glibc for both x86_64 and x86 platforms, assuming there are contexts [x86_64] and [x86] in your rmake or conary configuration.  Both would pick up the base configuration from the [foresight] context.
 
 More information on version specs and flavors is available in the conary
 documentation and on the conary Wiki.
