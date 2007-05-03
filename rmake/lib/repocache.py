@@ -39,7 +39,6 @@ class CachingTroveSource:
                                      withFiles=withFiles, callback = None)
 
     def getTrove(self, name, version, flavor, withFiles=True, callback=None):
-        if self._depsOnly:
         trv = self.getTroves([(name, version, flavor)], withFiles=withFiles,
                               callback=callback)[0]
         if trv is None:

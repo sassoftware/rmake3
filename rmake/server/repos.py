@@ -99,7 +99,7 @@ def startRepository(cfg, fork = True, logger=None):
 
 def startProxy(cfg, fork = True, logger=None):
     global conaryDir
-    baseDir = cfg.proxyDir
+    baseDir = cfg.getProxyDir()
     proxyPort = cfg.getProxyInfo()[1]
 
     util.mkdirChain('%s/repos' % baseDir)

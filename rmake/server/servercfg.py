@@ -92,7 +92,6 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
     serverUrl         = (CfgString, None)
     proxy             = (CfgString, 'http://LOCAL:7778') # local here means 
                                                          # managed by rMake
-    proxyDir          = (CfgPath, '/srv/rmake/proxy')
     serverPort        = (CfgInt, 7777)
     serverName        = socket.gethostname()
     socketPath        = (CfgPath, '/var/lib/rmake/socket')
