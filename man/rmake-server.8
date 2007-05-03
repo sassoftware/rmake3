@@ -85,6 +85,8 @@ Watch the NEWS file for updates.
 .TP 4
 .B lockDir
 Directory to create lockfile in; default is /var/lock/rmake
+.B proxy
+Location of the proxy to use for rmake; default is http://LOCAL:7778.  The LOCAL part is a keyword stating that rMake should manage this proxy by starting it up and shutting it down along with the rMake server, if the value is changed to localhost, rMake will not manage this proxy.
 .TP 4
 .B serverDir
 Directory in which the rmake server stores data
