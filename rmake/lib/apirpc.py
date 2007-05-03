@@ -141,10 +141,6 @@ class ApiServer(server.Server):
         try:
             return self._dispatch2(methodName, auth, responseHandler, params)
         except Exception, err:
-            if self._debug:
-                if sys.stdin.isatty() and sys.stdout.isatty():
-                    import epdb
-                    epdb.post_mortem(sys.exc_info()[2])
             responseHandler.sendResponse((False, _freezeException(err)))
 
     def _getMethod(self, methodName):
@@ -181,7 +177,7 @@ class ApiServer(server.Server):
            method version as well.
         """
         method = self._getMethod(methodName)
-        callData = CallData(auth, args[0], self._logger, method, responseHandler)
+        callData = CallData(auth, args[0], self._logger, method, responseHandler, debug=self._debug)
         args = args[1:]
         apiVersion    = callData.getApiVersion()
         clientVersion = callData.getClientVersion()
@@ -346,8 +342,9 @@ class NoSuchMethodError(ApiError):
 
 class CallData(object):
     __slots__ = ['auth', 'apiVersion', 'clientVersion', 'methodVersion', 
-                 'logger', 'method', 'responseHandler']
-    def __init__(self, auth, callTuple, logger, method, responseHandler):
+                 'logger', 'method', 'responseHandler', 'debug']
+    def __init__(self, auth, callTuple, logger, method, responseHandler,
+                 debug=False):
         apiVersion, clientVersion, methodVersion = callTuple
         self.apiVersion = apiVersion
         self.clientVersion = clientVersion
@@ -356,6 +353,7 @@ class CallData(object):
         self.logger = logger
         self.method = method
         self.responseHandler = responseHandler
+        self.debug = debug
 
     def callFunction(self, fn, *args, **kw):
         try:
@@ -369,6 +367,9 @@ class CallData(object):
             response = (True, rv)
         except Exception, err:
             response = (False, _freezeException(err))
+            if self.debug:
+                from conary.lib import epdb
+                epdb.post_mortem(sys.exc_info()[2])
         return response
 
     def respondWithFunction(self, fn, *args, **kw):

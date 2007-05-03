@@ -12,6 +12,7 @@ import pwd
 import socket
 import stat
 import sys
+import urllib
 
 from conary.lib import log, cfg
 from conary.lib.cfgtypes import CfgPath, CfgList, CfgString, CfgInt, CfgType
@@ -26,7 +27,7 @@ class rMakeBuilderConfiguration(daemon.DaemonConfig):
     buildDir          = (CfgPath, '/var/rmake')
     chrootHelperPath  = (CfgPath, "/usr/libexec/rmake/chroothelper")
     slots             = (CfgInt, 1)
-    useCache          = (CfgBool, True)
+    useCache          = (CfgBool, False)
     useTmpfs          = (CfgBool, False)
     pluginDirs        = (CfgPathList, ['/usr/share/rmake/plugins'])
     usePlugins        = (CfgBool, True)
@@ -89,8 +90,11 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
     lockDir           = (CfgPath, '/var/run/rmake')
     serverDir         = (CfgPath, '/srv/rmake')
     serverUrl         = (CfgString, None)
+    proxy             = (CfgString, 'http://LOCAL:7778') # local here means 
+                                                         # managed by rMake
+    proxyDir          = (CfgPath, '/srv/rmake/proxy')
     serverPort        = (CfgInt, 7777)
-    serverName        = socket.getfqdn()
+    serverName        = socket.gethostname()
     socketPath        = (CfgPath, '/var/lib/rmake/socket')
     user              = CfgUserInfo
 
@@ -132,6 +136,24 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
     def getContentsPath(self):
         return self.serverDir + '/repos/contents'
 
+    def getProxyDir(self):
+        return self.serverDir + '/proxy'
+
+    def getProxyContentsPath(self):
+        return self.getProxyDir() + '/contents'
+
+    def getProxyChangesetPath(self):
+        return self.getProxyDir() + '/changesets'
+
+    def getProxyPath(self):
+        return self.getProxyDir() + '/sqldb'
+
+    def getProxyConfigPath(self):
+        return self.getProxyDir() + '/serverrc'
+
+    def getProxyLogPath(self):
+        return self.logDir + '/proxy.log'
+
     def getReposDir(self):
         return self.serverDir + '/repos'
 
@@ -147,6 +169,9 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
     def getReposLogPath(self):
         return self.logDir + '/repos.log'
 
+    def getProxyLogPath(self):
+        return self.logDir + '/proxy.log'
+
     def getSubscriberLogPath(self):
         return self.logDir + '/subscriber.log'
 
@@ -154,12 +179,34 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
         if self.isExternalRepos():
             url = self.serverUrl
         else:
-            url = 'http://%s:%s/conary/' % (socket.getfqdn(), self.serverPort)
+            url = 'http://%s:%s/conary/' % (socket.gethostname(),
+                                            self.serverPort)
         return { self.serverName : url }
+
+    def getProxyInfo(self):
+        if not self.proxy:
+            return None
+        host = urllib.splithost(urllib.splittype(self.proxy)[1])[0]
+        host, port = urllib.splitport(host)
+        return host, port
+
+    def isExternalProxy(self):
+        return self.proxy and self.getProxyInfo()[0] != 'LOCAL'
+
+    def getProxyUrl(self):
+        if not self.proxy:
+            return None
+        if self.isExternalProxy():
+            return self.proxy
+        else:
+            host, port = self.getProxyInfo()
+            # need to have the proxy url be a fqdn so that it can
+            # be used by rmake nodes
+            return 'http://%s:%s/' % (socket.gethostname(), port,)
+            #return 'http://%s:%s/' % ('localhost', port,)
 
     def getUserGlobs(self):
         return self.user
-
 
     def sanityCheck(self):
         currUser = pwd.getpwuid(os.getuid()).pw_name

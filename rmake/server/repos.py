@@ -37,14 +37,13 @@ from rmake.server import servercfg
 
 conaryDir = sys.modules['conary'].__path__[0]
 
-def startRepository(cfg = None, fork = True, logger=None):
+def startRepository(cfg, fork = True, logger=None):
     global conaryDir
     baseDir = cfg.serverDir
     if logger is None:
         logger = log
 
     util.mkdirChain('%s/repos' % baseDir)
-    util.mkdirChain('%s/contents' % baseDir)
 
 
     serverConfig = os.path.join(cfg.getReposDir(), 'serverrc')
@@ -52,7 +51,6 @@ def startRepository(cfg = None, fork = True, logger=None):
         os.unlink(serverConfig)
     serverCfg = server.ServerConfig(os.path.join(cfg.getReposDir(), 'serverrc'))
     serverCfg.repositoryDB = ('sqlite', cfg.getReposPath())
-    #serverCfg.cacheDB = ('sqlite', cfg.getReposCachePath())
     serverCfg.contentsDir = cfg.getContentsPath()
     serverCfg.port = cfg.serverPort
     serverCfg.configKey('serverName', cfg.serverName) # this works with either
@@ -99,21 +97,74 @@ def startRepository(cfg = None, fork = True, logger=None):
         print >>sys.stderr, 'Could not start repository server: %s' % err
         os._exit(1)
 
-def pingServer(cfg):
-    repositoryMap = {cfg.serverName :  'http://%s:%s/conary/' % (os.uname()[1], cfg.serverPort) }
-    userList = conarycfg.UserInformation()
+def startProxy(cfg, fork = True, logger=None):
+    global conaryDir
+    baseDir = cfg.proxyDir
+    proxyPort = cfg.getProxyInfo()[1]
 
-    repos = netclient.NetworkRepositoryClient(repositoryMap, userList)
-    for i in range(0,200):
+    util.mkdirChain('%s/repos' % baseDir)
+
+    if os.path.exists(cfg.getProxyConfigPath()):
+        os.unlink(cfg.getProxyConfigPath())
+    serverCfg = server.ServerConfig(cfg.getProxyConfigPath())
+    serverCfg.serverName = []
+    serverCfg.proxyDB = ('sqlite', cfg.getProxyPath())
+    serverCfg.changesetCacheDir = cfg.getProxyChangesetPath()
+    serverCfg.proxyContentsDir = cfg.getProxyContentsPath()
+    serverCfg.port = proxyPort
+    serverCfg.logFile = None
+
+    if fork:
+        pid = os.fork()
+        if pid:
+            pingServer(cfg, cfg.getProxyUrl())
+            if logger:
+                logger.info('Started proxy on port %s (pid %s)' % (proxyPort,
+                                                                   pid))
+            return pid
+        elif hasattr(logger, 'close'):
+            logger.close()
+    try:
+        util.mkdirChain(cfg.getProxyDir())
+        os.chdir(cfg.getProxyDir())
+        serverrc = open(cfg.getProxyConfigPath(), 'w')
+        serverCfg.store(serverrc, includeDocs=False)
+        util.mkdirChain(os.path.dirname(cfg.getProxyLogPath()))
+        util.mkdirChain(cfg.getProxyContentsPath())
+        logFile = logfile.LogFile(cfg.getProxyLogPath())
+        logFile.redirectOutput(close=True)
+        serverrc.close()
+        os.execv('%s/server/server.py' % conaryDir,
+                 ['%s/server/server.py' % conaryDir,
+                  '--config-file', cfg.getProxyConfigPath()])
+    except Exception, err:
+        print >>sys.stderr, 'Could not start proxy server: %s' % err
+        os._exit(1)
+
+def pingServer(cfg, proxyUrl=None):
+    if cfg.serverUrl:
+        repositoryMap = {cfg.serverName : cfg.serverUrl }
+    else:
+        repositoryMap = {cfg.serverName :
+                    'http://%s:%s/conary/' % (os.uname()[1], cfg.serverPort) }
+    userList = conarycfg.UserInformation()
+    if proxyUrl:
+        proxy = {'http'  : proxyUrl,
+                 'https' : proxyUrl}
+    else:
+        proxy = None
+
+    repos = netclient.NetworkRepositoryClient(repositoryMap, userList,
+                                              proxy=proxy)
+    for i in range(0,20000):
         try:
             checked = repos.c[cfg.serverName].checkVersion()
         except Exception, err:
-            if i == 99:
+            if i == 20000:
                 raise
             time.sleep(.1)
         else:
             return True
-
 
 def addUser(cfg, name, password=None, write=False):
     baseUrl="http://%s:%s/" % (os.uname()[1], cfg.port)

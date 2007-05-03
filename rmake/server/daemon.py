@@ -28,7 +28,7 @@ class ResetCommand(daemon.DaemonCommand):
 
     def runCommand(self, daemon, cfg, argSet, args):
         for dir in (cfg.getReposDir(), cfg.getBuildLogDir(),
-                    cfg.getDbContentsPath()):
+                    cfg.getDbContentsPath(), cfg.getProxyDir()):
             if os.path.exists(dir):
                 print "Deleting %s" % dir
                 shutil.rmtree(dir)
@@ -59,16 +59,21 @@ class rMakeDaemon(daemon.Daemon):
     def doWork(self):
         cfg = self.cfg
         cfg.sanityCheckForStart()
+        reposPid = None
+        proxyPid = None
+
         if not cfg.isExternalRepos():
             reposPid = repos.startRepository(cfg, fork=True, 
                                              logger=self.logger)
-        else:
-            reposPid = None
+        if not cfg.isExternalProxy():
+            proxyPid = repos.startProxy(cfg, fork=True,
+                                        logger=self.logger)
         misc.removeIfExists(cfg.socketPath)
         rMakeServer = None
         try:
             rMakeServer = server.rMakeServer(cfg.getServerUri(), cfg,
                                              repositoryPid=reposPid,
+                                             proxyPid=proxyPid,
                                              pluginMgr=self.plugins)
             rMakeServer._installSignalHandlers()
             rMakeServer.serve_forever()

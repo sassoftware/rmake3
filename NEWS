@@ -5,6 +5,8 @@ Changes in @NEW@:
      * rMake now allows you to specify contexts for particular troves, like
        "rmake build foo{x86} foo{x86_64} to build multiple versions of troves 
        with different install flavors in the same build (RMK-395).
+     * rMake now has an internal proxy which it uses for caching results
+       instead of file system cache.
   o Build Changes:
      * You can now build groups in the same job as packages.  This support is 
        EXPERIMENTAL and should not be used for critical group builds.
@@ -21,6 +23,8 @@ Changes in @NEW@:
        the chroot you're trying to enter. (RMK-438)
      * Clients no longer ignore the Conary configuration parameter
        "conaryProxy" when strictMode is set to True. (RMK-443)
+     * rMake now uses socket.gethostname() instead of socket.getfqdn(), 
+       which doesn't involve any DNS lookups to determine the hostname to use.
 
 Changes in 1.0.8:
   o Client Changes:

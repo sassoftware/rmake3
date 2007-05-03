@@ -158,6 +158,8 @@ class rMakeChroot(ConaryBasedChroot):
         self._cacheBuildFiles()
 
     def _cacheBuildFiles(self):
+        if not self.csCache:
+            return
         client = conaryclient.ConaryClient(self.cfg)
         sourceTup = self.buildTrove.getNameVersionFlavor()
         sourceTup = (sourceTup[0], sourceTup[1], deps.parseFlavor(''))
@@ -339,6 +341,7 @@ class ChrootCallback(callbacks.UpdateCallback):
         self.hunk = (0,0)
         self.buildTrove = buildTrove
         self.logger = logger
+        self.showedHunk = False
 
     def _message(self, text):
         self.buildTrove.log(text)

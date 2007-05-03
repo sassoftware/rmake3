@@ -274,6 +274,10 @@ class rMakeServer(apirpc.XMLApiServer):
         buildConfig.repositoryMap.update(self.cfg.getRepositoryMap())
         for serverName, user, password in self.cfg.getUserGlobs():
             buildConfig.user.addServerGlob(serverName, user, password)
+        proxyUrl = self.cfg.getProxyUrl()
+        if proxyUrl:
+            buildConfig.conaryProxy['http'] = proxyUrl
+            buildConfig.conaryProxy['https'] = proxyUrl
 
     def _serveLoopHook(self):
         if not self._initialized and hasattr(self, 'worker'):
@@ -467,6 +471,16 @@ class rMakeServer(apirpc.XMLApiServer):
             self._emitPid = 0    # only allow one emitEvent process 
                                  # at a time.
 
+        if pid == self.proxyPid:
+            if not self._halt:
+                self.error("""
+    Internal proxy died - shutting down rMake.
+    The Proxy can die on startup due to an earlier unclean shutdown of 
+    rMake.  Check for a process that ends in conary/server/server.py.  If such 
+    a process exists, you will have to kill it manually.  Otherwise check
+    %s for a detailed message""" % self.cfg.getProxyLogPath())
+                self._halt = 1
+            self.proxyPid = None
         if pid == self.repositoryPid:
             if not self._halt:
                 self.error("""
@@ -520,8 +534,8 @@ class rMakeServer(apirpc.XMLApiServer):
         apirpc.XMLApiServer._close(self)
         self.db.close()
 
-    def __init__(self, uri, cfg, repositoryPid, pluginMgr=None, 
-                 quiet=False):
+    def __init__(self, uri, cfg, repositoryPid, proxyPid=None,
+                 pluginMgr=None, quiet=False):
         util.mkdirChain(cfg.logDir)
         logPath = cfg.logDir + '/rmake.log'
         rpcPath = cfg.logDir + '/xmlrpc.log'
@@ -560,6 +574,7 @@ class rMakeServer(apirpc.XMLApiServer):
             self.uri = uri
             self.cfg = cfg
             self.repositoryPid = repositoryPid
+            self.proxyPid = proxyPid
             apirpc.XMLApiServer.__init__(self, uri, logger=serverLogger,
                                          forkByDefault = True)
             self.db = database.Database(cfg.getDbPath(),

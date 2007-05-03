@@ -22,19 +22,24 @@ from conary.repository import filecontents
 from conary.repository import trovesource
 
 class CachingTroveSource:
-    def __init__(self, troveSource, cacheDir, readOnly=False):
+    def __init__(self, troveSource, cacheDir, readOnly=False, depsOnly=False):
         self._troveSource = troveSource
         util.mkdirChain(cacheDir)
+        self._depsOnly = depsOnly
         self._cache = RepositoryCache(cacheDir, readOnly=readOnly)
 
     def __getattr__(self, key):
         return getattr(self._troveSource, key)
 
     def getTroves(self, troveList, withFiles=True, callback = None):
+        if self._depsOnly:
+            return self._troveSource.getTroves(troveList, withFiles=withFiles,
+                                               callback=callback)
         return self._cache.getTroves(self._troveSource, troveList,
                                      withFiles=withFiles, callback = None)
 
     def getTrove(self, name, version, flavor, withFiles=True, callback=None):
+        if self._depsOnly:
         trv = self.getTroves([(name, version, flavor)], withFiles=withFiles,
                               callback=callback)[0]
         if trv is None:
@@ -49,6 +54,9 @@ class CachingTroveSource:
                                                        depList)
 
     def getFileContents(self, fileList, callback = None):
+        if self._depsOnly:
+            return self._troveSource.getFileContents(fileList,
+                                                     callback=callback)
         return self._cache.getFileContents(self._troveSource,
                                            fileList, callback=callback)
 
@@ -64,10 +72,11 @@ class RepositoryCache(object):
         We cache changeset files by component.  When conary is fixed, we'll
         be able to combine the download of these troves.
     """
-    def __init__(self, cacheDir, readOnly=False):
+    def __init__(self, cacheDir, readOnly=False, depsOnly=False):
         self.root = cacheDir
         self.store = DataStore(cacheDir)
         self.readOnly = readOnly
+        self.depsOnly = depsOnly
         self.fileCache = LazyFileCache(300)
 
     def hashGroupDeps(self, groupTroves, depClass, dependency):

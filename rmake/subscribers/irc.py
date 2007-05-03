@@ -36,13 +36,13 @@ class IRCJobLogger(StatusSubscriber):
         if self['nick']:
             for nick in self['nick'].split(','):
                 self.conn.write('raw privmsg %s :[%s] %s\n' % (nick,
-                                                               socket.getfqdn(),
-                                                               message))
+                                                           socket.gethostname(),
+                                                           message))
         if self['channel']:
             for channel in self['channel'].split(','):
                 self.conn.write('inchan %s say [%s] %s\n' % (channel,
-                                                             socket.getfqdn(),
-                                                             message))
+                                                         socket.gethostname(),
+                                                         message))
         self.conn.close()
 
     def jobStateUpdated(self, jobId, state, status):

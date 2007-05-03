@@ -366,7 +366,7 @@ class SessionCommand(Command):
         self.chroot = self.chrootFactory.start(
                                         lambda: self._fork('Chroot Server'))
         port = self.chroot.startSession(self.command)
-        self.writePipe.send((socket.getfqdn(), port))
+        self.writePipe.send((socket.gethostname(), port))
         self.writePipe.flush()
         self.serve_forever()
 
@@ -393,8 +393,10 @@ class ResolveCommand(TroveCommand):
     def runTroveCommand(self):
         self.trove.troveResolvingBuildReqs(self.cfg.getName())
         client = conaryclient.ConaryClient(self.resolveJob.getConfig())
-        repos = repocache.CachingTroveSource(client.getRepos(),
-                                             self.cfg.getCacheDir())
+        repos = client.getRepos()
+        if self.cfg.useCache:
+            repos = repocache.CachingTroveSource(repos,
+                                                 self.cfg.getCacheDir())
         self.resolver = resolver.DependencyResolver(self.logger, repos)
         resolveResult = self.resolver.resolve(self.resolveJob)
         self.trove.troveResolved(resolveResult)

@@ -33,7 +33,7 @@ class BuildLogRecorder(asyncore.dispatcher, server.Server):
         return self.port
 
     def getHost(self):
-        return socket.getfqdn()
+        return socket.gethostname()
 
     def getLogPath(self):
         return self.logPath

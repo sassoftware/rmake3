@@ -87,8 +87,9 @@ class DelayableXMLRPCRequestHandler(QuietXMLRPCRequestHandler):
         SimpleXMLRPCRequestHandler.finish(self)
 
 class XMLRPCResponseHandler(object):
-    def __init__(self, request):
+    def __init__(self, request, debug=True):
         self.request = request
+        self.debug = debug
 
     def callResponseFn(self, fn, *args, **kw):
         try:
@@ -113,6 +114,9 @@ class XMLRPCResponseHandler(object):
                 self.sendResponse(rv)
                 os._exit(0)
             except:
+                if self.debug:
+                    from conary.lib import epdb
+                    epdb.post_mortem()
                 self.sendInternalError()
         finally:
             os._exit(1)
