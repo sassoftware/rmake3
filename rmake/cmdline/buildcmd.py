@@ -394,7 +394,7 @@ def _commitRecipe(conaryclient, recipePath, message, branch=None):
             buildBranch = branch.createShadow(targetLabel)
             kw = dict(buildBranch=buildBranch)
         else:
-            buildBranch = versions.Branch(targetLabel)
+            buildBranch = versions.Branch([targetLabel])
             kw={}
             cfg.buildLabel = targetLabel
 
