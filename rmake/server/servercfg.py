@@ -176,11 +176,31 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
 
     def getRepositoryMap(self):
         if self.isExternalRepos():
-            url = self.serverUrl
+            url = self.translateUrl(self.serverUrl)
         else:
             url = 'http://%s:%s/conary/' % (socket.gethostname(),
                                             self.serverPort)
         return { self.serverName : url }
+
+    def translateUrl(self, url):
+        type, host = urllib.splittype(url)
+        host, rest = urllib.splithost(host)
+        host, port = urllib.splitport(host)
+        if host in ('LOCAL', 'localhost', ''):
+            host = socket.gethostname()
+            if port:
+                host = '%s:%s' % (host, port)
+            return '%s://%s%s' % (type, host, rest)
+        else:
+            return url
+
+    def getReposInfo(self):
+        if not self.serverUrl:
+            return None
+        host = urllib.splithost(urllib.splittype(self.proxy)[1])[0]
+        host, port = urllib.splitport(host)
+        return host, port
+
 
     def getProxyInfo(self):
         if not self.proxy:
@@ -198,11 +218,9 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
         if self.isExternalProxy():
             return self.proxy
         else:
-            host, port = self.getProxyInfo()
             # need to have the proxy url be a fqdn so that it can
             # be used by rmake nodes
-            return 'http://%s:%s/' % (socket.gethostname(), port,)
-            #return 'http://%s:%s/' % ('localhost', port,)
+            return self.translateUrl(self.proxy)
 
     def getUserGlobs(self):
         return self.user
