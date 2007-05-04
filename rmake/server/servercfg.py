@@ -100,7 +100,8 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
     def __init__(self, readConfigFiles = False, ignoreErrors=False):
         daemon.DaemonConfig.__init__(self)
         self.setIgnoreErrors(ignoreErrors)
-        self.readFiles()
+        if readConfigFiles:
+            self.readFiles()
 
         if not self.user and not self.isExternalRepos():
             self.user.addServerGlob(self.serverName, 'rmake', 'rmake')
