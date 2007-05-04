@@ -191,6 +191,9 @@ class _AbstractBuildJob(trovesource.SearchableTroveSource):
     def iterFailedTroves(self):
         return (x for x in self.iterTroves() if x.isFailed())
 
+    def iterPrimaryFailureTroves(self):
+        return (x for x in self.iterTroves() if x.isPrimaryFailure())
+
     def iterBuiltTroves(self):
         return (x for x in self.iterTroves() if x.isBuilt())
 

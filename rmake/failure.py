@@ -37,6 +37,9 @@ class FailureReason(object):
     def getData(self):
         return self.data
 
+    def getShortError(self):
+        return str(self)
+
     def getReason(self):
         return self.tag
 
@@ -73,6 +76,9 @@ class FailureWithException(FailureReason):
         else:
             assert(isinstance(error, str))
             FailureReason.__init__(self, [error, traceback])
+
+    def getShortError(self):
+        return self.data[0]
 
     def getErrorMessage(self):
         return self.data[0]
@@ -118,15 +124,23 @@ class ChrootFailed(FailureWithException):
     def __str__(self):
         return 'Failed while creating chroot: %s' % self.data[0]
 
+    def getShortError(self):
+        return str(self)
 
 class LoadFailed(FailureWithException):
     tag = FAILURE_REASON_LOAD
+
+    def getShortError(self):
+        return 'Failed while loading recipe'
 
     def __str__(self):
         return 'Failed while loading recipe: %s' % self.data[0]
 
 class InternalError(FailureWithException):
     tag = FAILURE_REASON_INTERNAL
+
+    def getShortError(self):
+        return 'Internal rMake Error'
 
     def __str__(self):
         # print out the whole traceback for internal errors

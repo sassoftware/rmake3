@@ -6,15 +6,17 @@ Changes in @NEW@:
        "rmake build foo{x86} foo{x86_64} to build multiple versions of troves 
        with different install flavors in the same build (RMK-395).
      * rMake now has an internal proxy which it uses for caching results
-       instead of file system cache.
+       instead of an rMake-specific cache. (RMK-341)
   o Build Changes:
      * You can now build groups in the same job as packages.  This support is 
        EXPERIMENTAL and should not be used for critical group builds.
        File sets and redirects still must be in their own job.  (RMK-169)
      * You can now build recipes that have never been committed before and 
-       commit afterwards.  They will be committed to your buildLabel unless 
-       they have been created via cvc newpkg or just when editing a recipe.  
-       This requires conary version 1.1.25. (RMK-211).
+       commit afterwards.  They will be committed to your buildLabel unless
+       they have been created via cvc newpkg or just when editing a recipe.
+       This requires conary version 1.1.25. (RMK-211)
+     * The message for failed build jobs has been improved - it no longer
+       just says "Build job had failures".(RMK-286)
   o Client Changes:
      * "rMake q" now displays flavor information more often, and also displays
        tag information by default (the part after the : in labels). (RMK-432)

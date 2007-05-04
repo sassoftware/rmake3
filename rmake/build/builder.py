@@ -176,9 +176,17 @@ class Builder(object):
             if self.dh.jobPassed():
                 self.job.jobPassed("build job finished successfully")
                 return True
-            self.job.jobFailed("build job had failures")
+            msg = ['Build job had failures:\n']
+            for trove in sorted(self.job.iterPrimaryFailureTroves()):
+                err = trove.getFailureReason().getShortError()
+                msg.append('   * %s: %s\n' % (trove.getName(), err))
+            self.job.jobFailed(''.join(msg))
         else:
-            self.job.jobFailed('Did not find any buildable troves')
+            msg = ['Did not find any buildable troves:']
+            for trove in sorted(self.job.iterPrimaryFailureTroves()):
+                err = trove.getFailureReason().getShortError()
+                msg.append('   * %s: %s\n' % (trove.getName(), err))
+            self.job.jobFailed(''.join(msg))
         return False
 
     def buildTrove(self, troveToBuild, buildReqs, crossReqs):
