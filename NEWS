@@ -27,6 +27,8 @@ Changes in @NEW@:
        "conaryProxy" when strictMode is set to True. (RMK-443)
      * rMake now uses socket.gethostname() instead of socket.getfqdn(), 
        which doesn't involve any DNS lookups to determine the hostname to use.
+     * The subscriber log now does not print out duplicate messages that
+       occur more often than once every 5 minutes. (RMK-10)
 
 Changes in 1.0.8:
   o Client Changes:

@@ -114,6 +114,9 @@ class PipeWriter(object):
             else:
                 self.buf.pop(0)
 
+    def hasData(self):
+        return bool(self.buf)
+
     def handleWriteIfReady(self, sleep=0.1):
         if self.buf:
             ready = select.select([], [self], [], sleep)[1]

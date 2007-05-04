@@ -347,6 +347,7 @@ class rMakeServer(apirpc.XMLApiServer):
             subscriber.attach(job)
 
     def _emitEvents(self):
+        self._publisher.harvestErrors()
         if not self._events or self._emitPid:
             return
         if ((time.time() - self._lastEmit) < self._emitEventTimeThreshold
