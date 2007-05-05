@@ -34,7 +34,7 @@ class AbstractChroot(object):
         """
         raise NotImplementedError
 
-    def clean(self):
+    def clean(self, root, raiseError=True):
         """
             Removes this root or any files in teh way of this root.
         """
@@ -116,7 +116,7 @@ class BasicChroot(AbstractChroot):
         self._addDeviceNodes()
         self._postInstall()
 
-    def clean(self):
+    def clean(self, root, raiseError=True):
         pass
 
     def install(self):

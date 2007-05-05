@@ -31,7 +31,7 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
         after itself as much as possible.
     """
     def __init__(self, jobList, crossJobList, logger, cfg, csCache=None,
-                 targetFlavor=None):
+                 targetFlavor=None, oldRoot=None):
         rootfactory.BasicChroot.__init__(self)
         self.cfg = cfg
         self.jobList = jobList
@@ -39,6 +39,7 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
         self.callback = None
         self.logger = logger
         self.csCache = csCache
+        self.oldRoot = oldRoot
         if targetFlavor is not None:
             cfg.initializeFlavors()
             self.sysroot = flavorutil.getSysRootPath(targetFlavor)
@@ -54,11 +55,40 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
             self.addDir('%s/lib' % self.sysroot)
             self.addDir('%s/usr/lib' % self.sysroot)
 
+    def moveOldRoot(self, oldRoot, newRoot):
+        self.logger.info('Moving root from %s to %s for reuse')
+        if os.path.exists(newRoot):
+            self.logger.warning('Root already exists at %s - cannot move old root to that spot')
+            return False
+
+        try:
+            os.rename(oldRoot, newRoot)
+        except OSError, err:
+            self.logger.warning('Could not rename old root %s to %s: %s' % (oldRoot, root, err))
+            return False
+
+        self.cfg.root = newRoot
+        client = conaryclient.ConaryClient(self.cfg)
+        try:
+            assert(client.db.db.schemaVersion)
+        except Exception, err:
+            self.logger.warning('Could not access database in old root %s: %s.  Removing old root' % (oldRoot, err))
+            os.rename(newRoot, oldRoot)
+            return False
+        return True
+
+    def create(self, root):
+        self.cfg.root = root
+        rootfactory.BasicChroot.create(self, root)
+
     def install(self):
+        self.cfg.root = self.root
+        if self.oldRoot:
+            if self.serverCfg.reuseChroots:
+                self._moveOldRoot(self.oldRoot, self.root)
         if not self.jobList and not self.crossJobList:
             # should only be true in debugging situations
             return
-        assert(self.cfg.root == self.root)
 
         def _install(jobList):
             client = conaryclient.ConaryClient(self.cfg)
@@ -127,13 +157,14 @@ class rMakeChroot(ConaryBasedChroot):
 
     def __init__(self, buildTrove, chrootHelperPath, cfg, serverCfg,
                  jobList, crossJobList, logger, uid=None, gid=None, 
-                 csCache=None, copyInConary=True):
+                 csCache=None, copyInConary=True, oldRoot=None):
         """ 
             uid/gid:  the uid/gid which special files in the chroot should be 
                       owned by
         """
         ConaryBasedChroot.__init__(self, jobList, crossJobList, logger, cfg,
-                                   csCache, buildTrove.getFlavor())
+                                   csCache, buildTrove.getFlavor(),
+                                   oldRoot=None)
         self.jobId = buildTrove.jobId
         self.buildTrove = buildTrove
         self.chrootHelperPath = chrootHelperPath
@@ -190,6 +221,7 @@ class rMakeChroot(ConaryBasedChroot):
 
     def createConaryRc(self):
         conaryCfg = conarycfg.ConaryConfiguration(False)
+        conaryrc = None
         try:
             if self.canChroot(): # then we will be chrooting into this dir
                 conaryrc = open('%s/etc/conaryrc.prechroot' % self.cfg.root, 'w')
@@ -210,51 +242,55 @@ class rMakeChroot(ConaryBasedChroot):
         return (pwd.getpwnam(constants.rmakeuser).pw_uid == os.getuid())
 
 
-    def unmount(self):
-        if not os.path.exists(self.getRoot()):
-            return
+    def unmount(self, root, raiseError=True):
+        if not os.path.exists(root):
+            return True
         if self.canChroot():
             self.logger.info('Running chroot helper to unmount...')
-            util.mkdirChain(self.getRoot() + '/sbin')
-            rc = os.system('%s --unmount %s' % (self.chrootHelperPath, 
-                            self.getRoot()))
+            util.mkdirChain(root + '/sbin')
+            rc = os.system('%s --unmount %s' % (self.chrootHelperPath, root))
             if rc:
-                raise errors.OpenError('Could not unmount old chroot')
+                if raiseError:
+                    raise errors.OpenError('Could not unmount old chroot')
+                return False
+        return True
 
 
-    def clean(self):
+    def clean(self, root, raiseError=True):
         if self.canChroot():
             self.logger.info('Running chroot helper to clean/unmount...')
-            util.mkdirChain(self.getRoot() + '/sbin')
-            shutil.copy('/sbin/busybox', self.getRoot() + '/sbin/busybox')
-            rc = os.system('%s %s --clean' % (self.chrootHelperPath,
-                            self.getRoot()))
+            util.mkdirChain(root + '/sbin')
+            shutil.copy('/sbin/busybox', root + '/sbin/busybox')
+            rc = os.system('%s %s --clean' % (self.chrootHelperPath, root))
             if rc:
-                raise errors.OpenError(
-                        'Cannot create chroot - chroot helper failed'
-                        ' to clean old chroot')
-
-        self.logger.debug("removing old chroot tree: %s", self.getRoot())
-        os.system('rm -rf %s/tmp' % self.getRoot())
+                if raiseError:
+                    raise errors.OpenError(
+                            'Cannot create chroot - chroot helper failed'
+                            ' to clean old chroot')
+                else:
+                    return False
+        self.logger.debug("removing old chroot tree: %s", root)
+        os.system('rm -rf %s/tmp' % root)
         removeFailed = False
-        if os.path.exists(self.getRoot() + '/tmp'):
+        if os.path.exists(root + '/tmp'):
             # attempt to remove just the /tmp dir first.
             # that's where the chroot process should have had all
             # of its files.  Doing this makes sure we don't remove
             # /bin/rm while it might still be needed the next time around.
             removeFailed = True
         else:
-            os.system('rm -rf %s' % self.getRoot())
-            if os.path.exists(self.getRoot()):
+            os.system('rm -rf %s' % root)
+            if os.path.exists(root):
                 removeFailed = True
-        if removeFailed:
+        if removeFailed and raiseError:
             raise errors.OpenError(
                 'Cannot create chroot - old root at %s could not be removed.'
                 '  This may happen due to permissions problems such as root'
                 ' owned files, or earlier build processes that have not'
                 ' completely died.  Please shut down rmake, kill any remaining'
                 ' rmake processes, and then retry.  If that does not work,'
-                ' please remove the old root by hand.' % self.getRoot())
+                ' please remove the old root by hand.' % root)
+        return not removeFailed
 
 class FakeRmakeRoot(rMakeChroot):
     def canChroot(self):
@@ -263,7 +299,7 @@ class FakeRmakeRoot(rMakeChroot):
     def install(self):
         pass
 
-    def clean(self):
+    def clean(self, root):
         pass
 
 class ExistingChroot(rMakeChroot):

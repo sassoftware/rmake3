@@ -32,6 +32,7 @@ class rMakeBuilderConfiguration(daemon.DaemonConfig):
     pluginDirs        = (CfgPathList, ['/usr/share/rmake/plugins'])
     usePlugins        = (CfgBool, True)
     usePlugin         = CfgDict(CfgBool)
+    chrootLimit       = (CfgInt, 4)
     verbose           = False
 
     def getCommandSocketDir(self):

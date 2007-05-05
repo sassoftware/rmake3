@@ -4,12 +4,14 @@
 import errno
 import copy
 import os
+import stat
 import sys
 import tempfile
 import time
 
 #conary
 from conary.lib import util
+from conary.local import database
 
 #rmake
 from rmake import constants
@@ -19,6 +21,106 @@ from rmake.worker.chroot import rootfactory
 from rmake.lib import flavorutil
 from rmake.lib import logger as logger_
 from rmake.lib import repocache
+
+class ChrootQueue(object):
+    def __init__(self, root, slots):
+        self.root = root
+        self.slots = slots
+        self.chroots = {}
+        self.toRemove = {}  # chroots that are scheduled for removal
+        self.badChroots = {}
+
+    def listChroots(self):
+        chroots = set(self.chroots)
+        if os.path.exists(self.root):
+            for name in os.listdir(self.root):
+                path = self.root + '/' + name
+                if os.path.isdir(path):
+                    chroots.add(path)
+        return [ x for x in chroots if x not in self.badChroots ]
+
+    def listOldChroots(self):
+        chroots = []
+        if os.path.exists(self.root):
+            for name in os.listdir(self.root):
+                path = self.root + '/' + name
+                if (not os.path.isdir(path)
+                    or path in self.chroots
+                    or path in self.toRemove
+                    or path in self.badChroots):
+                    continue
+                chroots.append(path)
+        return [ x for x in chroots if x not in self.badChroots ]
+
+    def _createRootPath(self, troveName):
+        name = troveName.rsplit(':', 1)[0]
+        path =  self.root + '/%s' % name
+        count = 1
+        if not os.path.exists(path) and not path in self.chroots:
+            self.chroots[path] = None
+            return path
+        path = path + '-%s'
+        while True:
+            fullPath = path % count
+            if not os.path.exists(fullPath) and not fullPath in self.chroots:
+                self.chroots[fullPath] = None
+                return fullPath
+            else:
+                count += 1
+
+    def addChroot(self, path, chroot):
+        self.chroots[path] = chroot
+
+    def chrootFinished(self, chrootPath):
+        self.chroots.pop(chrootPath, False)
+
+    def deleteChroot(self, chrootPath):
+        self.chroots.pop(chrootPath, False)
+        self.toRemove.pop(chrootPath, False)
+        self.badChroots.pop(chrootPath, False)
+
+    def markBadChroot(self, chrootPath):
+        # we tried to remove this chroot but it failed.
+        # Never use this chroot again.
+        self.deleteChroot(chrootPath)
+        self.badChroots[chrootPath] = True
+
+    def _getBestOldChroot(self, buildReqs, reuseRoot):
+        """
+            If the chroot is being reused, pick by contents of the chroot.
+            Otherwise, pick oldest
+        """
+        if not reuseRoot:
+            for chroot in self.listOldChroots():
+                # return oldest directory
+                return sorted(self.listOldChroots(),
+                              key=lambda x: os.stat(x)[stat.ST_MTIME])[0]
+        buildReqsByNBF = set([(x[0], x[1].branch(), x[2]) for x in buildReqs])
+        matches = {}
+        for chrootPath in self.listOldChroots():
+            db = database.Database(chrootPath, '/var/lib/conarydb')
+            chrootContents = db.iterAllTroves()
+            trovesByNBF = set([(x[0], x[1].branch(), x[2]) for x in chrootContents])
+            # matches = 2*matches - extras - so an empty chroot is better than 
+            # a chroot with lots of wrong troves.
+            matches[chrootPath] = 2 * len(trovesByNBF.intersection(buildReqsByNBF)) - len(trovesByNBF.difference(buildReqsByNBF))
+        return sorted((x[1], x[0]) for x in matches.iteritems())[-1][1]
+
+    def requestSlot(self, troveName, buildReqs, reuseChroots):
+        if self.slots >= 0 and len(self.chroots) >= self.slots:
+            return None
+        allChroots = self.listChroots()
+        newPath = self._createRootPath(troveName)
+        if self.slots < 0:
+            return (None, newPath)
+        if len(allChroots) < self.slots:
+            # we haven't reached the chroot limit so keep going
+            return (None, newPath)
+        oldPath = self._getBestOldChroot(buildReqs, reuseChroots)
+        return (oldPath, newPath)
+
+    def useSlot(self, root):
+        self.chroots[root] = None
 
 class ChrootManager(object):
     def __init__(self, serverCfg, logger=None):
@@ -32,40 +134,20 @@ class ChrootManager(object):
             self.csCache = repocache.RepositoryCache(cacheDir)
         else:
             self.csCache = None
-        self.chroots = {}
         if logger is None:
             logger = logger_.Logger()
         self.logger = logger
+        self.queue = ChrootQueue(self.baseDir, self.serverCfg.chrootLimit)
 
     def listChroots(self):
-        chroots = []
-        if os.path.exists(self.baseDir):
-            for name in os.listdir(self.baseDir):
-                path = self.baseDir + '/' + name
-                if os.path.isdir(path):
-                    chroots.append(name)
+        chroots = self.queue.listChroots()
         if os.path.exists(self.archiveDir):
             for name in os.listdir(self.archiveDir):
                 chroots.append('archive/' + name)
         return chroots
 
-    def createRootPath(self, buildTrove):
-        name = buildTrove.getName().rsplit(':', 1)[0]
-        path =  self.baseDir + '/%s' % name
-        count = 1
-        if path not in self.chroots:
-            return path
-        path = path + '-%s'
-        while True:
-            if path % count in self.chroots:
-                count += 1
-            else:
-                return path % count
-
-    def rootFinished(self, chroot):
-        root = chroot.getRoot()
-        if root in self.chroots:
-            del self.chroots[root]
+    def chrootFinished(self, chrootPath):
+        self.queue.chrootFinished(chrootPath)
 
     def getRootFactory(self, cfg, buildReqList, crossReqList, buildTrove):
         cfg = copy.deepcopy(cfg)
@@ -79,7 +161,6 @@ class ChrootManager(object):
         if not setArch:
             targetArch = None
 
-        rootDir = self.createRootPath(buildTrove)
         if (not cfg.strictMode and
               (buildTrove.isRedirectRecipe() or buildTrove.isGroupRecipe()
                or buildTrove.isFilesetRecipe())):
@@ -92,7 +173,7 @@ class ChrootManager(object):
             chrootClass = rootfactory.FakeRmakeRoot
         else:
             chrootClass = rootfactory.FullRmakeChroot
-        cfg.root = rootDir
+            util.mkdirChain(self.baseDir)
         copyInConary = (not targetArch
                         and not cfg.strictMode
                         and cfg.copyInConary)
@@ -104,14 +185,15 @@ class ChrootManager(object):
                              csCache=self.csCache,
                              copyInConary=copyInConary)
         buildLogPath = self.serverCfg.getBuildLogPath(buildTrove.jobId)
-        chrootServer = rMakeChrootServer(chroot, targetArch,
+        chrootServer = rMakeChrootServer(chroot, targetArch, 
+                                         chrootQueue=self.queue,
                                          useTmpfs=self.serverCfg.useTmpfs,
                                          buildLogPath=buildLogPath,
                                          reuseRoots=cfg.reuseRoots,
-                                         strictMode=cfg.strictMode, 
-                                         logger=self.logger)
+                                         strictMode=cfg.strictMode,
+                                         logger=self.logger,
+                                         buildTrove=buildTrove)
 
-        self.chroots[rootDir] = chrootServer
         return chrootServer
 
     def useExistingChroot(self, chrootPath, useChrootUser=True):
@@ -120,14 +202,15 @@ class ChrootManager(object):
         if not os.path.exists(chrootPath):
             raise errors.OpenError("No such chroot exists")
         chroot = rootfactory.ExistingChroot(chrootPath, self.logger,
-                                             self.chrootHelperPath)
+                                            self.chrootHelperPath)
         chrootServer = rMakeChrootServer(chroot, targetArch=None,
+                                         chrootQueue=self.queue,
                                          useTmpfs=self.serverCfg.useTmpfs,
                                          buildLogPath=None, reuseRoots=True,
                                          useChrootUser=useChrootUser,
                                          logger=self.logger,
-                                         runTagScripts=False)
-        self.chroots[chrootPath] = chrootServer
+                                         runTagScripts=False,
+                                         root=chrootPath)
         return chrootServer
 
     def archiveChroot(self, chrootPath, newPath):
@@ -137,6 +220,7 @@ class ChrootManager(object):
         assert(os.path.dirname(newPath) == self.archiveDir)
         util.mkdirChain(self.archiveDir)
         util.execute('/bin/mv %s %s' % (chrootPath, newPath))
+        self.queue.deleteChroot(chrootPath)
         return 'archive/' + os.path.basename(newPath)
 
     def deleteChroot(self, chrootPath):
@@ -149,17 +233,20 @@ class ChrootManager(object):
             assert(os.path.dirname(chrootPath) == self.baseDir)
         chroot = rootfactory.ExistingChroot(chrootPath, self.logger,
                                              self.chrootHelperPath)
-        chroot.clean()
+        chroot.clean(chrootPath)
+        self.queue.deleteChroot(chrootPath)
 
 class rMakeChrootServer(object):
     """
         Manages starting the rmake chroot server.
     """
     def __init__(self, chroot, targetArch, buildLogPath, logger,
-                 useTmpfs=False, reuseRoots=False, strictMode=False,
-                 useChrootUser=True, runTagScripts=True):
+                 chrootQueue, useTmpfs=False, reuseRoots=False, 
+                 strictMode=False, useChrootUser=True, runTagScripts=True, 
+                 root=None, buildTrove=None):
         self.chroot = chroot
         self.targetArch = targetArch
+        self.queue = chrootQueue
         self.useTmpfs = useTmpfs
         self.reuseRoots = reuseRoots
         self.strictMode = strictMode
@@ -167,28 +254,57 @@ class rMakeChrootServer(object):
         self.useChrootUser = useChrootUser
         self.logger = logger
         self.runTagScripts = runTagScripts
+        self.root = root
+        self.buildTrove = buildTrove
+        self.oldRoot = None
+
+    def reserveRoot(self):
+        if self.root is None:
+            jobList = [ (x[0],) + x[2] for x in self.chroot.jobList ]
+            data = self.queue.requestSlot(self.buildTrove.getName(),
+                                          jobList,
+                                          self.reuseRoots)
+            if not data:
+                return None
+            oldRoot, newRoot = data
+            self.oldRoot = oldRoot
+            self.root = newRoot
+        else:
+            self.queue.useChroot(self.root)
+        return True
 
     def getRoot(self):
-        return self.chroot.getRoot()
+        return self.root
 
     def getChrootName(self):
         return self.getRoot().rsplit('/', 1)[-1]
 
     def clean(self):
-        return self.chroot.clean()
+        ok = self.chroot.clean(self.getRoot())
+        if ok:
+            self.queue.deleteChroot(self.getRoot())
+        else:
+            self.queue.markBadChroot(self.getRoot())
 
     def unmount(self):
-        return self.chroot.unmount()
+        return self.chroot.unmount(self.getRoot())
 
     def create(self):
+        if not self.root:
+            self.reserveRoot()
         if self.reuseRoots:
+            if self.oldRoot:
+                self.chroot.moveOldRoot(self.oldRoot, self.getRoot())
             # we're going to keep the old contents of the root and perform
             # as few updates as possible.  However, that still means
             # unmounting those things owned by root so that the rmake process
             # can make any necessary modifications.
-            self.chroot.unmount()
+            self.chroot.unmount(self.getRoot())
         else:
-            self.chroot.clean()
+            if self.oldRoot:
+                self.chroot.clean(self.oldRoot, raiseError=False)
+            self.chroot.clean(self.getRoot())
+        self.queue.chrootFinished(self.oldRoot)
         self.chroot.create(self.getRoot())
 
     def start(self, forkCommand=os.fork):

@@ -43,6 +43,9 @@ class Command(server.Server):
     def _exit(self, exitRc):
         sys.exit(exitRc)
 
+    def isReady(self):
+        return True
+
     def shouldFork(self):
         return True
 
@@ -234,6 +237,9 @@ class BuildCommand(TroveCommand):
         self.logData = logData
         self.logPath = logPath
         self.uri = None
+
+    def isReady(self):
+        return self.chrootFactory.reserveRoot()
 
     def getChrootFactory(self):
         return self.chrootFactory

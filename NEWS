@@ -17,6 +17,8 @@ Changes in @NEW@:
        This requires conary version 1.1.25. (RMK-211)
      * The message for failed build jobs has been improved - it no longer
        just says "Build job had failures".(RMK-286)
+     * Added a chrootLimit option that limits the number of chroots that will
+       be left around after failed rMake builds.  Defaults to 10.  (RMK-353)
   o Client Changes:
      * "rMake q" now displays flavor information more often, and also displays
        tag information by default (the part after the : in labels). (RMK-432)

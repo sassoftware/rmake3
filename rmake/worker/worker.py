@@ -151,7 +151,8 @@ class Worker(server.Server):
         if self._queuedCommands and (len(self.commands) < self.slots):
             commandTuple = self._queuedCommands.pop(0)
             commandClass, cfg, args = commandTuple
-            self.runCommand(commandClass, cfg, *args)
+            if not self.runCommand(commandClass, cfg, *args):
+                self.queueCommand(commandClass, cfg, *args)
 
         self._collectChildren()
         if self._foundResult:
@@ -195,6 +196,8 @@ class Worker(server.Server):
             # errors before this point imply a problem w/ the node.
             # Below this point it is a problem w/ the command.
             command = commandClass(cfg, commandId, *args)
+            if not command.isReady():
+                return False
             if command.shouldFork():
                 inF, outF = pipereader.makeMarshalPipes()
                 pid = self._fork('Command %s' % command.getCommandId())
@@ -235,7 +238,8 @@ class Worker(server.Server):
                 else:
                     self.commandCompleted(command.getCommandId())
                 if command.getChrootFactory():
-                    self.chrootManager.rootFinished(command.getChrootFactory())
+                    self.chrootManager.chrootFinished(
+                                         command.getChrootFactory().getRoot())
                 self.commands.remove(command)
                 break
         server.Server._pidDied(self, pid, status, name)
