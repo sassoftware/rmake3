@@ -76,7 +76,7 @@ Directory under which rmake builds.  For security reasons, this directory must
 be owned by the rmake user and group, and its permissions must be set to 700.
 .TP 4
 .B chrootLimit
-Number of chroots that should be allowed to be created on this machine at the same time.  After this point, old chroots will be deleted, or reused if reuseChroots is True. Defaults to 10.
+Number of chroots that should be allowed to be created on this machine at the same time.  After this point, old chroots will be deleted, or reused if reuseChroots is True. Defaults to 10.  Turned off if set to a value less than 0.
 .TP 4
 .B chrootHelperPath
 Path to chrootHelper, defaults to /usr/libexec/chroothelper
