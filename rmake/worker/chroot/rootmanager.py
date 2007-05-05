@@ -107,11 +107,11 @@ class ChrootQueue(object):
         return sorted((x[1], x[0]) for x in matches.iteritems())[-1][1]
 
     def requestSlot(self, troveName, buildReqs, reuseChroots):
-        if self.slots >= 0 and len(self.chroots) >= self.slots:
+        if self.slots > 0 and len(self.chroots) >= self.slots:
             return None
         allChroots = self.listChroots()
         newPath = self._createRootPath(troveName)
-        if self.slots < 0:
+        if self.slots <= 0:
             return (None, newPath)
         if len(allChroots) < self.slots:
             # we haven't reached the chroot limit so keep going
