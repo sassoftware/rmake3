@@ -185,6 +185,9 @@ class rMakeClient(object):
     def deleteChroot(self, host, chrootPath):
         self.proxy.deleteChroot(host, chrootPath)
 
+    def deleteAllChroots(self):
+        self.proxy.deleteAllChroots()
+
     def connectToChroot(self, host, chroot, command, superUser=False):
         host, port = self.proxy.startChrootServer(host, chroot, command,
                                                   superUser)

@@ -224,12 +224,16 @@ class ChrootManager(object):
         return 'archive/' + os.path.basename(newPath)
 
     def deleteChroot(self, chrootPath):
-        if chrootPath.startswith('archive/'):
-            chrootPath = self.archiveDir + '/' + chrootPath[len('archive/'):]
+        if (chrootPath.startswith(self.archiveDir) 
+            or chrootPath.startswith('archive/')):
+            if chrootPath.startswith('archive/'):
+                chrootPath = self.archiveDir + '/' + chrootPath[len('archive/'):]
             chrootPath = os.path.realpath(chrootPath)
             assert(os.path.dirname(chrootPath) == self.archiveDir)
         else:
-            chrootPath = os.path.realpath(self.baseDir +'/' +  chrootPath)
+            if not chrootPath.startswith(self.baseDir):
+                chrootPath = self.baseDir + '/' +  chrootPath
+            chrootPath = os.path.realpath(chrootPath)
             assert(os.path.dirname(chrootPath) == self.baseDir)
         chroot = rootfactory.ExistingChroot(chrootPath, self.logger,
                                              self.chrootHelperPath)

@@ -221,6 +221,17 @@ class rMakeServer(apirpc.XMLApiServer):
         self.db.removeChroot(host, chrootPath)
 
     @api(version=1)
+    @api_parameters(1)
+    @api_return(1, None)
+    def deleteAllChroots(self, callData):
+        chroots = self.db.listChroots()
+        for chroot in chroots:
+            if chroot.active:
+                continue
+            self.worker.deleteChroot(chroot.host, chroot.path)
+            self.db.removeChroot(chroot.host, chroot.path)
+
+    @api(version=1)
     @api_parameters(1, None)
     def startCommit(self, callData, jobIds):
         jobIds = self.db.convertToJobIds(jobIds)

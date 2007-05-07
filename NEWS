@@ -22,8 +22,10 @@ Changes in @NEW@:
      * Added a --match option that allows you to build troves that only
        match the filter given. (RMK-436)
   o Client Changes:
-     * "rMake q" now displays flavor information more often, and also displays
+     * "rmake q" now displays flavor information more often, and also displays
        tag information by default (the part after the : in labels). (RMK-432)
+     * "rmake clean" now takes an --all parameter to delete all inactive
+       chroots. (RMK-429)
   o Bug Fixes:
      * rMake now behaves better when an "rmake chroot" command cannot find
        the chroot you're trying to enter. (RMK-438)

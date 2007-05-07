@@ -244,8 +244,12 @@ rmake daemon user itself.  With this user you can install packages into the
 chroot by running commands such as "conary update strace".
 .RE
 .TP 4
-.B clean \fI<chrootName>\fP
+.B clean \fI[<chrootName>]\fP \fI[--all]\fP
 Removes the given chroot, freeing the disk space it used.
+.RS 4
+.TP 4
+.B \-\-all
+Removes all chroots.
 .RE
 .\"
 .\"

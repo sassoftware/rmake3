@@ -413,6 +413,10 @@ class rMakeHelper(object):
         self.client.deleteChroot(host, chrootPath)
         print "Chroot %s deleted" % chrootPath
 
+    def deleteAllChroots(self):
+        self.client.deleteAllChroots()
+        print "Chroots deleted"
+
     def listChroots(self):
         return self.client.listChroots()
 

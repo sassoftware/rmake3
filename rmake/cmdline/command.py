@@ -643,20 +643,27 @@ class CleanCommand(rMakeCommand):
     Removes the given chroot, freeing its space.
 
     This command simply removes the given chroot and everything within it,
-    freeing its diskspace."""
+    freeing its diskspace.
+
+    Specifying --all means remove all old chroots.
+    """
     commands = ['clean']
     help = 'Deletes a chroot'
     paramHelp = '<chroot>'
 
     def addParameters(self, argDef):
+        argDef['all'] = NO_PARAM
         rMakeCommand.addParameters(self, argDef)
 
     def _getChroot(self, chroot):
         return '_local_', chroot
 
     def runCommand(self, client, cfg, argSet, args):
-        command, chroot  = self.requireParameters(args, ['chrootPath'])
-        client.deleteChroot(*self._getChroot(chroot))
+        if argSet.pop('all', False):
+            client.deleteAllChroots()
+        else:
+            command, chroot  = self.requireParameters(args, ['chrootPath'])
+            client.deleteChroot(*self._getChroot(chroot))
 register(CleanCommand)
 
 
