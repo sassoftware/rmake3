@@ -8,7 +8,7 @@ import re
 
 from conary.conaryclient import cmdline
 
-def parseTroveSpec(troveSpec):
+def parseTroveSpec(troveSpec, allowEmptyName=False):
     troveSpec, context = re.match('^(.*?)(?:{(.*)})?$', troveSpec).groups()
-    troveSpec = cmdline.parseTroveSpec(troveSpec)
+    troveSpec = cmdline.parseTroveSpec(troveSpec, allowEmptyName=allowEmptyName)
     return troveSpec + (context,)

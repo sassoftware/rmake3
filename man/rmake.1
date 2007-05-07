@@ -91,6 +91,13 @@ command is similar to \-\-host above, but it is more specific.
 Uses the value VALUE for macro NAME for each recipe.  Equivalent to the same
 option for cvc cook.
 .TP
+.B \-\-match="[name][=version][[flavor]]"
+Causes the troves specified (usually by buildgroup) to be filtered so that only the troves matching the --match paramters will be used.
+
+Example: rmake buildgroup group-dist --match=tmpwatch --match="=:1-compat" --match="kernel[kernel.smp]"
+
+This will build any trove in group-dist that has the name tmpwatch, as well as any trove that is has a label that ends in :1-compat, as well as kernels in group-dist with the flavor kernel.smp.
+.TP
 .B \-\-no-watch
 Do not runs \fIrmake watch\fP immediately after starting the build.
 See \fIwatch\fP for more information.

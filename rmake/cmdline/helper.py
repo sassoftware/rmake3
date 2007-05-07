@@ -167,7 +167,7 @@ class rMakeHelper(object):
 
     def buildTroves(self, troveSpecList,
                     limitToHosts=None, limitToLabels=None, recurseGroups=False,
-                    buildConfig=None, configDict=None):
+                    buildConfig=None, configDict=None, matchSpecs=None):
         if buildConfig is None:
             buildConfig = self.buildConfig
         job = buildcmd.getBuildJob(buildConfig,
@@ -176,7 +176,8 @@ class rMakeHelper(object):
                                    limitToHosts=limitToHosts,
                                    limitToLabels=None,
                                    recurseGroups=recurseGroups,
-                                   configDict=configDict)
+                                   configDict=configDict,
+                                   matchSpecs=matchSpecs)
 
         jobId = self.client.buildJob(job)
         print 'Added Job %s' % jobId

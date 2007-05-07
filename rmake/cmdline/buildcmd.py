@@ -10,8 +10,10 @@ import tempfile
 
 from conary.build import cook, grouprecipe
 from conary.build.cook import signAbsoluteChangeset
+from conary.conaryclient import cmdline
 from conary.deps import deps
 from conary.lib import log, util
+from conary.repository import trovesource
 from conary import checkin
 from conary import errors as conaryerrors
 from conary import state
@@ -30,7 +32,7 @@ BUILD_RECURSE_GROUPS_SOURCE = 2 # find and recurce the source version of the
                                 # group
 
 def getBuildJob(buildConfig, conaryclient, troveSpecList, limitToHosts=None, 
-                limitToLabels=None, message=None,
+                limitToLabels=None, message=None, matchSpecs=None,
                 recurseGroups=BUILD_RECURSE_GROUPS_NONE, configDict=None):
 
     trovesByContext = {}
@@ -77,7 +79,7 @@ def getBuildJob(buildConfig, conaryclient, troveSpecList, limitToHosts=None,
         troveList = getTrovesToBuild(cfg, conaryclient, troveSpecList,
                          limitToHosts=limitToHosts, limitToLabels=limitToLabels,
                          message=None,
-                         recurseGroups=recurseGroups)
+                         recurseGroups=recurseGroups, matchSpecs=matchSpecs)
         for name, version, flavor in troveList:
             #flavor = deps.overrideFlavor(cfg.buildFlavor, flavor)
             bt = buildtrove.BuildTrove(None, name, version, flavor,
@@ -86,10 +88,13 @@ def getBuildJob(buildConfig, conaryclient, troveSpecList, limitToHosts=None,
             job.setTroveConfig(bt, cfg)
     return job
 
-def getTrovesToBuild(cfg, conaryclient, troveSpecList, limitToHosts=None, limitToLabels=None, message=None, recurseGroups=BUILD_RECURSE_GROUPS_NONE):
+def getTrovesToBuild(cfg, conaryclient, troveSpecList, limitToHosts=None, limitToLabels=None, message=None, recurseGroups=BUILD_RECURSE_GROUPS_NONE, matchSpecs=None):
     toBuild = []
     toFind = {}
     groupsToFind = []
+    if not matchSpecs:
+        matchSpecs = []
+
 
     repos = conaryclient.getRepos()
     cfg.resolveTroveTups = _getResolveTroveTups(cfg, repos)
@@ -166,7 +171,36 @@ def getTrovesToBuild(cfg, conaryclient, troveSpecList, limitToHosts=None, limitT
                 toBuild.append((troveTup[0], troveTup[1], flavor))
 
     toBuild.extend(localTroves)
+
+    if matchSpecs:
+        toBuild = _filterListByMatchSpecs(cfg.serverCfg, matchSpecs, toBuild)
     return toBuild
+
+def _filterListByMatchSpecs(serverCfg, matchSpecs, troveList):
+    matchSpecs = [ cmdline.parseTroveSpec(x, allowEmptyName=True)
+                    for x in matchSpecs ]
+
+    troveMap = {}
+    for troveTup in troveList:
+        key = (troveTup[0].split(':')[0], troveTup[1], troveTup[2])
+        troveMap.setdefault(key, []).append(troveTup)
+
+    finalMatchSpecs = []
+    for matchSpec in matchSpecs:
+        if not matchSpec[0]:
+            finalMatchSpecs.extend(set([(x[0], matchSpec[1], matchSpec[2])
+                                        for x in troveMap]))
+        else:
+            finalMatchSpecs.append(matchSpec)
+
+
+    troveSource = trovesource.SimpleTroveSource(troveMap)
+    troveSource = recipeutil.RemoveHostSource(troveSource,
+                                              serverCfg.serverName)
+    results = troveSource.findTroves(None, finalMatchSpecs, None,
+                                     allowMissing=True)
+    mapEntries = list(itertools.chain(*results.itervalues()))
+    return list(itertools.chain(*(troveMap[x] for x in mapEntries)))
 
 def _getResolveTroveTups(cfg, repos):
     # get resolve troves - use installLabelPath and install flavor

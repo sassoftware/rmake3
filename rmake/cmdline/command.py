@@ -164,6 +164,8 @@ class BuildCommand(rMakeCommand):
     docs = {'flavor' : "flavor to build with",
             'host'   : "host to limit build to",
             'label'  : "label to limit build to",
+            'match'  : (options.VERBOSE_HELP, 
+                        "Only build troves that match the given specification"),
             'no-watch'  : "do not show build status",
             'poll'   : (options.VERBOSE_HELP, 'backwards compatibility option'),
             'quiet'  : "show less build info - don't tail logs",
@@ -185,6 +187,7 @@ class BuildCommand(rMakeCommand):
         argDef['quiet'] = NO_PARAM
         argDef['commit'] = NO_PARAM
         argDef['macro'] = MULT_PARAM
+        argDef['match'] = MULT_PARAM
         argDef['no-watch'] = NO_PARAM
         argDef['poll'] = NO_PARAM
         argDef['binary-search'] = NO_PARAM
@@ -213,6 +216,8 @@ class BuildCommand(rMakeCommand):
                 newFlavors.append(deps.overrideFlavor(oldFlavor, flavor))
             client.buildConfig.flavor = newFlavors
 
+        matchSpecs = argSet.pop('match', [])
+
         if 'no-clean' in argSet:
             client.buildConfig.cleanAfterCook = False
             del argSet['no-clean']
@@ -240,7 +245,8 @@ class BuildCommand(rMakeCommand):
 
         jobId = client.buildTroves(troveSpecs,
                                    limitToHosts=hosts, limitToLabels=labels,
-                                   recurseGroups=recurseGroups)
+                                   recurseGroups=recurseGroups,
+                                   matchSpecs=matchSpecs)
         if monitorJob:
             if not client.watch(jobId, showTroveLogs=not quiet,
                                showBuildLogs=not quiet,

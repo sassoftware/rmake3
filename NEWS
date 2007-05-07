@@ -19,6 +19,8 @@ Changes in @NEW@:
        just says "Build job had failures".(RMK-286)
      * Added a chrootLimit option that limits the number of chroots that will
        be left around after failed rMake builds.  Defaults to 10.  (RMK-353)
+     * Added a --match option that allows you to build troves that only
+       match the filter given. (RMK-436)
   o Client Changes:
      * "rMake q" now displays flavor information more often, and also displays
        tag information by default (the part after the : in labels). (RMK-432)
