@@ -243,7 +243,8 @@ int unmountchroot(const char * chrootDir, int opt_clean) {
                 continue;
             }
             if (statInfo.st_uid != myUid) {
-                fprintf(stderr, "owned by %d, not %d\n", statInfo.st_uid, myUid);
+                if (opt_verbose)
+                    fprintf(stderr, "owned by %d, not %d\n", statInfo.st_uid, myUid);
                 /* we don't own this file, we can't remove it. */
                 continue;
             }
