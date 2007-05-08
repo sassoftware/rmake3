@@ -187,6 +187,9 @@ class TroveSourceMesh(trovesource.SearchableTroveSource):
         trovesource.SearchableTroveSource.__init__(self)
         self.searchAsRepository()
 
+    def __getattr__(self, key):
+        return getattr(self.repos, key)
+
     def hasTroves(self, *args, **kw):
         return self.repos.hasTroves(*args, **kw)
 
