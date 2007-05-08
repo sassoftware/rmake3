@@ -132,17 +132,15 @@ def getTrovesToBuild(cfg, conaryclient, troveSpecList, limitToHosts=None, limitT
 
         if troveSpec[0].startswith('group-') and recurseGroups:
             groupsToFind.append(troveSpec)
-        else:
-            newTroveSpecs.append(troveSpec)
+        newTroveSpecs.append(troveSpec)
 
     localTroves = [(_getLocalCook(conaryclient, x[0], message), x[1])
-                     for x in recipesToCook]
+                     for x in recipesToCook ]
     localTroves = [(x[0][0], x[0][1], x[1]) for x in localTroves]
     if recurseGroups == BUILD_RECURSE_GROUPS_SOURCE:
         compat.ConaryVersion().requireFindGroupSources()
         localGroupTroves = [ x for x in localTroves 
                              if x[0].startswith('group-') ]
-        localTroves = [ x for x in localTroves if x not in localGroupTroves ]
         toBuild.extend(_findSourcesForSourceGroup(repos, cfg, groupsToFind,
                                                   localGroupTroves,
                                                   limitToHosts, limitToLabels))
@@ -179,19 +177,28 @@ def getTrovesToBuild(cfg, conaryclient, troveSpecList, limitToHosts=None, limitT
 def _filterListByMatchSpecs(serverCfg, matchSpecs, troveList):
     matchSpecs = [ cmdline.parseTroveSpec(x, allowEmptyName=True)
                     for x in matchSpecs ]
+    hasAddSpec = False
 
     troveMap = {}
     for troveTup in troveList:
         key = (troveTup[0].split(':')[0], troveTup[1], troveTup[2])
         troveMap.setdefault(key, []).append(troveTup)
 
-    finalMatchSpecs = []
+    finalMatchSpecs = {}
     for matchSpec in matchSpecs:
-        if not matchSpec[0]:
-            finalMatchSpecs.extend(set([(x[0], matchSpec[1], matchSpec[2])
-                                        for x in troveMap]))
+        name = matchSpec[0]
+        if name and name[0] == '-':
+            removeSpec = True
+            name = name[1:]
         else:
-            finalMatchSpecs.append(matchSpec)
+            hasAddSpec = True
+            removeSpec = False
+        if not name:
+            finalMatchSpecs.update(dict.fromkeys([(x[0], matchSpec[1],
+                                            matchSpec[2]) for x in troveMap],
+                                            removeSpec))
+        else:
+            finalMatchSpecs[matchSpec] = removeSpec
 
 
     troveSource = trovesource.SimpleTroveSource(troveMap)
@@ -199,8 +206,17 @@ def _filterListByMatchSpecs(serverCfg, matchSpecs, troveList):
                                               serverCfg.serverName)
     results = troveSource.findTroves(None, finalMatchSpecs, None,
                                      allowMissing=True)
-    mapEntries = list(itertools.chain(*results.itervalues()))
-    return list(itertools.chain(*(troveMap[x] for x in mapEntries)))
+    toRemove = []
+    toAdd = set()
+    for matchSpec, resultList in results.iteritems():
+        if not finalMatchSpecs[matchSpec]:
+            toAdd.update(resultList)
+        else:
+            toRemove.extend(resultList)
+    if not hasAddSpec:
+        toAdd = set(troveMap)
+    toAdd.difference_update(toRemove)
+    return list(itertools.chain(*(troveMap[x] for x in toAdd)))
 
 def _getResolveTroveTups(cfg, repos):
     # get resolve troves - use installLabelPath and install flavor

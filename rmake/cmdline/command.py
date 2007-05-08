@@ -174,11 +174,12 @@ class BuildCommand(rMakeCommand):
             'no-clean': 'do not remove build directory even if build is'
                         ' successful',
             'binary-search': (options.VERBOSE_HELP,
-                              '(only with buildgroup) Search for the binary'
-                              ' version of this group and build the latest'
-                              ' sources on that branch with the same flavor'),
+                              'Search for the binary'
+                              'version of group and build the latest'
+                              'sources on that branch with the same flavor'),
             'reuse':    ('reuse old chroot if possible instead of removing'
-                         ' and recreating')}
+                         ' and recreating'),
+            'recurse':  ('recurse groups, building all included sources')}
 
     def addParameters(self, argDef):
         argDef['flavor'] = ONE_PARAM
@@ -191,6 +192,8 @@ class BuildCommand(rMakeCommand):
         argDef['no-watch'] = NO_PARAM
         argDef['poll'] = NO_PARAM
         argDef['binary-search'] = NO_PARAM
+        argDef['recurse'] = NO_PARAM
+        argDef['recurse-only'] = NO_PARAM
         argDef['no-clean'] = NO_PARAM
         rMakeCommand.addParameters(self, argDef)
 
@@ -230,8 +233,10 @@ class BuildCommand(rMakeCommand):
         labels = argSet.pop('label', [])
         quiet = argSet.pop('quiet', False)
         commit  = argSet.pop('commit', False)
-        recurseGroups = command == 'buildgroup'
-        if recurseGroups:
+        recurseOnly = argSet.pop('recurse-only')
+        recurseGroups = argSet.pop('recurse', False) or command == 'buildgroup'
+
+        if recurseGroups or recurseOnly:
             if argSet.pop('binary-search', False):
                 recurseGroups = client.BUILD_RECURSE_GROUPS_BINARY
             elif not compat.ConaryVersion().supportsFindGroupSources():
