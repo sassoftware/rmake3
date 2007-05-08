@@ -103,7 +103,10 @@ class rMakeServer(apirpc.XMLApiServer):
     @api_return(1, 'BuildConfiguration')
     def getJobConfig(self, callData, jobId):
         jobId = self.db.convertToJobId(jobId)
-        return self.db.getJobConfig(jobId)
+        jobCfg = self.db.getJobConfig(jobId)
+        # don't return user/password info - it should be kept secret
+        jobCfg.user = []
+        return jobCfg
 
     @api(version=1)
     @api_parameters(1, None, None)
