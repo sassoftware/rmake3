@@ -1,4 +1,4 @@
-Changes in @NEW@:
+Changes in 1.0.9:
   o Server Changes:
      * Added some security enhancements that will make it feasible for
        rMake to allow remote connections (RMK-419).
