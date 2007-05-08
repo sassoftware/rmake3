@@ -11,6 +11,10 @@ Changes in 1.0.9:
      * You can now build groups in the same job as packages.  This support is 
        EXPERIMENTAL and should not be used for critical group builds.
        File sets and redirects still must be in their own job.  (RMK-169)
+     * renamed buildgroup build --recurse.
+     * build --recurse now automatically includes the group with the packages 
+       it builds, so rmake build group-foo --recurse will build group-foo and
+       foo.
      * You can now build recipes that have never been committed before and 
        commit afterwards.  They will be committed to your buildLabel unless
        they have been created via cvc newpkg or just when editing a recipe.
