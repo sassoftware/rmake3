@@ -234,7 +234,7 @@ class BuildCommand(rMakeCommand):
         commit  = argSet.pop('commit', False)
         recurseGroups = argSet.pop('recurse', False) or command == 'buildgroup'
 
-        if recurseGroups or recurseOnly:
+        if recurseGroups:
             if argSet.pop('binary-search', False):
                 recurseGroups = client.BUILD_RECURSE_GROUPS_BINARY
             elif not compat.ConaryVersion().supportsFindGroupSources():
@@ -323,9 +323,9 @@ register(ChangeSetCommand)
 class CommitCommand(rMakeCommand):
     commands = ['commit', 'ci']
     commandGroup = CG_BUILD
-    paramHelp = '''<jobId>
+    paramHelp = '''<jobId> [<jobId>]
 
-Commits the build packages from a job moving them from rMake's internal 
+Commits the build packages from the jobs, moving them from rMake's internal 
 repository back into the repository where their source package came from.
 '''
     help = 'Commit a job'
