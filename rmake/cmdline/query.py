@@ -374,7 +374,7 @@ def displayChroot(chroot):
     if chroot.active:
         active = ' (Building)'
     else:
-        active = ''
+        active = ' (Inactive)'
     name = '%s%s:' % (chroot.path, active)
     troveTuple = ''
     if chroot.jobId:

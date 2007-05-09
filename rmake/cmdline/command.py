@@ -556,10 +556,12 @@ class ListCommand(rMakeCommand):
     help = 'List various information about this rmake server'
     commandGroup = CG_INFO
 
-    docs = {'all' : 'Display active as well as inactive items'}
+    docs = {'all' : 'Backwards compatibility option',
+            'active' : 'Display only active items' }
 
     def addParameters(self, argDef):
         argDef['all'] = NO_PARAM
+        argDef['active'] = NO_PARAM
         rMakeCommand.addParameters(self, argDef)
 
     def runCommand(self, client, cfg, argSet, args):
@@ -572,7 +574,7 @@ class ListCommand(rMakeCommand):
 
 
     def listChroots(self, client, cfg, argSet):
-        allChroots = argSet.pop('all', False)
+        allChroots = not argSet.pop('active', False)
         query.listChroots(client, cfg, allChroots=allChroots)
     listRoots = listChroots
 register(ListCommand)
