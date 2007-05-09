@@ -39,6 +39,8 @@ Changes in 1.0.9:
        which doesn't involve any DNS lookups to determine the hostname to use.
      * The subscriber log now does not print out duplicate messages that
        occur more often than once every 5 minutes. (RMK-10)
+     * buildgroup now uses the buildLabel to search for troves to build 
+       instead or installLabelPath.
 
 Changes in 1.0.8:
   o Client Changes:
