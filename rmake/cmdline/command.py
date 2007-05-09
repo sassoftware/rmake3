@@ -193,7 +193,6 @@ class BuildCommand(rMakeCommand):
         argDef['poll'] = NO_PARAM
         argDef['binary-search'] = NO_PARAM
         argDef['recurse'] = NO_PARAM
-        argDef['recurse-only'] = NO_PARAM
         argDef['no-clean'] = NO_PARAM
         rMakeCommand.addParameters(self, argDef)
 
@@ -233,7 +232,6 @@ class BuildCommand(rMakeCommand):
         labels = argSet.pop('label', [])
         quiet = argSet.pop('quiet', False)
         commit  = argSet.pop('commit', False)
-        recurseOnly = argSet.pop('recurse-only')
         recurseGroups = argSet.pop('recurse', False) or command == 'buildgroup'
 
         if recurseGroups or recurseOnly:
