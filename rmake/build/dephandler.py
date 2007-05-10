@@ -503,7 +503,7 @@ class DependencyHandler(object):
             if trv.getPrebuiltRequirements() is not None:
                 preBuiltReqs = set(
                     [ x for x in trv.getPrebuiltRequirements() if ':' in x[0]])
-                if not trv.isGroup() and buildReqTups == preBuiltReqs:
+                if not trv.isGroupRecipe() and buildReqTups == preBuiltReqs:
                     # groups always get recooked, we may check them later
                     # to see if anything in them has changed
                     self.depState.depGraph.deleteEdges(trv)

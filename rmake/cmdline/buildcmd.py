@@ -198,7 +198,7 @@ def _filterListByMatchSpecs(serverCfg, matchSpecs, troveList):
                                             matchSpec[2]) for x in troveMap],
                                             removeSpec))
         else:
-            finalMatchSpecs[matchSpec] = removeSpec
+            finalMatchSpecs[(name, matchSpec[1], matchSpec[2])] = removeSpec
 
 
     troveSource = trovesource.SimpleTroveSource(troveMap)
@@ -527,7 +527,7 @@ def _findSourcesForSourceGroup(repos, cfg, groupsToFind,
         sourceName = troveSpec[0].split(':')[0] + ':source'
         l = findSpecs.setdefault((sourceName, troveSpec[1], None), [])
         l.append(troveSpec[2])
-    results = repos.findTroves(cfg.installLabelPath, findSpecs, cfg.flavor)
+    results = repos.findTroves(cfg.buildLabel, findSpecs, cfg.flavor)
     allTups = []
     for troveSpec, troveTupList in results.iteritems():
         flavors = findSpecs[troveSpec]

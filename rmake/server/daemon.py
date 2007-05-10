@@ -78,18 +78,26 @@ class rMakeDaemon(daemon.Daemon):
             rMakeServer._installSignalHandlers()
             rMakeServer.serve_forever()
         finally:
-            if rMakeServer and not rMakeServer.repositoryPid:
-                return
-            elif reposPid:
-                self.killRepos(reposPid)
+            if rMakeServer:
+                if rMakeServer.repositoryPid:
+                    self.killRepos(reposPid)
+                if rMakeServer.proxyPid:
+                    self.killRepos(proxyPid, 'proxy')
+            else:
+                # rmake server failed to start
+                if reposPid:
+                    self.killRepos(reposPid)
+                if proxyPid:
+                    self.killRepos(proxyPid, 'proxy')
 
-    def killRepos(self, pid):
-        self.logger.info('killing repository at %s' % pid)
+
+    def killRepos(self, pid, name='repository'):
+        self.logger.info('killing %s at %s' % (name, pid))
         try:
             os.kill(pid, signal.SIGKILL)
         except Exception, e:
             self.logger.warning(
-            'Could not kill repository at pid %s: %s' % (pid, e))
+            'Could not kill %s at pid %s: %s' % (name, pid, e))
 
     def runCommand(self, *args, **kw):
         return daemon.Daemon.runCommand(self, *args, **kw)

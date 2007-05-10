@@ -234,7 +234,7 @@ class BuildCommand(rMakeCommand):
         commit  = argSet.pop('commit', False)
         recurseGroups = argSet.pop('recurse', False) or command == 'buildgroup'
 
-        if recurseGroups or recurseOnly:
+        if recurseGroups:
             if argSet.pop('binary-search', False):
                 recurseGroups = client.BUILD_RECURSE_GROUPS_BINARY
             elif not compat.ConaryVersion().supportsFindGroupSources():
@@ -249,9 +249,15 @@ class BuildCommand(rMakeCommand):
         jobId = client.buildTroves(troveSpecs,
                                    limitToHosts=hosts, limitToLabels=labels,
                                    recurseGroups=recurseGroups,
-                                   matchSpecs=matchSpecs)
+                                   matchSpecs=matchSpecs,
+                                   quiet=quiet)
+        if quiet:
+            print jobId
         if monitorJob:
-            if not client.watch(jobId, showTroveLogs=not quiet,
+            if quiet:
+                if not client.waitForJob(jobId):
+                    return 1
+            elif not client.watch(jobId, showTroveLogs=not quiet,
                                showBuildLogs=not quiet,
                                commit=commit):
                 return 1
@@ -323,9 +329,9 @@ register(ChangeSetCommand)
 class CommitCommand(rMakeCommand):
     commands = ['commit', 'ci']
     commandGroup = CG_BUILD
-    paramHelp = '''<jobId>
+    paramHelp = '''<jobId> [<jobId>]
 
-Commits the build packages from a job moving them from rMake's internal 
+Commits the build packages from the jobs, moving them from rMake's internal 
 repository back into the repository where their source package came from.
 '''
     help = 'Commit a job'
@@ -556,10 +562,12 @@ class ListCommand(rMakeCommand):
     help = 'List various information about this rmake server'
     commandGroup = CG_INFO
 
-    docs = {'all' : 'Display active as well as inactive items'}
+    docs = {'all' : 'Backwards compatibility option',
+            'active' : 'Display only active items' }
 
     def addParameters(self, argDef):
         argDef['all'] = NO_PARAM
+        argDef['active'] = NO_PARAM
         rMakeCommand.addParameters(self, argDef)
 
     def runCommand(self, client, cfg, argSet, args):
@@ -572,7 +580,7 @@ class ListCommand(rMakeCommand):
 
 
     def listChroots(self, client, cfg, argSet):
-        allChroots = argSet.pop('all', False)
+        allChroots = not argSet.pop('active', False)
         query.listChroots(client, cfg, allChroots=allChroots)
     listRoots = listChroots
 register(ListCommand)

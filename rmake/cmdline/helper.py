@@ -167,7 +167,8 @@ class rMakeHelper(object):
 
     def buildTroves(self, troveSpecList,
                     limitToHosts=None, limitToLabels=None, recurseGroups=False,
-                    buildConfig=None, configDict=None, matchSpecs=None):
+                    buildConfig=None, configDict=None, matchSpecs=None,
+                    quiet=False):
         if buildConfig is None:
             buildConfig = self.buildConfig
         job = buildcmd.getBuildJob(buildConfig,
@@ -180,15 +181,15 @@ class rMakeHelper(object):
                                    matchSpecs=matchSpecs)
 
         jobId = self.client.buildJob(job)
-        print 'Added Job %s' % jobId
-        for (n,v,f) in sorted(job.iterTroveList()):
-            if f is not None and not f.isEmpty():
-                f = '[%s]' % f
-            else:
-                f = ''
-            print '  %s=%s/%s%s' % (n, v.trailingLabel(),
-                                       v.trailingRevision(), f)
-
+        if not quiet:
+            print 'Added Job %s' % jobId
+            for (n,v,f) in sorted(job.iterTroveList()):
+                if f is not None and not f.isEmpty():
+                    f = '[%s]' % f
+                else:
+                    f = ''
+                print '  %s=%s/%s%s' % (n, v.trailingLabel(),
+                                           v.trailingRevision(), f)
         return jobId
 
     def stopJob(self, jobId):
@@ -395,6 +396,7 @@ class rMakeHelper(object):
         uri = 'unix:' + tmpPath
         try:
             jobMonitor = monitor.waitForJob(self.client, jobId, uri)
+            return not self.client.getJob(jobId, withTroves=False).isFailed()
         finally:
             os.remove(tmpPath)
 

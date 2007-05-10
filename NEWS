@@ -31,6 +31,8 @@ Changes in 1.0.9:
        tag information by default (the part after the : in labels). (RMK-432)
      * "rmake clean" now takes an --all parameter to delete all inactive
        chroots. (RMK-429)
+     * "rmake build --quiet" is now _really_ quiet - displaying no output
+       except for the job number. (RMK-452)
   o Bug Fixes:
      * rMake now behaves better when an "rmake chroot" command cannot find
        the chroot you're trying to enter. (RMK-438)
@@ -40,6 +42,8 @@ Changes in 1.0.9:
        which doesn't involve any DNS lookups to determine the hostname to use.
      * The subscriber log now does not print out duplicate messages that
        occur more often than once every 5 minutes. (RMK-10)
+     * buildgroup now uses the buildLabel to search for troves to build 
+       instead or installLabelPath.
 
 Changes in 1.0.8:
   o Client Changes:
