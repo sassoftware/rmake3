@@ -132,7 +132,10 @@ def getTrovesToBuild(cfg, conaryclient, troveSpecList, limitToHosts=None, limitT
 
         if troveSpec[0].startswith('group-') and recurseGroups:
             groupsToFind.append(troveSpec)
-        newTroveSpecs.append(troveSpec)
+            if recurseGroups == BUILD_RECURSE_GROUPS_SOURCE:
+                newTroveSpecs.append(troveSpec)
+        else:
+            newTroveSpecs.append(troveSpec)
 
     localTroves = [(_getLocalCook(conaryclient, x[0], message), x[1])
                      for x in recipesToCook ]
@@ -496,28 +499,37 @@ def _findSpecsForBinaryGroup(repos, cfg, groupsToFind, limitToHosts,
     newTroveSpecs = []
     results = repos.findTroves(cfg.buildLabel,
                                groupsToFind, cfg.buildFlavor)
-    groups = repos.getTroves(list(itertools.chain(*results.itervalues())))
-    for group in groups:
-        troveTups = list(group.iterTroveList(strongRefs=True,
-                                             weakRefs=True))
-        troveTups = ((x[0].split(':')[0], x[1], x[2])
-                         for x in troveTups)
-        troveTups = (x for x in troveTups
-                     if not x[0].startswith('group-'))
-        if limitToHosts:
+    groupTuples = list(itertools.chain(*results.itervalues()))
+    groups = repos.getTroves(groupTuples)
+    groups = dict(itertools.izip(groupTuples, groups))
+    for troveSpec, troveList in results.iteritems():
+        for groupTup in troveList:
+            group = groups[groupTup]
+            groupSource = (group.getSourceName(),
+                           group.getVersion().getSourceVersion(False),
+                           troveSpec[2])
+            newTroveSpecs.append(groupSource)
+
+            troveTups = list(group.iterTroveList(strongRefs=True,
+                                                 weakRefs=True))
+            troveTups = ((x[0].split(':')[0], x[1], x[2])
+                             for x in troveTups)
             troveTups = (x for x in troveTups
-                         if (x[1].trailingLabel().getHost()
-                             in limitToHosts))
-        if limitToLabels:
-            troveTups = (x for x in troveTups
-                         if (str(x[1].trailingLabel()) not in limitToLabels))
-        troveTups = list(set(troveTups))
-        troveList = repos.getTroves(troveTups, withFiles=False)
-        for trove in troveList:
-            n = trove.getSourceName()
-            newTroveSpecs.append((n,
-                        trove.getVersion().getSourceVersion().branch(),
-                        trove.getFlavor()))
+                         if not x[0].startswith('group-'))
+            if limitToHosts:
+                troveTups = (x for x in troveTups
+                             if (x[1].trailingLabel().getHost()
+                                 in limitToHosts))
+            if limitToLabels:
+                troveTups = (x for x in troveTups
+                             if (str(x[1].trailingLabel()) not in limitToLabels))
+            troveTups = list(set(troveTups))
+            troveList = repos.getTroves(troveTups, withFiles=False)
+            for trove in troveList:
+                n = trove.getSourceName()
+                newTroveSpecs.append((n,
+                            trove.getVersion().getSourceVersion().branch(),
+                            trove.getFlavor()))
     return newTroveSpecs
 
 def _findSourcesForSourceGroup(repos, cfg, groupsToFind,
