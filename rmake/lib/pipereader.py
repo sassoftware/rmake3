@@ -7,6 +7,7 @@ Simple class for reading marshalled data through a pipe.
 import marshal
 import os
 import select
+import socket
 import struct
 
 def getStructSize(char):
