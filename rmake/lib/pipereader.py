@@ -7,7 +7,6 @@ Simple class for reading marshalled data through a pipe.
 import marshal
 import os
 import select
-import socket
 import struct
 
 def getStructSize(char):
@@ -76,7 +75,7 @@ class PipeReader(object):
         ready = None
         try:
             ready = select.select([self], [], [], sleep)[0]
-        except socket.error, e:
+        except select.error, e:
             pass
         if ready:
             return self.handle_read()
