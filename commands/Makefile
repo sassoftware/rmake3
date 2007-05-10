@@ -10,11 +10,11 @@ bin_files = \
 sbin_files = \
 	rmake-server
 
-extra_dist = Makefile rmake-wrapper chroothelper.c chroothelper.h.in rmake-xml
+extra_dist = Makefile rmake-wrapper chroothelper.c chroothelper.h.in rmake-xml gen-cert.sh
 
 dist_files = $(bin_files) $(extra_dist) $(sbin_files)
 
-libexec_files = rmake-xml chroothelper
+libexec_files = rmake-xml chroothelper gen-cert.sh
 
 all: default-all chroothelper
 	mkdir -p $(TOPDIR)/bin

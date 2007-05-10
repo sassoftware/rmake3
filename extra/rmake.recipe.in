@@ -10,7 +10,7 @@ class RmakeRecipe(CPackageRecipe):
                       'info-rmake:user', 'info-rmake-chroot:user',
                       'libcap:devel',
                       'conary-repository:python', 'desktop-file-utils:runtime',
-                      'pygtk:python', ]
+                      'pygtk:python', 'm2crypto:python', ]
 
     def setup(r):
         r.addArchive('rmake-@version@.tar.bz2')
@@ -48,6 +48,9 @@ class RmakeRecipe(CPackageRecipe):
         r.Requires('rmake:libexec', 'rootfactory.py')
         r.Requires('busybox:runtime',
                    '%(libexecdir)s/rmake/chroothelper')
+        r.Requires('openssl:runtime',
+                   '%(libexecdir)s/rmake/gen-cert.sh')
+        r.Requires('m2crypto:python', 'repos.py')
         r.Requires(exceptDeps='python: epdb')
         r.Requires(exceptDeps='python: rmake.cmdline.password')
         r.ComponentSpec('gtk', 'password.py(|c|o)')

@@ -58,6 +58,13 @@ def startRepository(cfg, fork = True, logger=None):
     serverCfg.logFile = cfg.getReposDir() + '/repos.log'
     serverCfg.logFile = None
 
+    # Transfer SSL settings from rMake config object
+    if hasattr(server, 'SSL') and server.SSL:
+        # The server supports starting in SSL mode
+        serverCfg.useSSL = cfg.useSSL
+        serverCfg.sslCert = cfg.sslCert
+        serverCfg.sslKey = cfg.sslKey
+
     (driver, database) = serverCfg.repositoryDB
     db = dbstore.connect(database, driver)
 
