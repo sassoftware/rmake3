@@ -14,8 +14,15 @@ if [ "$bin" = "rmake-server" ]; then
     if [ "$modes" != "4755 0 0" ]; then
         echo "run make test to make chroothelper setuid root"
         exit 1;
-    else
-        config="chrootHelperPath $importdir/commands/chroothelper"
     fi
+    certfile=/tmp/rmake-server-cert.pem
+    # Force the generation of a new SSL certificate
+    rm -f $certfile
+    # Using arrays now
+    declare -a config
+    config=("--config=chrootHelperPath $importdir/commands/chroothelper"
+            "--config=sslCert $certfile"
+            "--config=sslKey $certfile"
+            "--config=sslGenCertPath $importdir/commands/gen-cert.sh")
 fi
-exec $importdir/commands/$bin "$@" ${config:+--config "${config}"}
+exec $importdir/commands/$bin "$@" ${config:+"${config[@]}"}

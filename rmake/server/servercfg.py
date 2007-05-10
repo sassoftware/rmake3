@@ -12,6 +12,7 @@ import pwd
 import socket
 import stat
 import sys
+import subprocess
 import urllib
 
 from conary.lib import log, cfg
@@ -96,6 +97,10 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
     serverPort        = (CfgInt, 7777)
     serverName        = socket.gethostname()
     socketPath        = (CfgPath, '/var/lib/rmake/socket')
+    sslCert           = (CfgPath, '/srv/rmake/rmake-server-cert.pem')
+    sslKey            = (CfgPath, '/srv/rmake/rmake-server-cert.pem')
+    sslGenCertPath    = (CfgPath, '/usr/libexec/rmake/gen-cert.sh')
+    useSSL            = (CfgBool, True)
     user              = CfgUserInfo
 
     def __init__(self, readConfigFiles = False, ignoreErrors=False):
@@ -244,6 +249,10 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
                 log.error('cannot write to socketPath directory at %s - cannot start server' % os.path.dirname(self.socketPath))
                 sys.exit(1)
 
+        ret = self._sanityCheckForSSL()
+        if ret:
+            sys.exit(ret)
+
         cfgPaths = ['buildDir', 'logDir', 'lockDir', 'serverDir']
         for path in cfgPaths:
             if not os.path.exists(self[path]):
@@ -252,3 +261,51 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
             if not os.access(self[path], os.W_OK):
                 log.error('user "%s" cannot write to %s at %s - cannot start server' % (currUser, path, self[path]))
                 sys.exit(1)
+
+    def _sanityCheckForSSL(self):
+        """Check SSL settings, create SSL certificate if missing.
+        Returns 0 if everything is OK, or an exit code otherwise"""
+        if not self.useSSL:
+            return 0
+
+        if not (self.sslCert and self.sslKey):
+            log.error("both sslCert and sslKey have to be set - "
+                      "cannot start server")
+            return 1
+
+        certfiles = set([self.sslCert, self.sslKey])
+        missing = [ x for x in certfiles if not os.access(x, os.R_OK) ]
+        if not missing:
+            return 0
+
+        # At least one of the certificates doesn't exist, let's recreate them
+        # both
+        if not self.sslGenCertPath:
+            log.error("sslGenCertPath is not set - "
+                      "cannot start server")
+            return 1
+        if not os.access(self.sslGenCertPath, os.X_OK):
+            log.error("Unable to run %s to generate SSL certificate - "
+                      "cannot start server" % self.sslGenCertPath)
+            return 1
+
+        cmd = [ self.sslGenCertPath ]
+        certfname = certfiles.pop()
+        certf = open(certfname, "w+")
+        p = subprocess.Popen(cmd, stdout=certf)
+        p.communicate()
+        if p.returncode:
+            log.error("Error executing %s - cannot start server" %
+                      self.sslGenCertPath)
+            return p.returncode
+        # Sanity check
+        certf.seek(0)
+        data = certf.read()
+        certf.close()
+        if not data:
+            log.error("Invalid certificate produced - cannot start server")
+            return 1
+        if certfiles:
+            certfname = certfiles.pop()
+            open(certfname, "w+").write(data)
+        return 0
