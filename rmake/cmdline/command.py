@@ -249,9 +249,15 @@ class BuildCommand(rMakeCommand):
         jobId = client.buildTroves(troveSpecs,
                                    limitToHosts=hosts, limitToLabels=labels,
                                    recurseGroups=recurseGroups,
-                                   matchSpecs=matchSpecs)
+                                   matchSpecs=matchSpecs,
+                                   quiet=quiet)
+        if quiet:
+            print jobId
         if monitorJob:
-            if not client.watch(jobId, showTroveLogs=not quiet,
+            if quiet:
+                if not client.waitForJob(jobId):
+                    return 1
+            elif not client.watch(jobId, showTroveLogs=not quiet,
                                showBuildLogs=not quiet,
                                commit=commit):
                 return 1
