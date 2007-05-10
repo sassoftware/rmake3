@@ -7,6 +7,7 @@ Changes in 1.0.9:
        with different install flavors in the same build (RMK-395).
      * rMake now has an internal proxy which it uses for caching results
        instead of an rMake-specific cache. (RMK-341)
+     * rMake's internal repository now runs in SSL mode. (RMK-417)
   o Build Changes:
      * You can now build groups in the same job as packages.  This support is 
        EXPERIMENTAL and should not be used for critical group builds.
