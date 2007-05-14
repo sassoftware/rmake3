@@ -81,7 +81,7 @@ class rMakeHelper(object):
                 buildConfig.useConaryConfig(conaryConfig)
 
         if uri is None:
-            uri = rmakeConfig.getServerUri()
+            uri = buildConfig.getServerUri()
 
         self.client = client.rMakeClient(uri)
 

@@ -21,7 +21,8 @@ BUFSIZE = 1024 * 2
 class UnixDomainHTTPConnection(httplib.HTTPConnection):
     def _set_hostport(self, path, port=None):
         # set the host, which in our case is a path to the unix domain socket
-        self.path = path
+        userinfo, rest = urllib.splituser(path)
+        self.path = rest
 
     def connect(self):
         try:
@@ -84,7 +85,10 @@ class ServerProxy(xmlrpclib.ServerProxy):
             if transport is None:
                 transport = UnixDomainTransport()
             # __host is the path to the unix domain socket
-            self.__host = url
+            # we were passed in unix:///var/lib/rmake/socket,
+            # switch to /var/lib/rmake/socket.  This will make
+            # the parts foo:bar@/var/lib/rmake
+            self.__host = url[2:]
         elif transport is None:
             transport = ShimTransport()
             # __host is the server object

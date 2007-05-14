@@ -267,6 +267,8 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
         if serverCfg:
             self.repositoryMap.update(serverCfg.getRepositoryMap())
 
+    def getServerUri(self):
+        return self.serverCfg.getServerUri()
 
     def getTargetLabel(self, versionOrLabel):
         if isinstance(versionOrLabel, versions.Label):
