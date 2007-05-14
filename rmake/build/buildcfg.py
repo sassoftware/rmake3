@@ -81,6 +81,26 @@ class CfgUUID(CfgType):
     def toStrings(self, val, displayOptions):
         return [ val ]
 
+class CfgUser(CfgType):
+    def parseString(self, str):
+        val = str.split()
+        if len(val) < 1 or len(val) > 2:
+            raise ParseError("expected <user> [<password>]")
+        elif len(val) == 1:
+            return (val[0], None)
+        else:
+            return tuple(val)
+
+    def format(self, val, displayOptions=None):
+        user, password = val
+        if password is None:
+            return user
+        elif displayOptions.get('hidePasswords'):
+            return '%s <password>' % (user)
+        else:
+            return '%s %s' % (user, password)
+
+
 class RmakeBuildContext(cfg.ConfigSection):
 
     copyInConary         = (CfgBool, False)
@@ -266,7 +286,7 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
             needNewLabel = False
             if targetLabel.getHost().lower() == 'none':
                 needNewLabel = True
-                host = self.serverCfg.serverName
+                host = self.serverCfg.reposName
             else:
                 host = targetLabel.getHost()
 

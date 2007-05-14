@@ -89,46 +89,41 @@ Watch the NEWS file for updates.
 .TP 4
 .B lockDir
 Directory to create lockfile in; default is /var/lock/rmake
-.B proxy
+.B proxyUrl
 Location of the proxy to use for rmake; default is http://LOCAL:7778.  The LOCAL part is a keyword stating that rMake should manage this proxy by starting it up and shutting it down along with the rMake server, if the value is changed to localhost, rMake will not manage this proxy.
 .TP 4
-.B serverDir
-Directory in which the rmake server stores data
 .TP 4
-.B serverPort
-Port on which the internal repository listens; default is 7777.  If you wish
-to use another repository for rmake server's internal storage, do not set this
-parameter, instead set serverUrl.
-.TP 4
-.B serverName
+.B reposName
 Name of the internal repository; default is based on the current hostname.
-If you are using dhcp, you may wish to set this to something stable. However,
-don't use something too common (like localhost) as collisions between this
-and the upstream naming will cause you to be unable to commit.  If you wish to
-use another repository for rMake's internal storage, set this to the name of
-the the server you wish to commit to.
+If you are using dhcp, you may wish to set this to something stable. 
+If you wish to use another repository for rMake's internal storage, set this 
+to the name of the the server you wish to commit to.
 .TP 4
-.B serverUrl
-If you do not want rmake server to start its own repository, but instead wish
-it to use an external repository for commits, set this value along with
-serverName to create a repositoryMap entry for that server. Note that using
-this configuration is recommended only for advanced usage. rmake commits
-builds to this repository automatically, and if you are not using the rMake
-repository then rmake cannot reset the repository for you.
+.B reposUrl
+Url at which to find the repository.  If the hostname is LOCAL, rMake will manage this repository, starting it up and shutting it down with rMake.  Otherwise,
+rMake will try to contact this external repository for storing its internal
+data.  If rMake is managing the repository, you can change the protocol to 
+https to make the repository require SSL communications.
+Note that changing this value is recommended only for advanced usage. 
+rMake commits builds to this repository automatically, and if you are not 
+using the rMake repository then rMake cannot reset the repository for you.
+
+Default is http://LOCAL:7777/
 .TP 4
-.B slots
-Maximum number of individual packages (not jobs) to build in parallel within
-a single job on one rMake node.
-.TP 4
-.B socketPath
-Path to rmake connection socket; default is /var/lib/rmake/socket
-.TP 4
-.B user
+.B reposUser
 Similar to Conary' configuration, accepts a server glob, user and password.
 These should be the values needed to access the rMake repository.  If used,
 the serverGlob should match with serverName, and the username and password
 should be values with write access to that repository. If left blank, rMake
 will fill them in with default values: <serverName>, rmake rmake.
+
+.TP 4
+.B slots
+Maximum number of individual packages (not jobs) to build in parallel within
+a single job on one rMake node.
+
+.B serverDir
+Directory in which the rmake server stores data
 .TP 4
 .B useTmpfs
 Causes rMake to mount a tmpfs filesystem at /tmp within the chroot, where

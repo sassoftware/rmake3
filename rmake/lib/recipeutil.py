@@ -298,10 +298,10 @@ def getSourceTrovesFromJob(job, serverCfg, repos):
     buildTrovePackages = [ (x[0].split(':')[0], x[1], x[2]) for x in troveList ]
     buildTroveSource = trovesource.SimpleTroveSource(buildTrovePackages)
     buildTroveSource = RemoveHostSource(buildTroveSource,
-                                        serverCfg.serverName)
+                                        serverCfg.reposName)
     # don't search the internal repository explicitly for loadRecipe
     # sources - they may be a part of some bogus build.
-    repos = RemoveHostRepos(repos, serverCfg.serverName)
+    repos = RemoveHostRepos(repos, serverCfg.reposName)
 
     groupRecipeSource = trovesource.SimpleTroveSource(troveList)
 

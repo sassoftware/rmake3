@@ -206,7 +206,7 @@ def _filterListByMatchSpecs(serverCfg, matchSpecs, troveList):
 
     troveSource = trovesource.SimpleTroveSource(troveMap)
     troveSource = recipeutil.RemoveHostSource(troveSource,
-                                              serverCfg.serverName)
+                                              serverCfg.reposName)
     results = troveSource.findTroves(None, finalMatchSpecs, None,
                                      allowMissing=True)
     toRemove = []

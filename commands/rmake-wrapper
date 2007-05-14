@@ -20,9 +20,7 @@ if [ "$bin" = "rmake-server" ]; then
     rm -f $certfile
     # Using arrays now
     declare -a config
-    config=("--config=chrootHelperPath $importdir/commands/chroothelper"
-            "--config=sslCert $certfile"
-            "--config=sslKey $certfile"
-            "--config=sslGenCertPath $importdir/commands/gen-cert.sh")
+    config=("--config=helperDir $importdir/commands"
+            "--config=sslCertPath $certfile")
 fi
 exec $importdir/commands/$bin "$@" ${config:+"${config[@]}"}

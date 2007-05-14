@@ -38,7 +38,7 @@ def commitJobs(conaryclient, jobList, rmakeConfig, message=None,
         for trove in job.iterTroves():
             allTroves.append(trove)
             troveVersion = trove.getVersion()
-            if troveVersion.getHost() == rmakeConfig.serverName:
+            if troveVersion.getHost() == rmakeConfig.reposName:
                 if not troveVersion.branch().hasParentBranch():
                     message = ('Cannot commit filesystem cook %s - '
                                ' nowhere to commit to!' % trove.getName())
@@ -57,7 +57,7 @@ def commitJobs(conaryclient, jobList, rmakeConfig, message=None,
             continue
 
         troveVersion = trove.getVersion()
-        if troveVersion.getHost() == rmakeConfig.serverName:
+        if troveVersion.getHost() == rmakeConfig.reposName:
             sourceTup = (trove.getName(), troveVersion, Flavor())
             targetBranch = troveVersion.branch().parentBranch()
             branchMap[troveVersion.branch()] = targetBranch

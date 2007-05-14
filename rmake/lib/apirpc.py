@@ -226,7 +226,8 @@ class XMLApiServer(ApiServer):
     # if set to True, will try to send exceptions to a debug prompt on 
     # the console before returning them across the wire
 
-    def __init__(self, uri=None, logger=None, forkByDefault=False):
+    def __init__(self, uri=None, logger=None, forkByDefault=False, 
+                 sslCertificate=None, localOnly=False):
         """ @param serverObj: The XMLRPCServer that will serve data to 
             the _dispatch method.  If None, caller is responsible for 
             giving information to be dispatched.
@@ -241,7 +242,7 @@ class XMLApiServer(ApiServer):
                     serverObj = rpclib.UnixDomainDelayableXMLRPCServer(url,
                                                             logRequests=False)
                     serverObj.setAuthMethod(rpclib.SocketAuth)
-                elif type == 'http':
+                elif type in ('http', 'https'):
                     # path is ignored with simple server.
                     host, path = urllib.splithost(url)
                     if ':' in host:
@@ -249,12 +250,16 @@ class XMLApiServer(ApiServer):
                         port = int(port)
                     else:
                         port = 80
+                    # Make serving on localhost not necessarily resolve to only
+                    # serving locally
+                    if host == 'localhost' and not localOnly:
+                        host = ''
 
                     serverObj = rpclib.DelayableXMLRPCServer((host, port),
-                                                             logRequests=False)
+                                                         logRequests=False,
+                                                         ssl=type=='https',
+                                                         sslCert=sslCertificate)
                     serverObj.setAuthMethod(rpclib.HttpAuth)
-                elif type == 'https':
-                    raise NotImplementedError
             else:
                 serverObj = uri
         else:

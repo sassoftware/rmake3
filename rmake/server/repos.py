@@ -23,6 +23,7 @@ import time
 import os
 
 from conary import conarycfg
+from conary import conaryclient
 from conary import dbstore
 from conary.lib import cfg, cfgtypes, log, util
 from conary.repository import errors
@@ -50,20 +51,20 @@ def startRepository(cfg, fork = True, logger=None):
     if os.path.exists(serverConfig):
         os.unlink(serverConfig)
     serverCfg = server.ServerConfig(os.path.join(cfg.getReposDir(), 'serverrc'))
-    serverCfg.repositoryDB = ('sqlite', cfg.getReposPath())
+    serverCfg.repositoryDB = ('sqlite', cfg.getReposDbPath())
     serverCfg.contentsDir = cfg.getContentsPath()
-    serverCfg.port = cfg.serverPort
-    serverCfg.configKey('serverName', cfg.serverName) # this works with either
-                                                      # 1.0.16 or 1.0.17+
+    serverCfg.port = cfg.getReposInfo()[1]
+    serverCfg.configKey('serverName', cfg.reposName) # this works with either
+                                                     # 1.0.16 or 1.0.17+
     serverCfg.logFile = cfg.getReposDir() + '/repos.log'
     serverCfg.logFile = None
 
     # Transfer SSL settings from rMake config object
     if hasattr(server, 'SSL') and server.SSL:
         # The server supports starting in SSL mode
-        serverCfg.useSSL = cfg.useSSL
-        serverCfg.sslCert = cfg.sslCert
-        serverCfg.sslKey = cfg.sslKey
+        serverCfg.useSSL = cfg.reposRequiresSsl()
+        serverCfg.sslCert = cfg.sslCertPath
+        serverCfg.sslKey = cfg.sslCertPath
 
     (driver, database) = serverCfg.repositoryDB
     db = dbstore.connect(database, driver)
@@ -74,7 +75,7 @@ def startRepository(cfg, fork = True, logger=None):
     schema.loadSchema(db)
     db.commit()
 
-    user, password = cfg.user.find(cfg.serverName)
+    user, password = cfg.user.find(cfg.reposName)
     addUser(serverCfg, user, password, write=True)
     addUser(serverCfg, 'anonymous', 'anonymous')
 
@@ -83,8 +84,8 @@ def startRepository(cfg, fork = True, logger=None):
         if pid:
             pingServer(cfg)
             logger.info('Started repository "%s" on port %s (pid %s)' % (
-                                                            cfg.serverName,
-                                                            cfg.serverPort,
+                                                            cfg.reposName,
+                                                            serverCfg.port,
                                                             pid))
             return pid
         elif hasattr(logger, 'close'):
@@ -121,6 +122,13 @@ def startProxy(cfg, fork = True, logger=None):
     serverCfg.port = proxyPort
     serverCfg.logFile = None
 
+    # Transfer SSL settings from rMake config object
+    if hasattr(server, 'SSL') and server.SSL:
+        # The server supports starting in SSL mode
+        serverCfg.useSSL = cfg.proxyRequiresSsl()
+        serverCfg.sslCert = cfg.sslCertPath
+        serverCfg.sslKey = cfg.sslCertPath
+
     if fork:
         pid = os.fork()
         if pid:
@@ -149,23 +157,17 @@ def startProxy(cfg, fork = True, logger=None):
         os._exit(1)
 
 def pingServer(cfg, proxyUrl=None):
-    if cfg.serverUrl:
-        repositoryMap = {cfg.serverName : cfg.serverUrl }
-    else:
-        repositoryMap = {cfg.serverName :
-                    'http://%s:%s/conary/' % (os.uname()[1], cfg.serverPort) }
-    userList = conarycfg.UserInformation()
+    conaryCfg = conarycfg.ConaryConfiguration(False)
+    conaryCfg.repositoryMap = cfg.getRepositoryMap()
     if proxyUrl:
-        proxy = {'http'  : proxyUrl,
-                 'https' : proxyUrl}
+        conaryCfg.conaryProxy = {'http'  : proxyUrl,
+                                 'https' : proxyUrl}
     else:
         proxy = None
-
-    repos = netclient.NetworkRepositoryClient(repositoryMap, userList,
-                                              proxy=proxy)
+    repos = conaryclient.ConaryClient(conaryCfg).getRepos()
     for i in range(0,20000):
         try:
-            checked = repos.c[cfg.serverName].checkVersion()
+            checked = repos.c[cfg.reposName].checkVersion()
         except Exception, err:
             if i == 20000:
                 raise

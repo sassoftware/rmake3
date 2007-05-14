@@ -127,7 +127,7 @@ class ChrootManager(object):
         self.serverCfg = serverCfg
         self.baseDir =  os.path.realpath(serverCfg.getChrootDir())
         self.archiveDir =  os.path.realpath(serverCfg.getChrootArchiveDir())
-        self.chrootHelperPath = serverCfg.chrootHelperPath
+        self.chrootHelperPath = serverCfg.getChrootHelper()
         cacheDir = serverCfg.getCacheDir()
         util.mkdirChain(cacheDir)
         if self.serverCfg.useCache:

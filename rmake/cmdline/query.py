@@ -205,7 +205,7 @@ def displayJobDetail(dcfg, job):
 def printTroves(dcfg, job, troveTupList):
     if troveTupList or dcfg.displayTroveDetail:
         if troveTupList is None:
-            troveTupList = job.iterTroveList()
+            troveTupList = job.iterTroveList(True)
         for troveTup in sorted(troveTupList):
             printOneTrove(dcfg, job, job.getTrove(*troveTup))
     else:

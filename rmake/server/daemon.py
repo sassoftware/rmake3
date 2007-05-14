@@ -65,10 +65,11 @@ class rMakeDaemon(daemon.Daemon):
         if not cfg.isExternalRepos():
             reposPid = repos.startRepository(cfg, fork=True, 
                                              logger=self.logger)
-        if not cfg.isExternalProxy():
+        if cfg.proxyUrl and not cfg.isExternalProxy():
             proxyPid = repos.startProxy(cfg, fork=True,
                                         logger=self.logger)
-        misc.removeIfExists(cfg.socketPath)
+        if cfg.getSocketPath():
+            misc.removeIfExists(cfg.getSocketPath())
         rMakeServer = None
         try:
             rMakeServer = server.rMakeServer(cfg.getServerUri(), cfg,

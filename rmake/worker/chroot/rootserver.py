@@ -124,7 +124,7 @@ class ChrootServer(apirpc.XMLApiServer):
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind(('', 0))
         port = s.getsockname()[1]
-        pid = self._fork('Telnet session')
+        pid = self._fork('Telnet session', close=True)
         if pid:
             # Note that when this session dies, the server will die.
             # This is in recognition of the fact that this chroot server,

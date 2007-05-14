@@ -1,3 +1,9 @@
+Changes in @NEWS@:
+  o Server Changes:
+     * Cleaned up server configuration options, all repository options now 
+       start with "repos" as opposed to "server", proxyUrl and reposUrl are
+       now consistent in determining whether to rMake should manage
+       that service or not.
 Changes in 1.0.9:
   o Server Changes:
      * Added some security enhancements that will make it feasible for

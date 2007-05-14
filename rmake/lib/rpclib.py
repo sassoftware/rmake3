@@ -8,6 +8,7 @@ external servers
 """
 import fcntl
 import IN
+import sys
 import os
 from SimpleXMLRPCServer import (SimpleXMLRPCServer, SimpleXMLRPCRequestHandler,
                                 SimpleXMLRPCDispatcher)
@@ -17,6 +18,15 @@ import SocketServer
 import struct
 
 from rmake.lib import localrpc
+
+# Secure server support
+try:
+    from M2Crypto import SSL
+except ImportError:
+    print "Please install m2crypto"
+    sys.exit(1)
+
+
 
 class HttpAuth(object):
 
@@ -107,6 +117,11 @@ class XMLRPCResponseHandler(object):
     def forkResponseFn(self, forkFunction, fn, *args, **kw):
         pid = forkFunction()
         if pid:
+            if isinstance(self.request.request, SSL.Connection):
+                sslsocket = self.request.request
+                socket = sslsocket.socket
+                sslsocket.close = socket.close
+                sslsocket.shutdown = socket.shutdown
             return
         try:
             try:
@@ -161,7 +176,11 @@ class StreamXMLRPCResponseHandler(XMLRPCResponseHandler):
         self.request.wfile.close()
         self.request.rfile.close()
         try:
-            self.request.connection.shutdown(1)
+            # FIXME: not possible w/ ssl connection 
+            # after a fork, but still needed otherwise.
+            # This seems to work.
+            if not isinstance(self.request.request, SSL.Connection):
+                self.request.connection.shutdown(1)
             self.request.connection.close()
         except socket.error:
             pass
@@ -218,7 +237,10 @@ class DelayableXMLRPCDispatcher(SimpleXMLRPCDispatcher):
 
 class DelayableXMLRPCServer(DelayableXMLRPCDispatcher, SimpleXMLRPCServer):
     def __init__(self, path, requestHandler=DelayableXMLRPCRequestHandler,
-                 logRequests=1):
+                 logRequests=1, ssl=False, sslCert=None):
+        self.sslCert = sslCert
+        self.ssl = ssl
+
         SimpleXMLRPCServer.__init__(self, path, requestHandler, logRequests)
         DelayableXMLRPCDispatcher.__init__(self)
 
@@ -227,6 +249,16 @@ class DelayableXMLRPCServer(DelayableXMLRPCDispatcher, SimpleXMLRPCServer):
         fcntl.fcntl(self.socket.fileno(), fcntl.FD_CLOEXEC)
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,1)
         SimpleXMLRPCServer.server_bind(self)
+        if self.ssl:
+            ctx = SSL.Context("sslv23")
+            ctx.load_cert_chain(self.sslCert, self.sslCert)
+            self.socket = SSL.Connection(ctx, self.socket)
+
+    def handle_request(self):
+        try:
+            return SimpleXMLRPCServer.handle_request(self)
+        except SSL.SSLError, e:
+            return
 
 class UnixDomainDelayableXMLRPCRequestHandler(
                                      localrpc.UnixDomainHTTPRequestHandler,

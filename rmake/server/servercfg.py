@@ -15,7 +15,7 @@ import sys
 import subprocess
 import urllib
 
-from conary.lib import log, cfg
+from conary.lib import log, cfg, util
 from conary.lib.cfgtypes import CfgPath, CfgList, CfgString, CfgInt, CfgType
 from conary.lib.cfgtypes import CfgBool, CfgPathList, CfgDict
 from conary.conarycfg import CfgLabel, CfgUserInfo
@@ -26,7 +26,7 @@ from rmake.lib import daemon
 
 class rMakeBuilderConfiguration(daemon.DaemonConfig):
     buildDir          = (CfgPath, '/var/rmake')
-    chrootHelperPath  = (CfgPath, "/usr/libexec/rmake/chroothelper")
+    helperDir         = (CfgPath, "/usr/libexec/rmake")
     slots             = (CfgInt, 1)
     useCache          = (CfgBool, False)
     useTmpfs          = (CfgBool, False)
@@ -59,6 +59,9 @@ class rMakeBuilderConfiguration(daemon.DaemonConfig):
     def getBuildLogPath(self, jobId):
         return self.logDir + '/buildlogs/%d.log' % jobId
 
+    def getChrootHelper(self):
+        return self.helperDir + '/chroothelper'
+
     def _checkDir(self, name, path, requiredOwner=None,
                    requiredMode=None):
         if not os.path.exists(path):
@@ -77,7 +80,7 @@ class rMakeBuilderConfiguration(daemon.DaemonConfig):
 
 
     def checkBuildSanity(self):
-        rmakeUser = constants.rmakeuser
+        rmakeUser = constants.rmakeUser
         if pwd.getpwuid(os.getuid()).pw_name == rmakeUser:
             self._checkDir('buildDir', self.buildDir)
             self._checkDir('chroot dir (subdirectory of buildDir)',
@@ -91,47 +94,56 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
     logDir            = (CfgPath, '/var/log/rmake')
     lockDir           = (CfgPath, '/var/run/rmake')
     serverDir         = (CfgPath, '/srv/rmake')
-    serverUrl         = (CfgString, None)
-    proxy             = (CfgString, 'http://LOCAL:7778') # local here means 
+    proxyUrl          = (CfgString, 'http://LOCAL:7778') # local here means
                                                          # managed by rMake
-    serverPort        = (CfgInt, 7777)
-    serverName        = socket.gethostname()
-    socketPath        = (CfgPath, '/var/lib/rmake/socket')
-    sslCert           = (CfgPath, '/srv/rmake/rmake-server-cert.pem')
-    sslKey            = (CfgPath, '/srv/rmake/rmake-server-cert.pem')
-    sslGenCertPath    = (CfgPath, '/usr/libexec/rmake/gen-cert.sh')
-    useSSL            = (CfgBool, True)
-    user              = CfgUserInfo
+    reposUrl          = (CfgString, 'http://LOCAL:7777')
+    reposName         = socket.gethostname()
+    sslCertPath       = (CfgPath, '/srv/rmake/certs/rmake-server-cert.pem')
+    reposUser         = CfgUserInfo
 
     def __init__(self, readConfigFiles = False, ignoreErrors=False):
         daemon.DaemonConfig.__init__(self)
         self.setIgnoreErrors(ignoreErrors)
+        self.addAlias('proxy', 'proxyUrl')
+        self.addAlias('serverUrl', 'reposUrl')
+        self.addAlias('serverName', 'reposName')
+        self.addAlias('user',  'reposUser')
         if readConfigFiles:
             self.readFiles()
 
-        if not self.user and not self.isExternalRepos():
-            self.user.addServerGlob(self.serverName, 'rmake', 'rmake')
+        if not self.reposUser and not self.isExternalRepos():
+            self.reposUser.addServerGlob(self.reposName, 'rmake', 'rmake')
+        # we require ssl now.
 
     def setServerName(self, serverName):
-        for x in list(self.user):
-            if x[0] == self.serverName:
-                self.user.remove(x)
-        if not self.user.find(serverName):
-            self.user.addServerGlob(serverName, 'rmake', 'rmake')
-        self.serverName = serverName
+        for x in list(self.reposUser):
+            if x[0] == self.reposName:
+                self.reposUser.remove(x)
+        if not self.reposUser.find(serverName):
+            self.reposUser.addServerGlob(serverName, 'rmake', 'rmake')
+        self.reposName = serverName
 
     def readFiles(self):
         for path in ['/etc/rmake/serverrc', 'serverrc']:
             self.read(path, False)
 
-    def isExternalRepos(self):
-        return bool(self.serverUrl)
-
     def getServerUri(self):
-        if '://' in self.socketPath:
-            return self.socketPath
+        if not hasattr(self, 'rmakeUrl'):
+            rmakeUrl = 'unix:///var/lib/rmake/socket'
         else:
-            return 'unix://' + self.socketPath
+            rmakeUrl = self.rmakeUrl
+        if '://' in rmakeUrl:
+            return rmakeUrl
+        else:
+            return 'unix://' + rmakeUrl
+
+    def getSocketPath(self):
+        if '://' not in self.rmakeUrl:
+            return self.rmakeUrl
+        type, rest = urllib.splittype(self.rmakeUrl)
+        if type != 'unix':
+            return None
+        return os.path.normpath(rest)
 
     def getDbPath(self):
         return self.serverDir + '/jobs.db'
@@ -163,7 +175,7 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
     def getReposDir(self):
         return self.serverDir + '/repos'
 
-    def getReposPath(self):
+    def getReposDbPath(self):
         return self.serverDir + '/repos/sqldb'
 
     def getReposConfigPath(self):
@@ -182,12 +194,8 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
         return self.logDir + '/subscriber.log'
 
     def getRepositoryMap(self):
-        if self.isExternalRepos():
-            url = self.translateUrl(self.serverUrl)
-        else:
-            url = 'http://%s:%s/conary/' % (socket.gethostname(),
-                                            self.serverPort)
-        return { self.serverName : url }
+        url = self.translateUrl(self.reposUrl)
+        return { self.reposName : url }
 
     def translateUrl(self, url):
         type, host = urllib.splittype(url)
@@ -201,52 +209,57 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
         else:
             return url
 
-    def getReposInfo(self):
-        if not self.serverUrl:
-            return None
-        host = urllib.splithost(urllib.splittype(self.proxy)[1])[0]
+    def getUrlInfo(self, url):
+        host = urllib.splithost(urllib.splittype(url)[1])[0]
         host, port = urllib.splitport(host)
+        if port:
+            port = int(port)
         return host, port
-
 
     def getProxyInfo(self):
-        if not self.proxy:
+        if not self.proxyUrl:
             return None
-        host = urllib.splithost(urllib.splittype(self.proxy)[1])[0]
-        host, port = urllib.splitport(host)
-        return host, port
+        return self.getUrlInfo(self.proxyUrl)
+
+    def getReposInfo(self):
+        if not self.reposUrl:
+            return None
+        return self.getUrlInfo(self.reposUrl)
 
     def isExternalProxy(self):
-        return self.proxy and self.getProxyInfo()[0] != 'LOCAL'
+        return self.proxyUrl and self.getProxyInfo()[0] != 'LOCAL'
+
+    def isExternalRepos(self):
+        return self.getReposInfo()[0] != 'LOCAL'
 
     def getProxyUrl(self):
-        if not self.proxy:
+        if not self.proxyUrl:
             return None
         if self.isExternalProxy():
-            return self.proxy
+            return self.proxyUrl
         else:
             # need to have the proxy url be a fqdn so that it can
             # be used by rmake nodes
-            return self.translateUrl(self.proxy)
+            return self.translateUrl(self.proxyUrl)
 
     def getUserGlobs(self):
-        return self.user
+        return self.reposUser
 
     def sanityCheck(self):
         currUser = pwd.getpwuid(os.getuid()).pw_name
 
-        if self.serverPort != self.getDefaultValue('serverPort'):
-            if self.serverUrl:
-                log.error('Cannot specify both serverPort and serverUrl')
-                sys.exit(1)
+    def getSslCertificatePath(self):
+        return self.sslCertPath
+
+    def getSslCertificateGenerator(self):
+        return self.helperDir + '/gen-cert.sh'
 
     def sanityCheckForStart(self):
         cfgPaths = ['buildDir', 'logDir', 'lockDir', 'serverDir']
-        if self.getServerUri().startswith('unix://'):
-            if os.path.exists(self.socketPath):
-                cfgPaths.append('socketPath')
-            elif not os.access(os.path.dirname(self.socketPath), os.W_OK):
-                log.error('cannot write to socketPath directory at %s - cannot start server' % os.path.dirname(self.socketPath))
+        socketPath = self.getSocketPath()
+        if socketPath:
+            if not os.access(os.path.dirname(socketPath), os.W_OK):
+                log.error('cannot write to socketPath directory at %s - cannot start server' % os.path.dirname(socketPath))
                 sys.exit(1)
 
         ret = self._sanityCheckForSSL()
@@ -262,41 +275,63 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
                 log.error('user "%s" cannot write to %s at %s - cannot start server' % (currUser, path, self[path]))
                 sys.exit(1)
 
+    def reposRequiresSsl(self):
+        return urllib.splittype(self.reposUrl)[0] == 'https'
+
+    def proxyRequiresSsl(self):
+        return (self.proxyUrl
+                and urllib.splittype(self.proxyUrl)[0] == 'https')
+
+    def requiresSsl(self):
+        """
+            Return True if any service run by rMake requires ssl certificates
+        """
+        return ((not self.isExternalRepos() and self.reposRequiresSsl())
+                or (not self.isExternalProxy() and self.proxyRequiresSsl())
+                or urllib.splittype(self.rmakeUrl)[0] == 'https')
+
     def _sanityCheckForSSL(self):
         """Check SSL settings, create SSL certificate if missing.
         Returns 0 if everything is OK, or an exit code otherwise"""
-        if not self.useSSL:
+        if not self.requiresSsl():
             return 0
 
-        if not (self.sslCert and self.sslKey):
-            log.error("both sslCert and sslKey have to be set - "
-                      "cannot start server")
+        if not self.sslCertPath:
+            log.error("sslCertPath to be set - cannot start server")
             return 1
+        try:
+            util.mkdirChain(os.path.dirname(self.sslCertPath))
+        except OSError, err:
+            log.error("Could not access sslCerti dir %s: %s" % os.path.dirname(self.sslCertPath), err)
 
-        certfiles = set([self.sslCert, self.sslKey])
+        return self.makeCertificate()
+
+    def makeCertificate(self):
+        certfiles = set([self.getSslCertificatePath()])
         missing = [ x for x in certfiles if not os.access(x, os.R_OK) ]
         if not missing:
             return 0
 
         # At least one of the certificates doesn't exist, let's recreate them
         # both
-        if not self.sslGenCertPath:
+        if not self.getSslCertificateGenerator():
             log.error("sslGenCertPath is not set - "
                       "cannot start server")
             return 1
-        if not os.access(self.sslGenCertPath, os.X_OK):
+        if not os.access(self.getSslCertificateGenerator(), os.X_OK):
             log.error("Unable to run %s to generate SSL certificate - "
                       "cannot start server" % self.sslGenCertPath)
             return 1
 
-        cmd = [ self.sslGenCertPath ]
+        genCertPath = self.getSslCertificateGenerator()
+        cmd = [ genCertPath ]
         certfname = certfiles.pop()
+        util.mkdirChain(os.path.dirname(certfname))
         certf = open(certfname, "w+")
         p = subprocess.Popen(cmd, stdout=certf)
         p.communicate()
         if p.returncode:
-            log.error("Error executing %s - cannot start server" %
-                      self.sslGenCertPath)
+            log.error("Error executing %s - cannot start server" % genCertPath)
             return p.returncode
         # Sanity check
         certf.seek(0)

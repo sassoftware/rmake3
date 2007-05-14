@@ -341,7 +341,7 @@ class rMakeServer(apirpc.XMLApiServer):
         if self.db:
             self._stopAllJobs()
             self._killAllPids()
-        if self.plugins:
+        if hasattr(self, 'plugins') and self.plugins:
             self.plugins.callServerHook('server_shutDown', self)
         sys.exit(0)
 
@@ -437,22 +437,22 @@ class rMakeServer(apirpc.XMLApiServer):
 
     def _failCurrentJobs(self, jobs, reason):
         from rmake.server.client import rMakeClient
-        pid = self._fork('Fail current jobs')
-        if pid:
-            self.debug('Fail current jobs forked pid %d' % pid)
-            return
-        try:
-            client = rMakeClient(self.uri)
-            # make sure the main process is up and running before we 
-            # try to communicate w/ it
-            client.ping()
-            for job in jobs:
-                self._subscribeToJob(job)
-                publisher = job.getPublisher()
-                job.jobFailed(reason)
-            os._exit(0)
-        finally:
-            os._exit(1)
+        #pid = self._fork('Fail current jobs')
+        #if pid:
+        #    self.debug('Fail current jobs forked pid %d' % pid)
+        #    return
+        #try:
+        #    client = rMakeClient(self.uri)
+        #    # make sure the main process is up and running before we 
+        #    # try to communicate w/ it
+        #    client.ping()
+        #    for job in jobs:
+        #        self._subscribeToJob(job)
+        #        publisher = job.getPublisher()
+        #        job.jobFailed(reason)
+        #    os._exit(0)
+        #finally:
+        #    os._exit(1)
 
     def _failJob(self, jobId, reason):
         pid = self._fork('Fail job %s' % jobId)
@@ -591,7 +591,8 @@ class rMakeServer(apirpc.XMLApiServer):
             self.repositoryPid = repositoryPid
             self.proxyPid = proxyPid
             apirpc.XMLApiServer.__init__(self, uri, logger=serverLogger,
-                                         forkByDefault = True)
+                                 forkByDefault = True,
+                                 sslCertificate=cfg.getSslCertificatePath())
             self.db = database.Database(cfg.getDbPath(),
                                         cfg.getDbContentsPath())
             if pluginMgr is None:
