@@ -363,7 +363,7 @@ class rMakeChrootServer(object):
     def _waitForChrootServer(self, pid):
         # paths passed back from the server will be relative to the chroot
         # if we chroot into it, otherwise they'll be relative to /
-        uri = 'unix:%s' % (self.socketPath)
+        uri = 'unix://%s' % (self.socketPath)
 
         if self.chroot.canChroot():
             clientRoot = self.getRoot()
