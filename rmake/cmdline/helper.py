@@ -393,7 +393,7 @@ class rMakeHelper(object):
         """
         fd, tmpPath = tempfile.mkstemp()
         os.close(fd)
-        uri = 'unix:' + tmpPath
+        uri = 'unix://' + tmpPath
         try:
             jobMonitor = monitor.waitForJob(self.client, jobId, uri)
             return not self.client.getJob(jobId, withTroves=False).isFailed()
@@ -440,7 +440,7 @@ class rMakeHelper(object):
         """
         fd, tmpPath = tempfile.mkstemp()
         os.close(fd)
-        uri = 'unix:' + tmpPath
+        uri = 'unix://' + tmpPath
         try:
             try:
                 jobMonitor = monitor.monitorJob(self.client, jobId, uri,

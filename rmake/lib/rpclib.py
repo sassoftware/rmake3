@@ -254,7 +254,7 @@ class DelayableXMLRPCDispatcher(SimpleXMLRPCDispatcher):
         if self.authMethod:
             return self.authMethod(request)
         else:
-            return True
+            return None
 
     def verify_request(self, request, client_address):
         self.auth = self._getAuth(request, client_address)
@@ -262,7 +262,8 @@ class DelayableXMLRPCDispatcher(SimpleXMLRPCDispatcher):
 
     def _marshaled_dispatch(self, data, responseHandler, headers):
         params, method = xmlrpclib.loads(data)
-        self.auth.setHeaders(headers)
+        if self.auth:
+            self.auth.setHeaders(headers)
         # generate response
         try:
             self._dispatch(method, self.auth, responseHandler, params)
