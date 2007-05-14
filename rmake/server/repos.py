@@ -75,7 +75,7 @@ def startRepository(cfg, fork = True, logger=None):
     schema.loadSchema(db)
     db.commit()
 
-    user, password = cfg.user.find(cfg.reposName)
+    user, password = cfg.reposUser.find(cfg.reposName)
     addUser(serverCfg, user, password, write=True)
     addUser(serverCfg, 'anonymous', 'anonymous')
 

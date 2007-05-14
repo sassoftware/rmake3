@@ -22,9 +22,12 @@ from rmake.lib import localrpc
 # Secure server support
 try:
     from M2Crypto import SSL
+    from M2Crypto.SSL import SSLError
+    from M2Crypto.SSL import Connection as SSLConnection
 except ImportError:
-    print "Please install m2crypto"
-    sys.exit(1)
+    SSLError = None.__class__
+    SSL = None
+    SSLConnection = None
 
 
 
@@ -117,7 +120,7 @@ class XMLRPCResponseHandler(object):
     def forkResponseFn(self, forkFunction, fn, *args, **kw):
         pid = forkFunction()
         if pid:
-            if isinstance(self.request.request, SSL.Connection):
+            if SSL and isinstance(self.request.request, SSLConnection):
                 sslsocket = self.request.request
                 socket = sslsocket.socket
                 sslsocket.close = socket.close
@@ -179,7 +182,7 @@ class StreamXMLRPCResponseHandler(XMLRPCResponseHandler):
             # FIXME: not possible w/ ssl connection 
             # after a fork, but still needed otherwise.
             # This seems to work.
-            if not isinstance(self.request.request, SSL.Connection):
+            if not (SSL and isinstance(self.request.request, SSLConnection)):
                 self.request.connection.shutdown(1)
             self.request.connection.close()
         except socket.error:
@@ -250,6 +253,9 @@ class DelayableXMLRPCServer(DelayableXMLRPCDispatcher, SimpleXMLRPCServer):
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,1)
         SimpleXMLRPCServer.server_bind(self)
         if self.ssl:
+            if SSL is None:
+                print "Please install m2crypto"
+                sys.exit(1)
             ctx = SSL.Context("sslv23")
             ctx.load_cert_chain(self.sslCert, self.sslCert)
             self.socket = SSL.Connection(ctx, self.socket)
@@ -257,7 +263,7 @@ class DelayableXMLRPCServer(DelayableXMLRPCDispatcher, SimpleXMLRPCServer):
     def handle_request(self):
         try:
             return SimpleXMLRPCServer.handle_request(self)
-        except SSL.SSLError, e:
+        except SSLError, e:
             return
 
 class UnixDomainDelayableXMLRPCRequestHandler(

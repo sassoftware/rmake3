@@ -262,7 +262,7 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
             # we need to be careful of duplicate entries here,
             # so we have to feed the user entry data in the
             # right order.
-            for entry in reversed(serverCfg.user):
+            for entry in reversed(serverCfg.reposUser):
                 self.user.append(entry)
         if serverCfg:
             self.repositoryMap.update(serverCfg.getRepositoryMap())

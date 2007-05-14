@@ -87,7 +87,7 @@ class rMakeHelper(object):
 
         # this should use extend but extend used to be broken when
         # there were multiple entries
-        for info in reversed(rmakeConfig.user):
+        for info in reversed(rmakeConfig.reposUser):
             buildConfig.user.append(info)
         buildConfig.initializeFlavors()
         use.setBuildFlagsFromFlavor(None, buildConfig.buildFlavor, error=False)

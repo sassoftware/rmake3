@@ -80,7 +80,7 @@ class rMakeBuilderConfiguration(daemon.DaemonConfig):
 
 
     def checkBuildSanity(self):
-        rmakeUser = constants.rmakeUser
+        rmakeUser = constants.rmakeuser
         if pwd.getpwuid(os.getuid()).pw_name == rmakeUser:
             self._checkDir('buildDir', self.buildDir)
             self._checkDir('chroot dir (subdirectory of buildDir)',
@@ -138,9 +138,8 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
             return 'unix://' + rmakeUrl
 
     def getSocketPath(self):
-        if '://' not in self.rmakeUrl:
-            return self.rmakeUrl
-        type, rest = urllib.splittype(self.rmakeUrl)
+        rmakeUrl = self.getServerUri()
+        type, rest = urllib.splittype(rmakeUrl)
         if type != 'unix':
             return None
         return os.path.normpath(rest)
@@ -288,7 +287,7 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
         """
         return ((not self.isExternalRepos() and self.reposRequiresSsl())
                 or (not self.isExternalProxy() and self.proxyRequiresSsl())
-                or urllib.splittype(self.rmakeUrl)[0] == 'https')
+                or urllib.splittype(self.getServerUri())[0] == 'https')
 
     def _sanityCheckForSSL(self):
         """Check SSL settings, create SSL certificate if missing.
