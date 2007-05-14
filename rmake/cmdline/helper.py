@@ -80,6 +80,7 @@ class rMakeHelper(object):
             if conaryConfig:
                 buildConfig.useConaryConfig(conaryConfig)
 
+        buildConfig.setServerConfig(rmakeConfig)
         if uri is None:
             uri = buildConfig.getServerUri()
 
@@ -105,7 +106,6 @@ class rMakeHelper(object):
 
         self.buildConfig = buildConfig
         self.rmakeConfig = rmakeConfig
-        self.buildConfig.setServerConfig(rmakeConfig)
         self.repos = self.getRepos()
         self.plugins = plugins
 
