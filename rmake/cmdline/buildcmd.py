@@ -174,10 +174,10 @@ def getTrovesToBuild(cfg, conaryclient, troveSpecList, limitToHosts=None, limitT
     toBuild.extend(localTroves)
 
     if matchSpecs:
-        toBuild = _filterListByMatchSpecs(cfg.serverCfg, matchSpecs, toBuild)
+        toBuild = _filterListByMatchSpecs(cfg.reposName, matchSpecs, toBuild)
     return toBuild
 
-def _filterListByMatchSpecs(serverCfg, matchSpecs, troveList):
+def _filterListByMatchSpecs(reposName, matchSpecs, troveList):
     matchSpecs = [ cmdline.parseTroveSpec(x, allowEmptyName=True)
                     for x in matchSpecs ]
     hasAddSpec = False
@@ -206,7 +206,7 @@ def _filterListByMatchSpecs(serverCfg, matchSpecs, troveList):
 
     troveSource = trovesource.SimpleTroveSource(troveMap)
     troveSource = recipeutil.RemoveHostSource(troveSource,
-                                              serverCfg.reposName)
+                                              reposName)
     results = troveSource.findTroves(None, finalMatchSpecs, None,
                                      allowMissing=True)
     toRemove = []

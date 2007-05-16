@@ -73,6 +73,7 @@ class Builder(object):
             self.jobContext = []
         self.initialized = False
 
+
     def _installSignalHandlers(self):
         signal.signal(signal.SIGTERM, self._signalHandler)
         signal.signal(signal.SIGINT, self._signalHandler)
@@ -141,6 +142,12 @@ class Builder(object):
             os._exit(1)
 
     def initializeBuild(self):
+        for buildCfg in self.job.iterConfigList():
+            buildCfg.repositoryMap.update(
+                                      self.serverCfg.getRepositoryMap())
+            buildCfg.user.extend(self.serverCfg.reposUser)
+            buildCfg.reposName = self.serverCfg.reposName
+
         self.initialized = True
         self.job.log('Build started - loading troves')
         buildTroves = recipeutil.getSourceTrovesFromJob(self.job,

@@ -26,8 +26,7 @@ class ClientPlugin(Plugin):
         """
         pass
 
-    def client_preCommand(self, main, thisCommand,
-                         (buildConfig, serverConfig, conaryConfig),
+    def client_preCommand(self, main, thisCommand, (buildConfig, conaryConfig),
                          argSet, args):
         pass
 

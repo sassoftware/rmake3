@@ -70,6 +70,8 @@ class rMakeHelper(object):
     def __init__(self, uri=None, rmakeConfig=None, buildConfig=None, root='/',
                  guiPassword=False, plugins=None):
         if rmakeConfig:
+            import epdb
+            epdb.st()
             log.warning('rmakeConfig parameter is now deprecated')
         if not buildConfig:
             buildConfig = buildcfg.BuildConfiguration(True, root)
@@ -80,7 +82,6 @@ class rMakeHelper(object):
             uri = buildConfig.getServerUri()
 
         self.client = client.rMakeClient(uri)
-        self.client.addRepositoryInfo(buildConfig)
 
         buildConfig.initializeFlavors()
         use.setBuildFlagsFromFlavor(None, buildConfig.buildFlavor, error=False)
@@ -97,7 +98,6 @@ class rMakeHelper(object):
         self.pwPrompt = pwPrompt
 
         self.buildConfig = buildConfig
-        self.repos = self.getRepos()
         self.plugins = plugins
 
     def getConaryClient(self, buildConfig=None):
@@ -220,8 +220,8 @@ class rMakeHelper(object):
             binTroves = itertools.chain(*results.values())
         jobList = [(x[0], (None, None), (x[1], x[2]), True) for x in binTroves]
         primaryTroveList = [ x for x in binTroves if ':' not in x[0]]
-        cs = self.repos.createChangeSet(jobList, recurse=False,
-                                        primaryTroveList=primaryTroveList)
+        cs = self.getRepos().createChangeSet(jobList, recurse=False,
+                                             primaryTroveList=primaryTroveList)
         return cs
 
     def createChangeSetFile(self, jobId, path, troveSpecs=None):
@@ -252,8 +252,8 @@ class rMakeHelper(object):
             primaryTroveList = [ x for x in binTroves if ':' not in x[0]]
 
         jobList = [(x[0], (None, None), (x[1], x[2]), True) for x in binTroves ]
-        self.repos.createChangeSetFile(jobList, path, recurse=recurse,
-                                       primaryTroveList=primaryTroveList)
+        self.getRepos().createChangeSetFile(jobList, path, recurse=recurse,
+                                            primaryTroveList=primaryTroveList)
         return True
 
     def commitJobs(self, jobIds, message=None, commitOutdatedSources=False,

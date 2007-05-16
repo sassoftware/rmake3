@@ -416,14 +416,13 @@ class rMakeServer(apirpc.XMLApiServer):
                     os.setpgrp()
                     self.db.reopen()
 
-                    for buildCfg in job.iterConfigList():
-                        buildCfg.setServerConfig(self.cfg)
                     buildMgr = self.getBuilder(job)
                     self._subscribeToBuild(buildMgr)
                     # Install builder-specific signal handlers.
                     buildMgr._installSignalHandlers()
                     # need to reinitialize the database in the forked child 
                     # process
+                    buildCfg = job.getMainConfig()
 
                     if buildCfg.jobContext:
                         jobs = self.db.getJobs(buildCfg.jobContext,

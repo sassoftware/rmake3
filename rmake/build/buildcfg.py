@@ -171,6 +171,8 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
                 self.addConfigOption(*info)
         if strictMode is not None:
             self.strictMode = strictMode
+        if not hasattr(self, 'rmakeUrl'):
+            self.rmakeUrl = None
 
         if readConfigFiles:
             if os.path.exists(root + '/etc/rmake/clientrc'):
@@ -198,7 +200,10 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
             del self._lowerCaseMap[option.lower()]
 
         self.useConaryConfig(conaryConfig)
-        self.setServerConfig(serverConfig)
+        if serverConfig:
+            self.reposName = serverConfig.reposName
+            self.repositoryMap.update(serverConfig.getRepositoryMap())
+            self.user.extend(serverConfig.reposUser)
 
     def useConaryConfig(self, conaryConfig):
         def _shouldOverwrite(key, current, new):
@@ -257,6 +262,8 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
                 self.resetToDefault(option)
 
     def getServerUri(self):
+        if self.rmakeUrl:
+            return self.rmakeUrl
         return 'unix:///var/lib/rmake/socket'
 
     def getTargetLabel(self, versionOrLabel):
@@ -277,7 +284,7 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
             needNewLabel = False
             if targetLabel.getHost().lower() == 'none':
                 needNewLabel = True
-                host = self.serverCfg.reposName
+                host = self.reposName
             else:
                 host = targetLabel.getHost()
 
