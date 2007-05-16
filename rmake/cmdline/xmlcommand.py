@@ -43,8 +43,9 @@ class RmakeXMLCommandParser(object):
 
     VERSION = '1'
 
-    def __init__(self, root='/'):
+    def __init__(self, root='/', readConfig=True):
         self.root = root
+        self.readConfig = readConfig
 
     def _getText(self, node):
         return str(''.join(x.data for x in node.childNodes if x.nodeType == x.TEXT_NODE))
@@ -58,8 +59,8 @@ class RmakeXMLCommandParser(object):
                 value = self._getText(option.getElementsByTagName('value')[0])
                 configLines.setdefault(name, []).append(value)
 
-        conaryConfig = conarycfg.ConaryConfiguration(True)
-        buildConfig = buildcfg.BuildConfiguration(True, self.root,
+        conaryConfig = conarycfg.ConaryConfiguration(self.readConfig)
+        buildConfig = buildcfg.BuildConfiguration(self.readConfig, self.root,
                                                   conaryConfig=conaryConfig)
         buildConfig.initializeFlavors()
         if buildConfig.context:
