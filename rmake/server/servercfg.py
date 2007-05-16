@@ -111,9 +111,6 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
         if readConfigFiles:
             self.readFiles()
 
-        if not self.reposUser and not self.isExternalRepos():
-            self.reposUser.addServerGlob(self.reposName, 'rmake', 'rmake')
-        # we require ssl now.
 
     def setServerName(self, serverName):
         for x in list(self.reposUser):

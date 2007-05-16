@@ -256,19 +256,8 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
             for option in self._dirsToCopy + self._pathsToCopy:
                 self.resetToDefault(option)
 
-    def setServerConfig(self, serverCfg):
-        self.serverCfg = serverCfg
-        if serverCfg:
-            # we need to be careful of duplicate entries here,
-            # so we have to feed the user entry data in the
-            # right order.
-            for entry in reversed(serverCfg.reposUser):
-                self.user.append(entry)
-        if serverCfg:
-            self.repositoryMap.update(serverCfg.getRepositoryMap())
-
     def getServerUri(self):
-        return self.serverCfg.getServerUri()
+        return 'unix:///var/lib/rmake/socket'
 
     def getTargetLabel(self, versionOrLabel):
         if isinstance(versionOrLabel, versions.Label):

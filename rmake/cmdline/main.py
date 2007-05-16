@@ -28,7 +28,6 @@ from rmake import plugins
 from rmake.build import buildcfg
 from rmake.cmdline import command
 from rmake.cmdline import helper
-from rmake.server import servercfg
 
 
 class RmakeMain(options.MainHandler):
@@ -60,10 +59,9 @@ class RmakeMain(options.MainHandler):
         else:
             read = True
 
-        serverConfig = servercfg.rMakeConfiguration(readConfigFiles=read)
         buildConfig = buildcfg.BuildConfiguration(readConfigFiles=read)
         conaryConfig = conarycfg.ConaryConfiguration(readConfigFiles=read)
-        return buildConfig, serverConfig, conaryConfig, pluginManager
+        return buildConfig, conaryConfig, pluginManager
 
     def _getContext(self, buildConfig, conaryConfig, argSet):
         context = conaryConfig.context
@@ -79,11 +77,10 @@ class RmakeMain(options.MainHandler):
         context = argSet.get('context', context)
         return context
 
-    def runCommand(self, thisCommand, (buildConfig, serverConfig, conaryConfig,
+    def runCommand(self, thisCommand, (buildConfig, conaryConfig,
                                        pluginManager), argSet, args):
         pluginManager.callClientHook('client_preCommand', self, thisCommand,
-                                     (buildConfig, serverConfig, conaryConfig),
-                                     argSet, args)
+                                     (buildConfig, conaryConfig), argSet, args)
         compat.checkRequiredVersions()
         thisCommand.verbose = (log.getVerbosity() <= log.INFO)
         if args[1] != 'help':
@@ -110,8 +107,7 @@ class RmakeMain(options.MainHandler):
 
         buildConfig.initializeFlavors()
 
-        client = helper.rMakeHelper(buildConfig=buildConfig,
-                                    rmakeConfig=serverConfig)
+        client = helper.rMakeHelper(buildConfig=buildConfig)
 
         pluginManager.callClientHook('client_preCommand2', self, client,
                                      thisCommand)

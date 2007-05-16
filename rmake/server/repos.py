@@ -6,6 +6,7 @@
 Wrapper for starting the repository browser
 """
 import os
+import random
 import sys
 
 if __name__ == '__main__':
@@ -44,8 +45,18 @@ def startRepository(cfg, fork = True, logger=None):
     if logger is None:
         logger = log
 
-    util.mkdirChain('%s/repos' % baseDir)
-
+    reposDir = '%s/repos' % baseDir
+    util.mkdirChain(reposDir)
+    if not cfg.reposUser:
+        passwordFile = reposDir + '/password'
+        if os.path.exists(passwordFile):
+            password = open(passwordFile).readline()[:-1]
+        else:
+            password = ''.join([ chr(random.randrange(ord('a'), ord('z'))) 
+                               for x in range(10)])
+            open(passwordFile, 'w').write(password + '\n')
+            os.chmod(reposDir + '/password', 0700)
+        cfg.reposUser.addServerGlob(cfg.reposName, 'rmake', password)
 
     serverConfig = os.path.join(cfg.getReposDir(), 'serverrc')
     if os.path.exists(serverConfig):
@@ -71,13 +82,17 @@ def startRepository(cfg, fork = True, logger=None):
 
     # Note - this will automatically migrate this repository! 
     # Since this is a throwaway repos anyway, I think that's
-    # acceptible.
+    # acceptable.
     schema.loadSchema(db)
     db.commit()
 
     user, password = cfg.reposUser.find(cfg.reposName)
     addUser(serverCfg, user, password, write=True)
-    addUser(serverCfg, 'anonymous', 'anonymous')
+    if not serverCfg.useSSL:
+        # allow anonymous access if we're not securing this repos
+        # by using SSL - no use securing access if it's all going to be
+        # viewable via tcpdump.
+        addUser(serverCfg, 'anonymous', 'anonymous')
 
     if fork:
         pid = os.fork()

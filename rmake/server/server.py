@@ -267,6 +267,13 @@ class rMakeServer(apirpc.XMLApiServer):
             self._subscribeToJob(job)
             job.jobCommitted(troveMap)
 
+    @api(version=1)
+    @api_parameters(1)
+    @api_return(1, None)
+    def getRepositoryInfo(self, callData):
+        return (self.cfg.reposName, self.cfg.getRepositoryMap(), 
+                list(self.cfg.reposUser))
+
     # --- callbacks from Builders
 
     @api(version=1)
@@ -437,22 +444,22 @@ class rMakeServer(apirpc.XMLApiServer):
 
     def _failCurrentJobs(self, jobs, reason):
         from rmake.server.client import rMakeClient
-        #pid = self._fork('Fail current jobs')
-        #if pid:
-        #    self.debug('Fail current jobs forked pid %d' % pid)
-        #    return
-        #try:
-        #    client = rMakeClient(self.uri)
-        #    # make sure the main process is up and running before we 
-        #    # try to communicate w/ it
-        #    client.ping()
-        #    for job in jobs:
-        #        self._subscribeToJob(job)
-        #        publisher = job.getPublisher()
-        #        job.jobFailed(reason)
-        #    os._exit(0)
-        #finally:
-        #    os._exit(1)
+        pid = self._fork('Fail current jobs')
+        if pid:
+            self.debug('Fail current jobs forked pid %d' % pid)
+            return
+        try:
+            client = rMakeClient(self.uri)
+            # make sure the main process is up and running before we 
+            # try to communicate w/ it
+            client.ping()
+            for job in jobs:
+                self._subscribeToJob(job)
+                publisher = job.getPublisher()
+                job.jobFailed(reason)
+            os._exit(0)
+        finally:
+            os._exit(1)
 
     def _failJob(self, jobId, reason):
         pid = self._fork('Fail job %s' % jobId)

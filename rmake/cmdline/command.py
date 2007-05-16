@@ -59,8 +59,8 @@ class rMakeCommand(options.AbstractCommand):
         d["skip-default-config"] = NO_PARAM
         argDef[self.defaultGroup] = d
 
-    def processConfigOptions(self, (buildConfig, serverConfig, conaryConfig,
-                                    pluginManager), cfgMap, argSet):
+    def processConfigOptions(self, (buildConfig, conaryConfig, pluginManager), 
+                             cfgMap, argSet):
         """
             Manage any config maps we've set up, converting 
             assigning them to the config object.
@@ -73,13 +73,6 @@ class rMakeCommand(options.AbstractCommand):
 
         for path in configFileList:
             buildConfig.read(path, exception=True)
-
-
-        configFileList = argSet.pop('server-config-file', [])
-        if not isinstance(configFileList, list):
-            configFileList = list(configFileList)
-        for path in configFileList:
-            serverConfig.read(path, exception=True)
 
         configFileList = argSet.pop('conary-config-file', [])
         if not isinstance(configFileList, list):

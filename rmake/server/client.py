@@ -282,4 +282,10 @@ class rMakeClient(object):
                 else:
                     raise
 
+    def addRepositoryInfo(self, cfg):
+        reposName, repoMap, userInfo = self.proxy.getRepositoryInfo()
+        cfg.repositoryMap.update(repoMap)
+        for info in reversed(userInfo):
+            cfg.user.append(info)
+        cfg.reposName = reposName
 

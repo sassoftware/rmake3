@@ -32,7 +32,6 @@ from rmake.build import buildjob
 from rmake.cmdline import buildcmd
 from rmake.cmdline import commit
 from rmake.cmdline import monitor
-from rmake.server import servercfg
 from rmake.server import client
 from rmake import compat
 from rmake import plugins
@@ -45,8 +44,7 @@ class rMakeHelper(object):
     functionality that crosses client/server boundaries.
 
     example:
-        > rmakeConfig = servercfg.rMakeConfiguration(readConfigFiles=True)
-        > h = rMakeHelper(rmakeConfig.getServerUri(), rmakeConfig=rmakeConfig);
+        > h = rMakeHelper();
         > jobId = h.buildTroves('foo.recipe')
         > h.waitForJob(jobId)
         > if h.getJob(jobId).isPassed(): print "Foo recipe built!"
@@ -55,9 +53,8 @@ class rMakeHelper(object):
     @param uri: location to rmake server or rMake Server instance object.
     @type uri: string that starts with http, https, or unix://, or rMakeServer
     instance.
-    @param rmakeConfig: Server Configuration
-    @type rmakeConfig: rmake.server.servercfg.rMakeConfiguration instance
-    (or None to read from filesystem)
+    @param rmakeConfig: Server Configuration (now deprecated)
+    @type rmakeConfig: Unused parameter kept for bw compatibility
     @param buildConfig: rMake Build Configuration
     @type buildConfig: rmake.build.buildcfg.BuildConfiguration instance
     (or None to read from filesystem)
@@ -72,24 +69,19 @@ class rMakeHelper(object):
 
     def __init__(self, uri=None, rmakeConfig=None, buildConfig=None, root='/',
                  guiPassword=False, plugins=None):
-        if not rmakeConfig:
-            rmakeConfig = servercfg.rMakeConfiguration(True)
-
+        if rmakeConfig:
+            log.warning('rmakeConfig parameter is now deprecated')
         if not buildConfig:
             buildConfig = buildcfg.BuildConfiguration(True, root)
             if conaryConfig:
                 buildConfig.useConaryConfig(conaryConfig)
 
-        buildConfig.setServerConfig(rmakeConfig)
         if uri is None:
             uri = buildConfig.getServerUri()
 
         self.client = client.rMakeClient(uri)
+        self.client.addRepositoryInfo(buildConfig)
 
-        # this should use extend but extend used to be broken when
-        # there were multiple entries
-        for info in reversed(rmakeConfig.reposUser):
-            buildConfig.user.append(info)
         buildConfig.initializeFlavors()
         use.setBuildFlagsFromFlavor(None, buildConfig.buildFlavor, error=False)
 
@@ -105,14 +97,13 @@ class rMakeHelper(object):
         self.pwPrompt = pwPrompt
 
         self.buildConfig = buildConfig
-        self.rmakeConfig = rmakeConfig
         self.repos = self.getRepos()
         self.plugins = plugins
 
     def getConaryClient(self, buildConfig=None):
         if buildConfig is None:
             buildConfig = self.buildConfig
-        buildConfig.setServerConfig(self.rmakeConfig)
+        self.client.addRepositoryInfo(buildConfig)
         return conaryclient.ConaryClient(buildConfig,
                                          passwordPrompter=self.pwPrompt)
 
@@ -327,7 +318,7 @@ class rMakeHelper(object):
         self.client.startCommit(jobIds)
         try:
             succeeded, data = commit.commitJobs(self.getConaryClient(), jobs,
-                                   self.rmakeConfig, message,
+                                   self.buildConfig.reposName, message,
                                    commitOutdatedSources=commitOutdatedSources,
                                    sourceOnly=sourceOnly)
             if succeeded:

@@ -1,9 +1,14 @@
 Changes in @NEWS@:
   o Server Changes:
-     * Cleaned up server configuration options, all repository options now 
+     * Cleaned up server configuration options, all repository options now
        start with "repos" as opposed to "server", proxyUrl and reposUrl are
        now consistent in determining whether to rMake should manage
        that service or not.
+     * The rmake repository password is now randomly generated every
+       time rmake is started up.
+  o Client Changes:
+     * The rMakeHelper program no longer depends on reading in the server
+       configuration file for determining where the rmake server is.
 Changes in 1.0.9:
   o Server Changes:
      * Added some security enhancements that will make it feasible for
