@@ -163,6 +163,8 @@ class XMLRPCResponseHandler(object):
                 socket = sslsocket.socket
                 sslsocket.close = socket.close
                 sslsocket.shutdown = socket.shutdown
+                sslsocket.sslbio = None
+                sslsocket.sockbio = None
             return
         try:
             try:
