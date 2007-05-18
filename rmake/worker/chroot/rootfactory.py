@@ -91,6 +91,7 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
             return
 
         def _install(jobList):
+            self.cfg.flavor = []
             client = conaryclient.ConaryClient(self.cfg)
             client.setUpdateCallback(self.callback)
             if self.csCache:
