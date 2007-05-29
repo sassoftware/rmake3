@@ -95,6 +95,7 @@ class _AbstractBuildTrove:
         self.name = name
         self.version = version
         self.flavor = flavor
+        assert(isinstance(flavor, deps.Flavor))
         self.buildRequirements = set()
         self.delayedRequirements = set()
         self.crossRequirements = set()

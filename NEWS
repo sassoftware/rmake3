@@ -12,6 +12,8 @@ Changes in @NEWS@:
   o Bug Fixes:
      * Fixed a bug that caused the chroot to possibly contain different troves
        than resolved. (RMK-447)
+     * Fixed a bug that caused groups that contained unflavored packages in 
+       the group could to raise a KeyError. (RMK-463)
 Changes in 1.0.9:
   o Server Changes:
      * Added some security enhancements that will make it feasible for

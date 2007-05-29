@@ -81,7 +81,8 @@ def getBuildJob(buildConfig, conaryclient, troveSpecList, limitToHosts=None,
                          message=None,
                          recurseGroups=recurseGroups, matchSpecs=matchSpecs)
         for name, version, flavor in troveList:
-            #flavor = deps.overrideFlavor(cfg.buildFlavor, flavor)
+            if flavor is None:
+                flavor = deps.parseFlavor('')
             bt = buildtrove.BuildTrove(None, name, version, flavor,
                                        context=contextStr)
             job.addTrove(name, version, flavor, contextStr, bt)
