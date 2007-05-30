@@ -405,6 +405,8 @@ class Migrator(AbstractMigrator):
                         "STRING NOT NULL DEFAULT ''")
         self._addColumn('JobConfig',  "context",
                         "STRING NOT NULL DEFAULT ''")
+        self.cu.execute("DROP INDEX BuildTrovesIdx") # this idx is no longer
+                                                     # unique
         createJobConfig(self.db) # add index
         createBuildTroves(self.db) # add indexes
         return 7
