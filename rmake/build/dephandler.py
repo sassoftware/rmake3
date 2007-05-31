@@ -473,6 +473,21 @@ class DependencyHandler(object):
             compGraph = depGraph.getStronglyConnectedGraph()
             self.logger.debug('building graph took %0.2f seconds' % (time.time() - start))
             leafCycles = compGraph.getLeaves()
+            self.logger.debug('Found %s cycles' % len(leafCycles))
+            for idx, cycleTroves in enumerate(leafCycles):
+                cycleTroves = sorted(['%s=%s[%s]{%s}' % x.getNameVersionFlavor(True) for x in cycleTroves])
+                self.logger.debug('Cycle %s:\n     %s' % (idx + 1, '\n     '.join(str(x) for x in cycleTroves)))
+            for idx, cycleTroves in enumerate(leafCycles):
+                if len(cycleTroves) <= 2:
+                    # no bother displaying "shortest cycle" if the cycles only involve 
+                    # 2/1 troves
+                    continue
+                shortest = self._getShortestCycles(depGraph, cycleTroves)
+                shortest = [['%s=%s[%s]{%s}' % x.getNameVersionFlavor(True) for x in y] for y in shortest ] 
+                self.logger.debug('Cycle %s: Shortest Cycles:\n %s' % (idx + 1,
+                                                    '\n\n '.join('\n   -> '.join(
+                                                             str(x) for x in y)
+                                                                for y in shortest)))
 
             checkedSomething = False
             for cycleTroves in leafCycles:
@@ -486,6 +501,30 @@ class DependencyHandler(object):
                 self._resolving[trv] = True
                 self._cycleTroves = cycleTroves[1:]
                 return self._getResolveJob(trv, inCycle=True)
+
+    def _getShortestCycles(self, depGraph, cycleTroves):
+        remainingTroves = set(cycleTroves)
+        cycles = []
+        map = {}
+        for trove in cycleTroves:
+            l = []
+            for child in depGraph.iterChildren(trove):
+                map[trove, child] = []
+        changed = True
+        while changed:
+            changed = False
+            for (fromTrove,toTrove), steps in map.items():
+                for child in depGraph.iterChildren(toTrove):
+                    if child == fromTrove:
+                        steps = [fromTrove] + steps + [toTrove, fromTrove]
+                        if set(steps) & remainingTroves:
+                            remainingTroves.difference_update(steps)
+                            cycles.append(steps)
+                        if not remainingTroves:
+                            return cycles
+                    if (fromTrove,child) not in map:
+                        map[fromTrove,child] = steps + [toTrove]
+                        changed = True
 
     def resolutionComplete(self, trv, results):
         self._resolving.pop(trv, False)
@@ -509,6 +548,7 @@ class DependencyHandler(object):
                     self.depState.depGraph.deleteEdges(trv)
                     trv.troveBuilt(trv.getPrebuiltBinaries())
                     return
+            self._cycleTroves = []
             if results.inCycle:
                 self.depState.depGraph.deleteEdges(trv)
                 newDeps = None
