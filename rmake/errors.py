@@ -83,7 +83,12 @@ class OpenError(ServerError):
     """
     pass
 
-
+class InsufficientPermission(ServerError):
+    """
+        Raised when your access is denied
+    """
+    pass
+apiutils.register(InsufficientPermission)
 
 # error that gets output when a Python exception makes it to the command 
 # line.

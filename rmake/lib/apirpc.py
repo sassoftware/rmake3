@@ -30,6 +30,7 @@ import socket
 import sys
 import time
 import traceback
+import urllib
 import xmlrpclib
 
 from conary.lib import coveragehook
@@ -111,8 +112,20 @@ class _ApiMethod(xmlrpclib._Method):
         try:
             passed, rv = xmlrpclib._Method.__call__(self, callData, *args)
         except socket.error, err:
+            if isinstance(self.__loc, str):
+                uri = self.__loc
+                type, host = urllib.splittype(uri)
+                host, rest = urllib.splithost(host)
+                user, host = urllib.splituser(host)
+                if user:
+                    user = '<user>:<password>@'
+                else:
+                    user = ''
+                uri = '%s://%s%s%s' % (type, user, host, rest)
+            else:
+                uri = self.__loc
             raise errors.OpenError(
-                'Error communicating to server at %s: %s' % (self.__loc,
+                'Error communicating to server at %s: %s' % (uri,
                                                              err.args[1]))
         if passed:
             return _thawReturn(self.__methodApi, rv, methodVersion)
@@ -133,6 +146,9 @@ class ApiServer(server.Server):
         self._forkByDefault = forkByDefault
         self._methods = {}
         self._addMethods(self)
+
+    def _authCheck(self, callData, fn, *args, **kw):
+        return True
 
     def _serveLoopHook(self):
         pass
@@ -177,7 +193,9 @@ class ApiServer(server.Server):
            method version as well.
         """
         method = self._getMethod(methodName)
-        callData = CallData(auth, args[0], self._logger, method, responseHandler, debug=self._debug)
+        callData = CallData(auth, args[0], self._logger, method,
+                            responseHandler, debug=self._debug,
+                            authMethod=self._authCheck)
         args = args[1:]
         apiVersion    = callData.getApiVersion()
         clientVersion = callData.getClientVersion()
@@ -347,9 +365,10 @@ class NoSuchMethodError(ApiError):
 
 class CallData(object):
     __slots__ = ['auth', 'apiVersion', 'clientVersion', 'methodVersion', 
-                 'logger', 'method', 'responseHandler', 'debug']
+                 'logger', 'method', 'responseHandler', 'debug',
+                 'authMethod']
     def __init__(self, auth, callTuple, logger, method, responseHandler,
-                 debug=False):
+                 debug=False, authMethod=None):
         apiVersion, clientVersion, methodVersion = callTuple
         self.apiVersion = apiVersion
         self.clientVersion = clientVersion
@@ -359,9 +378,12 @@ class CallData(object):
         self.method = method
         self.responseHandler = responseHandler
         self.debug = debug
+        self.authMethod = authMethod
 
     def callFunction(self, fn, *args, **kw):
         try:
+            if self.authMethod:
+                self.authMethod(self, fn, *args, **kw)
             rv =  fn(*args, **kw)
             if isinstance(rv, rpclib.ResponseModifier):
                 return rv
@@ -378,7 +400,7 @@ class CallData(object):
         return response
 
     def respondWithFunction(self, fn, *args, **kw):
-        self.responseHandler.callResponseFn(self.callFunction, *args, **kw)
+        self.responseHandler.callResponseFn(self.callFunction, fn, *args, **kw)
 
     def respond(self, response):
         self.responseHandler.sendResponse((True, response))

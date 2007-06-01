@@ -58,7 +58,11 @@ class rMakeDaemon(daemon.Daemon):
 
     def doWork(self):
         cfg = self.cfg
-        cfg.sanityCheckForStart()
+        try:
+            cfg.sanityCheckForStart()
+        except Exception, e:
+            self.logger.error(e)
+            sys.exit(1)
         reposPid = None
         proxyPid = None
 

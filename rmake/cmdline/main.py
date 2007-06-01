@@ -20,7 +20,7 @@ from rmake import constants
 from rmake import errors
 
 
-sys.excepthook = errors.genExcepthook()
+sys.excepthook = errors.genExcepthook(debug=False)
 
 from rmake import compat
 from rmake import plugins

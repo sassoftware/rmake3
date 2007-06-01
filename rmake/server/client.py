@@ -283,9 +283,12 @@ class rMakeClient(object):
                     raise
 
     def addRepositoryInfo(self, cfg):
-        reposName, repoMap, userInfo = self.proxy.getRepositoryInfo()
+        reposName, repoMap, userInfo, conaryProxy = \
+                                    self.proxy.getRepositoryInfo()[0:4]
         cfg.repositoryMap.update(repoMap)
         for info in reversed(userInfo):
             cfg.user.append(info)
         cfg.reposName = reposName
-
+        if conaryProxy:
+            cfg.conaryProxy['http'] = conaryProxy
+            cfg.conaryProxy['https'] = conaryProxy

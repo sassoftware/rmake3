@@ -246,6 +246,7 @@ class Daemon(options.MainHandler):
             pid = os.fork()
 
             if pid == 0:
+                self.logger.disableConsole()
                 # redirect stdout and stderr to <name>.log
                 logFile = self.getLogFile()
                 logFile.redirectOutput(close=True)
@@ -262,7 +263,10 @@ class Daemon(options.MainHandler):
                     sys.stderr.flush()
                     self.daemonize()
                 else:
-                    timeSlept = 0
+                    # always sleep one second, make sure that the 
+                    # process actually starts
+                    time.sleep(1)
+                    timeSlept = 1
                     while timeSlept < 60:
                         lockFilePid = self.getPidFromLockFile()
                         if not lockFilePid or lockFilePid != pid:
@@ -276,6 +280,7 @@ class Daemon(options.MainHandler):
                             os._exit(0)
                     os._exit(1)
             else:
+                time.sleep(1.5)
                 pid, status = os.waitpid(pid, 0)
                 if os.WIFEXITED(status):
                     rc = os.WEXITSTATUS(status)
@@ -284,7 +289,6 @@ class Daemon(options.MainHandler):
                     self.error('process killed with signal %s' % os.WTERMSIG(status))
                     return 1
         else:
-            sys.excepthook = util.genExcepthook()
             self.daemonize()
             return 0
 

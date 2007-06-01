@@ -41,6 +41,16 @@ class AuthObject(object):
     def setHeaders(self, headers):
         self.headers = headers
 
+    def getSocketUser(self):
+        return None
+
+    def getUser(self):
+        return None
+
+    def getPassword(self):
+        return None
+
+
 class HttpAuth(AuthObject):
 
     __slots__ = [ 'user', 'password']

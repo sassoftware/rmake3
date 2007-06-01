@@ -36,6 +36,9 @@ class rMakeBuilderConfiguration(daemon.DaemonConfig):
     chrootLimit       = (CfgInt, 4)
     verbose           = False
 
+    def getAuthUrl(self):
+        return None
+
     def getCommandSocketDir(self):
         return self.buildDir + '/tmp/'
 
@@ -241,17 +244,18 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
     def getUserGlobs(self):
         return self.reposUser
 
-    def sanityCheck(self):
-        currUser = pwd.getpwuid(os.getuid()).pw_name
-
     def getSslCertificatePath(self):
         return self.sslCertPath
 
     def getSslCertificateGenerator(self):
         return self.helperDir + '/gen-cert.sh'
 
+    def sanityCheck(self):
+        pass
+
     def sanityCheckForStart(self):
-        cfgPaths = ['buildDir', 'logDir', 'lockDir', 'serverDir']
+        currUser = pwd.getpwuid(os.getuid()).pw_name
+        cfgPaths = ['logDir', 'lockDir', 'serverDir']
         socketPath = self.getSocketPath()
         if socketPath:
             if not os.access(os.path.dirname(socketPath), os.W_OK):
@@ -314,12 +318,12 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
             log.error("sslGenCertPath is not set - "
                       "cannot start server")
             return 1
-        if not os.access(self.getSslCertificateGenerator(), os.X_OK):
+        genCertPath = self.getSslCertificateGenerator()
+        if not os.access(genCertPath, os.X_OK):
             log.error("Unable to run %s to generate SSL certificate - "
-                      "cannot start server" % self.sslGenCertPath)
+                      "cannot start server" % genCertPath)
             return 1
 
-        genCertPath = self.getSslCertificateGenerator()
         cmd = [ genCertPath ]
         certfname = certfiles.pop()
         util.mkdirChain(os.path.dirname(certfname))

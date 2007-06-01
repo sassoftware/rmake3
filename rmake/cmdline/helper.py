@@ -70,8 +70,6 @@ class rMakeHelper(object):
     def __init__(self, uri=None, rmakeConfig=None, buildConfig=None, root='/',
                  guiPassword=False, plugins=None):
         if rmakeConfig:
-            import epdb
-            epdb.st()
             log.warning('rmakeConfig parameter is now deprecated')
         if not buildConfig:
             buildConfig = buildcfg.BuildConfiguration(True, root)

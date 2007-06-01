@@ -26,6 +26,9 @@ start() {
     RETVAL=$?
     [ $RETVAL = 0 ] && touch /var/lock/subsys/rmake && success || failure
     echo
+    if [ $RETVAL != 0 ]; then
+        echo "rMake: Please check /var/log/rmake/rmake-server.log for details"
+    fi
     return $RETVAL
 }
 

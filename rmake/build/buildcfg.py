@@ -245,9 +245,6 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
                 self._addSection(sectionName, self._defaultSectionType(self))
             mySection = self.getSection(sectionName)
             for key in mySection.iterkeys():
-                if key == 'buildLabel':
-                    import epdb
-                    epdb.st('f')
                 if self.strictMode and key not in self._strictOptions:
                     continue
                 if  _shouldOverwrite(key, mySection, conarySection):

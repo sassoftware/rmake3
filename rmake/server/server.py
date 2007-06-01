@@ -10,11 +10,13 @@ import itertools
 import logging
 import pwd
 import os
+import random
 import shutil
 import signal
 import sys
 import time
 import traceback
+import urllib
 import xmlrpclib
 
 from conary.deps import deps
@@ -27,6 +29,7 @@ from rmake.build import builder
 from rmake.build import buildcfg
 from rmake.build import buildjob
 from rmake.build import subscriber
+from rmake.server import auth
 from rmake.server import publish
 from rmake.db import database
 from rmake.lib.apiutils import api, api_parameters, api_return, freeze, thaw
@@ -271,8 +274,11 @@ class rMakeServer(apirpc.XMLApiServer):
     @api_parameters(1)
     @api_return(1, None)
     def getRepositoryInfo(self, callData):
-        return (self.cfg.reposName, self.cfg.getRepositoryMap(), 
-                list(self.cfg.reposUser))
+        proxyUrl = self.cfg.getProxyUrl()
+        if not proxyUrl:
+            proxyUrl = ''
+        return (self.cfg.reposName, self.cfg.getRepositoryMap(),
+                list(self.cfg.reposUser), proxyUrl)
 
     # --- callbacks from Builders
 
@@ -479,7 +485,6 @@ class rMakeServer(apirpc.XMLApiServer):
         finally:
             os._exit(1)
 
-
     def _pidDied(self, pid, status, name=None):
         jobId = self._buildPids.pop(pid, None)
         if jobId and status:
@@ -555,6 +560,19 @@ class rMakeServer(apirpc.XMLApiServer):
         apirpc.XMLApiServer._close(self)
         self.db.close()
 
+    def _setUpInternalUser(self):
+        user = ''.join([chr(random.randint(ord('a'),
+                           ord('z'))) for x in range(10)])
+        password = ''.join([chr(random.randint(ord('a'), 
+                                ord('z'))) for x in range(10)])
+        if self.uri:
+            type, url = urllib.splittype(self.uri)
+            host, rest = urllib.splithost(url)
+            olduser, host = urllib.splituser(host)
+            uri = '%s://%s:%s@%s%s' % (type, user, password, host, rest)
+            self.uri = uri
+        self.internalAuth = (user, password)
+
     def __init__(self, uri, cfg, repositoryPid, proxyPid=None,
                  pluginMgr=None, quiet=False):
         util.mkdirChain(cfg.logDir)
@@ -592,6 +610,7 @@ class rMakeServer(apirpc.XMLApiServer):
             self._buildPids = {}
 
 
+
             self.uri = uri
             self.cfg = cfg
             self.repositoryPid = repositoryPid
@@ -599,8 +618,11 @@ class rMakeServer(apirpc.XMLApiServer):
             apirpc.XMLApiServer.__init__(self, uri, logger=serverLogger,
                                  forkByDefault = True,
                                  sslCertificate=cfg.getSslCertificatePath())
+            self._setUpInternalUser()
             self.db = database.Database(cfg.getDbPath(),
                                         cfg.getDbContentsPath())
+            self.auth = auth.AuthenticationManager(cfg.getAuthUrl(), self.db)
+
             if pluginMgr is None:
                 pluginMgr = plugins.PluginManager([])
             self.plugins = pluginMgr
@@ -631,4 +653,3 @@ class rMakeServer(apirpc.XMLApiServer):
                         traceback.format_exc())
             self._try('halt', self._shutDown)
             raise
-
