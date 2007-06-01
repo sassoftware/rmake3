@@ -98,7 +98,6 @@ def displayJobInfo(client, jobId=None, troveSpecs=[], displayTroves=False,
     if troveSpecs:
         displayTroves = True
 
-
     displayJobDetail = False
     displayTroveDetail = False
     if displayDetails:
@@ -212,7 +211,12 @@ def printTroves(dcfg, job, troveTupList):
         displayTrovesByState(job)
     print
 
-def getTroveSpec(dcfg, (name, version, flavor)):
+def getTroveSpec(dcfg, item):
+    if len(item) == 3:
+        name, version, flavor = item
+        context = ''
+    else:
+        (name, version, flavor, context) = item
     if dcfg.showFullVersions:
         pass
     elif dcfg.showLabels:
@@ -228,6 +232,8 @@ def getTroveSpec(dcfg, (name, version, flavor)):
         flavor = dcfg.flavorsByName[name, flavor]
         if not flavor.isEmpty():
             flavor = '[%s]' % flavor
+    if context:
+        return '%s=%s%s{%s}' % (name, version, flavor, context)
     return '%s=%s%s' % (name, version, flavor)
 
 def getFlavorSpecs(job):
@@ -240,11 +246,15 @@ def getFlavorSpecs(job):
         for nvf in trove.iterBuiltTroves():
             flavorsByName.setdefault(nvf[0], []).append(nvf[2])
     for name, flavorList in flavorsByName.items():
-        diffs = deps.flavorDifferences(flavorList)
+	allFlavors = []
         for flavor in flavorList:
             archFlags = flavorutil.getArchFlags(flavor, withFlags=False)
-            archFlags.union(diffs[flavor])
             flavorsByName[name, flavor] = archFlags
+	if len(set(allFlavors)) != len(allFlavors):
+            diffs = deps.flavorDifferences(flavorList)
+            for flavor in flavorList:
+                 archFlags = flavorsByName[name, flavor]
+                 archFlags.union(diffs[flavor])
     return flavorsByName
 
 def displayTrovesByState(job, indent='     ', out=None):
@@ -281,7 +291,7 @@ def printOneTrove(dcfg, job, trove, indent='       '):
         mark = 0
         while True:
             logs = client.client.getTroveLogs(job.jobId,
-                                              trove.getNameVersionFlavor(), 
+                                              trove.getNameVersionFlavor(True),
                                               mark)
             if not logs:
                 break
@@ -298,7 +308,7 @@ def showBuildLog(dcfg, job, trove):
     mark = 0
     moreData = True
     moreData, data, mark = client.client.getTroveBuildLog(job.jobId,
-                                        trove.getNameVersionFlavor(), mark)
+                                        trove.getNameVersionFlavor(True), mark)
     if not moreData and not data:
         print 'No build log.'
         return
@@ -307,12 +317,12 @@ def showBuildLog(dcfg, job, trove):
     print data,
 
     while True:
-        print data,
         if not moreData:
             break
         time.sleep(1)
         moreData, data, mark = client.client.getTroveBuildLog(job.jobId,
-                                        trove.getNameVersionFlavor(), mark)
+                                        trove.getNameVersionFlavor(True), mark)
+        print data,
 
 
 def displayTroveDetail(dcfg, job, trove, indent='     ', out=None):
@@ -323,7 +333,7 @@ def displayTroveDetail(dcfg, job, trove, indent='     ', out=None):
 
     if not hasattr(dcfg, 'flavorsByName'):
         dcfg.flavorsByName = getFlavorSpecs(job)
-    troveSpec = getTroveSpec(dcfg, trove.getNameVersionFlavor())
+    troveSpec = getTroveSpec(dcfg, trove.getNameVersionFlavor(withContext=True))
     write('%s%s' % (indent, troveSpec))
     write('%s  State: %-20s' % (indent, trove.getStateName()))
     if trove.start:
