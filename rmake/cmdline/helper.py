@@ -153,6 +153,8 @@ class rMakeHelper(object):
                 cfg.resolveTrovesOnly = jobConfig.resolveTrovesOnly
                 cfg.installLabelPath = jobConfig.installLabelPath
         mainConfig.jobContext += [jobId]
+        if troveSpecs:
+            troveSpecList.extend(troveSpecs)
         return self.buildTroves(troveSpecList, buildConfig=mainConfig,
                                 configDict=configDict)
 

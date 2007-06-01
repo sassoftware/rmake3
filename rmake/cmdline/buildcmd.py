@@ -63,7 +63,7 @@ def getBuildJob(buildConfig, conaryclient, troveSpecList, limitToHosts=None,
         job.setMainConfig(cfg)
 
     for contextStr, troveSpecList in trovesByContext.iteritems():
-        if configDict:
+        if configDict and contextStr in configDict:
             cfg = configDict[contextStr]
         elif contextStr:
             # making this a copy is critical
