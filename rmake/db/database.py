@@ -135,12 +135,6 @@ class Database(DBInterface):
         except KeyError, err:
             raise errors.JobNotFound(err.args[0])
 
-    def setLogPath(self, trove, logPath):
-        # FIXME: we need to kill this.
-        trove = self.getTrove(trove.jobId, *trove.getNameVersionFlavor())
-        trove.logPath = logPath
-        self.updateTrove(trove)
-
     def getTrove(self, jobId, name, version, flavor, context=''):
         try:
             return self.jobStore.getTrove(jobId, name, version, flavor, context)
