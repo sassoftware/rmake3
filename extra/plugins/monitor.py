@@ -104,7 +104,7 @@ class JobLogDisplay(_AbstractDisplay):
         self.buildingTroves = {}
         self.state = state
         self.lastLen = 0
-        self.promptFormat = '%(jobId)s %(name)s - %(state)s - (%(tailing)s) ([h]elp)>'
+        self.promptFormat = '%(jobId)s %(name)s%(context)s - %(state)s - (%(tailing)s) ([h]elp)>'
         self.updatePrompt()
 
     def _msg(self, msg, *args):
@@ -117,9 +117,11 @@ class JobLogDisplay(_AbstractDisplay):
             state = self.state.getTroveState(*self.troveToWatch)
             state = buildtrove._getStateName(state)
             name = self.troveToWatch[1][0].split(':', 1)[0] # remove :source
-            d = dict(jobId=self.troveToWatch[0], name=name, state=state)
+            context = self.troveToWatch[1][3]
+            d = dict(jobId=self.troveToWatch[0], name=name, state=state,
+                     context=(context and '{%s}' % context or ''))
         else:
-            d = dict(jobId='(None)', name='(None)', state='')
+            d = dict(jobId='(None)', name='(None)', state='', context='')
         if not self.state.jobActive():
             tailing = 'Job %s' % self.state.getJobStateName()
         elif self.watchTroves:
@@ -215,9 +217,13 @@ class JobLogDisplay(_AbstractDisplay):
     def _troveStateUpdated(self, (jobId, troveTuple), state, status):
         isBuilding = (state == buildtrove.TROVE_STATE_BUILDING)
         state = buildtrove._getStateName(state)
-        self._msg('[%d] - %s - State: %s' % (jobId, troveTuple[0], state))
+        if troveTuple[3]:
+            name = '%s{%s}' % (troveTuple[0], troveTuple[3])
+        else:
+            name = troveTuple[0]
+        self._msg('[%d] - %s - State: %s' % (jobId, name, state))
         if status and self._watchTrove(jobId, troveTuple):
-            self._msg('[%d] - %s - %s' % (jobId, troveTuple[0], status))
+            self._msg('[%d] - %s - %s' % (jobId, name, status))
         self.updatePrompt()
 
     def _troveLogUpdated(self, (jobId, troveTuple), state, status):
