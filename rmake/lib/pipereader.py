@@ -123,7 +123,10 @@ class PipeWriter(object):
 
     def handleWriteIfReady(self, sleep=0.1):
         if self.buf:
-            ready = select.select([], [self], [], sleep)[1]
+            try:
+                ready = select.select([], [self], [], sleep)[1]
+            except select.error, err:
+                ready = False
             if ready:
                 self.handle_write()
                 return True
