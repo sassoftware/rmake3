@@ -23,12 +23,13 @@ No user given - check to make sure you've set rmakeUser config variable to match
                            urllib.quote(challenge))
                 f = urllib2.urlopen(url)
                 xmlResponse = f.read()
-            except:
+                p = netauth.PasswordCheckParser()
+                p.parse(xmlResponse)
+                isValid = p.validPassword()
+            except Exception, e:
+                # FIXME: this is a very broad exception handler
                 isValid = False
 
-            p = netauth.PasswordCheckParser()
-            p.parse(xmlResponse)
-            isValid = p.validPassword()
         if not isValid:
             raise errors.InsufficientPermission("""\
 Access denied.  Make sure your rmakeUser configuration variable contains a user and password accepted by the rBuilder instance at %s""" % self.pwCheckUrl)
