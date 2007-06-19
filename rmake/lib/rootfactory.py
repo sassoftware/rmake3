@@ -140,6 +140,7 @@ class BasicChroot(AbstractChroot):
             log.debug("copying file %s into chroot:%s", sourceFile, targetFile)
             try:
                 target = self.root + targetFile
+                target = os.path.realpath(target)
                 util.mkdirChain(os.path.dirname(target))
                 shutil.copy(sourceFile, target)
                 if mode is not None:
