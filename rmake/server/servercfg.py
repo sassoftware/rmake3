@@ -83,7 +83,7 @@ class rMakeBuilderConfiguration(daemon.DaemonConfig):
 
 
     def checkBuildSanity(self):
-        rmakeUser = constants.rmakeuser
+        rmakeUser = constants.rmakeUser
         if pwd.getpwuid(os.getuid()).pw_name == rmakeUser:
             self._checkDir('buildDir', self.buildDir)
             self._checkDir('chroot dir (subdirectory of buildDir)',

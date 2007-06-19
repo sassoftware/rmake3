@@ -240,7 +240,7 @@ class rMakeChroot(ConaryBasedChroot):
         conaryrc.close()
 
     def canChroot(self):
-        return (pwd.getpwnam(constants.rmakeuser).pw_uid == os.getuid())
+        return (pwd.getpwnam(constants.rmakeUser).pw_uid == os.getuid())
 
 
     def unmount(self, root, raiseError=True):

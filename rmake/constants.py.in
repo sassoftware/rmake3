@@ -5,7 +5,7 @@
 # NOTE: constants.py is auto generated from constants.py.in
 
 version          = "@version@"        # rmake version
-rmakeuser        = "@rmakeuser@"      # rmake user to run rmake server
+rmakeUser        = "@rmakeuser@"      # rmake user to run rmake server
 chrootUser       = "@chrootuser@"     # rmake user to build packages with
 chrootRmakePath  = "@chrootrmake@"    # path to rMake in the chroot (/usr/share)
 chrootServerPath = "@chrootserver@"   # path to rMake server command
