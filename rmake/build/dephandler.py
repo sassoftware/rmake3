@@ -513,7 +513,7 @@ class DependencyHandler(object):
         changed = True
         while changed:
             changed = False
-            for (fromTrove,toTrove), steps in map.items():
+            for (fromTrove,toTrove), steps in sorted(map.items()):
                 for child in depGraph.iterChildren(toTrove):
                     if child == fromTrove:
                         steps = [fromTrove] + steps + [toTrove, fromTrove]
