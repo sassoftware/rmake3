@@ -257,15 +257,16 @@ class BuildCommand(TroveCommand):
             self.logger.error(traceback.format_exc())
             trove.chrootFailed(str(err), traceback.format_exc())
             return
-        n,v,f = trove.getNameVersionFlavor()
+        n,v = trove.getName(), trove.getVersion()
+        flavorList = trove.getFlavorList()
         logPath, pid = self.chroot.buildTrove(self.buildCfg,
                                               self.targetLabel,
-                                              n, v, f,
+                                              n, v, flavorList,
                                               trove.getLoadedSpecs(),
                                               self.builtTroves,
                                               self.logData)
         # sends off message that this trove is building.
-        self.chroot.subscribeToBuild(n,v,f)
+        self.chroot.subscribeToBuild(n,v, flavorList)
         if self.logPath:
             logPath = self.logPath
         trove.troveBuilding(logPath, pid)
@@ -281,8 +282,9 @@ class BuildCommand(TroveCommand):
         try:
             trove = self.trove
             repos = conaryclient.ConaryClient(self.buildCfg).getRepos()
-            buildResult = self.chroot.checkResults(
-                                            *self.trove.getNameVersionFlavor())
+            buildResult = self.chroot.checkResults(self.trove.getName(),
+                                                   self.trove.getVersion(),
+                                                   self.trove.getFlavorList())
             if buildResult.isBuildSuccess():
                 csFile = buildResult.getChangeSetFile()
                 cs = changeset.ChangeSetFromFile(csFile)

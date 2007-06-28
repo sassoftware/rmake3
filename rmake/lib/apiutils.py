@@ -313,6 +313,17 @@ class api_flavor:
         return ThawFlavor(flavorStr)
 register(api_flavor)
 
+class api_flavorList:
+    name = 'flavorList'
+
+    @staticmethod
+    def __freeze__(flavorList):
+        return [ x.freeze() for x in flavorList ]
+
+    @staticmethod
+    def __thaw__(frozenList):
+        return [ ThawFlavor(x) for x in frozenList ]
+register(api_flavorList)
 
 class api_dependencyList:
     name = 'dependencyList'

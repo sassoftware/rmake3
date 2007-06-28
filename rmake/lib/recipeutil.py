@@ -135,7 +135,8 @@ def getRecipeObj(repos, name, version, flavor, recipeFile,
         loader = loadrecipe.RecipeLoader(recipeFile[0], cfg, repos,
                                          name + ':source', branch,
                                          ignoreInstalled=ignoreInstalled,
-                                         db=loadInstalledSource)
+                                         db=loadInstalledSource,
+                                         buildFlavor=flavor)
         recipeClass = loader.getRecipe()
         recipeClass._trove = recipeFile[1]
     else:
@@ -143,7 +144,8 @@ def getRecipeObj(repos, name, version, flavor, recipeFile,
                                                cfg, repos, version.asString(),
                                                labelPath=installLabelPath,
                                                ignoreInstalled=ignoreInstalled,
-                                               db=loadInstalledSource)[0]
+                                               db=loadInstalledSource,
+                                               buildFlavor=flavor)[0]
         recipeClass = loader.getRecipe()
     if recipe.isGroupRecipe(recipeClass):
         recipeObj = recipeClass(repos, cfg, buildLabel, None,
@@ -198,7 +200,8 @@ def loadRecipeClass(repos, name, version, flavor, recipeFile=None,
                                          name + ':source', branch,
                                          ignoreInstalled=True,
                                          db=loadInstalledSource,
-                                         overrides=overrides)
+                                         overrides=overrides,
+                                         buildFlavor=flavor)
         recipeClass = loader.getRecipe()
         recipeClass._trove = recipeFile[1]
     else:
@@ -207,7 +210,8 @@ def loadRecipeClass(repos, name, version, flavor, recipeFile=None,
                                                labelPath=[label],
                                                ignoreInstalled=ignoreInstalled,
                                                db=loadInstalledSource,
-                                               overrides=overrides)
+                                               overrides=overrides,
+                                               buildFlavor=flavor)
         recipeClass = loader[0].getRecipe()
 
     use.track(False)

@@ -26,10 +26,12 @@ from rmake.lib.apiutils import thaw, freeze
 from rmake.worker import resolvesource
 
 class CookResults(object):
-    def __init__(self, name, version, flavor):
+    def __init__(self, name, version, flavorList):
         self.name = name
         self.version = version
-        self.flavor = flavor
+        if not isinstance(flavorList, (list, tuple)):
+            flavorList = [flavorList]
+        self.flavorList = flavorList
         self.status = ''
         self.csFile = ''
         self.pid = 0
@@ -70,7 +72,7 @@ class CookResults(object):
         d = self.__dict__.copy()
         d['pid'] = self.pid
         d['version'] = str(self.version)
-        d['flavor'] = self.flavor.freeze()
+        d['flavorList'] = [ x.freeze() for x in self.flavorList ]
         d['failureReason'] = freeze('FailureReason', self.failureReason)
         return d
 
@@ -79,14 +81,16 @@ class CookResults(object):
         d = d.copy()
         new = CookResults(d.pop('name'),
                           versions.VersionFromString(d.pop('version')),
-                          ThawFlavor(d.pop('flavor')))
+                          [ ThawFlavor(x) for x in d.pop('flavorList')])
         new.__dict__.update(d)
         new.failureReason = thaw('FailureReason', new.failureReason)
         return new
 
 
-def cookTrove(cfg, repos, logger, name, version, flavor, targetLabel,
+def cookTrove(cfg, repos, logger, name, version, flavorList, targetLabel,
               loadSpecs=None, builtTroves=None, logData=None):
+    if not isinstance(flavorList, (tuple, list)):
+        flavorList = [flavorList]
     util.mkdirChain(cfg.root + '/tmp')
     fd, csFile = tempfile.mkstemp(dir=cfg.root + '/tmp',
                                   prefix='rmake-%s-' % name,
@@ -99,7 +103,7 @@ def cookTrove(cfg, repos, logger, name, version, flavor, targetLabel,
     os.chmod(logPath, 0660)
     os.chmod(cfg.root + '/tmp/rmake', 0770)
 
-    results = CookResults(name, version, flavor)
+    results = CookResults(name, version, flavorList)
 
     # ignore child output problems
     signal.signal(signal.SIGTTOU, signal.SIG_IGN)
@@ -122,12 +126,14 @@ def cookTrove(cfg, repos, logger, name, version, flavor, targetLabel,
                     logFile.redirectOutput()
                 log.setVerbosity(log.INFO)
                 log.info("Cook process started (pid %s)" % os.getpid())
-                _cookTrove(cfg, repos, name, version, flavor, targetLabel, 
+                _cookTrove(cfg, repos, name, version, flavorList, targetLabel,
                            loadSpecs, builtTroves,
                            csFile, failureFd=outF, logger=logger)
             except Exception, msg:
-                errMsg = 'Error cooking %s=%s[%s]: %s' % \
-                                        (name, version, flavor, str(msg))
+                if len(flavorList) > 1:
+                    errMsg = 'Error cooking %s=%s with flavors %s: %s' % \
+                        (name, version, ', '.join([str(x) for x in flavorList]),
+                         str(msg))
                 _buildFailed(outF, errMsg, traceback.format_exc())
                 logFile.close()
                 os._exit(1)
@@ -213,28 +219,39 @@ def _buildFailed(failureFd, errMsg, traceBack):
         os.close(failureFd)
     os._exit(1)
 
-def _cookTrove(cfg, repos, name, version, flavor, targetLabel, loadSpecs, 
+def _cookTrove(cfg, repos, name, version, flavorList, targetLabel, loadSpecs,
                builtTroves, csFile, failureFd, logger):
-    try:
-        logger.debug('Cooking %s=%s[%s] to %s (stored in %s)' % \
-                     (name, version, flavor, targetLabel, csFile))
-        db = database.Database(cfg.root, cfg.dbPath)
-        cfg.buildFlavor = deps.overrideFlavor(cfg.buildFlavor, flavor)
-        cfg.initializeFlavors()
-        if targetLabel:
-            source = recipeutil.RemoveHostSource(db, targetLabel.getHost())
-        else:
-            source = db
-        (loader, recipeClass, localFlags, usedFlags)  = \
-            recipeutil.loadRecipeClass(repos, name, version, flavor,
-                                       ignoreInstalled=False, root=cfg.root,
-                                       loadInstalledSource=source,
-                                       overrides=loadSpecs)
-    except Exception, msg:
-        errMsg = 'Error loading recipe %s=%s[%s]: %s' % \
-                                        (name, version, flavor, str(msg))
-        _buildFailed(failureFd, errMsg, traceback.format_exc())
+    baseFlavor = cfg.buildFlavor
+    db = database.Database(cfg.root, cfg.dbPath)
+    if targetLabel:
+        source = recipeutil.RemoveHostSource(db, targetLabel.getHost())
+    else:
+        source = db
+    loaders = []
+    recipeClasses = []
 
+    if not isinstance(flavorList, (tuple, list)):
+        flavorList = [flavorList]
+
+    for flavor in flavorList:
+        try:
+            logger.debug('Cooking %s=%s[%s] to %s (stored in %s)' % \
+                         (name, version, flavor, targetLabel, csFile))
+            cfg.buildFlavor = deps.overrideFlavor(baseFlavor, flavor)
+            cfg.initializeFlavors()
+            (loader, recipeClass, localFlags, usedFlags)  = \
+                recipeutil.loadRecipeClass(repos, name, version,
+                                           cfg.buildFlavor,
+                                           ignoreInstalled=False, root=cfg.root,
+                                           loadInstalledSource=source,
+                                           overrides=loadSpecs)
+            loaders.append(loader)
+            recipeClasses.append(recipeClass)
+
+        except Exception, msg:
+            errMsg = 'Error loading recipe %s=%s[%s]: %s' % \
+                                            (name, version, flavor, str(msg))
+            _buildFailed(failureFd, errMsg, traceback.format_exc())
 
     try:
         # get the correct environment variables from this root
@@ -247,26 +264,32 @@ def _cookTrove(cfg, repos, name, version, flavor, targetLabel, loadSpecs,
         # we are in a fork
         flavorutil.setLocalFlags(localFlags)
         packageName = name.split(':')[0]
+        # this shouldn't matter for group recipes as it will get overridden
+        # by the behavior in cookGroupObject.  But it matters for some other
+        # recipe types.  That should be fixed and all that code should be
+        # moved inside cookObject so I could get rid of this.
         use.setBuildFlagsFromFlavor(packageName, cfg.buildFlavor, error=False)
         use.resetUsed()
         use.setUsed(usedFlags)
-        crossCompile = flavorutil.getCrossCompile(cfg.buildFlavor)
+
 
         # we don't want to sign packages here, if necessary, we can sign
         # them at a higher level.
         cfg.signatureKeyMap = {}
         cfg.signatureKey = None
+        crossCompile = flavorutil.getCrossCompile(cfg.buildFlavor)
 
         # add extra buildreqs manually added for this trove
         # by the builder.  Only add them if the recipe is of the
         # right type, and the cfg file we're passed in understands them
         # (it might be a simple conary cfg file).
-        if (hasattr(recipeClass, 'buildRequires')
+        if (hasattr(recipeClasses[0], 'buildRequires')
             and hasattr(cfg, 'defaultBuildReqs')):
-            recipeClass.buildRequires += cfg.defaultBuildReqs
+            for recipeClass in recipeClasses:
+                recipeClass.buildRequires += cfg.defaultBuildReqs
 
         if builtTroves:
-            # FIXME: is this cached? 
+            # FIXME: is this cached?
             builtTroves = repos.getTroves(builtTroves, withFiles=False)
 
             builtTroves = resolvesource.BuiltTroveSource(builtTroves)
@@ -300,7 +323,10 @@ def _cookTrove(cfg, repos, name, version, flavor, targetLabel, loadSpecs,
                          # this _shouldn't_ be an issue,
                          # conary 1.0.{19,20} require it.
         # finally actually cook the recipe!
-        built = cook.cookObject(repos, cfg, recipeClass, version,
+        groupOptions = cook.GroupCookOptions(alwaysBumpCount=False,
+                                        shortenFlavors=cfg.shortenGroupFlavors,
+                                        errorOnFlavorChange=False)
+        built = cook.cookObject(repos, cfg, recipeClasses, version,
                                 prep=False, macros={},
                                 targetLabel=targetLabel,
                                 changeSetFile=csFile,
@@ -308,7 +334,8 @@ def _cookTrove(cfg, repos, name, version, flavor, targetLabel, loadSpecs,
                                 ignoreDeps=False,
                                 logBuild=True,
                                 crossCompile=crossCompile,
-                                requireCleanSources=True)
+                                requireCleanSources=True,
+                                groupOptions=groupOptions)
     except Exception, msg:
         errMsg = 'Error building recipe %s=%s[%s]: %s' % (name, version,
                                                           flavor, str(msg))

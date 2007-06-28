@@ -29,12 +29,13 @@ class ChrootServer(apirpc.XMLApiServer):
 
     @api(version=1)
     @api_parameters(1, 'BuildConfiguration', 'label',
-                       'str', 'version', 'flavor', 'LoadSpecs',
+                       'str', 'version', 'flavorList', 'LoadSpecs',
                        'troveTupleList', None)
     @api_return(1, None)
     def buildTrove(self, callData, buildCfg, targetLabel,
-                   name, version, flavor, loadSpecs, builtTroves,
+                   name, version, flavorList, loadSpecs, builtTroves,
                    logData):
+        flavorList = tuple(flavorList)
         buildCfg.root = self.cfg.root
         buildCfg.buildPath = self.cfg.root + '/tmp/rmake/builds'
         buildCfg.lookaside = self.cfg.root + '/tmp/rmake/cache'
@@ -67,22 +68,23 @@ class ChrootServer(apirpc.XMLApiServer):
                                         self.cfg.root + '/tmp/cscache',
                                         readOnly=True)
         logPath, pid, buildInfo = cook.cookTrove(buildCfg, repos, self._logger,
-                                                 name, version, flavor,
+                                                 name, version, flavorList,
                                                  targetLabel, loadSpecs,
-                                                 builtTroves, logData) 
+                                                 builtTroves, logData)
         pid = buildInfo[1]
-        self._buildInfo[name, version, flavor] = buildInfo
+        self._buildInfo[name, version, flavorList] = buildInfo
         return logPath, pid
 
     @api(version=1)
-    @api_parameters(1, 'str', 'version', 'flavor', 'float')
+    @api_parameters(1, 'str', 'version', 'flavorList', 'float')
     @api_return(1, None)
-    def checkResults(self, callData, name, version, flavor, wait):
-        if (name, version, flavor) in self._results:
-            results = self._results[name, version, flavor]
+    def checkResults(self, callData, name, version, flavorList, wait):
+        flavorList = tuple(flavorList)
+        if (name, version, flavorList) in self._results:
+            results = self._results[name, version, flavorList]
         else:
             timeSpent = 0
-            buildInfo = self._buildInfo[name, version, flavor]
+            buildInfo = self._buildInfo[name, version, flavorList]
             while True:
                 results = cook.getResults(*buildInfo)
                 if results:
@@ -92,20 +94,21 @@ class ChrootServer(apirpc.XMLApiServer):
                     timeSpent += .1
                 else:
                     return ''
-            del self._buildInfo[name, version, flavor]
+            del self._buildInfo[name, version, flavorList]
         return freeze(cook.CookResults, results)
 
     @api(version=1)
-    @api_parameters(1, 'str', 'version', 'flavor')
+    @api_parameters(1, 'str', 'version', 'flavorList')
     @api_return(1, 'int')
-    def subscribeToBuild(self, callData, name, version, flavor):
-        if not (name, version, flavor) in self._buildInfo:
+    def subscribeToBuild(self, callData, name, version, flavorList):
+        flavorList = tuple(flavorList)
+        if not (name, version, flavorList) in self._buildInfo:
             return 0
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.bind(('', 0))
         port = s.getsockname()[1]
         s.listen(1)
-        self._unconnectedSubscribers[s] = name, version, flavor
+        self._unconnectedSubscribers[s] = name, version, flavorList
         return port
 
     @api(version=1)
@@ -215,8 +218,8 @@ class ChrootClient(object):
     def startSession(self, command=['/bin/sh']):
         return self.proxy.startSession(command)
 
-    def subscribeToBuild(self, name, version, flavor):
-        port = self.proxy.subscribeToBuild(name, version, flavor)
+    def subscribeToBuild(self, name, version, flavorList):
+        port = self.proxy.subscribeToBuild(name, version, flavorList)
         if not port:
             return False
         s = socket.socket()
@@ -243,7 +246,7 @@ class ChrootClient(object):
     def getPid(self):
         return self.pid
 
-    def buildTrove(self, buildCfg, targetLabel, name, version, flavor,
+    def buildTrove(self, buildCfg, targetLabel, name, version, flavorList,
                    loadSpecs=None, builtTroves=None, logData=None):
         if loadSpecs is None:
             loadSpecs = {}
@@ -251,16 +254,20 @@ class ChrootClient(object):
             builtTroves = []
         if logData is None:
             logData = []
+        if not isinstance(flavorList, (list, tuple)):
+            flavorList = [flavorList]
         logPath, pid = self.proxy.buildTrove(buildCfg, targetLabel,
-                                             name, version, flavor,
+                                             name, version, flavorList,
                                              loadSpecs, builtTroves,
                                              logData)
         logPath = self.root + logPath
-        self.subscribeToBuild(name, version, flavor)
+        self.subscribeToBuild(name, version, flavorList)
         return logPath, pid
 
-    def checkResults(self, name, version, flavor, wait=False):
-        results = self.proxy.checkResults(name, version, flavor, wait)
+    def checkResults(self, name, version, flavorList, wait=False):
+        if not isinstance(flavorList, (list, tuple)):
+            flavorList = [flavorList]
+        results = self.proxy.checkResults(name, version, flavorList, wait)
         if results == '':
             return None
 

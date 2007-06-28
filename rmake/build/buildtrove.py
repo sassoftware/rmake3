@@ -89,7 +89,7 @@ class _AbstractBuildTrove:
                  pid=0, recipeType=RECIPE_TYPE_PACKAGE,
                  chrootHost='', chrootPath='', 
                  preBuiltRequirements=None, preBuiltBinaries=None,
-                 context=''):
+                 context='', flavorList=None):
         assert(name.endswith(':source'))
         self.jobId = jobId
         self.name = name
@@ -115,6 +115,8 @@ class _AbstractBuildTrove:
         self.preBuiltRequirements = None
         self.preBuiltBinaries = preBuiltBinaries
         self.context = context
+        if flavorList is None:
+            self.flavorList = [flavor]
 
     def __repr__(self):
         if self.getContext():
@@ -134,6 +136,12 @@ class _AbstractBuildTrove:
     def getFlavor(self):
         return self.flavor
 
+    def getFlavorList(self):
+        return self.flavorList
+
+    def setFlavorList(self, flavorList):
+        self.flavorList = flavorList
+
     def getNameVersionFlavor(self, withContext=False):
         if withContext:
             return (self.name, self.version, self.flavor, self.context)
@@ -150,6 +158,7 @@ class _AbstractBuildTrove:
 
     def setFlavor(self, flavor):
         self.flavor = flavor
+        self.flavorList = [flavor]
 
     def setRecipeType(self, recipeType):
         self.recipeType = recipeType
@@ -355,6 +364,7 @@ class _FreezableBuildTrove(_AbstractBuildTrove):
                  'chrootHost'        : 'str',
                  'chrootPath'        : 'str',
                  'loadedSpecs'       : 'LoadSpecs',
+                 'flavorList'        : 'flavorList',
                  }
 
     def __freeze__(self):

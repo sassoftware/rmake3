@@ -74,6 +74,7 @@ class DependencyBasedBuildState(AbstractBuildState):
         self.logger = logger
         self.trovesByPackage = {}
         self.buildReqTroves = {}
+        self.groupsByNameVersion = {}
 
         self.depGraph = graph.DirectedGraph()
         self.builtTroves = {}
@@ -150,6 +151,14 @@ class DependencyBasedBuildState(AbstractBuildState):
                         # specified for each.
                         self.dependsOn(trove, provTrove, (False, loadSpec))
 
+            # If we have multiple groups that are building w/ the same
+            # name and version, we send them to be built together.
+            if trove.isGroupRecipe():
+                name, version = trove.getName(), trove.getVersion()
+                if (name, version) not in self.groupsByNameVersion:
+                    self.groupsByNameVersion[name, version] = []
+                self.groupsByNameVersion[name, version].append(trove)
+
             # Troves like groups, redirects, etc, have requirements
             # that control when they can be built.
             for sourceTup in trove.getDelayedRequirements():
@@ -163,7 +172,27 @@ class DependencyBasedBuildState(AbstractBuildState):
                         provTrove.getFlavor().toStrongFlavor().satisfies(
                                                 flavor.toStrongFlavor())):
                         self.dependsOn(trove, provTrove,
-                                        (name, version, flavor))
+                                        (False, (name, version, flavor)))
+        for troveList in self.groupsByNameVersion.values():
+            if len(troveList) <= 1:
+                continue
+            flavorList = [ x.getFlavor() for x in troveList ]
+            headNode = troveList[0]
+            troveList[0].setFlavorList(flavorList)
+            self.mergeNodes(troveList, troveList[0])
+            # mark the rest as prebuilt
+            # yuck, we haven't subscribed to these troves yet.
+            for trove in troveList[1:]:
+                trove.troveBuilt([])
+                self.troveBuilt(trove, [])
+                self._setState(trove, trove.state)
+
+    def mergeNodes(self, troveList, newNode):
+        for trove in troveList:
+            for child, req in self.depGraph.iterChildren(trove, withEdges=True):
+                self.dependsOn(trove, child, req)
+            for parent, req in self.depGraph.getParents(trove, withEdges=True):
+                self.dependsOn(parent, trove, req)
 
     def dependsOn(self, trove, provTrove, req):
         if trove == provTrove:
@@ -465,29 +494,34 @@ class DependencyHandler(object):
 
         while True:
             if self._cycleTroves:
+                # We're already trying to break a cycle.
+                # Go ahead and try other troves in that cycle.
                 trv = self._cycleTroves[0]
                 self._cycleTroves = self._cycleTroves[1:]
                 self._resolving[trv] = True
                 return self._getResolveJob(trv, inCycle=True)
             start = time.time()
             compGraph = depGraph.getStronglyConnectedGraph()
-            self.logger.debug('building graph took %0.2f seconds' % (time.time() - start))
             leafCycles = compGraph.getLeaves()
             self.logger.debug('Found %s cycles' % len(leafCycles))
             for idx, cycleTroves in enumerate(leafCycles):
-                cycleTroves = sorted(['%s=%s[%s]{%s}' % x.getNameVersionFlavor(True) for x in cycleTroves])
-                self.logger.debug('Cycle %s:\n     %s' % (idx + 1, '\n     '.join(str(x) for x in cycleTroves)))
+                cycleTroves = sorted(
+                    ['%s=%s[%s]{%s}' % x.getNameVersionFlavor(True)
+                     for x in cycleTroves])
+                txt = '\n     '.join(str(x) for x in cycleTroves)
+                self.logger.debug('Cycle %s:\n     %s' % (idx + 1, txt))
             for idx, cycleTroves in enumerate(leafCycles):
                 if len(cycleTroves) <= 2:
-                    # no bother displaying "shortest cycle" if the cycles only involve 
-                    # 2/1 troves
+                    # don't bother displaying "shortest cycle" if the cycles
+                    # only involve 1 or 2 troves
                     continue
                 shortest = self._getShortestCycles(depGraph, cycleTroves)
-                shortest = [['%s=%s[%s]{%s}' % x.getNameVersionFlavor(True) for x in y] for y in shortest ] 
-                self.logger.debug('Cycle %s: Shortest Cycles:\n %s' % (idx + 1,
-                                                    '\n\n '.join('\n   -> '.join(
-                                                             str(x) for x in y)
-                                                                for y in shortest)))
+                shortest = [['%s=%s[%s]{%s}' % x.getNameVersionFlavor(True) \
+                                for x in y] for y in shortest ]
+                txt = '\n\n '.join('\n   -> '.join(str(x) for x in y)
+                                                   for y in shortest)
+                self.logger.debug('Cycle %s: Shortest Cycles:\n %s' % \
+                                        (idx + 1, txt))
 
             checkedSomething = False
             for cycleTroves in leafCycles:
