@@ -32,7 +32,7 @@ def getMountInfo():
     txt = os.popen('/bin/df -TP').read()
     lines = txt.split('\n')[1:-1]
     mounts = {}
-    for cols in (x.split() for x in lines if x):
+    for cols in (x.split(None, 6) for x in lines if x):
         device, type, blocks, used, avail, capacity, mount = cols
         blocks, used, avail = int(blocks), int(used), int(avail)
         if device == 'none':
