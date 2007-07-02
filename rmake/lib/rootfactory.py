@@ -163,7 +163,7 @@ class BasicChroot(AbstractChroot):
             util.mkdirChain(os.path.realpath(os.path.dirname(targetDir)))
             log.debug("copying dir %s into chroot:%s", sourceDir, targetDir)
             try:
-                shutil.copytree(sourceDir, targetDir)
+                shutil.copytree(sourceDir, os.path.realpath(targetDir))
             except shutil.Error, e:
                 errorList = '\n'.join('cannot copy %s to %s: %s' % x 
                                     for x in e.args[0])
