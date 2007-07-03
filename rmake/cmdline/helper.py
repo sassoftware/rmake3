@@ -73,8 +73,6 @@ class rMakeHelper(object):
             log.warning('rmakeConfig parameter is now deprecated')
         if not buildConfig:
             buildConfig = buildcfg.BuildConfiguration(True, root)
-            if conaryConfig:
-                buildConfig.useConaryConfig(conaryConfig)
 
         if uri is None:
             uri = buildConfig.getServerUri()
