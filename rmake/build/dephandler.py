@@ -83,6 +83,7 @@ class DependencyBasedBuildState(AbstractBuildState):
 
         AbstractBuildState.__init__(self, sourceTroves)
 
+
     def _addReq(self, trove, buildReq, isCross=False):
         name, label, flavor = buildReq
         pkg = name.split(':')[0]
@@ -198,6 +199,27 @@ class DependencyBasedBuildState(AbstractBuildState):
         if trove == provTrove:
             return
         self.depGraph.addEdge(trove, provTrove, req)
+
+    def areRelated(self, trove1, trove2):
+        if trove1 == trove2:
+            return
+        index1 = self.depGraph.data.getIndex(trove1)
+        index2 = self.depGraph.data.getIndex(trove2)
+        starts, finishes, trees = self.depGraph.doDFS(start=trove1)
+        # this should move in to graph.py at some point.  Basically checks
+        # to see if two troves are linked by seeing if you can follow a DFS
+        # starting at one and get to the the other.  We have to check
+        # both directions on the graph in case trove2 -> trove1.
+        if finishes[index2] < finishes[index1]:
+            # we started at 1, finished at 2, and then finished at 1,
+            # ergo we reached 2 from 1.
+            return True
+        starts, finishes, trees = self.depGraph.doDFS(start=trove2)
+        if finishes[index1] < finishes[index2]:
+            # we started at 2, finished at 1, and then finished at 2,
+            # ergo we reached 1 from 2.
+            return True
+        return False
 
     def rejectDep(self, trove, provTrove, isCross):
         self.rejectedDeps.setdefault(trove, []).append((provTrove, isCross))
@@ -412,6 +434,13 @@ class DependencyHandler(object):
                             # (due to cross compiling), don't delay for it.
                             continue
                         if self.depState.isRejectedDep(trv, provTrove, isCross):
+                            continue
+                        if self.depState.areRelated(trv, provTrove):
+                            # if these two are already related in any way
+                            # via other dependencies, then the ordering is
+                            # already determined, and adding another link 
+                            # won't help.  This gives buildReqs priority over
+                            # dep resolution reqs.
                             continue
                         found.add(provTrove)
                         # FIXME: we need to have the actual dependency name!

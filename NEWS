@@ -1,4 +1,8 @@
 Changes in @NEWS@:
+  o Build Changes:
+     * If two troves already have a dependency relationship caused by
+       build requirements, rMake will now ignore runtime requirements.  This
+       means that build requirements have priority over runtime requirements.
   o Server Changes:
      * Cleaned up server configuration options, all repository options now
        start with "repos" as opposed to "server", proxyUrl and reposUrl are
