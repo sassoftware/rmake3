@@ -39,6 +39,8 @@ class PipeReader(object):
         return self.fd
 
     def handle_read(self):
+        if self.fd is None:
+            return
         if self.length is not None:
             # handle length = 0
             if self.length:
