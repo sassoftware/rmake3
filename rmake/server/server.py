@@ -59,7 +59,7 @@ class rMakeServer(apirpc.XMLApiServer):
             self.updateBuildConfig(buildCfg)
         job.uuid = job.getMainConfig().uuid
         self.db.addJob(job)
-        self._subscribeToJobInternal(job)
+        self._subscribeToJob(job)
         self.db.queueJob(job)
         job.jobQueued()
         return job.jobId
@@ -70,7 +70,7 @@ class rMakeServer(apirpc.XMLApiServer):
         jobId = self.db.convertToJobId(jobId)
         job = self.db.getJob(jobId, withTroves=True)
         self._stopJob(job)
-        self._subscribeToJobInternal(job)
+        self._subscribeToJob(job)
         job.jobStopped('User requested stop')
 
     @api(version=1)
@@ -288,8 +288,7 @@ class rMakeServer(apirpc.XMLApiServer):
     def emitEvents(self, callData, jobId, (apiVer, eventList)):
         # currently we assume that this apiVer is extraneous, just
         # a part of the protocol for EventLists.
-        self._events.setdefault(jobId, []).extend(eventList)
-        self._numEvents += len(eventList)
+        self._publisher.addEvent(jobId, eventList)
     # --- internal functions
 
     def getBuilder(self, job):
@@ -326,7 +325,7 @@ class rMakeServer(apirpc.XMLApiServer):
                 job.exceptionOccurred('Failed while initializing',
                                       traceback.format_exc())
             break
-        self._emitEvents()
+        self._publisher.emitEvents()
         self._collectChildren()
         self.plugins.callServerHook('server_loop', self)
 
@@ -372,35 +371,6 @@ class rMakeServer(apirpc.XMLApiServer):
     def _subscribeToJobInternal(self, job):
         for subscriber in self._internalSubscribers:
             subscriber.attach(job)
-
-    def _emitEvents(self):
-        self._publisher.harvestErrors()
-        if not self._events or self._emitPid:
-            return
-        if ((time.time() - self._lastEmit) < self._emitEventTimeThreshold
-            and self._numEvents < self._emitEventSizeThreshold):
-            return
-        events = self._events
-        self._events = {}
-        pid = self._fork('emitEvents')
-        if pid:
-            self._numEvents = 0
-            self._lastEmit = time.time()
-            self._emitPid = pid
-            #self.debug('_emitEvents forked pid %d' % pid)
-            return
-        try:
-            try:
-                for jobId, eventList in events.iteritems():
-                    self.db.reopen()
-                    self._publisher.emitEvents(self.db, jobId, eventList)
-                os._exit(0)
-            except Exception, err:
-                self.error('Emit Events failed: %s\n%s', err, 
-                           traceback.format_exc())
-                os._exit(1)
-        finally:
-            os._exit(1)
 
     def _initializeNodes(self):
         self.db.deactivateAllNodes()
@@ -493,9 +463,9 @@ class rMakeServer(apirpc.XMLApiServer):
                 self._failJob(jobId, self._getExitMessage(pid, status, name))
         apirpc.XMLApiServer._pidDied(self, pid, status, name)
 
-        if pid == self._emitPid: # rudimentary locking for emits
-            self._emitPid = 0    # only allow one emitEvent process 
-                                 # at a time.
+        if pid == self._publisher._emitPid: # rudimentary locking for emits
+            self._publisher._emitPid = 0    # only allow one emitEvent process
+                                            # at a time.
 
         if pid == self.proxyPid:
             if not self._halt:
@@ -595,21 +565,8 @@ class rMakeServer(apirpc.XMLApiServer):
             self._initialized = False
             self.db = None
 
-            # event queuing code - to eventually be moved to a separate 
-            # process
-            self._events = {}
-            # min length of time between emits
-            self._emitEventTimeThreshold = .2
-            # max # of issues to queue before emit (overrides time threshold)
-            self._emitEventSizeThreshold = 10  
-            self._numEvents = 0                # number of queued events
-            self._lastEmit = time.time()       # time of last emit
-            self._emitPid = 0                  # pid for rudimentary locking
-
             # forked jobs that are currently active
             self._buildPids = {}
-
-
 
             self.uri = uri
             self.cfg = cfg
@@ -630,8 +587,9 @@ class rMakeServer(apirpc.XMLApiServer):
             # any jobs that were running before are not running now
             subscriberLog = logger.Logger('susbscriber',
                                           self.cfg.getSubscriberLogPath())
-            self._publisher = publish._RmakeServerPublisher(subscriberLog)
-
+            self._publisher = publish._RmakeServerPublisher(subscriberLog,
+                                                            self.db,
+                                                            self._fork)
             self.worker = worker.Worker(self.cfg, self._logger)
             dbLogger = subscriber._JobDbLogger(self.db)
             # note - it's important that the db logger

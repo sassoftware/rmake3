@@ -1,6 +1,7 @@
 #
 # Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
 #
+import os
 import time
 import traceback
 
@@ -10,13 +11,58 @@ class _RmakeServerPublisher(object):
     """
         Sends job events from Rmake Server ->  Subscribers
     """
-    def __init__(self, logger):
+    def __init__(self, logger, db, forkCommand=os.fork):
+        self.db = db
+        self._fork = forkCommand
         self.logger = logger
         self.errorLimit = 100
         self.timeLimit = 60 * 5 # 5 minutes
         self.recentErrors = []
         self.errorTimes = []
         self.reader, self.writer = pipereader.makeMarshalPipes()
+        self._events = {}
+        # event queuing code - to eventually be moved to a separate 
+        # process
+        # min length of time between emits
+        self._emitEventTimeThreshold = .2
+        # max # of issues to queue before emit (overrides time threshold)
+        self._emitEventSizeThreshold = 10  
+        self._numEvents = 0                # number of queued events
+        self._lastEmit = time.time()       # time of last emit
+        self._emitPid = 0                  # pid for rudimentary locking
+
+    def addEvent(self, jobId, eventList):
+        self._events.setdefault(jobId, []).extend(eventList)
+        self._numEvents += len(eventList)
+
+    def emitEvents(self):
+        self.harvestErrors()
+        if not self._events or self._emitPid:
+            return
+        if ((time.time() - self._lastEmit) < self._emitEventTimeThreshold
+            and self._numEvents < self._emitEventSizeThreshold):
+            return
+        events = self._events
+        self._events = {}
+        pid = self._fork('emitEvents')
+        if pid:
+            self._numEvents = 0
+            self._lastEmit = time.time()
+            self._emitPid = pid
+            #self.debug('_emitEvents forked pid %d' % pid)
+            return
+        try:
+            try:
+                for jobId, eventList in events.iteritems():
+                    self.db.reopen()
+                    self._emitEvents(jobId, eventList)
+                os._exit(0)
+            except Exception, err:
+                self.logger.error('Emit Events failed: %s\n%s', err, 
+                                  traceback.format_exc())
+                os._exit(1)
+        finally:
+            os._exit(1)
 
     def harvestErrors(self):
         error = self.reader.handleReadIfReady()
@@ -41,11 +87,11 @@ class _RmakeServerPublisher(object):
             self.errorTimes = self.errorTimes[-self.errorLimit:]
             error = self.reader.handleReadIfReady()
 
-    def emitEvents(self, db, jobId, eventList):
+    def _emitEvents(self, jobId, eventList):
         """
             Publish events to all listening subscribers.
         """
-        eventsBySubscriber = self._getEventListBySubscriber(db, jobId,
+        eventsBySubscriber = self._getEventListBySubscriber(self.db, jobId,
                                                             eventList)
         for subscriber, eventList in eventsBySubscriber.iteritems():
             try:
