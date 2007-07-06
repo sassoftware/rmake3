@@ -535,12 +535,13 @@ class rMakeServer(apirpc.XMLApiServer):
                            ord('z'))) for x in range(10)])
         password = ''.join([chr(random.randint(ord('a'), 
                                 ord('z'))) for x in range(10)])
-        if self.uri:
+        if isinstance(self.uri, str):
             type, url = urllib.splittype(self.uri)
             host, rest = urllib.splithost(url)
             olduser, host = urllib.splituser(host)
             uri = '%s://%s:%s@%s%s' % (type, user, password, host, rest)
             self.uri = uri
+
         self.internalAuth = (user, password)
 
     def __init__(self, uri, cfg, repositoryPid, proxyPid=None,
@@ -597,7 +598,13 @@ class rMakeServer(apirpc.XMLApiServer):
             # so that whatever published is actually 
             # recorded in the DB.
             self._subscribers = [dbLogger]
-            s = subscriber._RmakeServerPublisherProxy(self.uri)
+            if self.uri:
+                s = subscriber._RmakeServerPublisherProxy(self.uri)
+            else:
+                # testsuite path - external subscribers also go through
+                # internal interface when the server is not run as a separate
+                # process.
+                s = subscriber._RmakeServerPublisherProxy(self)
             self._subscribers.append(s)
 
             self._internalSubscribers = [dbLogger]
