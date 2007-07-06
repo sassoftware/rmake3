@@ -300,7 +300,7 @@ class FakeRmakeRoot(rMakeChroot):
     def install(self):
         pass
 
-    def clean(self, root):
+    def clean(self, root, raiseError=True):
         pass
 
 class ExistingChroot(rMakeChroot):
