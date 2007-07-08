@@ -323,10 +323,13 @@ class Daemon(options.MainHandler):
         from rmake import errors
         try:
             argv = list(argv)
-            debugAll = '--debug-all' in argv
+            debugAll = '--debug-all' in argv or '-d' in argv
             if debugAll:
                 debuggerException = Exception
-                argv.remove('--debug-all')
+                if '-d' in argv:
+                    argv.remove('-d')
+                else:
+                    argv.remove('--debug-all')
             else:
                 debuggerException = errors.RmakeInternalError
             sys.excepthook = errors.genExcepthook(debug=debugAll,

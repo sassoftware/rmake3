@@ -10,7 +10,7 @@ import shutil
 import signal
 import sys
 
-from conary.lib import misc, options
+from conary.lib import options, util
 from conary import command
 
 from rmake import compat
@@ -73,7 +73,7 @@ class rMakeDaemon(daemon.Daemon):
             proxyPid = repos.startProxy(cfg, fork=True,
                                         logger=self.logger)
         if cfg.getSocketPath():
-            misc.removeIfExists(cfg.getSocketPath())
+            util.removeIfExists(cfg.getSocketPath())
         rMakeServer = None
         try:
             rMakeServer = server.rMakeServer(cfg.getServerUri(), cfg,
@@ -109,9 +109,11 @@ class rMakeDaemon(daemon.Daemon):
 
 def main(argv):
     d = rMakeDaemon()
+    if '--debug-all' or '-d' in argv:
+        sys.excepthook = util.genExcepthook(debug=True, debugCtrlC=True)
     try:
         compat.checkRequiredVersions()
-        rc = d.main(argv)
+        rc = d.mainWithExceptionHandling(argv)
         sys.exit(rc)
     except options.OptionError, err:
         d.usage()
