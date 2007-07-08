@@ -196,6 +196,9 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
         url = self.translateUrl(self.reposUrl)
         return { self.reposName : url }
 
+    def getRepositoryUrl(self):
+        return self.translateUrl(self.reposUrl)
+
     def translateUrl(self, url):
         type, host = urllib.splittype(url)
         host, rest = urllib.splithost(host)

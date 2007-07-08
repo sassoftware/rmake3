@@ -33,6 +33,7 @@ from conary.repository.netrepos.netserver import NetworkRepositoryServer
 from conary.repository.netrepos import netauth, netserver
 from conary.server import schema, server
 
+from rmake import errors
 from rmake.lib import daemon
 from rmake.lib import logfile
 from rmake.server import servercfg
@@ -76,6 +77,8 @@ def startRepository(cfg, fork = True, logger=None):
         serverCfg.useSSL = cfg.reposRequiresSsl()
         serverCfg.sslCert = cfg.sslCertPath
         serverCfg.sslKey = cfg.sslCertPath
+    elif cfg.reposRequiresSsl():
+        raise errors.RmakeError('Tried to start repository at %s, but missing ssl server library: Please install m2crypto' % (cfg.getRepositoryUrl(),))
 
     (driver, database) = serverCfg.repositoryDB
     db = dbstore.connect(database, driver)
