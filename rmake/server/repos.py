@@ -31,7 +31,20 @@ from conary.repository import errors
 from conary.repository import netclient
 from conary.repository.netrepos.netserver import NetworkRepositoryServer
 from conary.repository.netrepos import netauth, netserver
-from conary.server import schema, server
+oldExcepthook = sys.excepthook
+try:
+    from conary.server import server
+except:
+    # some versions of conary.server.server set the sys.excepthook 
+    # at the import level.  But it has important classes that I must
+    # use as a library.  So I make sure to reset the excepthook after importing
+    # it.
+    sys.excepthook = oldExcepthook
+    raise
+
+sys.excepthook = oldExcepthook
+
+from conary.server import schema
 
 from rmake import errors
 from rmake.lib import daemon

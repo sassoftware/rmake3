@@ -23,6 +23,8 @@ Changes in @NEWS@:
        in rMake 1.0.9. (RMK-473)
      * rMake now complains if the user tries to start a repository that requires
        ssl without having ssl installed. (RMK-480)
+     * The rMake server will no longer drop to an epdb prompt on error when 
+       started in daemon mode. (RMK-474)
 Changes in 1.0.9:
   o Server Changes:
      * Added some security enhancements that will make it feasible for
