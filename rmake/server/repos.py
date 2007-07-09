@@ -27,10 +27,10 @@ from conary import conarycfg
 from conary import conaryclient
 from conary import dbstore
 from conary.lib import cfg, cfgtypes, log, util
-from conary.repository import errors
 from conary.repository import netclient
 from conary.repository.netrepos.netserver import NetworkRepositoryServer
 from conary.repository.netrepos import netauth, netserver
+from conary.repository.errors import UserNotFound
 oldExcepthook = sys.excepthook
 try:
     from conary.server import server
@@ -211,7 +211,7 @@ def addUser(cfg, name, password=None, write=False):
     netRepos = NetworkRepositoryServer(cfg, baseUrl)
     try:
         netRepos.auth.userAuth.getUserIdByName(name)
-    except errors.UserNotFound: # yuck, we need a hasUser interface
+    except UserNotFound: # yuck, we need a hasUser interface
         pass
     else:
         netRepos.auth.deleteUserByName(name)
