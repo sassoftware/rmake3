@@ -190,6 +190,7 @@ def startProxy(cfg, fork = True, logger=None):
 def pingServer(cfg, proxyUrl=None):
     conaryCfg = conarycfg.ConaryConfiguration(False)
     conaryCfg.repositoryMap = cfg.getRepositoryMap()
+    conaryCfg.user = cfg.reposUser
     if proxyUrl:
         conaryCfg.conaryProxy = {'http'  : proxyUrl,
                                  'https' : proxyUrl}
