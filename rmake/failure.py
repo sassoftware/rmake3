@@ -168,11 +168,11 @@ class MissingBuildreqs(FailureReason):
         return 'Could not satisfy build requirements: %s' % data
 
     def _freezeData(self):
-        return ','.join("%s=%s[%s]" % x for x in self.data)
+        return '\000'.join("%s=%s[%s]" % x for x in self.data)
 
     @classmethod
     def _thawData(class_, data):
-        return [cmdline.parseTroveSpec(x) for x in data.split(',')]
+        return [cmdline.parseTroveSpec(x) for x in data.split('\000')]
 
 class MissingDependencies(FailureReason):
     tag = FAILURE_REASON_DEP
