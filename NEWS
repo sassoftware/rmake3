@@ -25,6 +25,8 @@ Changes in @NEWS@:
        ssl without having ssl installed. (RMK-480)
      * The rMake server will no longer drop to an epdb prompt on error when 
        started in daemon mode. (RMK-474)
+     * Fixed a bug in freezing that kept builds w/ failures involving build
+       requirements that specified more than one flavor from being viewed.
 Changes in 1.0.9:
   o Server Changes:
      * Added some security enhancements that will make it feasible for
