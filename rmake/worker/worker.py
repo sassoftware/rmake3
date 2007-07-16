@@ -227,15 +227,20 @@ class Worker(server.Server):
         return command
 
     def _pidDied(self, pid, status, name=None):
+        if name is None:
+            name = self._pids.get(pid, 'Unknown')
+        self.info('Pid %s (%s) died' % (pid, name))
         for command in list(self.commands):
             if pid == command.pid:
                 self._foundResult = True
                 command.commandDied(status)
                 if command.isErrored():
+                    self.info('%s (Pid %s) errored' % (name, pid))
                     f = command.getFailureReason()
                     self.error(f)
                     self.commandErrored(command.getCommandId(), f)
                 else:
+                    self.info('%s (Pid %s) completed' % (name, pid))
                     self.commandCompleted(command.getCommandId())
                 if command.getChrootFactory():
                     self.chrootManager.chrootFinished(
