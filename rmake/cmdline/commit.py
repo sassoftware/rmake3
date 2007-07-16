@@ -6,6 +6,7 @@ Commit command
 """
 import itertools
 
+from conary.trove import Trove
 from conary.build.cook import signAbsoluteChangeset
 from conary.lib import log
 from conary.conaryclient import callbacks
@@ -142,6 +143,12 @@ def commitJobs(conaryclient, jobList, reposName, message=None,
                                         callback=callback, fullRecurse=False)
     if passed:
         for troveCs in cs.iterNewTroveList():
+            trv = Trove(troveCs)
+            for _, childVersion, _ in trv.iterTroveList(strongRefs=True,
+                                                        weakRefs=True):
+                # make sure there are not 
+                onRepos = childVersion.getHost() == reposName
+                assert not onRepos, "Trove %s references repository" % trv
             n,v,f = troveCs.getNewNameVersionFlavor()
             trove, troveVersion = trovesByNBF[n, v.branch(), f]
             troveNVFC = trove.getNameVersionFlavor(withContext=True)
