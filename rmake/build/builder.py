@@ -214,6 +214,7 @@ class Builder(object):
     def resolveIfReady(self):
         resolveJob = self.dh.getNextResolveJob()
         if resolveJob:
+            resolveJob.getTrove().troveQueued('Ready for dep resolution')
             resolveJob.getTrove().disown()
             self.worker.resolve(resolveJob, self.eventHandler)
             return True
