@@ -54,6 +54,7 @@ class AbstractBuildState(object):
         return (trove in self.states[buildtrove.TROVE_STATE_INIT]
                 or trove in self.states[buildtrove.TROVE_STATE_BUILDABLE]
                 or trove in self.states[buildtrove.TROVE_STATE_BUILDING]
+                or trove in self.states[buildtrove.TROVE_STATE_PREBUILT]
                 or trove in self.states[buildtrove.TROVE_STATE_WAITING])
 
     def isBuilt(self, trove):

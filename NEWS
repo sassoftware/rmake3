@@ -30,6 +30,9 @@ Changes in @NEWS@:
        started in daemon mode. (RMK-474)
      * Fixed a bug in freezing that kept builds w/ failures involving build
        requirements that specified more than one flavor from being viewed.
+     * Fixed a bug in restarting jobs that would cause runtime dependencies
+       to not be added onto prebuilt packages, thus causing poor build 
+       ordering. (RMK-498)
 Changes in 1.0.9:
   o Server Changes:
      * Added some security enhancements that will make it feasible for
