@@ -63,6 +63,40 @@ class ResolveJob(object):
         return self
 register(ResolveJob)
 
+class DependencyGraph(graph.DirectedGraph):
+    def generateDotFile(self, out):
+        def formatNode(node):
+            name, version, flavor, context = node.getNameVersionFlavor(True)
+            name = name.split(':')[0]
+            versionStr = '%s' % (version.trailingRevision())
+            archFlavor = flavorutil.getArchFlags(flavor, withFlags=False)
+            restFlavor = flavorutil.removeInstructionSetFlavor(flavor)
+            archFlavor.union(restFlavor)
+            if context:
+                contextStr = '{%s}' % context
+            else:
+                contextStr = ''
+            return '%s=%s[%s]%s' % (name, versionStr, archFlavor, contextStr)
+
+        def formatEdge(fromNode, toNode, value):
+            isCross = value[0]
+            if isinstance(value[1][0], str):
+                name, version, flavor = value[1]
+                if version:
+                    version = '=%s' % version
+                else:
+                    version = ''
+                if flavor is not None:
+                    flavor = '[%s]' % flavor
+                else:
+                    flavor = ''
+                buildReq = '%s%s%s' % (name, version,flavor)
+                return str(buildReq)
+            else:
+                return str(value[1])
+
+        graph.DirectedGraph.generateDotFile(self, out, formatNode, formatEdge)
+
 
 class DependencyBasedBuildState(AbstractBuildState):
     """
@@ -76,7 +110,7 @@ class DependencyBasedBuildState(AbstractBuildState):
         self.buildReqTroves = {}
         self.groupsByNameVersion = {}
 
-        self.depGraph = graph.DirectedGraph()
+        self.depGraph = DependencyGraph()
         self.builtTroves = {}
         self.rejectedDeps = {}
         self.disallowed = set()
