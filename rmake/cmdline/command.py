@@ -172,6 +172,7 @@ class BuildCommand(rMakeCommand):
                               'sources on that branch with the same flavor'),
             'reuse':    ('reuse old chroot if possible instead of removing'
                          ' and recreating'),
+            'info'    : ('Gather and display all the information necessary to perform the build'),
             'recurse':  ('recurse groups, building all included sources')}
 
     def addParameters(self, argDef):
@@ -179,6 +180,7 @@ class BuildCommand(rMakeCommand):
         argDef['host'] = MULT_PARAM
         argDef['label'] = MULT_PARAM
         argDef['quiet'] = NO_PARAM
+        argDef['info'] = NO_PARAM
         argDef['commit'] = NO_PARAM
         argDef['macro'] = MULT_PARAM
         argDef['match'] = MULT_PARAM
@@ -225,6 +227,7 @@ class BuildCommand(rMakeCommand):
         labels = argSet.pop('label', [])
         quiet = argSet.pop('quiet', False)
         commit  = argSet.pop('commit', False)
+        infoOnly  = argSet.pop('info', False)
         recurseGroups = argSet.pop('recurse', False) or command == 'buildgroup'
 
         if recurseGroups:
@@ -243,7 +246,10 @@ class BuildCommand(rMakeCommand):
                                    limitToHosts=hosts, limitToLabels=labels,
                                    recurseGroups=recurseGroups,
                                    matchSpecs=matchSpecs,
-                                   quiet=quiet)
+                                   quiet=quiet,
+                                   infoOnly=infoOnly)
+        if infoOnly:
+            return 0
         if quiet:
             print jobId
         if monitorJob:

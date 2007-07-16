@@ -157,7 +157,7 @@ class rMakeHelper(object):
     def buildTroves(self, troveSpecList,
                     limitToHosts=None, limitToLabels=None, recurseGroups=False,
                     buildConfig=None, configDict=None, matchSpecs=None,
-                    quiet=False):
+                    quiet=False, infoOnly=False):
         if buildConfig is None:
             buildConfig = self.buildConfig
         job = buildcmd.getBuildJob(buildConfig,
@@ -169,6 +169,9 @@ class rMakeHelper(object):
                                    configDict=configDict,
                                    matchSpecs=matchSpecs)
 
+        if infoOnly:
+            verbose = log.getVerbosity() <= log.DEBUG
+            return buildcmd.displayBuildInfo(job, verbose=verbose)
         jobId = self.client.buildJob(job)
         if not quiet:
             print 'Added Job %s' % jobId
@@ -180,6 +183,29 @@ class rMakeHelper(object):
                 print '  %s=%s/%s%s' % (n, v.trailingLabel(),
                                            v.trailingRevision(), f)
         return jobId
+
+    def displayBuildInfo(self, ):
+        job = buildcmd.getBuildJob(buildConfig,
+                                   self.getConaryClient(buildConfig),
+                                   troveSpecList,
+                                   limitToHosts=limitToHosts,
+                                   limitToLabels=None,
+                                   recurseGroups=recurseGroups,
+                                   configDict=configDict,
+                                   matchSpecs=matchSpecs)
+
+
+
+        if buildConfig is None:
+            buildConfig = self.buildConfig
+        job = buildcmd.getBuildJob(buildConfig,
+                                   self.getConaryClient(buildConfig),
+                                   troveSpecList,
+                                   limitToHosts=limitToHosts,
+                                   limitToLabels=None,
+                                   recurseGroups=recurseGroups,
+                                   configDict=configDict,
+                                   matchSpecs=matchSpecs)
 
     def stopJob(self, jobId):
         """

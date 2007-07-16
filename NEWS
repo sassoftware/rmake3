@@ -14,6 +14,9 @@ Changes in @NEWS@:
      * The rMakeHelper program no longer depends on reading in the server
        configuration file for determining where the rmake server is.
      * rMake now allows you to shorten group flavors (RMK-466)
+     * build now takes an --info command that shows useful information about
+       exactly what rmake is building.  With the --verbose parameter added,
+       it also displays configurations used. (RMK-456)
   o Bug Fixes:
      * Fixed a bug that caused the chroot to possibly contain different troves
        than resolved. (RMK-447)
