@@ -46,7 +46,8 @@ class rMakeCommand(options.AbstractCommand):
                                     "Read PATH config file", "PATH"),
             'skip-default-config': (VERBOSE_HELP,
                                     "Don't read default configs"),
-           }
+            'verbose'            : (VERBOSE_HELP,
+                                    "Display more detailed information where available") }
 
     def addParameters(self, argDef):
         d = {}
@@ -57,6 +58,7 @@ class rMakeCommand(options.AbstractCommand):
         d["build-config-file"] = MULT_PARAM
         d["conary-config-file"] = MULT_PARAM
         d["skip-default-config"] = NO_PARAM
+        d["verbose"] = NO_PARAM
         argDef[self.defaultGroup] = d
 
     def processConfigOptions(self, (buildConfig, conaryConfig, pluginManager), 
@@ -96,6 +98,8 @@ class rMakeCommand(options.AbstractCommand):
 
         for line in argSet.pop('server-config', []):
             serverConfig.configLine(line)
+        if argSet.pop('verbose', False):
+            log.setVerbosity(log.DEBUG)
 
     def requireParameters(self, args, expected=None, allowExtra=False,
                           appendExtra=False, maxExtra=None):
@@ -197,7 +201,10 @@ class BuildCommand(rMakeCommand):
 
 
     def runCommand(self, client, cfg, argSet, args):
-        log.setVerbosity(log.INFO)
+        if self.verbose:
+            log.setVerbosity(log.DEBUG)
+        else:
+            log.setVerbosity(log.INFO)
         command, troveSpecs = self.requireParameters(args, 'troveSpec',
                                                      appendExtra=True)
         flavorSpec = argSet.pop('flavor', None)

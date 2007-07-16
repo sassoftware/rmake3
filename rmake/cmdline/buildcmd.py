@@ -158,11 +158,8 @@ def getTrovesToBuild(cfg, conaryclient, troveSpecList, limitToHosts=None, limitT
 
         s = toFind.setdefault((sourceName, troveSpec[1], None), [])
         if troveSpec[2] not in s:
-            log.debug("building troveSpec: %s", troveSpec)
             s.append(troveSpec[2])
 
-    log.debug("using buildLabel: %s", cfg.buildLabel)
-    log.debug("using installLabelPath (for finding dep troves): %s", cfg.installLabelPath)
 
     results = repos.findTroves(cfg.buildLabel, toFind, None)
 

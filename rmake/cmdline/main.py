@@ -37,6 +37,8 @@ class RmakeMain(options.MainHandler):
     abstractCommand = command.rMakeCommand
     configClass = buildcfg.BuildConfiguration
 
+    useConaryOptions = False
+
     commandList = command._commands
 
     def usage(self, rc=1, showAll=False):
