@@ -208,6 +208,7 @@ class TroveSourceMesh(trovesource.SearchableTroveSource):
         return resultD
 
     def _call(self, fn, query, *args, **kw):
+        query = dict(query)
         d1 = getattr(self.source, fn)(query, *args, **kw)
         result = {}
         self._mergeTroveQuery(result, d1)
