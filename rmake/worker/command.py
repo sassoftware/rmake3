@@ -399,6 +399,8 @@ class ResolveCommand(TroveCommand):
         self.resolveJob = resolveJob
 
     def runTroveCommand(self):
+
+        self.logger.debug('Resolving')
         self.trove.troveResolvingBuildReqs(self.cfg.getName())
         client = conaryclient.ConaryClient(self.resolveJob.getConfig())
         repos = client.getRepos()
@@ -407,7 +409,9 @@ class ResolveCommand(TroveCommand):
                                                  self.cfg.getCacheDir())
         self.resolver = resolver.DependencyResolver(self.logger, repos)
         resolveResult = self.resolver.resolve(self.resolveJob)
+        self.logger.debug('Resolve finished, sending back result')
         self.trove.troveResolved(resolveResult)
+        self.logger.debug('Result sent')
 
 class PipePublisher(subscriber._RmakePublisherProxy):
     """
