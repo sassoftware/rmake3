@@ -148,8 +148,8 @@ def getRecipeObj(repos, name, version, flavor, recipeFile,
                                                buildFlavor=flavor)[0]
         recipeClass = loader.getRecipe()
     if recipe.isGroupRecipe(recipeClass):
-        recipeObj = recipeClass(repos, cfg, buildLabel, None,
-                                {'buildlabel' : buildLabel.asString()})
+        recipeObj = recipeClass(repos, cfg, buildLabel, None, None,
+                            extraMacros={'buildlabel' : buildLabel.asString()})
         recipeObj.sourceVersion = version
         recipeObj.setup()
         if groupRecipeSource:
