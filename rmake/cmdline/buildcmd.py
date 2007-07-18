@@ -574,53 +574,60 @@ def _findSourcesForSourceGroup(repos, cfg, groupsToFind,
     allTups = [ x for x in allTups if not x[0].startswith('group-') ]
     return allTups
 
-def displayBuildInfo(job, verbose=False):
+def displayBuildInfo(job, verbose=False, quiet=False):
     trovesByContext = {}
     configDict = job.getConfigDict()
     for (n,v,f, context) in sorted(job.iterTroveList(withContexts=True)):
         trovesByContext.setdefault(context, []).append((n,v,f))
-    if '' not in trovesByContext:
-        print '\n{Default Context}\n'
-        config = configDict['']
-        if verbose:
-            config.setDisplayOptions(hidePasswords=True)
-            config.display()
-        else:
-            config.displayKey('copyInConary')
-            config.displayKey('copyInConfig')
+    if not quiet:
+        if '' not in trovesByContext:
+            print '\n{Default Context}\n'
+            config = configDict['']
+            if verbose:
+                config.setDisplayOptions(hidePasswords=True)
+                config.display()
+            else:
+                config.displayKey('copyInConary')
+                config.displayKey('copyInConfig')
 
     for context, troveList in sorted(trovesByContext.iteritems()):
-        config = configDict[context]
-        if not context:
-            print '\n{Default Context}\n'
-        else:
-            print '\n{%s}\n' % context
-        print 'ResolveTroves:'
-        for idx, resolveTroveList in enumerate(config.resolveTroveTups):
-            print ''
-            for n,v,f in sorted(resolveTroveList):
-                print '%s=%s[%s]' % (n, v, f)
-        print ''
-        print 'Configuration:'
-        if verbose:
-            config.setDisplayOptions(hidePasswords=True)
-            config.display()
-        else:
+        if not quiet:
+            config = configDict[context]
             if not context:
-                config.displayKey('copyInConfig')
-                config.displayKey('copyInConary')
-            config.displayKey('buildFlavor')
-            config.displayKey('flavor')
-            config.displayKey('installLabelPath')
-            config.displayKey('repositoryMap')
-            config.displayKey('resolveTrovesOnly')
-        print ''
-        print 'Building:'
+                print '\n{Default Context}\n'
+            else:
+                print '\n{%s}\n' % context
+            print 'ResolveTroves:'
+            for idx, resolveTroveList in enumerate(config.resolveTroveTups):
+                print ''
+                for n,v,f in sorted(resolveTroveList):
+                    print '%s=%s[%s]' % (n, v, f)
+            print ''
+            print 'Configuration:'
+            if verbose:
+                config.setDisplayOptions(hidePasswords=True)
+                config.display()
+            else:
+                if not context:
+                    config.displayKey('copyInConfig')
+                    config.displayKey('copyInConary')
+                config.displayKey('buildFlavor')
+                config.displayKey('flavor')
+                config.displayKey('installLabelPath')
+                config.displayKey('repositoryMap')
+                config.displayKey('resolveTrovesOnly')
+            print ''
+            print 'Building:'
         for n,v,f in troveList:
             if f is not None and not f.isEmpty():
                 f = '[%s]' % f
             else:
                 f = ''
-            print '  %s=%s/%s%s' % (n, v.trailingLabel(),
-                                       v.trailingRevision(), f)
+            if context:
+                contextStr = '{%s}' % context
+            else:
+                contextStr = ''
+            print '%s=%s/%s%s%s' % (n, v.trailingLabel(),
+                                    v.trailingRevision(), f,
+                                    contextStr)
 

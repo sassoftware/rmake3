@@ -171,7 +171,8 @@ class rMakeHelper(object):
 
         if infoOnly:
             verbose = log.getVerbosity() <= log.DEBUG
-            return buildcmd.displayBuildInfo(job, verbose=verbose)
+            return buildcmd.displayBuildInfo(job, verbose=verbose,
+                                             quiet=quiet)
         jobId = self.client.buildJob(job)
         if not quiet:
             print 'Added Job %s' % jobId
@@ -183,29 +184,6 @@ class rMakeHelper(object):
                 print '  %s=%s/%s%s' % (n, v.trailingLabel(),
                                            v.trailingRevision(), f)
         return jobId
-
-    def displayBuildInfo(self, ):
-        job = buildcmd.getBuildJob(buildConfig,
-                                   self.getConaryClient(buildConfig),
-                                   troveSpecList,
-                                   limitToHosts=limitToHosts,
-                                   limitToLabels=None,
-                                   recurseGroups=recurseGroups,
-                                   configDict=configDict,
-                                   matchSpecs=matchSpecs)
-
-
-
-        if buildConfig is None:
-            buildConfig = self.buildConfig
-        job = buildcmd.getBuildJob(buildConfig,
-                                   self.getConaryClient(buildConfig),
-                                   troveSpecList,
-                                   limitToHosts=limitToHosts,
-                                   limitToLabels=None,
-                                   recurseGroups=recurseGroups,
-                                   configDict=configDict,
-                                   matchSpecs=matchSpecs)
 
     def stopJob(self, jobId):
         """
