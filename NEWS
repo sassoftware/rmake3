@@ -16,7 +16,7 @@ Changes in @NEWS@:
      * rMake now allows you to shorten group flavors (RMK-466)
      * build now takes an --info command that shows useful information about
        exactly what rmake is building.  With the --verbose parameter added,
-       it also displays configurations used. (RMK-456)
+       it also displays configurations used. (RMK-456, RMK-500)
   o Bug Fixes:
      * Fixed a bug that caused the chroot to possibly contain different troves
        than resolved. (RMK-447)
@@ -34,6 +34,8 @@ Changes in @NEWS@:
        to not be added onto prebuilt packages, thus causing poor build 
        ordering. (RMK-498)
      * rMake now works with r.macros.buildlabel in group recipes.
+     * The monitor plugin now defaults to using the standard monitor if 
+       stdin + stdout are not ttys.
 Changes in 1.0.9:
   o Server Changes:
      * Added some security enhancements that will make it feasible for

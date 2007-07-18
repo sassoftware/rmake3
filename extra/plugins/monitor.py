@@ -7,10 +7,13 @@ Monitor replacement under test.
 This monitor replacement is better for jobs that are building many troves at
 once.  It doesn't try to print all of their logs at once.
 """
+import fcntl
+import os
 import select
 import sys
 import time
 import tempfile
+import termios
 import traceback
 
 from conary.lib import util
@@ -23,16 +26,16 @@ from rmake.lib.apiutils import thaw, freeze
 from rmake.lib import rpclib, localrpc
 from rmake.subscribers import xmlrpc
 
-import termios
-import fcntl
-import os
 
 from rmake.plugins import plugin
 
 class MonitorPlugin(plugin.ClientPlugin):
     def client_preInit(self, main, argv):
         from rmake.cmdline import monitor
-        monitor.monitorJob = monitorJob
+        if sys.stdout.isatty() and sys.stdin.isatty():
+            monitor.monitorJob = monitorJob
+
+
 
 def set_raw_mode():
     fd = sys.stdin.fileno()
