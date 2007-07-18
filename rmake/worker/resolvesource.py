@@ -219,6 +219,9 @@ class TroveSourceMesh(trovesource.SearchableTroveSource):
         self._mergeTroveQuery(result, d2)
         return result
 
+    def getTroveLatestByLabel(self, query, *args, **kw):
+        return self._call('getTroveLatestByLabel', query, *args, **kw)
+
     def getTroveLeavesByLabel(self, query, *args, **kw):
         return self._call('getTroveLeavesByLabel', query, *args, **kw)
 
