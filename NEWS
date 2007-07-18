@@ -1,4 +1,4 @@
-Changes in @NEWS@:
+Changes in 1.0.10:
   o Build Changes:
      * If two troves already have a dependency relationship caused by
        build requirements, rMake will now ignore runtime requirements.  This
