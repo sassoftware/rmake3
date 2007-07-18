@@ -68,6 +68,11 @@ If you add the \-\-binary-search option with buildgroup, rMake will instead find
 
 .RS 4
 .TP
+.B \-\-commit
+After the build finishes successfully, commit the build.  This is like running
+rmake build <job> followed by rmake commit <jobId>.  If the build does not
+complete successfully, the commit is not performed.
+.TP
 .B \-\-flavor=FLAVOR
 Specify the flavor to build with.  For example, rMake uses this parameter to 
 support building x86 packages on x86_64 systems.  To build x86 troves on an
