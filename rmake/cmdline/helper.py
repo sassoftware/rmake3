@@ -12,6 +12,7 @@ import copy
 import itertools
 from optparse import OptionParser
 import os
+import socket
 import sys
 import tempfile
 import time
@@ -384,14 +385,20 @@ class rMakeHelper(object):
             Creates a silent subscriber that returns when the job is finished.
             @rtype: None
         """
-        fd, tmpPath = tempfile.mkstemp()
-        os.close(fd)
-        uri = 'unix://' + tmpPath
+        if self.client.uri.startswith('unix://'):
+            fd, tmpPath = tempfile.mkstemp()
+            os.close(fd)
+            uri = 'unix://' + tmpPath
+        else:
+            host = socket.gethostname()
+            uri = 'http://%s' % host
+            tmpPath = None
         try:
             jobMonitor = monitor.waitForJob(self.client, jobId, uri)
             return not self.client.getJob(jobId, withTroves=False).isFailed()
         finally:
-            os.remove(tmpPath)
+            if tmpPath:
+                os.remove(tmpPath)
 
     def startChrootSession(self, host, chroot, command, superUser=False):
         chrootConnection = self.client.connectToChroot(host, chroot,
@@ -431,9 +438,14 @@ class rMakeHelper(object):
             commit requested).
             @rtype: bool
         """
-        fd, tmpPath = tempfile.mkstemp()
-        os.close(fd)
-        uri = 'unix://' + tmpPath
+        if self.client.uri.startswith('unix://'):
+            fd, tmpPath = tempfile.mkstemp()
+            os.close(fd)
+            uri = 'unix://' + tmpPath
+        else:
+            host = socket.gethostname()
+            uri = 'http://%s' % host
+            tmpPath = None
         try:
             try:
                 jobMonitor = monitor.monitorJob(self.client, jobId, uri,
@@ -448,7 +460,8 @@ class rMakeHelper(object):
                 return self.commitJob(jobId, commitWithFailures=False)
             return not self.client.getJob(jobId, withTroves=False).isFailed()
         finally:
-            os.remove(tmpPath)
+            if tmpPath:
+                os.remove(tmpPath)
     poll = watch # backwards compatibility
 
 

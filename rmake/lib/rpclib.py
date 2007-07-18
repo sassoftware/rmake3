@@ -303,6 +303,7 @@ class DelayableXMLRPCServer(DelayableXMLRPCDispatcher, SimpleXMLRPCServer):
         fcntl.fcntl(self.socket.fileno(), fcntl.FD_CLOEXEC)
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,1)
         SimpleXMLRPCServer.server_bind(self)
+        self.port = self.socket.getsockname()[1]
         if self.ssl:
             if SSL is None:
                 print "Please install m2crypto"
@@ -310,6 +311,9 @@ class DelayableXMLRPCServer(DelayableXMLRPCDispatcher, SimpleXMLRPCServer):
             ctx = SSL.Context("sslv23")
             ctx.load_cert_chain(self.sslCert, self.sslCert)
             self.socket = SSL.Connection(ctx, self.socket)
+
+    def getPort(self):
+        return self.port
 
     def handle_request(self):
         try:
@@ -332,4 +336,3 @@ class UnixDomainDelayableXMLRPCServer(DelayableXMLRPCDispatcher,
             umask = os.umask(0)
             SocketServer.UnixStreamServer.__init__(self, path, requestHandler)
             os.umask(umask)
-

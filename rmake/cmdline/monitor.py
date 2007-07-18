@@ -153,14 +153,14 @@ class XMLRPCJobLogReceiver(object):
                     util.removeIfExists(url)
                     serverObj = rpclib.UnixDomainDelayableXMLRPCServer(url,
                                                        logRequests=False)
-                elif type == 'http':
+                elif type in ('http', 'https'):
                     # path is ignored with simple server.
                     host, path = urllib.splithost(url)
                     if ':' in host:
                         host, port = urllib.splitport(host)
                         port = int(port)
                     else:
-                        port = 80
+                        port = 0
                     serverObj = rpclib.DelayableXMLRPCServer((host, port))
                 else:
                     raise NotImplmentedError
@@ -219,3 +219,4 @@ class XMLRPCJobLogReceiver(object):
             if rv is None:
                 rv = ''
             responseHandler.sendResponse(rv)
+

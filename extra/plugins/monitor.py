@@ -570,7 +570,6 @@ class XMLRPCJobLogReceiver(object):
     def __init__(self, uri=None, client=None,
                  displayManagerClass=DisplayManager,
                  showTroveLogs=False, showBuildLogs=False, out=None):
-        self.uri = uri
         self.client = client
         self.showTroveLogs = showTroveLogs
         self.showBuildLogs = showBuildLogs
@@ -591,8 +590,11 @@ class XMLRPCJobLogReceiver(object):
                         host, port = urllib.splitport(host)
                         port = int(port)
                     else:
-                        port = 80
+                        port = 0
                     serverObj = rpclib.DelayableXMLRPCServer((host, port))
+                    if not port:
+                        uri = '%s://%s:%s' % (type, host,
+                                                   serverObj.getPort())
                 else:
                     raise NotImplmentedError
             else:
@@ -603,6 +605,7 @@ class XMLRPCJobLogReceiver(object):
                                            showBuildLogs=showBuildLogs, 
                                            out=out)
 
+        self.uri = uri
         if serverObj:
             serverObj.register_instance(self.manager)
 
