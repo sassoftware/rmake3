@@ -162,11 +162,14 @@ class XMLRPCJobLogReceiver(object):
                     else:
                         port = 0
                     serverObj = rpclib.DelayableXMLRPCServer((host, port))
+                    if not port:
+                        uri = '%s://%s:%s' % (type, host,
+                                                   serverObj.getPort())
                 else:
                     raise NotImplmentedError
             else:
                 serverObj = uri
-
+        self.uri = uri
         self.server = serverObj
         self.display = displayClass(self.client, showBuildLogs=showBuildLogs, 
                                     out=out)

@@ -385,7 +385,8 @@ class rMakeHelper(object):
             Creates a silent subscriber that returns when the job is finished.
             @rtype: None
         """
-        if self.client.uri.startswith('unix://'):
+        if (not isinstance(self.client.uri, str)
+            or self.client.uri.startswith('unix://')):
             fd, tmpPath = tempfile.mkstemp()
             os.close(fd)
             uri = 'unix://' + tmpPath
