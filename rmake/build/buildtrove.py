@@ -100,7 +100,6 @@ class _AbstractBuildTrove:
         self.delayedRequirements = set()
         self.crossRequirements = set()
         self.builtTroves = set()
-        self.loadedSpecs = {}
         self.loadedSpecsList = [{}]
         self.packages = set([name.split(':')[0]])
         self.state = state
@@ -301,7 +300,7 @@ class _AbstractBuildTrove:
         return dict(self.loadedSpecsList[0])
 
     def iterAllLoadedSpecs(self):
-        stack = [self.loadedSpecs]
+        stack = [self.getLoadedSpecs()]
         while stack:
             specDict = stack.pop()
             for troveSpec, (troveTup, subLoadDict) in specDict.iteritems():
