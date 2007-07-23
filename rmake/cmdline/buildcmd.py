@@ -8,7 +8,7 @@ import os
 import shutil
 import tempfile
 
-from conary.build import cook, grouprecipe
+from conary.build import cook, grouprecipe, use
 from conary.build.cook import signAbsoluteChangeset
 from conary.conaryclient import cmdline
 from conary.deps import deps
@@ -72,6 +72,7 @@ def getBuildJob(buildConfig, conaryclient, troveSpecList, limitToHosts=None,
                 cfg.setContext(context)
             cfg.dropContexts()
             cfg.initializeFlavors()
+            use.setBuildFlagsFromFlavor(None, cfg.buildFlavor, error=False)
         else:
             cfg = job.getMainConfig()
             contextStr = ''
