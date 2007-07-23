@@ -29,11 +29,11 @@ class ChrootServer(apirpc.XMLApiServer):
 
     @api(version=1)
     @api_parameters(1, 'BuildConfiguration', 'label',
-                       'str', 'version', 'flavorList', 'LoadSpecs',
+                       'str', 'version', 'flavorList', 'LoadSpecsList',
                        'troveTupleList', None)
     @api_return(1, None)
     def buildTrove(self, callData, buildCfg, targetLabel,
-                   name, version, flavorList, loadSpecs, builtTroves,
+                   name, version, flavorList, loadSpecsList, builtTroves,
                    logData):
         flavorList = tuple(flavorList)
         buildCfg.root = self.cfg.root
@@ -69,7 +69,7 @@ class ChrootServer(apirpc.XMLApiServer):
                                         readOnly=True)
         logPath, pid, buildInfo = cook.cookTrove(buildCfg, repos, self._logger,
                                                  name, version, flavorList,
-                                                 targetLabel, loadSpecs,
+                                                 targetLabel, loadSpecsList,
                                                  builtTroves, logData)
         pid = buildInfo[1]
         self._buildInfo[name, version, flavorList] = buildInfo

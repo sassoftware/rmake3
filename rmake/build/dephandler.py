@@ -212,8 +212,10 @@ class DependencyBasedBuildState(AbstractBuildState):
             if len(troveList) <= 1:
                 continue
             flavorList = [ x.getFlavor() for x in troveList ]
+            loadedSpecsList = [ x.getLoadedSpecs() for x in troveList ]
             headNode = troveList[0]
             troveList[0].setFlavorList(flavorList)
+            troveList[0].setLoadedSpecsList(loadedSpecsList)
             self.mergeNodes(troveList, troveList[0])
             # mark the rest as prebuilt
             # yuck, we haven't subscribed to these troves yet.

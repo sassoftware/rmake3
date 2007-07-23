@@ -101,6 +101,7 @@ class _AbstractBuildTrove:
         self.crossRequirements = set()
         self.builtTroves = set()
         self.loadedSpecs = {}
+        self.loadedSpecsList = [{}]
         self.packages = set([name.split(':')[0]])
         self.state = state
         self.status = status
@@ -138,6 +139,12 @@ class _AbstractBuildTrove:
 
     def getFlavorList(self):
         return self.flavorList
+
+    def getLoadedSpecsList(self):
+        return self.loadedSpecsList
+
+    def setLoadedSpecsList(self, loadedSpecsList):
+        self.loadedSpecsList = [dict(x) for x in loadedSpecsList]
 
     def setFlavorList(self, flavorList):
         self.flavorList = flavorList
@@ -267,7 +274,7 @@ class _AbstractBuildTrove:
         self.crossRequirements = set(crossReqs)
 
     def setLoadedSpecs(self, loadedSpecs):
-        self.loadedSpecs = dict(loadedSpecs)
+        self.loadedSpecsList = [dict(loadedSpecs)]
 
     def addBuildRequirements(self, buildReqs):
         self.buildRequirements.update(buildReqs)
@@ -291,7 +298,7 @@ class _AbstractBuildTrove:
                  for x in self.getCrossRequirements() ]
 
     def getLoadedSpecs(self):
-        return dict(self.loadedSpecs) 
+        return dict(self.loadedSpecsList[0])
 
     def iterAllLoadedSpecs(self):
         stack = [self.loadedSpecs]
@@ -363,7 +370,7 @@ class _FreezableBuildTrove(_AbstractBuildTrove):
                  'finish'            : 'float',
                  'chrootHost'        : 'str',
                  'chrootPath'        : 'str',
-                 'loadedSpecs'       : 'LoadSpecs',
+                 'loadedSpecsList'   : 'LoadSpecsList',
                  'flavorList'        : 'flavorList',
                  }
 
@@ -613,5 +620,15 @@ class LoadSpecs(object):
                 if newFrzDict:
                     stack.append((subLoadDict, newFrzDict))
         return d
-apiutils.register(LoadSpecs)
 
+apiutils.register(LoadSpecs)
+class LoadSpecsList(object):
+
+    @staticmethod
+    def __freeze__(loadSpecsList):
+        return [ apiutils.freeze('LoadSpecs', x) for x in loadSpecsList]
+
+    @staticmethod
+    def __thaw__(frzLoadSpecsList):
+        return [ apiutils.thaw('LoadSpecs', x) for x in frzLoadSpecsList ]
+apiutils.register(LoadSpecsList)

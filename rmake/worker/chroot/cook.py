@@ -2,6 +2,7 @@
 # Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
 #
 import errno
+import itertools
 import os
 import resource
 import signal
@@ -88,7 +89,7 @@ class CookResults(object):
 
 
 def cookTrove(cfg, repos, logger, name, version, flavorList, targetLabel,
-              loadSpecs=None, builtTroves=None, logData=None):
+              loadSpecsList=None, builtTroves=None, logData=None):
     if not isinstance(flavorList, (tuple, list)):
         flavorList = [flavorList]
     util.mkdirChain(cfg.root + '/tmp')
@@ -127,7 +128,7 @@ def cookTrove(cfg, repos, logger, name, version, flavorList, targetLabel,
                 log.setVerbosity(log.INFO)
                 log.info("Cook process started (pid %s)" % os.getpid())
                 _cookTrove(cfg, repos, name, version, flavorList, targetLabel,
-                           loadSpecs, builtTroves,
+                           loadSpecsList, builtTroves,
                            csFile, failureFd=outF, logger=logger)
             except Exception, msg:
                 if len(flavorList) > 1:
@@ -219,8 +220,8 @@ def _buildFailed(failureFd, errMsg, traceBack):
         os.close(failureFd)
     os._exit(1)
 
-def _cookTrove(cfg, repos, name, version, flavorList, targetLabel, loadSpecs,
-               builtTroves, csFile, failureFd, logger):
+def _cookTrove(cfg, repos, name, version, flavorList, targetLabel,
+               loadSpecsList, builtTroves, csFile, failureFd, logger):
     baseFlavor = cfg.buildFlavor
     db = database.Database(cfg.root, cfg.dbPath)
     if targetLabel:
@@ -232,8 +233,10 @@ def _cookTrove(cfg, repos, name, version, flavorList, targetLabel, loadSpecs,
 
     if not isinstance(flavorList, (tuple, list)):
         flavorList = [flavorList]
+    if not isinstance(loadSpecsList, (tuple, list)):
+        loadSpecsList = [loadSpecsList]
 
-    for flavor in flavorList:
+    for flavor, loadSpecs in itertools.izip(flavorList, loadSpecsList):
         try:
             logger.debug('Cooking %s=%s[%s] to %s (stored in %s)' % \
                          (name, version, flavor, targetLabel, csFile))

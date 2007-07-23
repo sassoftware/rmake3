@@ -262,7 +262,7 @@ class BuildCommand(TroveCommand):
         logPath, pid = self.chroot.buildTrove(self.buildCfg,
                                               self.targetLabel,
                                               n, v, flavorList,
-                                              trove.getLoadedSpecs(),
+                                              trove.getLoadedSpecsList(),
                                               self.builtTroves,
                                               self.logData)
         # sends off message that this trove is building.
