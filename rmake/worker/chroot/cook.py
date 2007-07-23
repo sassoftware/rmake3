@@ -234,7 +234,7 @@ def _cookTrove(cfg, repos, name, version, flavorList, targetLabel,
     if not isinstance(flavorList, (tuple, list)):
         flavorList = [flavorList]
     if not isinstance(loadSpecsList, (tuple, list)):
-        loadSpecsList = [loadSpecsList]
+        loadSpecsList = [loadSpecsList] * len(flavorList)
 
     for flavor, loadSpecs in itertools.izip(flavorList, loadSpecsList):
         try:
