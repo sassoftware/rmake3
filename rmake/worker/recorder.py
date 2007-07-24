@@ -40,7 +40,7 @@ class BuildLogRecorder(asyncore.dispatcher, server.Server):
 
     def openLogFile(self):
         util.mkdirChain(os.path.dirname(self.trove.logPath))
-        fd = os.open(self.trove.logPath, os.W_OK | os.O_CREAT)
+        fd = os.open(self.trove.logPath, os.W_OK | os.O_CREAT | os.O_APPEND)
         self.logPath = self.trove.logPath
         self.logFd = fd
 
