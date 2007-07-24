@@ -2,6 +2,7 @@
 # Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
 #
 
+import copy
 import itertools
 import os
 import tempfile
@@ -52,7 +53,8 @@ def getRecipes(repos, troveTups):
 
 def loadRecipe(repos, name, version, flavor, recipeFile=None,
                defaultFlavor=None, loadInstalledSource=None,
-               installLabelPath=None, buildLabel=None, groupRecipeSource=None):
+               installLabelPath=None, buildLabel=None, groupRecipeSource=None,
+               cfg=None):
     name = name.split(':')[0]
     try:
         if defaultFlavor is not None:
@@ -68,7 +70,8 @@ def loadRecipe(repos, name, version, flavor, recipeFile=None,
                                        loadInstalledSource=loadInstalledSource,
                                        installLabelPath=installLabelPath,
                                        buildLabel=buildLabel, 
-                                       groupRecipeSource=groupRecipeSource)
+                                       groupRecipeSource=groupRecipeSource,
+                                       cfg=cfg)
         relevantFlavor = use.usedFlagsToFlavor(recipeObj.name)
         relevantFlavor = flavorutil.removeInstructionSetFlavor(relevantFlavor)
         # always add in the entire arch flavor.  We need to ensure the
@@ -113,8 +116,11 @@ def loadRecipe(repos, name, version, flavor, recipeFile=None,
 def getRecipeObj(repos, name, version, flavor, recipeFile,
                  loadInstalledSource=None, installLabelPath=None, 
                  loadRecipeSpecs=None, buildLabel = None,
-                 groupRecipeSource=None):
-    cfg = conarycfg.ConaryConfiguration(False)
+                 groupRecipeSource=None, cfg=None):
+    if cfg:
+        cfg = copy.deepcopy(cfg)
+    else:
+        cfg = conarycfg.ConaryConfiguration(False)
     cfg.initializeFlavors()
     branch = version.branch()
     if not buildLabel:
@@ -178,8 +184,11 @@ def getRecipeObj(repos, name, version, flavor, recipeFile,
 def loadRecipeClass(repos, name, version, flavor, recipeFile=None,
                     ignoreInstalled=True, root=None, 
                     loadInstalledSource=None, overrides=None,
-                    buildLabel=None):
-    cfg = conarycfg.ConaryConfiguration(False)
+                    buildLabel=None, cfg=None):
+    if cfg is None:
+        cfg = conarycfg.ConaryConfiguration(False)
+    else:
+        cfg = copy.deepcopy(cfg)
     cfg.initializeFlavors()
     if root:
         cfg.root = root
@@ -263,7 +272,8 @@ def loadSourceTroves(job, repos, buildFlavor, troveList,
                                      buildFlavor,
                                      loadInstalledSource=loadInstalledSource,
                                      installLabelPath=installLabelPath,
-                                     groupRecipeSource=groupRecipeSource)
+                                     groupRecipeSource=groupRecipeSource,
+                                     cfg=job.getTroveConfig(buildTrove))
                 recipeType = buildtrove.getRecipeType(recipeObj)
                 buildTrove.setFlavor(relevantFlavor)
                 buildTrove.setRecipeType(recipeType)

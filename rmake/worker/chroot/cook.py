@@ -247,7 +247,8 @@ def _cookTrove(cfg, repos, name, version, flavorList, targetLabel,
                                            cfg.buildFlavor,
                                            ignoreInstalled=False, root=cfg.root,
                                            loadInstalledSource=source,
-                                           overrides=loadSpecs)
+                                           overrides=loadSpecs,
+                                           cfg=cfg)
             loaders.append(loader)
             recipeClasses.append(recipeClass)
 
