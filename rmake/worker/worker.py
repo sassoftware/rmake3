@@ -89,12 +89,12 @@ class Worker(server.Server):
                           trove, builtTroves, targetLabel, logData,
                           logPath)
 
-    def resolve(self, resolveJob, eventHandler, commandId=None):
+    def resolve(self, resolveJob, eventHandler, logData, commandId=None):
         if not commandId:
             commandId = self.idgen.getResolveCommandId(resolveJob.getTrove())
         jobId = resolveJob.getTrove().jobId
         self.queueCommand(self.commandClasses['resolve'], self.cfg, commandId,
-                          jobId, eventHandler, resolveJob)
+                          jobId, eventHandler, logData, resolveJob)
 
     def stopCommand(self, targetCommandId, commandId=None):
         targetCommand = self.getCommandById(targetCommandId)

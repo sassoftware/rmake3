@@ -100,7 +100,8 @@ class JobLogDisplay(_AbstractDisplay):
         self._msg('[%d] %s' % (jobId, status))
 
     def _troveStateUpdated(self, (jobId, troveTuple), state, status):
-        isBuilding = (state == buildtrove.TROVE_STATE_BUILDING)
+        isBuilding = (state in (buildtrove.TROVE_STATE_BUILDING,
+                                buildtrove.TROVE_STATE_RESOLVING))
         state = buildtrove._getStateName(state)
         self._msg('[%d] - %s - State: %s' % (jobId, troveTuple[0], state))
         if status:

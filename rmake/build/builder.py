@@ -216,7 +216,8 @@ class Builder(object):
         if resolveJob:
             resolveJob.getTrove().troveQueued('Ready for dep resolution')
             resolveJob.getTrove().disown()
-            self.worker.resolve(resolveJob, self.eventHandler)
+            logData = self.startTroveLogger(resolveJob.getTrove())
+            self.worker.resolve(resolveJob, self.eventHandler, logData)
             return True
         return False
 
@@ -330,9 +331,9 @@ class EventHandler(subscriber.StatusSubscriber):
         t.troveFailed(failureReason)
         t.own()
 
-    def troveResolving(self, (jobId, troveTuple), chrootHost):
+    def troveResolving(self, (jobId, troveTuple), chrootHost, logPath, pid):
         t = self.job.getTrove(*troveTuple)
-        t.troveResolvingBuildReqs(chrootHost)
+        t.troveResolvingBuildReqs(chrootHost, logPath, pid)
 
     def troveResolutionCompleted(self, (jobId, troveTuple), resolveResults):
         self._hadEvent = True

@@ -453,21 +453,28 @@ class BuildTrove(_FreezableBuildTrove):
         """
         self._setState(TROVE_STATE_BUILDABLE, status='')
 
-    def troveResolvingBuildReqs(self, host):
+    def troveResolvingBuildReqs(self, host, logPath='', pid=0):
         """
             Log step in dep resolution.
 
             Publishes log message.
         """
+        self.start = time.time()
+        self.logPath = logPath
+        self.pid = pid
         self._setState(TROVE_STATE_RESOLVING,
-                       'Resolving build requirements', host)
+                       'Resolving build requirements', host, logPath, pid)
 
     def trovePrebuilt(self, buildReqs, binaryTroves):
+        self.finish = time.time()
+        self.pid = 0
         self._setState(TROVE_STATE_PREBUILT, '', buildReqs)
         self.preBuiltRequirements = buildReqs
         self.preBuiltBinaries = binaryTroves
 
     def troveResolved(self, resolveResults):
+        self.finish = time.time()
+        self.pid = 0
         self._publisher.troveResolved(self, resolveResults)
 
     def troveResolvedButDelayed(self, newDeps):
@@ -478,6 +485,8 @@ class BuildTrove(_FreezableBuildTrove):
         """
         # Move this trove back to initialized state so that dep resolution
         # will be attempted on it again.
+        self.finish = time.time()
+        self.pid = 0
         self._setState(TROVE_STATE_INIT,
                       'Resolved buildreqs include %s other troves scheduled to be built - delaying' % (len(newDeps),))
 

@@ -249,7 +249,7 @@ class ChrootClient(object):
     def buildTrove(self, buildCfg, targetLabel, name, version, flavorList,
                    loadSpecs=None, builtTroves=None, logData=None):
         if loadSpecs is None:
-            loadSpecs = {}
+            loadSpecs = [{}]
         if builtTroves is None:
             builtTroves = []
         if logData is None:

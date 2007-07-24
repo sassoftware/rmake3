@@ -30,9 +30,10 @@ from rmake.lib.apiutils import thaw, freeze
 class Command(server.Server):
     name = 'command'
     # handles one job then exists.
-    def __init__(self, cfg, commandId, jobId):
+    def __init__(self, cfg, commandId, jobId, logData = None):
         server.Server.__init__(self)
         self.cfg = cfg
+        self.logData = None
         self.commandId = commandId
         self.jobId = jobId
         self._isErrored = False
@@ -118,9 +119,13 @@ class Command(server.Server):
 
     def _runCommand(self):
         self.commandStarted()
-        self.logger = logger.Logger(self.name, self.getLogPath())
+        self.logger = logger.Logger(self.name) # output to stdout so logging
+                                               # is all covered by logFile
         self.logFile = logfile.LogFile(self.getLogPath())
-        self.logFile.redirectOutput()
+        if self.logData:
+            self.logFile.logToPort(*self.logData)
+        else:
+            self.logFile.redirectOutput()
         try:
             self.logger.info('Running Command... (pid %s)' % os.getpid())
             try:
@@ -393,15 +398,17 @@ class ResolveCommand(TroveCommand):
 
     name = 'resolve-command'
 
-    def __init__(self, cfg, commandId, jobId,  eventHandler, resolveJob):
+    def __init__(self, cfg, commandId, jobId,  eventHandler, logData,
+                 resolveJob):
         TroveCommand.__init__(self, cfg, commandId, jobId, eventHandler,
                               resolveJob.getTrove())
+        self.logData = logData
         self.resolveJob = resolveJob
 
     def runTroveCommand(self):
-
         self.logger.debug('Resolving')
-        self.trove.troveResolvingBuildReqs(self.cfg.getName())
+        self.trove.troveResolvingBuildReqs(self.cfg.getName(),
+                                           self.getLogPath(), os.getpid())
         client = conaryclient.ConaryClient(self.resolveJob.getConfig())
         repos = client.getRepos()
         if self.cfg.useCache:

@@ -374,10 +374,7 @@ class rMakeChrootServer(object):
         def checkPid():
             checkedPid, status = os.waitpid(pid, os.WNOHANG)
             if checkedPid:
-                msg = ('Chroot server failed to start - please check'
-                       ' logs for chroot process %s' % pid)
-                if self.buildLogPath:
-                    msg += ' and build log %s' % self.buildLogPath
+                msg = ('Chroot server failed to start - please check build log')
                 raise errors.OpenError(msg)
             return True
 

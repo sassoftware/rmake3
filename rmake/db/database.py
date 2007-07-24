@@ -281,6 +281,10 @@ class Database(DBInterface):
         self.nodeStore.setChrootActive(trove, True)
         self.commit()
 
+    def troveResolving(self, trove):
+        self.jobStore.updateTrove(trove)
+        self.commit()
+
     def troveBuilding(self, trove):
         self.jobStore.updateTrove(trove)
         self.nodeStore.setChrootActive(trove, True)

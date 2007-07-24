@@ -325,7 +325,7 @@ class DisplayState(xmlrpc.BasicXMLRPCStatusSubscriber):
 
     def getBuildingTroves(self):
         return [ x[0] for x in self.states.iteritems()
-                 if x[1] == buildtrove.TROVE_STATE_BUILDING ]
+                 if x[1] in (buildtrove.TROVE_STATE_BUILDING, buildtrove.TROVE_STATE_RESOLVING) ]
 
     def updateTrovesForJob(self, jobId):
         self.troves = []

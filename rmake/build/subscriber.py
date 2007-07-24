@@ -47,6 +47,7 @@ class _JobDbLogger(_InternalSubscriber):
         'JOB_TROVES_SET'         : 'jobTrovesSet',
         'JOB_COMMITTED'          : 'jobCommitted',
         'TROVE_PREPARING_CHROOT' : 'trovePreparingChroot',
+        'TROVE_RESOLVING'        : 'troveResolving',
         'TROVE_BUILDING'         : 'troveBuilding',
         'TROVE_BUILT'            : 'troveBuilt',
         'TROVE_FAILED'           : 'troveFailed',
@@ -74,6 +75,9 @@ class _JobDbLogger(_InternalSubscriber):
 
     def troveBuilding(self, trove, logPath, pid):
         self.db.troveBuilding(trove)
+
+    def troveResolving(self, trove, hostName, logPath, pid):
+        self.db.troveResolving(trove)
 
     def troveStateUpdated(self, trove, state, status):
         self.db.updateTroveStatus(trove)
