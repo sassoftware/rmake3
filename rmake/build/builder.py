@@ -274,6 +274,7 @@ class Builder(object):
         r.attach(trove)
         logHost = r.getHost()
         logPort = r.getPort()
+        trove.logPath = r.getLogPath()
         pid = self.worker._fork('BuildLogger for %s' % trove)
         if not pid:
             try:
@@ -331,9 +332,9 @@ class EventHandler(subscriber.StatusSubscriber):
         t.troveFailed(failureReason)
         t.own()
 
-    def troveResolving(self, (jobId, troveTuple), chrootHost, logPath, pid):
+    def troveResolving(self, (jobId, troveTuple), chrootHost, pid):
         t = self.job.getTrove(*troveTuple)
-        t.troveResolvingBuildReqs(chrootHost, logPath, pid)
+        t.troveResolvingBuildReqs(chrootHost, pid)
 
     def troveResolutionCompleted(self, (jobId, troveTuple), resolveResults):
         self._hadEvent = True
@@ -345,9 +346,9 @@ class EventHandler(subscriber.StatusSubscriber):
         t = self.job.getTrove(*troveTuple)
         t.creatingChroot(chrootHost, chrootPath)
 
-    def troveBuilding(self, (jobId, troveTuple), logPath, pid):
+    def troveBuilding(self, (jobId, troveTuple), pid):
         t = self.job.getTrove(*troveTuple)
-        t.troveBuilding(logPath, pid)
+        t.troveBuilding(pid)
 
     def troveStateUpdated(self, (jobId, troveTuple), state, status):
         if state not in (buildtrove.TROVE_STATE_FAILED,

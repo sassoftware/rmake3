@@ -418,7 +418,7 @@ class DependencyHandler(object):
             else:
                 depState.troveFailed(trove)
 
-    def troveBuilding(self, trove, logPath='', pid=0):
+    def troveBuilding(self, trove, pid=0):
         pass
 
     def popBuildableTrove(self):

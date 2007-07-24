@@ -272,9 +272,7 @@ class BuildCommand(TroveCommand):
                                               self.logData)
         # sends off message that this trove is building.
         self.chroot.subscribeToBuild(n,v, flavorList)
-        if self.logPath:
-            logPath = self.logPath
-        trove.troveBuilding(logPath, pid)
+        trove.troveBuilding(pid)
         self.serve_forever()
 
     def _troveServeLoopHook(self):
@@ -407,8 +405,7 @@ class ResolveCommand(TroveCommand):
 
     def runTroveCommand(self):
         self.logger.debug('Resolving')
-        self.trove.troveResolvingBuildReqs(self.cfg.getName(),
-                                           self.getLogPath(), os.getpid())
+        self.trove.troveResolvingBuildReqs(self.cfg.getName(), os.getpid())
         client = conaryclient.ConaryClient(self.resolveJob.getConfig())
         repos = client.getRepos()
         if self.cfg.useCache:

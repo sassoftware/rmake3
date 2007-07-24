@@ -453,17 +453,16 @@ class BuildTrove(_FreezableBuildTrove):
         """
         self._setState(TROVE_STATE_BUILDABLE, status='')
 
-    def troveResolvingBuildReqs(self, host, logPath='', pid=0):
+    def troveResolvingBuildReqs(self, host, pid=0):
         """
             Log step in dep resolution.
 
             Publishes log message.
         """
         self.start = time.time()
-        self.logPath = logPath
         self.pid = pid
         self._setState(TROVE_STATE_RESOLVING,
-                       'Resolving build requirements', host, logPath, pid)
+                       'Resolving build requirements', host, pid)
 
     def trovePrebuilt(self, buildReqs, binaryTroves):
         self.finish = time.time()
@@ -509,7 +508,7 @@ class BuildTrove(_FreezableBuildTrove):
         self.path = ''
         self.troveFailed(f)
 
-    def troveBuilding(self, logPath='', pid=0):
+    def troveBuilding(self, pid=0):
         """
             Set state to BUILDING.
 
@@ -520,8 +519,7 @@ class BuildTrove(_FreezableBuildTrove):
         """
         self.pid = pid
         self.start = time.time()
-        self.logPath = logPath
-        self._setState(TROVE_STATE_BUILDING, '', logPath, pid)
+        self._setState(TROVE_STATE_BUILDING, '', pid)
 
     def troveBuilt(self, troveList):
         """

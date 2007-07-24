@@ -73,10 +73,10 @@ class _JobDbLogger(_InternalSubscriber):
     def troveFailed(self, trove, failureReason):
         self.db.troveFailed(trove)
 
-    def troveBuilding(self, trove, logPath, pid):
+    def troveBuilding(self, trove, pid):
         self.db.troveBuilding(trove)
 
-    def troveResolving(self, trove, hostName, logPath, pid):
+    def troveResolving(self, trove, hostName, pid):
         self.db.troveResolving(trove)
 
     def troveStateUpdated(self, trove, state, status):
