@@ -34,7 +34,6 @@ BUILD_RECURSE_GROUPS_SOURCE = 2 # find and recurce the source version of the
 def getBuildJob(buildConfig, conaryclient, troveSpecList, limitToHosts=None, 
                 limitToLabels=None, message=None, matchSpecs=None,
                 recurseGroups=BUILD_RECURSE_GROUPS_NONE, configDict=None):
-
     trovesByContext = {}
 
     for troveSpec in list(troveSpecList):
