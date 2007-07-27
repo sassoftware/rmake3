@@ -605,8 +605,8 @@ def displayBuildInfo(job, verbose=False, quiet=False):
                     print '%s=%s[%s]' % (n, v, f)
             print ''
             print 'Configuration:'
+            config.setDisplayOptions(hidePasswords=True)
             if verbose:
-                config.setDisplayOptions(hidePasswords=True)
                 config.display()
             else:
                 if not context:
@@ -617,6 +617,7 @@ def displayBuildInfo(job, verbose=False, quiet=False):
                 config.displayKey('installLabelPath')
                 config.displayKey('repositoryMap')
                 config.displayKey('resolveTrovesOnly')
+                config.displayKey('user')
             print ''
             print 'Building:'
         for n,v,f in troveList:
