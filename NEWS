@@ -40,8 +40,10 @@ Changes in 1.0.10:
      * rMake now works with r.macros.buildlabel in group recipes.
      * The monitor plugin now defaults to using the standard monitor if 
        stdin + stdout are not ttys.
-     * rMake now honors macros that are specified in your conarycfg file.   
+     * rMake now honors macros that are specified in your conarycfg file.
        (RMK-511)
+     * Fixed --label for limiting builds to labels, which was broken since
+       1.0.9. (RMK-500)
 Changes in 1.0.9:
   o Server Changes:
      * Added some security enhancements that will make it feasible for

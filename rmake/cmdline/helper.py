@@ -165,7 +165,7 @@ class rMakeHelper(object):
                                    self.getConaryClient(buildConfig),
                                    troveSpecList,
                                    limitToHosts=limitToHosts,
-                                   limitToLabels=None,
+                                   limitToLabels=limitToLabels,
                                    recurseGroups=recurseGroups,
                                    configDict=configDict,
                                    matchSpecs=matchSpecs)
