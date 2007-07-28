@@ -328,6 +328,8 @@ class JobStore(object):
                        "VALUES (?, ?, ?, ?, ?, ?)", (
                 jobId, troveName, version.freeze(),
                 flavor.freeze(), TROVE_STATE_INIT, context))
+        for trove in job.iterTroves():
+            trove.jobId = jobId
         for context, jobConfig in job.getConfigDict().items():
             self.addJobConfig(jobId, context, jobConfig)
         self.db.commit()
