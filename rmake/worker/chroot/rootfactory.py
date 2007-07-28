@@ -166,7 +166,8 @@ class rMakeChroot(ConaryBasedChroot):
         self.buildTrove = buildTrove
         self.chrootHelperPath = chrootHelperPath
         self.serverCfg = serverCfg
-        self.callback = ChrootCallback(self.buildTrove, logger)
+        self.callback = ChrootCallback(self.buildTrove, logger,
+                                       caching=bool(csCache))
 
         if copyInConary:
             self._copyInConary()
@@ -366,12 +367,13 @@ class ChrootCallback(callbacks.UpdateCallback):
         @param buildTrove: trove we're creating a chroot for
         @type: build.buildtrove.BuildTrove
     """
-    def __init__(self, buildTrove, logger):
+    def __init__(self, buildTrove, logger, caching=True):
         callbacks.UpdateCallback.__init__(self)
         self.hunk = (0,0)
         self.buildTrove = buildTrove
         self.logger = logger
         self.showedHunk = False
+        self.caching = caching
 
     def _message(self, text):
         self.buildTrove.log(text)
@@ -412,7 +414,7 @@ class ChrootCallback(callbacks.UpdateCallback):
                           ('\n    '.join(descriptions),))
 
     def downloadingChangeSet(self, got, need):
-        if not self.showedHunk:
+        if self.caching and not self.showedHunk:
             # we display our message here because here we have the size...
             # but we only want to display the message once per changeset
             self._message("Caching changeset %s of %s (%sKb)" % (

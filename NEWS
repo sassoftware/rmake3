@@ -61,6 +61,8 @@ Changes in 1.0.10:
      * Fixed a bug in trove updating logic that would cause status updates 
        to affect all troves with the same name,version,flavor irrespective of 
        their context.
+     * When building "Caching" is no longer displayed when not using the 
+       changeset cache. (RMK-459)
 
 Changes in 1.0.9:
   o Server Changes:
