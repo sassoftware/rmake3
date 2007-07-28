@@ -228,7 +228,7 @@ class _AbstractBuildTrove:
 
     def isStarted(self):
         return (not self.isFinished()
-                and not self.state == TROVE_STATE_INITIALIZED)
+                and not self.state == TROVE_STATE_INIT)
 
     def isUnbuilt(self):
         return self.state in (TROVE_STATE_INIT, TROVE_STATE_BUILDABLE,
