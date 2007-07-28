@@ -56,6 +56,11 @@ Changes in 1.0.10:
        instead of in /tmp/rmake (RMK-464)
      * The rMake server no longer hangs on startup when the current hostname 
        is unresolvable.  It gives an error message instead. (RMK-494)
+     * "rmake q --logs" will no longer hang while displaying logs if the trove
+       is "Unbuildable" (RMK-446)
+     * Fixed a bug in trove updating logic that would cause status updates 
+       to affect all troves with the same name,version,flavor irrespective of 
+       their context.
 
 Changes in 1.0.9:
   o Server Changes:

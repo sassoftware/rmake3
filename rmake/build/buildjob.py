@@ -111,10 +111,10 @@ class _AbstractBuildJob(trovesource.SearchableTroveSource):
     def addTrove(self, name, version, flavor, context='', buildTrove=None):
         if buildTrove:
             assert(buildTrove.getContext() == context)
-            buildTrove.setPublisher(self.getPublisher())
         else:
             buildTrove = buildtrove.BuildTrove(None, name, version, flavor,
                                                context=context)
+        buildTrove.setPublisher(self.getPublisher())
         self.troves[name, version, flavor, context] = buildTrove
         self.troveContexts.setdefault((name, version, flavor), []).append(context)
 
@@ -316,8 +316,8 @@ class BuildJob(_FreezableBuildJob):
     """
 
     def __init__(self, *args, **kwargs):
-        _FreezableBuildJob.__init__(self, *args, **kwargs)
         self._publisher = publisher.JobStatusPublisher()
+        _FreezableBuildJob.__init__(self, *args, **kwargs)
 
     def getPublisher(self):
         return self._publisher

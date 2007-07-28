@@ -137,7 +137,7 @@ class rMakeServer(apirpc.XMLApiServer):
         jobId = self.db.convertToJobId(jobId)
         trove = self.db.getTrove(jobId, *troveTuple)
         if not self.db.hasTroveBuildLog(trove):
-            return True, xmlrpclib.Binary(''), 0
+            return not trove.isFinished(), xmlrpclib.Binary(''), 0
         f = self.db.openTroveBuildLog(trove)
         if mark < 0:
             f.seek(0, 2)
@@ -145,7 +145,7 @@ class rMakeServer(apirpc.XMLApiServer):
             f.seek(max(end + mark, 0))
         else:
             f.seek(mark)
-        return trove.isStarted(), xmlrpclib.Binary(f.read()), f.tell()
+        return not trove.isFinished(), xmlrpclib.Binary(f.read()), f.tell()
 
     @api(version=1)
     @api_parameters(1, None)

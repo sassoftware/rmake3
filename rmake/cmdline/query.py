@@ -306,7 +306,6 @@ def showBuildLog(dcfg, job, trove):
     client = dcfg.getClient()
 
     mark = 0
-    moreData = True
     moreData, data, mark = client.client.getTroveBuildLog(job.jobId,
                                         trove.getNameVersionFlavor(True), mark)
     if not moreData and not data:
@@ -315,15 +314,6 @@ def showBuildLog(dcfg, job, trove):
 
     print
     print data,
-
-    while True:
-        if not moreData:
-            break
-        time.sleep(1)
-        moreData, data, mark = client.client.getTroveBuildLog(job.jobId,
-                                        trove.getNameVersionFlavor(True), mark)
-        print data,
-
 
 def displayTroveDetail(dcfg, job, trove, indent='     ', out=None):
     if not out:
