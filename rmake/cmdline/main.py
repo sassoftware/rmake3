@@ -107,8 +107,7 @@ class RmakeMain(options.MainHandler):
         if not usedContext and context:
             raise errors.RmakeError('No such context "%s"' % context)
 
-        buildConfig.initializeFlavors()
-
+        # don't let the buildFlavor be overridden yet
         client = helper.rMakeHelper(buildConfig=buildConfig)
 
         pluginManager.callClientHook('client_preCommand2', self, client,

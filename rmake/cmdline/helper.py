@@ -80,9 +80,6 @@ class rMakeHelper(object):
 
         self.client = client.rMakeClient(uri)
 
-        buildConfig.initializeFlavors()
-        use.setBuildFlagsFromFlavor(None, buildConfig.buildFlavor, error=False)
-
         if guiPassword:
             try:
                 from rmake.cmdline import password
@@ -117,6 +114,9 @@ class rMakeHelper(object):
             that may not be parsable by a config reader.  If False, the
             configuration output should be valid as input.
         """
+        self.buildConfig.initializeFlavors()
+        if not self.buildConfig.buildLabel:
+            self.buildConfig.buildLabel = self.buildConfig.installLabelPath[0]
         self.buildConfig.setDisplayOptions(hidePasswords=hidePasswords,
                                            prettyPrint=prettyPrint)
         self.buildConfig.display()

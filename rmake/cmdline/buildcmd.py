@@ -70,11 +70,13 @@ def getBuildJob(buildConfig, conaryclient, troveSpecList, limitToHosts=None,
             for context in contextStr.split(','):
                 cfg.setContext(context)
             cfg.dropContexts()
-            cfg.initializeFlavors()
-            use.setBuildFlagsFromFlavor(None, cfg.buildFlavor, error=False)
         else:
-            cfg = job.getMainConfig()
+            cfg = copy.deepcopy(buildConfig)
             contextStr = ''
+        cfg.initializeFlavors()
+        use.setBuildFlagsFromFlavor(None, cfg.buildFlavor, error=False)
+        if not cfg.buildLabel and cfg.installLabelPath:
+            cfg.buildLabel = cfg.installLabelPath[0]
         troveSpecList = list(set(troveSpecList))
         troveList = getTrovesToBuild(cfg, conaryclient, troveSpecList,
                          limitToHosts=limitToHosts, limitToLabels=limitToLabels,
