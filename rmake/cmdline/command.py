@@ -167,6 +167,7 @@ class BuildCommand(rMakeCommand):
             'poll'   : (options.VERBOSE_HELP, 'backwards compatibility option'),
             'quiet'  : "show less build info - don't tail logs",
             'commit' : "commit job when it is done",
+            'message' : "Message to assign to troves upon commit",
             'macro'   : ('set macro NAME to VALUE', "'NAME VALUE'"),
             'no-clean': 'do not remove build directory even if build is'
                         ' successful',
@@ -188,6 +189,7 @@ class BuildCommand(rMakeCommand):
         argDef['commit'] = NO_PARAM
         argDef['macro'] = MULT_PARAM
         argDef['match'] = MULT_PARAM
+        argDef['message'] = ONE_PARAM
         argDef['no-watch'] = NO_PARAM
         argDef['poll'] = NO_PARAM
         argDef['binary-search'] = NO_PARAM
@@ -198,7 +200,6 @@ class BuildCommand(rMakeCommand):
     def addConfigOptions(self, cfgMap, argDef):
         cfgMap['reuse'] = 'reuseRoots', NO_PARAM
         rMakeCommand.addConfigOptions(self, cfgMap, argDef)
-
 
     def runCommand(self, client, cfg, argSet, args):
         if self.verbose:
@@ -234,6 +235,7 @@ class BuildCommand(rMakeCommand):
         labels = argSet.pop('label', [])
         quiet = argSet.pop('quiet', False)
         commit  = argSet.pop('commit', False)
+        message  = argSet.pop('message', None)
         infoOnly  = argSet.pop('info', False)
         recurseGroups = argSet.pop('recurse', False) or command == 'buildgroup'
 
@@ -269,7 +271,7 @@ class BuildCommand(rMakeCommand):
                 return 1
         elif commit:
             if not client.commitJob(jobId, commitWithFailures=False,
-                                    waitForJob=True):
+                                    waitForJob=True, message=message):
                 return 1
         return 0
 
@@ -285,6 +287,7 @@ class RestartCommand(BuildCommand):
 
     def addParameters(self, argDef):
         argDef['commit'] = NO_PARAM
+        argDef['message'] = NO_PARAM
         argDef['no-watch'] = NO_PARAM
         rMakeCommand.addParameters(self, argDef)
 
@@ -295,6 +298,7 @@ class RestartCommand(BuildCommand):
         jobId = _getJobIdOrUUId(jobId)
 
         commit  = argSet.pop('commit', False)
+        message  = argSet.pop('commit', None)
         jobId = client.restartJob(jobId, troveSpecs)
         monitorJob = not argSet.pop('no-watch', False)
         if monitorJob:
@@ -304,7 +308,7 @@ class RestartCommand(BuildCommand):
                 return 1
         elif commit:
             if not client.commitJob(jobId, commitWithFailures=False,
-                                    waitForJob=True):
+                                    waitForJob=True, message=message):
                 return 1
         return 0
 register(RestartCommand)
@@ -344,10 +348,13 @@ repository back into the repository where their source package came from.
 
     docs = {'commit-outdated-sources' : ("Allow commits of source components when another"
                                          " commit has been made upstream"),
-            'source-only'             : "Only commit the source changes" }
+            'source-only'             : "Only commit the source changes",
+            'message'                 : "The message to give for all"
+                                        " committed sources"}
 
     def addParameters(self, argDef):
         argDef['source-only'] = NO_PARAM
+        argDef['message'] = ONE_PARAM
         argDef['commit-outdated-sources'] = NO_PARAM
         rMakeCommand.addParameters(self, argDef)
 
@@ -356,11 +363,13 @@ repository back into the repository where their source package came from.
                                                  appendExtra=True)
         commitOutdated = argSet.pop('commit-outdated-sources', False)
         sourceOnly = argSet.pop('source-only', False)
+        message = argSet.pop('message', None)
         jobIds = _getJobIdOrUUIds(jobIds)
         success = client.commitJobs(jobIds,
                                     commitOutdatedSources=commitOutdated,
                                     commitWithFailures=True, waitForJob=True,
-                                    sourceOnly=sourceOnly)
+                                    sourceOnly=sourceOnly,
+                                    message=message)
         if success:
             return 0
         else:
