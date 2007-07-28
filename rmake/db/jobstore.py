@@ -412,11 +412,12 @@ class JobStore(object):
         valueList = kw.values()
         valueList += (trove.jobId, trove.getName(),
                       trove.getVersion().freeze(),
-                      trove.getFlavor().freeze())
+                      trove.getFlavor().freeze(),
+                      trove.getContext())
 
         cu.execute("""UPDATE BuildTroves
                       SET %s
-                      WHERE jobId=? AND troveName=? AND version=? AND flavor=?
+                      WHERE jobId=? AND troveName=? AND version=? AND flavor=? AND context=?
                    """ % fieldList, valueList)
 
     def setBuildTroves(self, job):
