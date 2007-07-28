@@ -50,6 +50,10 @@ Changes in 1.0.10:
        error message instead of BadContainer (RMK-444)
      * When you build a new, unchecked-in recipe, it is marked as a config.
        (RMK-512)
+     * rMake will no longer attempt to chmod /tmp/rmake when building group
+       recipes when strictMode is false (RMK-464)
+     * rMake group fake chroots now build in a random /tmp subdirectory 
+       instead of in /tmp/rmake (RMK-464)
 
 Changes in 1.0.9:
   o Server Changes:

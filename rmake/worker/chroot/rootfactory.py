@@ -101,10 +101,6 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
             else:
                 changeSetList = []
 
-            #self.logger.info('Troves To Install:')
-            #self.logger.info('\n    '.join('%s=%s[%s]' % (x[0], x[2][0], x[2][1])
-            #                       for x in sorted(self.jobList)))
-
             try:
                 updJob, suggMap = client.updateChangeSet(
                     jobList, keepExisting=False, resolveDeps=False,
@@ -298,9 +294,6 @@ class FakeRmakeRoot(rMakeChroot):
         return False
 
     def install(self):
-        pass
-
-    def clean(self, root, raiseError=True):
         pass
 
 class ExistingChroot(rMakeChroot):
