@@ -211,7 +211,7 @@ def stopBuild(results, pid, inF, csFile):
         gotResult, status = os.waitpid(pid, 0)
     log.info('pid %s killed' % pid)
 
-def _buildFailed(failureFd, errMsg, traceBack):
+def _buildFailed(failureFd, errMsg, traceBack=''):
     log.error(errMsg)
     frz = '\002'.join(str(x) for x in freeze('FailureReason',
                                 BuildFailed(errMsg, traceBack)))
@@ -340,6 +340,14 @@ def _cookTrove(cfg, repos, name, version, flavorList, targetLabel,
                                 crossCompile=crossCompile,
                                 requireCleanSources=True,
                                 groupOptions=groupOptions)
+        if not built:
+            if log.errorOccurred():
+                msg = 'Check logs'
+            else:
+                msg = 'Unknown failure'
+            errMsg = 'Error building recipe %s=%s[%s]: %s' % (name, version,
+                                                              flavor, msg)
+            _buildFailed(failureFd, errMsg)
     except Exception, msg:
         errMsg = 'Error building recipe %s=%s[%s]: %s' % (name, version,
                                                           flavor, str(msg))

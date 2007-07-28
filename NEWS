@@ -44,6 +44,9 @@ Changes in 1.0.10:
        (RMK-511)
      * Fixed --label for limiting builds to labels, which was broken since
        1.0.9. (RMK-500)
+     * Cooks that result in empty packages now fail with a "check logs"
+       error message instead of BadContainer (RMK-444)
+
 Changes in 1.0.9:
   o Server Changes:
      * Added some security enhancements that will make it feasible for
