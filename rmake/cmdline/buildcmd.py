@@ -12,7 +12,7 @@ from conary.build import cook, grouprecipe, use
 from conary.build.cook import signAbsoluteChangeset
 from conary.conaryclient import cmdline
 from conary.deps import deps
-from conary.lib import log, util
+from conary.lib import log, magic, util
 from conary.repository import trovesource
 from conary import checkin
 from conary import errors as conaryerrors
@@ -478,7 +478,15 @@ def _commitRecipe(conaryclient, recipePath, message, branch=None):
             # mark all the files as binary - this this version can
             # never be checked in, it doesn't really matter, but
             # conary likes us to give a value.
-            checkin.addFiles(fileNames, binary=True)
+            for fileName in fileNames:
+                fileMagic = magic.magic(fileName)
+                if (checkin.cfgRe.match(fileName) 
+                    or (fileMagic and isinstance(fileMagic, magic.script))):
+                    isConfig = True
+                else:
+                    isConfig = False
+
+                checkin.addFiles([fileName], binary=not isConfig, text=isConfig)
         else:
             checkin.addFiles(fileNames)
 

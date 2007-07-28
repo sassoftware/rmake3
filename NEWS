@@ -46,6 +46,8 @@ Changes in 1.0.10:
        1.0.9. (RMK-500)
      * Cooks that result in empty packages now fail with a "check logs"
        error message instead of BadContainer (RMK-444)
+     * When you build a new, unchecked-in recipe, it is marked as a config.
+       (RMK-512)
 
 Changes in 1.0.9:
   o Server Changes:
