@@ -7,6 +7,8 @@ Changes in 1.0.10:
        in a separate file.  This information is often critical to debugging:
        dependency resolution, and creating the chroot.  This should make it
        easier to debug chroot failures. (RMK-445)
+     * Added a --message parameter to build, commit and restart commands 
+       (RMK-472)
   o Server Changes:
      * Cleaned up server configuration options, all repository options now
        start with "repos" as opposed to "server", proxyUrl and reposUrl are

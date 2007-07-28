@@ -78,6 +78,9 @@ Specify the flavor to build with.  For example, rMake uses this parameter to
 support building x86 packages on x86_64 systems.  To build x86 troves on an
 x86_64 system, type rmake build foo --flavor 'is:x86(~cmov,~i486,~i586,~i686)'
 .TP
+.B \-\-message
+When committing automatically after the build, this is the message to use as a 
+log for all source commits.
 .B \-\-no-clean
 Do not clean chroots after builds finish successfully.  Note that only the 
 final package built can actually be left around - the rest must be removed to 
@@ -158,6 +161,9 @@ been modified by someone else upstream.  This overrides that constraint.
 .B \-\-source-only
 Commit any changes made to sources by building *.recipe files, without 
 committing the resulting binaries.
+.B \-\-message
+The message to use as a log for all source commits.
+.B \-\-no-clean
 .TP
 .B config
 Displays the configuration settings for the rmake client, including build 
