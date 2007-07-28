@@ -7,6 +7,8 @@ Wrapper for starting the repository browser
 """
 import os
 import random
+import signal
+import socket
 import sys
 
 if __name__ == '__main__':
@@ -113,7 +115,11 @@ def startRepository(cfg, fork = True, logger=None):
     if fork:
         pid = os.fork()
         if pid:
-            pingServer(cfg)
+            try:
+                pingServer(cfg)
+            except:
+                killServer(pid)
+                raise
             logger.info('Started repository "%s" on port %s (pid %s)' % (
                                                             cfg.reposName,
                                                             serverCfg.port,
@@ -163,7 +169,11 @@ def startProxy(cfg, fork = True, logger=None):
     if fork:
         pid = os.fork()
         if pid:
-            pingServer(cfg, cfg.getProxyUrl())
+            try:
+                pingServer(cfg, cfg.getProxyUrl())
+            except:
+                killServer(pid)
+                raise
             if logger:
                 logger.info('Started proxy on port %s (pid %s)' % (proxyPort,
                                                                    pid))
@@ -197,6 +207,11 @@ def pingServer(cfg, proxyUrl=None):
     else:
         proxy = None
     repos = conaryclient.ConaryClient(conaryCfg).getRepos()
+    # A little sanity checking never hurt anyone
+    try:
+        socket.gethostbyname(socket.gethostname())
+    except socket.error, err:
+        raise errors.RmakeError('Could not contact repos at current hostname "%s", please fix resolution or reset hostname: %s' % (socket.gethostname(), err))
     for i in range(0,20000):
         try:
             checked = repos.c[cfg.reposName].checkVersion()
@@ -206,6 +221,10 @@ def pingServer(cfg, proxyUrl=None):
             time.sleep(.1)
         else:
             return True
+
+def killServer(*pids):
+    for pid in pids:
+        os.kill(pid, signal.SIGTERM)
 
 def addUser(cfg, name, password=None, write=False):
     baseUrl="http://%s:%s/" % (os.uname()[1], cfg.port)
