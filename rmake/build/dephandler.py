@@ -211,7 +211,7 @@ class DependencyBasedBuildState(AbstractBuildState):
         for troveList in self.groupsByNameVersion.values():
             if len(troveList) <= 1:
                 continue
-            flavorList = [ x.getFlavor() for x in troveList ]
+            flavorList = [ x.getFullFlavor() for x in troveList ]
             loadedSpecsList = [ x.getLoadedSpecs() for x in troveList ]
             headNode = troveList[0]
             troveList[0].setFlavorList(flavorList)
