@@ -295,7 +295,7 @@ class rMakeChrootServer(object):
 
     def create(self):
         if not self.root:
-            if not self.chroot.canChroot():
+            if not self.chroot.useStandardRoot():
                 self.root = tempfile.mkdtemp(dir='/tmp',
                                       prefix='rmake-%s-root' % self.buildTrove.getName().split(':')[0])
             else:

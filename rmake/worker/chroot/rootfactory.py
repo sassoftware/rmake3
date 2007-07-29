@@ -179,6 +179,9 @@ class rMakeChroot(ConaryBasedChroot):
     def getRoot(self):
         return self.cfg.root
 
+    def useStandardRoot(self):
+        return True
+
     def install(self):
         self.logger.info('Creating chroot')
         ConaryBasedChroot.install(self)
@@ -296,6 +299,9 @@ class FakeRmakeRoot(rMakeChroot):
 
     def install(self):
         pass
+
+    def useStandardRoot(self):
+        return False
 
 class ExistingChroot(rMakeChroot):
     def __init__(self, rootPath, logger, chrootHelperPath):
