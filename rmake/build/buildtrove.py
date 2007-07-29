@@ -137,7 +137,7 @@ class _AbstractBuildTrove:
         return self.flavor
 
     def getFullFlavor(self):
-        return deps.overrideFlavor(self.flavor, self.cfg.buildFlavor)
+        return deps.overrideFlavor(self.cfg.buildFlavor, self.flavor)
 
     def getFlavorList(self):
         return self.flavorList
