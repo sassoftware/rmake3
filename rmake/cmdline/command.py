@@ -513,7 +513,9 @@ class QueryCommand(rMakeCommand):
             'full-versions'   : 'Show full versions',
             'labels'          : 'Show labels',
             'flavors'         : 'Show full flavors',
-            'tracebacks'      : 'Show tracebacks'
+            'tracebacks'      : 'Show tracebacks',
+            'all'             : 'Show all jobs (not just last 20)',
+            'active'          : 'Show only active jobs'
            }
 
 
@@ -525,7 +527,9 @@ class QueryCommand(rMakeCommand):
         argDef['labels']     = NO_PARAM
         argDef['flavors']    = NO_PARAM
         argDef['logs']       = NO_PARAM
-        argDef['watch']       = NO_PARAM
+        argDef['watch']      = NO_PARAM
+        argDef['all']        = NO_PARAM
+        argDef['active']        = NO_PARAM
         rMakeCommand.addParameters(self, argDef)
 
     def runCommand(self, client, cfg, argSet, args):
@@ -549,6 +553,11 @@ class QueryCommand(rMakeCommand):
         showLabels = argSet.pop('labels', False)
         showTracebacks = argSet.pop('tracebacks', False)
         showLogs       = argSet.pop('logs', False)
+        if argSet.pop('all', False):
+            limit = None
+        else:
+            limit = 20
+        activeOnly     = argSet.pop('active', False)
         watchJob       = argSet.pop('watch', False)
         query.displayJobInfo(client, jobId, troveSpecs,
                                     displayTroves=displayTroves,
@@ -558,7 +567,9 @@ class QueryCommand(rMakeCommand):
                                     showFullVersions=showFullVersions,
                                     showFullFlavors=showFullFlavors,
                                     showLabels=showLabels,
-                                    showTracebacks=showTracebacks)
+                                    showTracebacks=showTracebacks,
+                                    jobLimit=limit,
+                                    activeOnly=activeOnly)
         if watchJob:
             client.watch(jobId, showBuildLogs = True, showTroveLogs = True)
 

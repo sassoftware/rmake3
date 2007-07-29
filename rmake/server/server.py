@@ -74,10 +74,10 @@ class rMakeServer(apirpc.XMLApiServer):
         job.jobStopped('User requested stop')
 
     @api(version=1)
-    @api_parameters(1)
+    @api_parameters(1, None, None)
     @api_return(1, None)
-    def listJobs(self, callData):
-        return self.db.listJobs()
+    def listJobs(self, callData, activeOnly, jobLimit):
+        return self.db.listJobs(activeOnly=activeOnly, jobLimit=jobLimit)
 
     @api(version=1)
     @api_parameters(1, None, None)

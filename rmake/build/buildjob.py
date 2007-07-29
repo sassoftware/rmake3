@@ -26,9 +26,11 @@ jobStates = {
     'JOB_STATE_COMMITTED'   : 7,
     }
 
+
 # assign jobStates to this module's dict so that they can be referenced with
 # module 'getattribute' notation (eg; buildjob.JOB_STATE_INIT)
 sys.modules[__name__].__dict__.update(jobStates)
+
 
 stateNames = dict([(x[1], x[0].split('_')[-1].capitalize()) \
                    for x in jobStates.iteritems()])
@@ -38,6 +40,9 @@ stateNames.update({
     JOB_STATE_INIT       : 'Initialized',
     JOB_STATE_BUILD      : 'Building',
 })
+
+ACTIVE_STATES = [ JOB_STATE_BUILD, JOB_STATE_QUEUED, JOB_STATE_STARTED,
+                  JOB_STATE_BUILD ]
 
 def _getStateName(state):
     return stateNames[state]

@@ -35,9 +35,15 @@ class JobStore(object):
         ret = cu.fetchone()[0]
         return ret
 
-    def listJobs(self):
+    def listJobs(self, activeOnly=False, jobLimit=None):
         cu = self.db.cursor()
-        return [x[0] for x in cu.execute("""SELECT jobId FROM Jobs""")]
+        sql = """SELECT jobId FROM Jobs"""
+        if activeOnly:
+            sql += ' WHERE state in (%s)' % ','.join(str(x) for x in buildjob.ACTIVE_STATES)
+        if jobLimit:
+            sql += ' ORDER BY jobId DESC LIMIT %d' % jobLimit
+
+        return [x[0] for x in cu.execute(sql)]
 
     def listTrovesByState(self, jobId, state=None):
         cu = self.db.cursor()

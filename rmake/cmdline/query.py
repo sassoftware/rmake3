@@ -68,13 +68,16 @@ def getTimeDifference(totalSeconds):
         total.append('%d sec%s' % (seconds, seconds > 1 and 's' or ''))
     return ', '.join(total)
 
-def getJobsToDisplay(dcfg, client, jobId=None, troveSpecs=[]):
+def getJobsToDisplay(dcfg, client, jobId=None, troveSpecs=None,
+                     activeOnly=False, jobLimit=None):
     if troveSpecs:
         troveSpecs = ( cmdutil.parseTroveSpec(x) for x in troveSpecs )
         troveSpecs = [ (x[0].split(':')[0] + ':source', x[1], x[2], x[3]) for x in troveSpecs ]
 
     if not jobId:
-        jobList = client.client.getJobs(client.client.listJobs(), 
+        jobIds = client.client.listJobs(activeOnly=activeOnly,
+                                        jobLimit=jobLimit)
+        jobList = client.client.getJobs(jobIds,
                                         withTroves=dcfg.needTroves)
     else:
         jobList = [ client.client.getJob(jobId) ]
@@ -94,7 +97,8 @@ def getJobsToDisplay(dcfg, client, jobId=None, troveSpecs=[]):
 def displayJobInfo(client, jobId=None, troveSpecs=[], displayTroves=False,
                    displayDetails=False, showLogs=False, showBuildLogs=False,
                    showFullVersions=False, showFullFlavors=False,
-                   showLabels=False, showTracebacks=False):
+                   showLabels=False, showTracebacks=False,
+                   activeOnly=False, jobLimit=None):
     if troveSpecs:
         displayTroves = True
 
@@ -119,7 +123,8 @@ def displayJobInfo(client, jobId=None, troveSpecs=[], displayTroves=False,
                          showFullFlavors=showFullFlavors,
                          showLabels=showLabels)
 
-    jobList = getJobsToDisplay(dcfg, client, jobId, troveSpecs)
+    jobList = getJobsToDisplay(dcfg, client, jobId, troveSpecs,
+                               jobLimit=jobLimit, activeOnly=activeOnly)
     for job, troveTupList in jobList:
         dcfg.flavorsByName = getFlavorSpecs(job)
         displayOneJob(dcfg, job, troveTupList)

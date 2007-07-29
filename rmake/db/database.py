@@ -222,8 +222,8 @@ class Database(DBInterface):
         self.subscriberStore.remove(subscriberId)
         self.db.commit()
 
-    def listJobs(self):
-        return self.jobStore.listJobs()
+    def listJobs(self, activeOnly=False, jobLimit=None):
+        return self.jobStore.listJobs(activeOnly, jobLimit)
 
     def listTrovesByState(self, jobId, state=None):
         return self.jobStore.listTrovesByState(jobId, state)

@@ -23,6 +23,9 @@ Changes in 1.0.10:
      * build now takes an --info command that shows useful information about
        exactly what rmake is building.  With the --verbose parameter added,
        it also displays configurations used. (RMK-456, RMK-500)
+     * rmake q now defaults to showing the last 20 jobs.  It takes an --active
+       and --all command to show all active jobs and every job respectively
+       (RMK-510)
   o Bug Fixes:
      * Fixed a bug that caused the chroot to possibly contain different troves
        than resolved. (RMK-447)

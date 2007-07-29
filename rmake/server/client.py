@@ -63,13 +63,15 @@ class rMakeClient(object):
         """
         return self.proxy.deleteJobs(jobIdList)
 
-    def listJobs(self):
+    def listJobs(self, activeOnly=False, jobLimit=None):
         """
             Lists all known jobIds
 
             @return: list of jobIds
         """
-        return self.proxy.listJobs()
+        if not jobLimit:
+            jobLimit = 0
+        return self.proxy.listJobs(activeOnly, jobLimit)
 
     def listTrovesByState(self, jobId, state=None):
         """
