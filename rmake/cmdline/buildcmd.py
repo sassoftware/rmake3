@@ -72,7 +72,9 @@ def getBuildJob(buildConfig, conaryclient, troveSpecList, limitToHosts=None,
             cfg.dropContexts()
         else:
             cfg = copy.deepcopy(buildConfig)
+            cfg.dropContexts()
             contextStr = ''
+            job.setMainConfig(cfg)
         cfg.initializeFlavors()
         use.setBuildFlagsFromFlavor(None, cfg.buildFlavor, error=False)
         if not cfg.buildLabel and cfg.installLabelPath:
