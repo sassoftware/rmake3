@@ -591,7 +591,7 @@ class XMLRPCJobLogReceiver(object):
                         port = int(port)
                     else:
                         port = 0
-                    serverObj = rpclib.DelayableXMLRPCServer((host, port))
+                    serverObj = rpclib.DelayableXMLRPCServer(('', port))
                     if not port:
                         uri = '%s://%s:%s' % (type, host,
                                                    serverObj.getPort())
