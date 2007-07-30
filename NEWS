@@ -26,6 +26,8 @@ Changes in 1.0.10:
      * rmake q now defaults to showing the last 20 jobs.  It takes an --active
        and --all command to show all active jobs and every job respectively
        (RMK-510)
+     * rMake can now use entitlements when building in strictMode (RMK-517,
+       RMK-196)
   o Bug Fixes:
      * Fixed a bug that caused the chroot to possibly contain different troves
        than resolved. (RMK-447)
