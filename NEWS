@@ -9,6 +9,7 @@ Changes in 1.0.10:
        easier to debug chroot failures. (RMK-445)
      * Added a --message parameter to build, commit and restart commands 
        (RMK-472)
+     * Group cook output is now more verbose. (RMK-525)
   o Server Changes:
      * Cleaned up server configuration options, all repository options now
        start with "repos" as opposed to "server", proxyUrl and reposUrl are
@@ -68,6 +69,8 @@ Changes in 1.0.10:
        their context.
      * When building "Caching" is no longer displayed when not using the 
        changeset cache. (RMK-459)
+     * It is now possible to commit multiple jobs that use contexts at the
+       same time. (RMK-529) 
 
 Changes in 1.0.9:
   o Server Changes:

@@ -173,10 +173,10 @@ class JobStore(object):
                     configD = jobConfigD.setdefault(jobId, {})
                     d = configD.setdefault(context, {})
                     d.setdefault(key, []).append(value)
-                for jobId, configDict in jobConfigD.items():
-                    configDict = dict((x[0], thaw('BuildConfiguration', x[1]))
-                                       for x in configD.iteritems())
-                    jobsById[jobId].setConfigs(configDict)
+                for jobId, configD in jobConfigD.items():
+                    configD = dict((x[0], thaw('BuildConfiguration', x[1]))
+                                   for x in configD.iteritems())
+                    jobsById[jobId].setConfigs(configD)
             return [jobsById[jobId] for jobId in jobIdList]
         finally:
             cu.execute("DROP TABLE tJobIdList", start_transaction = False)
