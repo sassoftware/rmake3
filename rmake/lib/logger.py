@@ -4,6 +4,8 @@ import os
 from conary.lib import util
 
 _loggers = []
+LOGSIZE = 10 * 1024 * 1024
+BACKUPS = 3
 
 def shutdown():
     for logger in _loggers:
@@ -73,7 +75,9 @@ class Logger(object):
     def logToFile(self, logPath):
         if not self.fileHandler:
             util.mkdirChain(os.path.dirname(logPath))
-            fileHandler = logging.FileHandler(logPath)
+            fileHandler = handler.RotatingFileHandler(logPath,
+                                                      maxBytes=LOGSIZE,
+                                                      backupCount=BACKUPS
             fileHandler.setFormatter(self.formatterClass(self.fileFormat,
                                                          self.dateFormat))
             self.fileHandler = fileHandler
@@ -128,7 +132,9 @@ class ServerLogger(Logger):
 
     def logRPCToFile(self, rpcPath):
         if not self.rpcFileHandler:
-            fileHandler = logging.FileHandler(rpcPath)
+            fileHandler = logger.RotatingFileHandler(rpcPath, 
+                                                     maxBytes=LOGSIZE,
+                                                     backupCount=BACKUPS)
             fileHandler.setFormatter(self.formatterClass(self.rpcFormat,
                                                        self.dateFormat))
             self.rpcFileHandler = fileHandler
