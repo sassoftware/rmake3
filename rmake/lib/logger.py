@@ -1,3 +1,4 @@
+from logging import handlers
 import logging
 import os
 
@@ -75,9 +76,9 @@ class Logger(object):
     def logToFile(self, logPath):
         if not self.fileHandler:
             util.mkdirChain(os.path.dirname(logPath))
-            fileHandler = handler.RotatingFileHandler(logPath,
+            fileHandler = handlers.RotatingFileHandler(logPath,
                                                       maxBytes=LOGSIZE,
-                                                      backupCount=BACKUPS
+                                                      backupCount=BACKUPS)
             fileHandler.setFormatter(self.formatterClass(self.fileFormat,
                                                          self.dateFormat))
             self.fileHandler = fileHandler
@@ -132,7 +133,7 @@ class ServerLogger(Logger):
 
     def logRPCToFile(self, rpcPath):
         if not self.rpcFileHandler:
-            fileHandler = logger.RotatingFileHandler(rpcPath, 
+            fileHandler = handlers.RotatingFileHandler(rpcPath, 
                                                      maxBytes=LOGSIZE,
                                                      backupCount=BACKUPS)
             fileHandler.setFormatter(self.formatterClass(self.rpcFormat,
