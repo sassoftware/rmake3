@@ -125,7 +125,7 @@ def cookTrove(cfg, repos, logger, name, version, flavorList, targetLabel,
                 #    logFile.logToPort(*logData)
                 #else:
                 #    logFile.redirectOutput()
-                log.setVerbosity(log.INFO)
+                log.setVerbosity(log.DEBUG)
                 log.info("Cook process started (pid %s)" % os.getpid())
                 _cookTrove(cfg, repos, name, version, flavorList, targetLabel,
                            loadSpecsList, builtTroves,
