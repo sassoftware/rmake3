@@ -231,7 +231,10 @@ def _getResolveTroveTups(cfg, repos):
         results = repos.findTroves(cfg.installLabelPath,
                                    list(allResolveTroves), cfg.flavor)
     except Exception, err:
-        raise errors.RmakeError("Could not find resolve troves: %s\n" % err)
+        context = cfg.context
+        if not context:
+            context = 'default'
+        raise errors.RmakeError("Could not find resolve troves for [%s] context: %s\n" % (context, err))
 
     resolveTroves = []
     for resolveTroveSpecList in cfg.resolveTroves:
