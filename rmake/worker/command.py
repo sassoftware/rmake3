@@ -12,6 +12,7 @@ import traceback
 from conary import conaryclient
 from conary.lib import util
 from conary.repository import changeset
+from conary.repository.errors import CommitError
 
 from rmake import errors
 
@@ -291,11 +292,17 @@ class BuildCommand(TroveCommand):
             if buildResult.isBuildSuccess():
                 csFile = buildResult.getChangeSetFile()
                 cs = changeset.ChangeSetFromFile(csFile)
-                repos.commitChangeSet(cs)
-                # sends off message that this trove built successfully
                 troveList = [x.getNewNameVersionFlavor() for
                              x in cs.iterNewTroveList() ]
-                trove.troveBuilt(troveList)
+                try:
+                    repos.commitChangeSet(cs)
+                except CommitError, err:
+                    # someone else committed this package between 
+                    # our building and committing
+                    trove.troveDuplicate(troveList)
+                else:
+                    # sends off message that this trove built successfully
+                    trove.troveBuilt(troveList)
                 del cs # this makes sure the changeset closes the fd.
             else:
                 reason = buildResult.getFailureReason()

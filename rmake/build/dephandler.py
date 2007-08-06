@@ -137,6 +137,18 @@ class DependencyBasedBuildState(AbstractBuildState):
             else:
                 self.rejectDep(trove, provTrove, isCross)
 
+    def troveDuplicate(self, duplicateTrove, matchedTrove):
+        if not matchedTrove.isBuilt():
+            for child, req in self.depGraph.iterChildren(duplicateTrove,
+                                                         withEdges=True):
+                self.dependsOn(matchedTrove, duplicateTrove, req)
+            for parent, req in self.depGraph.getParents(duplicateTrove,
+                                                        withEdges=True):
+                self.dependsOn(parent, matchedTrove, req)
+        self.disallow(duplicateTrove)
+        self.buildReqTroves.pop(duplicateTrove, False)
+        self.depGraph.delete(duplicateTrove)
+
     def _flavorsMatch(self, troveFlavor, provFlavor, reqFlavor, isCross):
         if isCross:
             troveFlavor = flavorutil.getSysRootFlavor(troveFlavor)
@@ -216,20 +228,13 @@ class DependencyBasedBuildState(AbstractBuildState):
             headNode = troveList[0]
             troveList[0].setFlavorList(flavorList)
             troveList[0].setLoadedSpecsList(loadedSpecsList)
-            self.mergeNodes(troveList, troveList[0])
             # mark the rest as prebuilt
             # yuck, we haven't subscribed to these troves yet.
             for trove in troveList[1:]:
-                trove.troveBuilt([])
-                self.troveBuilt(trove, [])
+                trove.troveDuplicate([])
+                self.troveDuplicate(trove, troveList[0])
                 self._setState(trove, trove.state)
 
-    def mergeNodes(self, troveList, newNode):
-        for trove in troveList:
-            for child, req in self.depGraph.iterChildren(trove, withEdges=True):
-                self.dependsOn(trove, child, req)
-            for parent, req in self.depGraph.getParents(trove, withEdges=True):
-                self.dependsOn(parent, trove, req)
 
     def dependsOn(self, trove, provTrove, req):
         if trove == provTrove:
@@ -358,6 +363,7 @@ class DependencyHandler(object):
         self._cycleTroves = []
 
         statusLog.subscribe(statusLog.TROVE_BUILT, self.troveBuilt)
+        statusLog.subscribe(statusLog.TROVE_DUPLICATE, self.troveDuplicate)
         statusLog.subscribe(statusLog.TROVE_BUILDING, self.troveBuilding)
         statusLog.subscribe(statusLog.TROVE_FAILED, self.troveFailed)
         statusLog.subscribe(statusLog.TROVE_RESOLVED,
@@ -437,6 +443,19 @@ class DependencyHandler(object):
             if not delayers:
                 self._delayed.pop(wasDelayed)
 
+    def troveDuplicate(self, trove, troveList):
+        package = trove.getName().split(':')[0]
+        possibleMatches = self.depState.getTrovesByPackage(package)
+        for match in possibleMatches:
+            if match is trove:
+                continue
+            elif match.getBinaryTroves() == set(troveList):
+                self.depState.troveDuplicate(trove, match)
+                return
+            elif set(match.getBinaryTroves()) & set(troveList):
+                trove.troveFailed('Two versions of %s=%s[%s] were built at the same time but resulted in different components.  If these packages should have different flavors, then add flavor information to them.  Otherwise, try building only one of them.' % trove.getNameVersionFlavor())
+                return
+        trove.troveFailed('Package was committed at the same time as the same package was built in another job.  Make sure no one else is building the same packages as you, or that you didn\'t acidentally built the same package twice with teh same flavor')
 
     def moreToDo(self):
         return self.depState.moreToDo()

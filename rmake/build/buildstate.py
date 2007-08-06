@@ -44,16 +44,22 @@ class AbstractBuildState(object):
     def getBuiltTroves(self):
         return self.states[buildtrove.TROVE_STATE_BUILT]
 
+    def getDuplicateTroves(self):
+        return self.states[buildtrove.TROVE_STATE_DUPLICATE]
+
     def getFailedTroves(self):
         return self.states[buildtrove.TROVE_STATE_FAILED] | self.states[buildtrove.TROVE_STATE_UNBUILDABLE]
 
     def jobPassed(self):
-        return (set(self.troves) == set(self.getBuiltTroves()))
+        return (set(self.troves) == (set(self.getBuiltTroves())
+                                     | set(self.getDuplicateTroves())))
 
     def isUnbuilt(self, trove):
         return (trove in self.states[buildtrove.TROVE_STATE_INIT]
                 or trove in self.states[buildtrove.TROVE_STATE_BUILDABLE]
                 or trove in self.states[buildtrove.TROVE_STATE_BUILDING]
+                or trove in self.states[buildtrove.TROVE_STATE_PREPARING]
+                or trove in self.states[buildtrove.TROVE_STATE_RESOLVING]
                 or trove in self.states[buildtrove.TROVE_STATE_PREBUILT]
                 or trove in self.states[buildtrove.TROVE_STATE_WAITING])
 

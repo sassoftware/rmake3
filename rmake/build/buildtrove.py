@@ -27,6 +27,7 @@ troveStates = {
     'TROVE_STATE_BUILT'       : 7,
     'TROVE_STATE_UNBUILDABLE' : 8,
     'TROVE_STATE_PREBUILT'    : 9,
+    'TROVE_STATE_DUPLICATE'   : 10,
 }
 
 recipeTypes = {
@@ -208,11 +209,14 @@ class _AbstractBuildTrove:
     def isPrebuilt(self):
         return self.state == TROVE_STATE_PREBUILT
 
+    def isDuplicate(self):
+        return self.state == TROVE_STATE_DUPLICATE
+
     def isBuilt(self):
         return self.state == TROVE_STATE_BUILT
 
     def isFinished(self):
-        return self.isFailed() or self.isBuilt() or self.isPrebuilt()
+        return self.isFailed() or self.isBuilt() or self.isDuplicate()
 
     def isBuildable(self):
         return self.state == TROVE_STATE_BUILDABLE
@@ -464,6 +468,7 @@ class BuildTrove(_FreezableBuildTrove):
 
             Publishes log message.
         """
+        self.finish = 0
         self.start = time.time()
         self.pid = pid
         self._setState(TROVE_STATE_RESOLVING,
@@ -472,7 +477,7 @@ class BuildTrove(_FreezableBuildTrove):
     def trovePrebuilt(self, buildReqs, binaryTroves):
         self.finish = time.time()
         self.pid = 0
-        self._setState(TROVE_STATE_PREBUILT, '', buildReqs)
+        self._setState(TROVE_STATE_PREBUILT, '', buildReqs, binaryTroves)
         self.preBuiltRequirements = buildReqs
         self.preBuiltBinaries = binaryTroves
 
@@ -523,8 +528,15 @@ class BuildTrove(_FreezableBuildTrove):
             @param pid: pid of build process.
         """
         self.pid = pid
+        self.finish = 0
         self.start = time.time()
         self._setState(TROVE_STATE_BUILDING, '', pid)
+
+    def troveAlreadyCommitted(self, troveList):
+        self.setBuiltTroves(troveList)
+        self.finish = time.time()
+        self.setBuiltTroves(troveList)
+        self._setState(TROVE_STATE_BUILT, '', troveList)
 
     def troveBuilt(self, troveList):
         """
@@ -541,6 +553,9 @@ class BuildTrove(_FreezableBuildTrove):
         self.pid = 0
         self.setBuiltTroves(troveList)
         self._setState(TROVE_STATE_BUILT, '', troveList)
+
+    def troveDuplicate(self, troveList):
+        self._setState(TROVE_STATE_DUPLICATE, '', troveList)
 
     def troveFailed(self, failureReason, isPrimaryFailure=True):
         """
