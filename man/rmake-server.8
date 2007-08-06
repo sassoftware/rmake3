@@ -75,6 +75,8 @@ The rmake server configuration items can be strings, boolean values
 .B buildDir
 Directory under which rmake builds.  For security reasons, this directory must 
 be owned by the rmake user and group, and its permissions must be set to 700.
+The build dir must have the following sub-directories also owned by the rmake
+user and with 0700 permissions: archive, chroot, chroots.
 .TP 4
 .B chrootLimit
 Number of chroots that should be allowed to be created on this machine at the same time.  After this point, old chroots will be deleted, or reused if reuseChroots is True. Defaults to 10.  Turned off if set to 0.
