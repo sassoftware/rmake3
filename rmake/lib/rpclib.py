@@ -60,12 +60,13 @@ class AuthObject(object):
 
 class HttpAuth(AuthObject):
 
-    __slots__ = [ 'user', 'password']
+    __slots__ = [ 'user', 'password', 'ip_address' ]
 
-    def __init__(self, request):
+    def __init__(self, request, client_address):
         AuthObject.__init__(self, request)
         self.user = None
         self.password = None
+        self.ip_address = client_address[0]
 
     def setHeaders(self, headers):
         self.headers = headers
@@ -78,6 +79,9 @@ class HttpAuth(AuthObject):
             self.user = user
             self.password = password
         self.headers = headers
+
+    def getIP(self):
+        return self.ip_address
 
     def getUser(self):
         return self.user
@@ -94,17 +98,20 @@ class HttpAuth(AuthObject):
 class SocketAuth(HttpAuth):
     __slots__ = ['pid', 'uid', 'gid', 'socketUser']
 
-    def __init__(self, request):
+    def __init__(self, request, client_address):
         # get the peer credentials
         buf = request.getsockopt(socket.SOL_SOCKET, IN.SO_PEERCRED, 12)
         creds = struct.unpack('iii', buf)
         self.pid = creds[0]
         self.uid = creds[1]
         self.gid = creds[2]
-        HttpAuth.__init__(self, request)
+        HttpAuth.__init__(self, request, ('127.0.0.1', None))
 
     def getSocketUser(self):
         return pwd.getpwuid(self.uid).pw_name
+
+    def getIP(self):
+        return '127.0.0.1'
 
     def __repr__(self):
         return 'SocketAuth(pid=%s, uid=%s, gid=%s)' % (self.pid, self.uid,
@@ -271,7 +278,7 @@ class DelayableXMLRPCDispatcher(SimpleXMLRPCDispatcher):
 
     def _getAuth(self, request, client_address):
         if self.authMethod:
-            return self.authMethod(request)
+            return self.authMethod(request, client_address)
         else:
             return None
 
