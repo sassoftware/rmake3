@@ -23,7 +23,7 @@ No user given - check to make sure you've set rmakeUser config variable to match
                 #           urllib.quote(challenge), urllib.quote(ip))
                 # at some point we should start sending remote_ip
                 url = "%s/pwCheck?user=%s;password=%s" \
-                        % (selfmitpwCheckUrl, urllib.quote(user),
+                        % (self.pwCheckUrl, urllib.quote(user),
                            urllib.quote(challenge))
                 f = urllib2.urlopen(url)
                 xmlResponse = f.read()
