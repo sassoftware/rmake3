@@ -73,6 +73,9 @@ Changes in 1.0.10:
        changeset cache. (RMK-459)
      * It is now possible to commit multiple jobs that use contexts at the
        same time. (RMK-529) 
+     * When building two noarch packages, one for x86 and one for x86_64, 
+       as long as they result in the same components, one will be considered
+       as a satisfactory replacement for the other. (RMK-495, RMK-497)
 
 Changes in 1.0.9:
   o Server Changes:

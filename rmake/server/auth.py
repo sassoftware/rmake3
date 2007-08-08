@@ -10,7 +10,7 @@ class AuthenticationManager(object):
         self.pwCheckUrl = url
         self.db = db
 
-    def authCheck(self, user, challenge):
+    def authCheck(self, user, challenge, ip='127.0.0.1'):
         isValid = False
         if self.pwCheckUrl:
             if not user or not challenge:
@@ -18,6 +18,10 @@ class AuthenticationManager(object):
 No user given - check to make sure you've set rmakeUser config variable to match a user and password accepted by the rBuilder instance at %s""" % self.pwCheckUrl)
 
             try:
+                #url = "%s/pwCheck?user=%s;password=%s;remote_ip=%s" \
+                #        % (self.pwCheckUrl, urllib.quote(user),
+                #           urllib.quote(challenge), urllib.quote(ip))
+                # at some point we should start sending remote_ip
                 url = "%s/pwCheck?user=%s;password=%s" \
                         % (self.pwCheckUrl, urllib.quote(user),
                            urllib.quote(challenge))

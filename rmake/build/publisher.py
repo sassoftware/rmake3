@@ -24,8 +24,10 @@ class JobStatusPublisher(publisher.Publisher):
                   'TROVE_PREPARING_CHROOT',
                   'TROVE_BUILDING',
                   'TROVE_BUILT',
+                  'TROVE_PREBUILT',
                   'TROVE_RESOLVING',
                   'TROVE_RESOLVED',
+                  'TROVE_DUPLICATE',
                   'TROVE_FAILED',
                   'JOB_LOG_UPDATED',
                   'JOB_STATE_UPDATED',
@@ -59,6 +61,10 @@ class JobStatusPublisher(publisher.Publisher):
             self._emit(self.TROVE_RESOLVING, '', buildTrove, *args)
         if buildTrove.isBuilt():
             self._emit(self.TROVE_BUILT, '', buildTrove, *args)
+        if buildTrove.isPrebuilt():
+            self._emit(self.TROVE_PREBUILT, '', buildTrove, *args)
+        if buildTrove.isDuplicate():
+            self._emit(self.TROVE_DUPLICATE, '', buildTrove, *args)
         elif buildTrove.isBuilding():
             self._emit(self.TROVE_BUILDING, '', buildTrove, *args)
         elif buildTrove.isFailed():

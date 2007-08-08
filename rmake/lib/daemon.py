@@ -174,7 +174,7 @@ class Daemon(options.MainHandler):
                 pipeFD = os.popen("ps -p %d -o comm=" %pid)
                 procName = pipeFD.readline().strip()
                 pipeFD.close()
-                if not procName:
+                if not procName or procName.endswith('<defunct>'):
                     break
                 time.sleep(.5)
         except OSError, e:
