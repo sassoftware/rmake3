@@ -46,6 +46,8 @@ def getRecipes(repos, troveTups):
         outF = os.fdopen(fd, "w")
         inF = recipe.get()
         util.copyfileobj(inF, outF)
+        outF.close()
+        inF.close()
         del inF
         del outF
         recipeList.append(recipeFile)
