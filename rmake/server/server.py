@@ -544,7 +544,7 @@ class rMakeServer(apirpc.XMLApiServer):
 
         self.internalAuth = (user, password)
 
-    def __init__(self, uri, cfg, repositoryPid, proxyPid=None,
+    def __init__(self, uri, cfg, repositoryPid=None, proxyPid=None,
                  pluginMgr=None, quiet=False):
         util.mkdirChain(cfg.logDir)
         logPath = cfg.logDir + '/rmake.log'
