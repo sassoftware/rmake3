@@ -89,6 +89,8 @@ class ServerProxy(xmlrpclib.ServerProxy):
             # switch to /var/lib/rmake/socket.  This will make
             # the parts foo:bar@/var/lib/rmake
             self.__host = url[2:]
+        elif isinstance(uri, tuple):
+            self.__host, transport = uri
         elif transport is None:
             transport = ShimTransport()
             # __host is the server object
