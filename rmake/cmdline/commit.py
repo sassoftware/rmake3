@@ -137,7 +137,7 @@ def commitJobs(conaryclient, jobList, reposName, message=None,
     callback = callbacks.CloneCallback(conaryclient.cfg, message)
     passed, cs = conaryclient.createTargetedCloneChangeSet(
                                         branchMap, trovesToClone,
-                                        updateBuildInfo=True,
+                                        updateBuildInfo=False,
                                         cloneSources=False,
                                         trackClone=False,
                                         callback=callback, fullRecurse=False)
