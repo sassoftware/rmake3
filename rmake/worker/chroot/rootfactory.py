@@ -341,8 +341,9 @@ class FullRmakeChroot(rMakeChroot):
         # make time outputs accurate
         if os.path.exists('/etc/localtime'):
             self.copyFile('/etc/localtime')
-        if os.path.exists('/etc/nsswitch.conf'):
-            self.copyFile('/etc/nsswitch.conf')
+        # glibc:runtime should provide a good default nsswitch
+        #if os.path.exists('/etc/nsswitch.conf'):
+        #    self.copyFile('/etc/nsswitch.conf')
 
         # ********
         # NOTE:
