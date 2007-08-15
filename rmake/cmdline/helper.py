@@ -21,6 +21,7 @@ from conary import conarycfg
 from conary import conaryclient
 from conary.conaryclient import cmdline
 from conary import state
+from conary import versions
 from conary.build import use
 from conary.deps import deps
 from conary.lib import log
@@ -149,11 +150,14 @@ class rMakeHelper(object):
                 cfg.resolveTroves = jobConfig.resolveTroves
                 cfg.resolveTrovesOnly = jobConfig.resolveTrovesOnly
                 cfg.installLabelPath = jobConfig.installLabelPath
+                cfg.matchTroveRule = jobConfig.matchTroveRule
         mainConfig.jobContext += [jobId]
+        recurseGroups = job.getMainConfig().recurseGroups
         if troveSpecs:
             troveSpecList.extend(troveSpecs)
         return self.buildTroves(troveSpecList, buildConfig=mainConfig,
-                                configDict=configDict)
+                                configDict=configDict,
+                                recurseGroups=recurseGroups)
 
     def buildTroves(self, troveSpecList,
                     limitToHosts=None, limitToLabels=None, recurseGroups=False,
@@ -161,14 +165,19 @@ class rMakeHelper(object):
                     quiet=False, infoOnly=False):
         if buildConfig is None:
             buildConfig = self.buildConfig
+        if limitToHosts:
+            buildConfig.limitToHosts(limitToHosts)
+        if limitToLabels:
+            buildConfig.limitToLabels(limitToLabels)
+        if matchSpecs:
+            for matchSpec in matchSpecs:
+                buildConfig.addMatchRule(matchSpec)
+
         job = buildcmd.getBuildJob(buildConfig,
                                    self.getConaryClient(buildConfig),
                                    troveSpecList,
-                                   limitToHosts=limitToHosts,
-                                   limitToLabels=limitToLabels,
                                    recurseGroups=recurseGroups,
-                                   configDict=configDict,
-                                   matchSpecs=matchSpecs)
+                                   configDict=configDict)
 
         if infoOnly:
             verbose = log.getVerbosity() <= log.DEBUG

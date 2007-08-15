@@ -1,8 +1,14 @@
 Changes in 1.0.11:
+  o Build Changes:
+     * you can now specify matchTroveRules in your configuration file, and also
+       in a context.  This allows you to not build certain troves within a
+        group based on a the values in the context. (RMK-561)
   o Bug Fixes:
      * When building two noarch packages, one for x86 and one for x86_64, 
        as long as they result in the same components, one will be considered
        as a satisfactory replacement for the other. (RMK-495, RMK-497)
+     * "rmake restart" now keeps the same recurseGroups setting from the previous
+       build. (RMK-557)
 
 Changes in 1.0.10:
   o Build Changes:

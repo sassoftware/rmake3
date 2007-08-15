@@ -31,9 +31,9 @@ BUILD_RECURSE_GROUPS_BINARY = 1 # find and recurse the binary version of the
 BUILD_RECURSE_GROUPS_SOURCE = 2 # find and recurce the source version of the
                                 # group
 
-def getBuildJob(buildConfig, conaryclient, troveSpecList, limitToHosts=None, 
-                limitToLabels=None, message=None, matchSpecs=None,
-                recurseGroups=BUILD_RECURSE_GROUPS_NONE, configDict=None):
+def getBuildJob(buildConfig, conaryclient, troveSpecList,
+                message=None, recurseGroups=BUILD_RECURSE_GROUPS_NONE, 
+                configDict=None):
     trovesByContext = {}
 
     for troveSpec in list(troveSpecList):
@@ -55,12 +55,16 @@ def getBuildJob(buildConfig, conaryclient, troveSpecList, limitToHosts=None,
     # don't store all the contexts with this job - they're useless past the
     # initialization step.
     if configDict:
+        mainConfig = configDict['']
         job.setMainConfig(configDict[''])
     else:
         cfg = copy.deepcopy(buildConfig)
         cfg.dropContexts()
-        job.setMainConfig(cfg)
+        mainConfig = cfg
+    mainConfig.recurseGroups = int(recurseGroups)
+    job.setMainConfig(mainConfig)
 
+    baseMatchRules = mainConfig.matchTroveRule
     for contextStr, troveSpecList in trovesByContext.iteritems():
         if configDict and contextStr in configDict:
             cfg = configDict[contextStr]
@@ -81,9 +85,9 @@ def getBuildJob(buildConfig, conaryclient, troveSpecList, limitToHosts=None,
             cfg.buildLabel = cfg.installLabelPath[0]
         troveSpecList = list(set(troveSpecList))
         troveList = getTrovesToBuild(cfg, conaryclient, troveSpecList,
-                         limitToHosts=limitToHosts, limitToLabels=limitToLabels,
                          message=None,
-                         recurseGroups=recurseGroups, matchSpecs=matchSpecs)
+                         recurseGroups=recurseGroups,
+                         matchSpecs=baseMatchRules + cfg.matchTroveRule)
         for name, version, flavor in troveList:
             if flavor is None:
                 flavor = deps.parseFlavor('')
@@ -93,7 +97,7 @@ def getBuildJob(buildConfig, conaryclient, troveSpecList, limitToHosts=None,
             job.setTroveConfig(bt, cfg)
     return job
 
-def getTrovesToBuild(cfg, conaryclient, troveSpecList, limitToHosts=None, limitToLabels=None, message=None, recurseGroups=BUILD_RECURSE_GROUPS_NONE, matchSpecs=None):
+def getTrovesToBuild(cfg, conaryclient, troveSpecList, message=None, recurseGroups=BUILD_RECURSE_GROUPS_NONE, matchSpecs=None):
     toBuild = []
     toFind = {}
     groupsToFind = []
@@ -103,9 +107,8 @@ def getTrovesToBuild(cfg, conaryclient, troveSpecList, limitToHosts=None, limitT
 
     repos = conaryclient.getRepos()
     cfg.resolveTroveTups = _getResolveTroveTups(cfg, repos)
+    cfg.recurseGroups = int(recurseGroups)
 
-    cfg.limitToHosts = limitToHosts
-    cfg.limitToLabels = limitToLabels
     cfg.buildTroveSpecs = []
     newTroveSpecs = []
     recipesToCook = []
@@ -150,12 +153,10 @@ def getTrovesToBuild(cfg, conaryclient, troveSpecList, limitToHosts=None, limitT
         localGroupTroves = [ x for x in localTroves 
                              if x[0].startswith('group-') ]
         toBuild.extend(_findSourcesForSourceGroup(repos, cfg, groupsToFind,
-                                                  localGroupTroves,
-                                                  limitToHosts, limitToLabels))
+                                                  localGroupTroves))
     elif recurseGroups == BUILD_RECURSE_GROUPS_BINARY:
         newTroveSpecs.extend(_findSpecsForBinaryGroup(repos, cfg,
-                                                      groupsToFind,
-                                                      limitToHosts, limitToLabels))
+                                                      groupsToFind))
 
     for troveSpec in newTroveSpecs:
         sourceName = troveSpec[0].split(':')[0] + ':source'
@@ -507,8 +508,7 @@ def _commitRecipe(conaryclient, recipePath, message, branch=None):
         shutil.rmtree(recipeDir)
 
 
-def _findSpecsForBinaryGroup(repos, cfg, groupsToFind, limitToHosts, 
-                            limitToLabels):
+def _findSpecsForBinaryGroup(repos, cfg, groupsToFind):
     newTroveSpecs = []
     results = repos.findTroves(cfg.buildLabel,
                                groupsToFind, cfg.buildFlavor)
@@ -529,13 +529,6 @@ def _findSpecsForBinaryGroup(repos, cfg, groupsToFind, limitToHosts,
                              for x in troveTups)
             troveTups = (x for x in troveTups
                          if not x[0].startswith('group-'))
-            if limitToHosts:
-                troveTups = (x for x in troveTups
-                             if (x[1].trailingLabel().getHost()
-                                 in limitToHosts))
-            if limitToLabels:
-                troveTups = (x for x in troveTups
-                             if (str(x[1].trailingLabel()) not in limitToLabels))
             troveTups = list(set(troveTups))
             troveList = repos.getTroves(troveTups, withFiles=False)
             for trove in troveList:
@@ -545,8 +538,7 @@ def _findSpecsForBinaryGroup(repos, cfg, groupsToFind, limitToHosts,
                             trove.getFlavor()))
     return newTroveSpecs
 
-def _findSourcesForSourceGroup(repos, cfg, groupsToFind,
-                               localGroups, limitToHosts, limitToLabels):
+def _findSourcesForSourceGroup(repos, cfg, groupsToFind, localGroups):
     findSpecs = {}
     for troveSpec in groupsToFind:
         sourceName = troveSpec[0].split(':')[0] + ':source'
@@ -578,14 +570,6 @@ def _findSourcesForSourceGroup(repos, cfg, groupsToFind,
             troveTups = grouprecipe.findSourcesForGroup(localRepos, recipeObj)
             allTups.extend(troveTups)
 
-    if limitToHosts:
-        allTups = [x for x in allTups
-                   if (x[1].trailingLabel().getHost()
-                     in limitToHosts)]
-    if limitToLabels:
-        allTups = [x for x in allTups
-                   if (str(x[1].trailingLabel())
-                     in limitToLabels)]
     allTups = [ x for x in allTups if not x[0].startswith('group-') ]
     return allTups
 

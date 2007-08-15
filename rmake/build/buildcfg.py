@@ -115,6 +115,7 @@ class RmakeBuildContext(cfg.ConfigSection):
                              'findutils:runtime', 'gawk:runtime'])
     resolveTroves        = (CfgList(CfgQuotedLineList(CfgTroveSpec)),
                             [[('group-dist', None, None)]])
+    matchTroveRule       = (CfgList(CfgString), [])
     resolveTrovesOnly    = (CfgBool, False)
     reuseRoots           = (CfgBool, False)
     strictMode           = (CfgBool, False)
@@ -133,6 +134,7 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
 
     buildTroveSpecs      = CfgList(CfgTroveSpec)
     resolveTroveTups     = CfgList(CfgQuotedLineList(CfgTroveTuple))
+    recurseGroups        = (CfgInt, 0)
     pluginDirs           = (CfgPathList, ['/usr/share/rmake/plugins',
                                           '~/.rmake/plugins.d'])
     usePlugin            = CfgDict(CfgBool)
@@ -143,7 +145,8 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
     # and should not be displayed.  They are job-specific.  However,
     # they must be stored with the job, parsed with the job, etc.
 
-    _hiddenOptions = [ 'buildTroveSpecs', 'resolveTroveTups', 'jobContext' ]
+    _hiddenOptions = [ 'buildTroveSpecs', 'resolveTroveTups', 'jobContext',
+                       'recurseGroups' ]
 
     _strictOptions = [ 'buildFlavor', 'buildLabel', 'cleanAfterCook','flavor',
                        'installLabelPath', 'repositoryMap', 'root',
@@ -262,6 +265,24 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
         if self.rmakeUrl:
             return self.rmakeUrl
         return 'unix:///var/lib/rmake/socket'
+
+    def limitToHosts(self, hosts):
+        if isinstance(hosts, str):
+            hosts = [hosts]
+        for host in hosts:
+            if '@' in host or '=' in host:
+                raise ParseError('Invalid host "%s"' % host)
+            self.addMatchRule('=%s@' % host)
+
+    def limitToLabels(self, labels):
+        if isinstance(labels, str):
+            labels = [labels]
+        for label in labels:
+            label = versions.Label(label)
+            self.addMatchRule('=%s' % label)
+
+    def addMatchRule(self, matchRule):
+        self.configLine('matchTroveRule %s' % matchRule)
 
     def getTargetLabel(self, versionOrLabel):
         if isinstance(versionOrLabel, versions.Label):
