@@ -215,7 +215,8 @@ def _filterListByMatchSpecs(reposName, matchSpecs, troveList):
     toRemove = []
     toAdd = set()
     for matchSpec, resultList in results.iteritems():
-        if not finalMatchSpecs[matchSpec]:
+        if not finalMatchSpecs[matchSpec]: # this matchSpec was prepended by
+                                           # a - sign
             toAdd.update(resultList)
         else:
             toRemove.extend(resultList)

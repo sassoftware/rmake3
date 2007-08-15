@@ -369,6 +369,14 @@ NOTE: All plugin loading related options, such as this one, cannot be included i
 Subscribe is an experimental option, and should not be used except by
 developers. Documentation is forthcoming for this option.
 .TP
+.B matchTroveRule
+Specifies what troves should be built when building groups recursively.
+MatchTroveRules can be specified multiple times, and should consist of parts of a name=version[flavor] type trove specifier.  All parts of the specifier are optional: if the name is left blank, then the version and flavor must match for all troves.  If a flavor is specified, then the matchTroveRule will match all troves that have that flavor in them.
+
+MatchTroveRules can be made negative by prepending a '-' in front of the rule.  For example, "matchTroveRule -=localhost@rpl:linux" would specify not to build anything on localhost@rpl:linux".  
+
+All positive match rules are applied before all negative rules.  For example, if you had match rules for "foo" and "-localhost@rpl:linux" this would build foo unless it was on localhost@rpl:linux.
+.TP
 .B resolveTroves
 Specifies the troves to resolve against when building troves using rmake.
 If build requirements and dependencies for build requirements can be found in
