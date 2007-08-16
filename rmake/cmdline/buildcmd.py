@@ -87,7 +87,8 @@ def getBuildJob(buildConfig, conaryclient, troveSpecList,
         troveList = getTrovesToBuild(cfg, conaryclient, troveSpecList,
                          message=None,
                          recurseGroups=recurseGroups,
-                         matchSpecs=baseMatchRules + cfg.matchTroveRule)
+                         matchSpecs=baseMatchRules + cfg.matchTroveRule,
+                         reposName=mainConfig.reposName)
         for name, version, flavor in troveList:
             if flavor is None:
                 flavor = deps.parseFlavor('')
@@ -97,12 +98,14 @@ def getBuildJob(buildConfig, conaryclient, troveSpecList,
             job.setTroveConfig(bt, cfg)
     return job
 
-def getTrovesToBuild(cfg, conaryclient, troveSpecList, message=None, recurseGroups=BUILD_RECURSE_GROUPS_NONE, matchSpecs=None):
+def getTrovesToBuild(cfg, conaryclient, troveSpecList, message=None, recurseGroups=BUILD_RECURSE_GROUPS_NONE, matchSpecs=None, reposName=None):
     toBuild = []
     toFind = {}
     groupsToFind = []
     if not matchSpecs:
         matchSpecs = []
+    if reposName is None:
+        reposName = cfg.reposName
 
 
     repos = conaryclient.getRepos()
@@ -177,7 +180,7 @@ def getTrovesToBuild(cfg, conaryclient, troveSpecList, message=None, recurseGrou
     toBuild.extend(localTroves)
 
     if matchSpecs:
-        toBuild = _filterListByMatchSpecs(cfg.reposName, matchSpecs, toBuild)
+        toBuild = _filterListByMatchSpecs(reposName, matchSpecs, toBuild)
     return toBuild
 
 def _filterListByMatchSpecs(reposName, matchSpecs, troveList):
