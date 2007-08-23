@@ -147,6 +147,25 @@ def getTargetArch(flavor, currentArch = None):
     else:
         return False, None
 
+if hasattr(arch, 'getMajorArch'):
+    def getTargetArch(flavor, currentArch = None):
+        if currentArch is None:
+            currentArchName = arch.getMajorArch(arch.currentArch[0]).name
+
+        else:
+            currentArchName = arch.getMajorArch(currentArch.iterDepsByClass(
+                                        deps.InstructionSetDependency)).name
+    setArch = False
+    targetArch = arch.getMajorArch(flavor.iterDepsByClass(
+                                   deps.InstructionSetDependency)).name
+    if targetArch != currentArchName:
+        if targetArch in setArchOk.get(currentArchName, []):
+            setArch = True
+        return setArch, targetArch
+    else:
+        return False, None
+
+
 def removeDepClasses(depSet, classes):
     d = depSet.__class__()
     [ d.addDep(*x) for x in depSet.iterDeps() if x[0].tag not in classes ]
