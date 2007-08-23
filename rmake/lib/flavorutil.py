@@ -155,15 +155,15 @@ if hasattr(arch, 'getMajorArch'):
         else:
             currentArchName = arch.getMajorArch(currentArch.iterDepsByClass(
                                         deps.InstructionSetDependency)).name
-    setArch = False
-    targetArch = arch.getMajorArch(flavor.iterDepsByClass(
-                                   deps.InstructionSetDependency)).name
-    if targetArch != currentArchName:
-        if targetArch in setArchOk.get(currentArchName, []):
-            setArch = True
-        return setArch, targetArch
-    else:
-        return False, None
+        setArch = False
+        targetArch = arch.getMajorArch(flavor.iterDepsByClass(
+                                       deps.InstructionSetDependency)).name
+        if targetArch != currentArchName:
+            if targetArch in setArchOk.get(currentArchName, []):
+                setArch = True
+            return setArch, targetArch
+        else:
+            return False, None
 
 
 def removeDepClasses(depSet, classes):
