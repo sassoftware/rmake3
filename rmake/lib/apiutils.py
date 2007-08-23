@@ -18,8 +18,9 @@ from conary.lib import util
 # fix for conary wrapping some strings as protected strings.
 # make sure that there's a dispatcher in place that will just convert them
 # to normal strings.
-import xmlprc
-xmlrpclib.Marshaller.dispatch[util.ProtectedString] = xmlrpclib.Marshaller.dump_string
+if hasattr(util, 'ProtectedString'):
+    import xmlprc
+    xmlrpclib.Marshaller.dispatch[util.ProtectedString] = xmlrpclib.Marshaller.dump_string
 
 from rmake.lib import procutil
 
