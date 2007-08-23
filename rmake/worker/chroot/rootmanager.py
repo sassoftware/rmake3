@@ -104,7 +104,8 @@ class ChrootQueue(object):
             # matches = 2*matches - extras - so an empty chroot is better than 
             # a chroot with lots of wrong troves.
             matches[chrootPath] = 2 * len(trovesByNBF.intersection(buildReqsByNBF)) - len(trovesByNBF.difference(buildReqsByNBF))
-        return sorted((x[1], x[0]) for x in matches.iteritems())[-1][1]
+        if matches:
+            return sorted((x[1], x[0]) for x in matches.iteritems())[-1][1]
 
     def requestSlot(self, troveName, buildReqs, reuseChroots):
         if self.slots > 0 and len(self.chroots) >= self.slots:
