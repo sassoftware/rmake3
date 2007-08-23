@@ -308,6 +308,7 @@ def loadSourceTroves(job, repos, buildFlavor, troveList,
 def getSourceTrovesFromJob(job, serverCfg, repos):
     # called by builder.
     troveList = sorted(job.iterTroveList())
+    repos = CachingSource(repos)
 
     # create fake "packages" for all the troves we're building so that
     # they can be found for loadInstalled.
@@ -366,6 +367,43 @@ class RemoveHostRepos(object):
         if labelPath is not None:
             labelPath = [ x for x in labelPath if x.getHost() != self.host]
         return self.troveSource.findTrove(labelPath, *args, **kw)
+
+class CachingSource(object):
+    """
+        Trovesource that caches calls to findTrove(s).
+    """
+    def __init__(self, troveSource):
+        self.troveSource = troveSource
+        self._cache = {}
+
+    def __getattr__(self, key):
+        return getattr(self.troveSource, key)
+
+    def findTroves(self, installLabelPath, troveTups, *args, **kw):
+        """
+            Caching findTroves call.
+        """
+        finalResults = {}
+        toFind = []
+        # cache is {troveTup : [((ILP, *args, **kw), result)]}
+        # first find troveTup in cache then search all the ILP, args, kw
+        # pairs we've cached before.
+        key = (installLabelPath, args, sorted(kw.items()))
+        for troveTup in troveTups:
+            if troveTup in self._cache:
+                results = [ x[1] for x in self._cache[troveTup] if x[0] == key ]
+                if results:
+                    finalResults[troveTup] = results[0]
+                    continue
+            toFind.append(troveTup)
+        newResults = self.troveSource.findTroves(installLabelPath, toFind, *args, **kw)
+        for troveTup, troveList in newResults.iteritems():
+            self._cache.setdefault(troveTup, []).append((key, troveList))
+        finalResults.update(newResults)
+        return finalResults
+
+    def findTrove(self, labelPath, troveTup, *args, **kw):
+        return self.findTroves(labelPath, [troveTup], *args, **kw)[troveTup]
 
 class RemoveHostSource(trovesource.SearchableTroveSource):
     def __init__(self, troveSource, host):
