@@ -10,6 +10,9 @@ import time
 
 from conary.deps import deps
 from conary.lib import graph
+from conary import display
+from conary import trove
+from conary import versions
 
 from rmake.build.buildstate import AbstractBuildState
 
@@ -660,12 +663,17 @@ class DependencyHandler(object):
             if trv.getPrebuiltRequirements() is not None:
                 preBuiltReqs = set(
                     [ x for x in trv.getPrebuiltRequirements() if ':' in x[0]])
-                if not trv.isGroupRecipe() and buildReqTups == preBuiltReqs:
-                    # groups always get recooked, we may check them later
-                    # to see if anything in them has changed
-                    self.depState.depGraph.deleteEdges(trv)
-                    trv.troveBuilt(trv.getPrebuiltBinaries())
-                    return
+                if not trv.isGroupRecipe():
+                    if buildReqTups == preBuiltReqs:
+                        # groups always get recooked, we may check them later
+                        # to see if anything in them has changed
+                        self.depState.depGraph.deleteEdges(trv)
+                        trv.troveBuilt(trv.getPrebuiltBinaries())
+                        return
+                    else:
+                        self._logDifferenceInPrebuiltReqs(trv, buildReqTups,
+                                                          preBuiltReqs)
+                            
             self._cycleTroves = []
             if results.inCycle:
                 self.depState.depGraph.deleteEdges(trv)
@@ -698,6 +706,31 @@ class DependencyHandler(object):
                 assert(results.hasMissingDeps())
                 trv.troveMissingDependencies(results.getMissingDeps())
 
+    def _logDifferenceInPrebuiltReqs(self, trv, buildReqTups, preBuiltReqs):
+        existsTrv = trove.Trove('@update',  
+                               versions.NewVersion(),
+                               deps.Flavor(), None)
+        availableTrv = trove.Trove('@update', 
+                                   versions.NewVersion(), 
+                                   deps.Flavor(), None)
+        for troveNVF in preBuiltReqs:
+            existsTrv.addTrove(*troveNVF)
+        for troveNVF in buildReqTups:
+            availableTrv.addTrove(*troveNVF)
+        jobs = availableTrv.diff(existsTrv)[2]
+        formatter = display.JobTupFormatter(affinityDb=None)
+        formatter.dcfg.setTroveDisplay(fullVersions=True,
+                                       fullFlavors=True,
+                                       showComponents=True)
+        formatter.dcfg.setJobDisplay(compressJobs=True)
+        formatter.prepareJobLists([jobs])
+        self.logger.info('Could count %s=%s[%s]{%s} as prebuilt - the'
+                         ' following changes have been made in its'
+                         ' buildreqs:' % trv.getNameVersionFlavor(
+                                                            withContext=True))
+        for line in formatter.formatJobTups(jobs):
+            self.logger.info(line)
+        self.logger.info('...Rebuilding')
 
 
     def updateBuildableTroves(self, limit=1):
