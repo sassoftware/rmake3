@@ -32,6 +32,8 @@ Changes in 1.0.11:
        CNY-1950)
      * Fixed bug in jobstore.getJobs(withTroves=False) returning troves w/o
        context information.
+     * Make sure that reused chroots are marked as unavailable immediately
+       so they are not reused twice.
 
 Changes in 1.0.10:
   o Build Changes:

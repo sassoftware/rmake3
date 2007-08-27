@@ -32,6 +32,8 @@ class ChrootQueue(object):
 
     def reset(self):
         self.chroots = {}
+        self.toRemove = {}
+        self.badChroots = {}
 
     def listChroots(self):
         chroots = set(self.chroots)
@@ -134,8 +136,10 @@ class ChrootQueue(object):
             else:
                 # we haven't reached the chroot limit so keep going
                 oldPath = None
-            return (oldPath, newPath)
-        oldPath = self._getBestOldChroot(buildReqs, reuseChroots)
+        else:
+            oldPath = self._getBestOldChroot(buildReqs, reuseChroots)
+        if oldPath:
+            self.toRemove[oldPath] = True
         return (oldPath, newPath)
 
     def useSlot(self, root):
