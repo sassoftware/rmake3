@@ -258,6 +258,7 @@ def loadSourceTroves(job, repos, buildFlavor, troveList,
     if not total:
         total = len(troveList)
     job.log('Downloading %s recipes...' % len(troveList))
+    troveList = sorted(troveList, key=lambda x: x.getName())
     recipes, troves = getRecipes(repos,
                           [x.getNameVersionFlavor() for x in troveList])
 
