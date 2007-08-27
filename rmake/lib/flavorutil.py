@@ -151,17 +151,19 @@ if hasattr(arch, 'getMajorArch'):
     def getTargetArch(flavor, currentArch = None):
         if currentArch is None:
             currentArchName = arch.getMajorArch(arch.currentArch[0]).name
-
         else:
             currentArchName = arch.getMajorArch(currentArch.iterDepsByClass(
                                         deps.InstructionSetDependency)).name
         setArch = False
         targetArch = arch.getMajorArch(flavor.iterDepsByClass(
-                                       deps.InstructionSetDependency)).name
-        if targetArch != currentArchName:
-            if targetArch in setArchOk.get(currentArchName, []):
+                                       deps.InstructionSetDependency))
+        if not targetArch:
+            return False, None
+        targetArchName = targetArch.name
+        if targetArchName != currentArchName:
+            if targetArchName in setArchOk.get(currentArchName, []):
                 setArch = True
-            return setArch, targetArch
+            return setArch, targetArchName
         else:
             return False, None
 
