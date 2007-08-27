@@ -254,7 +254,7 @@ Archives the given chroot so that it will not be overwritten by a future build.
 The chroot is moved to a separate directory.  After archiving, the chroot can be accessed by "rmake chroot archive/<newName>"
 .RE
 .TP 4
-.B chroot \fI<chrootName>\fP
+.B chroot \fI<jobId>\fP \fI<trove>\fP
 Enters the given chroot as the rmake-chroot user and runs "sh", allowing you 
 to execute commands in the chroot as the build process did.
 .RS 4
@@ -264,6 +264,11 @@ Enters the rmake chroot as the rmake version of the "super" user, which is the
 rmake daemon user itself.  With this user you can install packages into the 
 chroot by running commands such as "conary update strace".
 .RE
+.TP 4
+.B \-\-path <path>
+Specifies the path to use for this package.  Useful in cases where the rmake 
+server has been restarted and the path information for a build has been reset.  .RE
+
 .TP 4
 .B clean \fI[<chrootName>]\fP \fI[--all]\fP
 Removes the given chroot, freeing the disk space it used.

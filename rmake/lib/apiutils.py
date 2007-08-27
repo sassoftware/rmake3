@@ -19,7 +19,7 @@ from conary.lib import util
 # make sure that there's a dispatcher in place that will just convert them
 # to normal strings.
 if hasattr(util, 'ProtectedString'):
-    import xmlprc
+    import xmlrpclib
     xmlrpclib.Marshaller.dispatch[util.ProtectedString] = xmlrpclib.Marshaller.dump_string
 
 from rmake.lib import procutil

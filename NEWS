@@ -1,4 +1,9 @@
 Changes in 1.0.11:
+  o Client Changs:  
+     * "rmake chroot" now takes a jobId and a package specifier instead of
+       an explicit path (an explicit path can also be specified using the
+       --path operator, for cases when the rMake server has been restarted)
+       (RMK-569)
   o Build Changes:
      * you can now specify matchTroveRules in your configuration file, and also
        in a context.  This allows you to not build certain troves within a
@@ -14,8 +19,8 @@ Changes in 1.0.11:
      * "rmake restart" now keeps the same recurseGroups setting from the 
        previous build. (RMK-557)
      * Don't copy in nsswitch.conf, as it causes more problems with NIS
-       than it solves.  The default one provided by glibc:runtime should suffice.
-       (RMK-547)
+       than it solves.  The default one provided by glibc:runtime should 
+       suffice.  (RMK-547)
 
 Changes in 1.0.10:
   o Build Changes:

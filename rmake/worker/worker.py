@@ -109,12 +109,14 @@ class Worker(server.Server):
                         targetCommand, killFn)
         targetCommand.trove.troveFailed('Stop requested')
 
-    def startSession(self, host, chrootPath, commandLine, superUser=False):
+    def startSession(self, host, chrootPath, commandLine, superUser=False,
+                     buildTrove=None):
         if host != '_local_':
             raise errors.RmakeError('Unknown host %s!' % host)
         try:
             chrootFactory = self.chrootManager.useExistingChroot(chrootPath,
-                                                     useChrootUser=not superUser)
+                                     useChrootUser=not superUser,
+                                     buildTrove=buildTrove)
             commandId = self.idgen.getSessionCommandId(chrootPath)
             cmd = self.runCommand(self.commandClasses['session'], self.cfg,
                                   commandId, chrootFactory, commandLine)

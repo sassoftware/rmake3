@@ -621,26 +621,35 @@ class ChrootCommand(rMakeCommand):
     "rmake" user, who can then run commands like "conary update strace."\
 """
     help = 'Run /bin/sh in a given chroot'
-    paramHelp = "<chrootName>"
+    paramHelp = "<jobId> <trove>"
 
     commands = ['chroot']
 
     docs = {'super' :
-             'Run as a user capable of modifying the contents of the root' }
+             'Run as a user capable of modifying the contents of the root',
+             'path' : 'Specify the chroot path to use'}
 
     def addParameters(self, argDef):
         argDef['super'] = NO_PARAM
+        argDef['path'] = ONE_PARAM
         rMakeCommand.addParameters(self, argDef)
 
     def _getChroot(self, chroot):
         return '_local_', chroot
 
     def runCommand(self, client, cfg, argSet, args):
-        command, chroot = self.requireParameters(args, ['chrootPath'])
-        host, chroot = self._getChroot(chroot)
+        command, jobId, troveSpec = self.requireParameters(args,
+                                                        ['jobId', 'troveName'])
         superUser = argSet.pop('super', False)
-        client.startChrootSession(host, chroot, ['/bin/bash', '-l'],
-                                  superUser=superUser)
+        path = argSet.pop('path', None)
+        if path:
+            chrootHost, chrootPath = self._getChroot(path)
+        else:
+            chrootHost = chrootPath = None
+        client.startChrootSession(jobId, troveSpec, ['/bin/bash', '-l'],
+                                  superUser=superUser,
+                                  chrootHost=chrootHost,
+                                  chrootPath=chrootPath)
 register(ChrootCommand)
 
 class ArchiveCommand(rMakeCommand):

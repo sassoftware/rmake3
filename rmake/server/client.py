@@ -190,9 +190,15 @@ class rMakeClient(object):
     def deleteAllChroots(self):
         self.proxy.deleteAllChroots()
 
-    def connectToChroot(self, host, chroot, command, superUser=False):
-        host, port = self.proxy.startChrootServer(host, chroot, command,
-                                                  superUser)
+    def connectToChroot(self, jobId, troveTuple, command, superUser=False,
+                        chrootHost='', chrootPath=''):
+        if not chrootPath:
+            chrootHost = chrootPath = ''
+        elif not chrootHost:
+            chrootHost = '_local_'
+        host, port = self.proxy.startChrootServer(jobId, troveTuple,
+                                                  command, superUser,
+                                                  chrootHost, chrootPath)
         from rmake.lib import telnetclient
         t = telnetclient.TelnetClient(host, port)
         return t

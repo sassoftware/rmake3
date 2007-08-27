@@ -34,6 +34,7 @@ from rmake.build import buildjob
 from rmake.cmdline import buildcmd
 from rmake.cmdline import commit
 from rmake.cmdline import monitor
+from rmake.cmdline import cmdutil
 from rmake.server import client
 from rmake import compat
 from rmake import plugins
@@ -201,7 +202,7 @@ class rMakeHelper(object):
 
             @param jobId: jobId to stop
             @type jobId: int or uuid
-            @raise: rMakeError: If job is already stopped.
+            @raise: RmakeError: If job is already stopped.
         """
         stopped = self.client.stopJob(jobId)
 
@@ -410,9 +411,23 @@ class rMakeHelper(object):
             if tmpPath:
                 os.remove(tmpPath)
 
-    def startChrootSession(self, host, chroot, command, superUser=False):
-        chrootConnection = self.client.connectToChroot(host, chroot,
-                                         command, superUser=superUser)
+    def startChrootSession(self, jobId, troveSpec, command, 
+                           superUser=False, chrootHost=None, chrootPath=None):
+        job = self.client.getJob(jobId, withTroves=False)
+        newTroveSpec = cmdutil.parseTroveSpec(troveSpec)
+        newTroveSpec = (newTroveSpec[0].split(':')[0] + ':source',) + newTroveSpec[1:]
+        troveTups = job.findTrovesWithContext(None, [newTroveSpec])[newTroveSpec]
+        if len(troveTups) > 1:
+            err = ['%s matches more than one trove:']
+            for troveTup in troveTups:
+                err.append('  %s=%s[%s]{%s}' % troveTup)
+            raise RmakeError('\n'.join(err))
+        troveTup = troveTups[0]
+        chrootConnection = self.client.connectToChroot(jobId, troveTup,
+                                                       command,
+                                                       superUser=superUser,
+                                                       chrootHost=chrootHost, 
+                                                       chrootPath=chrootPath)
         chrootConnection.interact()
 
     def archiveChroot(self, host, chrootPath, newPath=None):

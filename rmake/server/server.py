@@ -199,14 +199,26 @@ class rMakeServer(apirpc.XMLApiServer):
         return [ freeze('Chroot', x) for x in chroots ]
 
     @api(version=1)
-    @api_parameters(1, 'str', 'str', 'str', 'bool')
+    @api_parameters(1, None, 'troveContextTuple', 'str', 'bool', 'str', 'str')
     @api_return(1, None)
-    def startChrootServer(self, callData, host, chrootPath, command, superUser):
-        success, data =  self.worker.startSession(host, chrootPath, command,
-                                                  superUser=superUser)
+    def startChrootServer(self, callData, jobId, troveTuple, command,
+                          superUser, chrootHost, chrootPath):
+        jobId = self.db.convertToJobId(jobId)
+        trove = self.db.getTrove(jobId, *troveTuple)
+        if not chrootHost:
+            if not trove.getChrootPath():
+                raise errors.RmakeError('Chroot does not exist')
+            chrootHost = trove.getChrootHost()
+            chrootPath = trove.getChrootPath()
+        success, data =  self.worker.startSession(chrootHost,
+                                                  chrootPath,
+                                                  command,
+                                                  superUser=superUser,
+                                                  buildTrove=trove)
         if not success:
             raise errors.RmakeError('Chroot failed: %s' % data)
         return data
+
 
     @api(version=1)
     @api_parameters(1, 'str', 'str', 'str')

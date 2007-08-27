@@ -197,14 +197,22 @@ class ChrootManager(object):
 
         return chrootServer
 
-    def useExistingChroot(self, chrootPath, useChrootUser=True):
+    def useExistingChroot(self, chrootPath, useChrootUser=True, 
+                          buildTrove = None):
         if not chrootPath.startswith(self.baseDir):
             chrootPath = self.baseDir + '/' +  chrootPath
         if not os.path.exists(chrootPath):
             raise errors.OpenError("No such chroot exists")
+        targetArch = None
+        if buildTrove:
+            setArch, targetArch = flavorutil.getTargetArch(buildTrove.flavor)
+
+            if not setArch:
+                targetArch = None
+
         chroot = rootfactory.ExistingChroot(chrootPath, self.logger,
                                             self.chrootHelperPath)
-        chrootServer = rMakeChrootServer(chroot, targetArch=None,
+        chrootServer = rMakeChrootServer(chroot, targetArch=targetArch,
                                          chrootQueue=self.queue,
                                          useTmpfs=self.serverCfg.useTmpfs,
                                          buildLogPath=None, reuseRoots=True,
