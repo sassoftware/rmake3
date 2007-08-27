@@ -30,6 +30,8 @@ Changes in 1.0.11:
        is set. (RMK-535)
      * Ignore cross requirements when not cross compiling (related to 
        CNY-1950)
+     * Fixed bug in jobstore.getJobs(withTroves=False) returning troves w/o
+       context information.
 
 Changes in 1.0.10:
   o Build Changes:

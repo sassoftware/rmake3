@@ -157,12 +157,12 @@ class JobStore(object):
                     trovesById[troveId].setBuiltTroves(binTroves)
             else:
                 results = cu.execute('''
-                SELECT BuildTroves.jobId, troveName, version, flavor
+                SELECT BuildTroves.jobId, troveName, version, flavor, context
                     FROM tJobIdList
                     JOIN BuildTroves USING(jobId)
                 ''')
-                for (jobId, n,v,f) in results:
-                    jobsById[jobId].addTrove(n, versions.ThawVersion(v), ThawFlavor(f))
+                for (jobId, n,v,f, context) in results:
+                    jobsById[jobId].addTrove(n, versions.ThawVersion(v), ThawFlavor(f), context)
             if withConfigs:
                 cu.execute("""SELECT jobId, context, key, value
                               FROM tJobIdList
