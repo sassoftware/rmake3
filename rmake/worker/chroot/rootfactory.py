@@ -64,7 +64,7 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
         try:
             os.rename(oldRoot, newRoot)
         except OSError, err:
-            self.logger.warning('Could not rename old root %s to %s: %s' % (oldRoot, root, err))
+            self.logger.warning('Could not rename old root %s to %s: %s' % (oldRoot, newRoot, err))
             return False
 
         self.cfg.root = newRoot

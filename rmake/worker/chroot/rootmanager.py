@@ -30,6 +30,9 @@ class ChrootQueue(object):
         self.toRemove = {}  # chroots that are scheduled for removal
         self.badChroots = {}
 
+    def reset(self):
+        self.chroots = {}
+
     def listChroots(self):
         chroots = set(self.chroots)
         if os.path.exists(self.root):
@@ -85,27 +88,33 @@ class ChrootQueue(object):
         self.deleteChroot(chrootPath)
         self.badChroots[chrootPath] = True
 
-    def _getBestOldChroot(self, buildReqs, reuseRoot):
+    def _getBestOldChroot(self, buildReqs, reuseRoot, goodRootsOnly=False):
         """
             If the chroot is being reused, pick by contents of the chroot.
             Otherwise, pick oldest
+
+            If goodRootsOnly is True, be more discerning about which chroot
+            to use - only use ones that have more than half matching packages.
         """
         if not reuseRoot:
             for chroot in self.listOldChroots():
                 # return oldest directory
                 return sorted(self.listOldChroots(),
                               key=lambda x: os.stat(x)[stat.ST_MTIME])[0]
-        buildReqsByNBF = set([(x[0], x[1].branch(), x[2]) for x in buildReqs])
+        buildReqsByNLF = set([(x[0], x[1].trailingLabel(), x[2]) 
+                             for x in buildReqs])
         matches = {}
         for chrootPath in self.listOldChroots():
             db = database.Database(chrootPath, '/var/lib/conarydb')
             chrootContents = db.iterAllTroves()
-            trovesByNBF = set([(x[0], x[1].branch(), x[2]) for x in chrootContents])
+            trovesByNLF = set([(x[0], x[1].trailingLabel(), x[2]) for x in chrootContents])
             # matches = 2*matches - extras - so an empty chroot is better than 
             # a chroot with lots of wrong troves.
-            matches[chrootPath] = 2 * len(trovesByNBF.intersection(buildReqsByNBF)) - len(trovesByNBF.difference(buildReqsByNBF))
+            matches[chrootPath] = 2 * len(trovesByNLF.intersection(buildReqsByNLF)) - len(trovesByNLF.difference(buildReqsByNLF))
         if matches:
-            return sorted((x[1], x[0]) for x in matches.iteritems())[-1][1]
+            rank, best = sorted((x[1], x[0]) for x in matches.iteritems())[-1]
+            if rank >= len(buildReqsByNLF) or not goodRootsOnly:
+                return best
 
     def requestSlot(self, troveName, buildReqs, reuseChroots):
         if self.slots > 0 and len(self.chroots) >= self.slots:
@@ -115,8 +124,17 @@ class ChrootQueue(object):
         if self.slots <= 0:
             return (None, newPath)
         if len(allChroots) < self.slots:
-            # we haven't reached the chroot limit so keep going
-            return (None, newPath)
+            if reuseChroots:
+                # we've got more slots, but maybe we'll get a really
+                # good match from an existing chroot and we should
+                # reuse it.
+                oldPath = self._getBestOldChroot(buildReqs,
+                                                 reuseChroots,
+                                                 goodRootsOnly=True)
+            else:
+                # we haven't reached the chroot limit so keep going
+                oldPath = None
+            return (oldPath, newPath)
         oldPath = self._getBestOldChroot(buildReqs, reuseChroots)
         return (oldPath, newPath)
 
