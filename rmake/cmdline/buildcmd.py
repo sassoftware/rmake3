@@ -187,6 +187,14 @@ def _filterListByMatchSpecs(reposName, matchSpecs, troveList):
     matchSpecs = [ cmdline.parseTroveSpec(x, allowEmptyName=True)
                     for x in matchSpecs ]
     hasAddSpec = False
+    newTroveList = []
+    for troveTup in troveList:
+        if troveTup[2] is None:
+            flavor = deps.parseFlavor('')
+        else:
+            flavor = troveTup[2]
+        newTroveList.append((troveTup[0], troveTup[1], flavor))
+    troveList = newTroveList
 
     troveMap = {}
     for troveTup in troveList:
