@@ -109,9 +109,8 @@ class RmakeBuildContext(cfg.ConfigSection):
                             ['bash:runtime',
                              'coreutils:runtime', 'filesystem',
                              'conary:runtime',
-                             'conary-build:runtime', 'epdb:python', 
-                             'dev:runtime',
-                             'grep:runtime', 'procps:runtime', 'sed:runtime',
+                             'conary-build:runtime', 'dev:runtime',
+                             'grep:runtime', 'sed:runtime',
                              'findutils:runtime', 'gawk:runtime'])
     resolveTroves        = (CfgList(CfgQuotedLineList(CfgTroveSpec)),
                             [[('group-dist', None, None)]])

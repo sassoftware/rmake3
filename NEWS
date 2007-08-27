@@ -8,6 +8,8 @@ Changes in 1.0.11:
      * you can now specify matchTroveRules in your configuration file, and also
        in a context.  This allows you to not build certain troves within a
        group based on a the values in the context. (RMK-561)
+     * removed defaultBuildReqs epdb:python and procps:runtime, as they
+       are often not necessary and add build requirement loops.
   o Server Changes:
      * When loading packages, calls to loadRecipe cache the results
        of the findTroves calls.  This should result in a slight speed increase
