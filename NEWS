@@ -28,6 +28,8 @@ Changes in 1.0.11:
      * Even when the chrootLimit has not been hit, rMake will reuse chroots
        that match closely to the chroot that is being built if reuseChroots
        is set. (RMK-535)
+     * Ignore cross requirements when not cross compiling (related to 
+       CNY-1950)
 
 Changes in 1.0.10:
   o Build Changes:

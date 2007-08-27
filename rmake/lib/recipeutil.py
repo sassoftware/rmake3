@@ -168,6 +168,8 @@ def getRecipeObj(repos, name, version, flavor, recipeFile,
                                 {'buildlabel' : buildLabel.asString()},
                                 lightInstance=True)
         recipeObj.sourceVersion = version
+        if not recipeObj.needsCrossFlags():
+            recipeObj.crossRequires = []
         recipeObj.loadPolicy()
         recipeObj.setup()
     elif recipe.isInfoRecipe(recipeClass):
