@@ -50,21 +50,22 @@ class ResolveResult(object):
         self.buildReqs = buildReqs
         self.crossReqs = crossReqs
 
-    def troveMissingBuildReqs(self, buildReqs):
+    def troveMissingBuildReqs(self, isCross, buildReqs):
         self.success = False
-        self.missingBuildReqs = buildReqs
+        self.missingBuildReqs = [ (isCross, x) for x in buildReqs ]
 
-    def troveMissingDependencies(self, missingDeps):
+    def troveMissingDependencies(self, isCross, missingDeps):
         self.success = False
-        self.missingDeps = missingDeps
+        self.missingDeps = [ (isCross, x) for x in missingDeps ]
 
     def __freeze__(self):
         d = self.__dict__.copy()
-        d.update(missingBuildReqs=freeze('troveSpecList',
-                                         self.missingBuildReqs))
+        d.update(missingBuildReqs=[(x[0], freeze('troveSpec', x[1])) for x in
+                                    self.missingBuildReqs])
         d.update(buildReqs=freeze('installJobList', self.buildReqs))
         d.update(crossReqs=freeze('installJobList', self.crossReqs))
-        d.update(missingDeps=freeze('dependencyMissingList', self.missingDeps))
+        d.update(missingDeps=freeze('dependencyMissingList', 
+                                    self.missingDeps))
         return d
 
     @classmethod
@@ -74,7 +75,8 @@ class ResolveResult(object):
         self.buildReqs = thaw('installJobList', self.buildReqs)
         self.crossReqs = thaw('installJobList', self.crossReqs)
         self.missingDeps = thaw('dependencyMissingList', self.missingDeps)
-        self.missingBuildReqs = thaw('troveSpecList', self.missingBuildReqs)
+        self.missingBuildReqs = [(x[0], thaw('troveSpec', x[1])) 
+                                 for x in self.missingBuildReqs]
         return self
 register(ResolveResult)
 
@@ -174,7 +176,7 @@ class DependencyResolver(object):
 
         if cfg.resolveTrovesOnly:
             installLabelPath = None
-            searchFlavor = None
+            searchFlavor = cfg.flavor
         else:
             installLabelPath = cfg.installLabelPath
             searchFlavor = cfg.flavor
@@ -210,7 +212,7 @@ class DependencyResolver(object):
             success, results = self._resolve(cfg, resolveResult, trv,
                                              searchSource, resolveSource,
                                              installLabelPath, searchFlavor,
-                                             crossReqs)
+                                             crossReqs, isCross=True)
             if success:
                 crossReqJobs = results
             else:
@@ -231,7 +233,7 @@ class DependencyResolver(object):
 
 
     def _resolve(self, cfg, resolveResult, trove, searchSource, resolveSource,
-                 installLabelPath, searchFlavor, reqs):
+                 installLabelPath, searchFlavor, reqs, isCross=False):
         client = conaryclient.ConaryClient(cfg)
 
         finalToInstall = {}
@@ -257,11 +259,14 @@ class DependencyResolver(object):
                 okay = False
             else:
                 sol = _findBestSolution(trove, troveSpec, solutions, searchFlavor)
+                if sol is None:
+                    missingBuildReqs.append(troveSpec)
+                    okay = False
                 buildReqTups.append(sol)
 
         if not okay:
-            self.logger.debug('could not find all buildreqs: %s' % (missingBuildReqs,))
-            resolveResult.troveMissingBuildReqs(missingBuildReqs)
+            self.logger.info('Could not find all buildreqs: %s' % (missingBuildReqs,))
+            resolveResult.troveMissingBuildReqs(isCross, missingBuildReqs)
             return False, None
 
         itemList = [ (x[0], (None, None), (x[1], x[2]), True)
@@ -281,8 +286,8 @@ class DependencyResolver(object):
         jobSet.update((x[0], (None, None), (x[1], x[2]), False) 
                       for x in itertools.chain(*suggMap.itervalues()))
         if cannotResolve or depList:
-            self.logger.debug('Missing: %s' % ((depList + cannotResolve),))
-            resolveResult.troveMissingDependencies(depList + cannotResolve)
+            self.logger.info('Missing: %s' % ((depList + cannotResolve),))
+            resolveResult.troveMissingDependencies(isCross, depList + cannotResolve)
             return False, resolveResult
 
         self._addPackages(searchSource, jobSet)

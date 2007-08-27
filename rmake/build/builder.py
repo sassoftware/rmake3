@@ -12,6 +12,7 @@ import time
 import traceback
 
 from conary import conaryclient
+from conary.lib import util
 from conary.repository import changeset
 
 from rmake import failure
@@ -135,7 +136,7 @@ class Builder(object):
                     if sys.stdin.isatty():
                         # this sets us back to be connected with the controlling
                         # terminal (owned by our parent, the rmake server)
-                        import epdb
+                        from conary.lib import epdb
                         epdb.post_mortem(sys.exc_info()[2])
                     os._exit(0)
         finally:
@@ -156,8 +157,11 @@ class Builder(object):
         self._matchTrovesToJobContext(buildTroves, self.jobContext)
         self.job.setBuildTroves(buildTroves)
 
+        logDir = self.serverCfg.getBuildLogDir(self.job.jobId)
+        util.mkdirChain(logDir)
         self.dh = dephandler.DependencyHandler(self.job.getPublisher(),
-                                               self.logger, buildTroves)
+                                               self.logger, buildTroves,
+                                               logDir)
         if not self._checkBuildSanity(buildTroves):
             return False
         return True
@@ -242,7 +246,14 @@ class Builder(object):
                             break
                     if not buildReqs:
                         continue
-                    toBuild.trovePrebuilt(buildReqs, binaries)
+                    oldCfg = trove.getConfig()
+                    newCfg = toBuild.getConfig()
+                    fastRebuild = (oldCfg.resolveTrovesOnly
+                        and newCfg.resolveTrovesOnly
+                        and oldCfg.resolveTroveTups == newCfg.resolveTroveTups
+                        and oldCfg.flavor == newCfg.flavor)
+                    toBuild.trovePrebuilt(buildReqs, binaries,
+                                          trv.getBuildTime(), fastRebuild)
 
     def _checkBuildSanity(self, buildTroves):
         def _isSolitaryTrove(trv):

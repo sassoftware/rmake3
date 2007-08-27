@@ -155,7 +155,11 @@ class MissingBuildreqs(FailureReason):
     def __init__(self, buildReqs):
         # remove Nones to make formatting easier
         newData = []
-        for n, v, f in buildReqs:
+        for item in buildReqs:
+            if isinstance(item[1], tuple):
+                isCross, (n,v,f) = item
+            else:
+                (n,v,f) = item
             if v is None:
                 v = ''
             if f is None:

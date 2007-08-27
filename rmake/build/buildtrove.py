@@ -115,6 +115,8 @@ class _AbstractBuildTrove:
         self.recipeType = recipeType
         self.preBuiltRequirements = None
         self.preBuiltBinaries = preBuiltBinaries
+        self.preBuiltTime = 0
+        self.preBuildFast = 0
         self.context = context
         if flavorList is None:
             self.flavorList = [flavor]
@@ -462,7 +464,7 @@ class BuildTrove(_FreezableBuildTrove):
         """
         self._setState(TROVE_STATE_BUILDABLE, status='')
 
-    def troveResolvingBuildReqs(self, host, pid=0):
+    def troveResolvingBuildReqs(self, host='_local_', pid=0):
         """
             Log step in dep resolution.
 
@@ -474,12 +476,23 @@ class BuildTrove(_FreezableBuildTrove):
         self._setState(TROVE_STATE_RESOLVING,
                        'Resolving build requirements', host, pid)
 
-    def trovePrebuilt(self, buildReqs, binaryTroves):
+    def trovePrebuilt(self, buildReqs, binaryTroves, preBuiltTime=0,
+                      fastRebuild=False):
         self.finish = time.time()
         self.pid = 0
         self._setState(TROVE_STATE_PREBUILT, '', buildReqs, binaryTroves)
         self.preBuiltRequirements = buildReqs
         self.preBuiltBinaries = binaryTroves
+        if preBuiltTime is None:
+            preBuiltTime = 0
+        self.preBuiltTime = preBuiltTime
+        self.fastRebuild = fastRebuild
+
+    def allowFastRebuild(self):
+        return self.fastRebuild
+
+    def getPrebuiltTime(self):
+        return self.preBuiltTime
 
     def troveResolved(self, resolveResults):
         self.finish = time.time()
@@ -498,6 +511,37 @@ class BuildTrove(_FreezableBuildTrove):
         self.pid = 0
         self._setState(TROVE_STATE_INIT,
                       'Resolved buildreqs include %s other troves scheduled to be built - delaying' % (len(newDeps),))
+
+    def troveInCycleUnresolvableBuildReqs(self, missingBuildReqs):
+        self.finish = time.time()
+        self.pid = 0
+        crossBuildReqs = [ x[1] for x in missingBuildReqs if x[0] ]
+        buildReqs = [ x[1] for x in missingBuildReqs if not x[0] ]
+        errMsg = []
+        for type, missing in (('cross requirements', crossBuildReqs),
+                              ('build requirements', buildReqs)):
+            if not missing:
+                continue
+            strings = []
+            for n,v,f in missing:
+                if not v:
+                    v = ''
+                else:
+                    v = '=%s' % v
+                if f is None or f.isEmpty():
+                    f = ''
+                else:
+                    f = '[%s]' % f
+                strings.append('%s%s%s' % (n,v,f))
+            errMsg.append('Trove in cycle could not resolve %s: %s' % (type, ', '.join(strings)))
+        self._setState(TROVE_STATE_INIT, '\n'.join(errMsg))
+
+    def troveUnresolvableDepsReset(self, missingDeps):
+        self.finish = time.time()
+        self.pid = 0
+        self._setState(TROVE_STATE_INIT,
+           'Trove could not resolve dependencies, waiting until troves are built: %s' % (
+                                                                missingDeps,))
 
     def troveQueued(self, message):
         self._setState(TROVE_STATE_WAITING, message)

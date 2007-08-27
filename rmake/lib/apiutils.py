@@ -234,6 +234,17 @@ class api_specList:
         return [(x[0], x[1], ThawFlavor(x[2])) for x in tupList ]
 register(api_specList)
 
+class api_spec:
+    name = 'troveSpec'
+
+    @staticmethod
+    def __freeze__(x):
+        return (x[0], x[1] or '', (x[2] is not None) and x[2].freeze() or '')
+
+    @staticmethod
+    def __thaw__(x):
+        return (x[0], x[1], ThawFlavor(x[2]))
+register(api_spec)
 
 class api_troveTuple:
     name = 'troveTuple'
@@ -350,12 +361,12 @@ class api_dependencyMissingList:
 
     @staticmethod
     def __freeze__(depList):
-        return [ (freeze('troveTuple', x[0]), x[1].freeze()) for x in depList ]
+        return [ (isCross, (freeze('troveTuple', x[0]), x[1].freeze())) for isCross,x in depList ]
 
     @staticmethod
     def __thaw__(depList):
-        return [ (thaw('troveTuple', x[0]), ThawDependencySet(x[1])) 
-                        for x in depList ]
+        return [ (isCross, (thaw('troveTuple', x[0]), ThawDependencySet(x[1])))
+                        for isCross, x in depList ]
 register(api_dependencyMissingList)
 
 

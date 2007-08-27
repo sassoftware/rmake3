@@ -1,5 +1,5 @@
 Changes in 1.0.11:
-  o Client Changs:  
+  o Client Changs:
      * "rmake chroot" now takes a jobId and a package specifier instead of
        an explicit path (an explicit path can also be specified using the
        --path operator, for cases when the rMake server has been restarted)
@@ -12,6 +12,11 @@ Changes in 1.0.11:
        are often not necessary and add build requirement loops.
      * The build logs now give a more detailed explanation about why a
        prebuilt version of a package was not used.
+     * Made several changes to dependency resolution code:
+        * restarts are now faster when resolveTrovesOnly is True
+        * dependency resolution is now more likely to resolve cycles involving
+          missing dependencies quickly and correctly
+        * more cycle information is logged
   o Server Changes:
      * When loading packages, calls to loadRecipe cache the results
        of the findTroves calls.  This should result in a slight speed increase
