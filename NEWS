@@ -1,5 +1,5 @@
 Changes in 1.0.11:
-  o Client Changs:
+  o Client Changes:
      * "rmake chroot" now takes a jobId and a package specifier instead of
        an explicit path (an explicit path can also be specified using the
        --path operator, for cases when the rMake server has been restarted)
