@@ -370,7 +370,7 @@ class DependencyHandler(object):
     """
         Updates what troves are buildable based on dependency information.
     """
-    def __init__(self, statusLog, logger, buildTroves, logDir):
+    def __init__(self, statusLog, logger, buildTroves, logDir=None):
         self.depState = DependencyBasedBuildState(buildTroves, logger)
         self.logger = logger
         self.logDir = logDir
@@ -587,8 +587,9 @@ class DependencyHandler(object):
             return None
 
         if self._allowFastResolution:
-            return self._attemptFastResolve(breakCycles=breakCycles)
-                        
+            result = self._attemptFastResolve(breakCycles=breakCycles)
+            if result or self._allowFastResolution:
+                return result
         leaves = sorted(depGraph.getLeaves(), key=self.getPriority)
         if not leaves:
             if self._resolving or not breakCycles:
@@ -820,7 +821,7 @@ class DependencyHandler(object):
                 providers = self.depState.getTrovesByPackage(package)
                 if not providers:
                     trv.troveMissingDependencies(
-                        [x[1] for x in results.getMissingDeps()])
+                        [x[1] for x in missingDeps])
                     return
                 for provider in providers:
                     self.depState.dependsOn(trv, provider, 
@@ -828,7 +829,7 @@ class DependencyHandler(object):
                     self.depState.hardDependencyOn(trv, 
                                               provider,
                                               (isCross, depSet))
-                    
+
         # regenerate any cycles since we've changed the dep graph.
         self._cycleTroves = []
         # in any case mark this trove an unresolvable
