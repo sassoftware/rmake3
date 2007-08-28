@@ -67,6 +67,10 @@ class ResolveJob(object):
 register(ResolveJob)
 
 class DependencyGraph(graph.DirectedGraph):
+    # FIXME: remove with next release of conary
+    def __contains__(self, trove):
+        return trove in self.data.hashedData
+
     def generateDotFile(self, out, filterFn=None):
         def formatNode(node):
             name, version, flavor, context = node.getNameVersionFlavor(True)
