@@ -41,6 +41,8 @@ Changes in 1.0.11:
        so they are not reused twice.
      * MatchTroveRules can now contain some flavored match rules and some
        unflavored match rules.
+     * Fixed a bug in the repository cache that would be hit when two
+       jobs tried to cache the same package or file at exactly the same time.
 
 Changes in 1.0.10:
   o Build Changes:

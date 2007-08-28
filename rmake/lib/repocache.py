@@ -208,7 +208,11 @@ class RepositoryCache(object):
                 changesets[csIndex] = cs
                 continue
 
-            tmpFd, tmpName = tempfile.mkstemp()
+            hashPath = self.store.hashToPath(csHash)
+            self.store.makeDir(hashPath)
+            dirPath = os.path.dirname(hashPath)
+            fileName = os.path.basename(hashPath)
+            tmpFd, tmpName = tempfile.mkstemp(prefix=fileName, dir=dirPath)
             os.close(tmpFd)
             cs.writeToFile(tmpName)
             del cs
@@ -267,16 +271,9 @@ class DataStore(datastore.DataStore):
         """
         path = self.hashToPath(hash)
         self.makeDir(path)
-        if os.path.exists(path):
-            os.remove(path)
-        try:
-            util.rename(tmpPath, path)
-        except OSError, err:
-            if err.errno != errno.EXDEV:
-                raise
-            else:
-                util.copyfile(tmpPath, path)
-                util.removeIfExists(tmpPath)
+        # nothing else will ensure this operation is atomic.
+        assert(os.path.dirname(path) == os.path.dirname(tmpPath))
+        os.rename(tmpPath, path)
 
 class CacheError(Exception):
     pass
