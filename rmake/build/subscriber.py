@@ -131,20 +131,25 @@ class _RmakePublisherProxy(_InternalSubscriber):
         newData.extend(eventData)
         eventList.append((event, newData))
 
+    def _freezeEvents(self, apiVer, eventList):
+        from rmake.build import buildjob
+        from rmake.build import buildtrove
+        newEventList = []
+        jobId = None
+        for event, data in eventList:
+            jobId = data[0].jobId
+            if isinstance(data[0], buildjob.BuildJob):
+                self._freezeJobEvent(event, data[0], data[1:], newEventList)
+            if isinstance(data[0], buildtrove.BuildTrove):
+                self._freezeTroveEvent(event, data[0], data[1:], newEventList)
+        return jobId, newEventList
+
     def _receiveEvents(self, apiVer, eventList):
         # Convert eventList from the format for _intrajob_ events
         # to the format for _extrajob_ events - we're passing this back
         # to the main server.  Where there was a job, we have a jobId, and None
         # where there was a trove, we have a jobId and trove tuple
-        from rmake.build import buildjob
-        from rmake.build import buildtrove
-        newEventList = []
-        for event, data in eventList:
-            jobId =  data[0].jobId
-            if isinstance(data[0], buildjob.BuildJob):
-                self._freezeJobEvent(event, data[0], data[1:], newEventList)
-            if isinstance(data[0], buildtrove.BuildTrove):
-                self._freezeTroveEvent(event, data[0], data[1:], newEventList)
+        jobId, newEventList = self._freezeEvents(apiVer, eventList)
         if not newEventList:
             return
         newEventList = (apiVer, newEventList)
