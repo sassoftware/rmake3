@@ -17,60 +17,39 @@ from rmake import failure
 from rmake.worker import command
 from rmake.worker.chroot import rootmanager
 
-class CommandIdGen(object):
-    def __init__(self):
-        self._commandIds = {}
-
-    def getBuildCommandId(self, buildTrove):
-        str = 'BUILD-%s-%s' % (buildTrove.jobId, buildTrove.getName())
-        return self._getCommandId(str)
-
-    def getResolveCommandId(self, buildTrove):
-        str = 'RESOLVE-%s-%s' % (buildTrove.jobId, buildTrove.getName())
-        return self._getCommandId(str)
-
-    def getStopCommandId(self, targetCommandId):
-        str = 'STOP-%s' % (targetCommandId)
-        return self._getCommandId(str)
-
-    def getSessionCommandId(self, chrootPath):
-        str = 'SESSION-%s' % (chrootPath)
-        return self._getCommandId(str)
-
-
-    def _getCommandId(self, str):
-        self._commandIds.setdefault(str, 0)
-        self._commandIds[str] += 1
-        str += '-%s' % self._commandIds[str]
-        return str
-
 class Worker(server.Server):
+    """
+        The worker manages all operations that performed on an individual
+        package: currently resolving its dependencies and building it.
+    """
+    # Plugins may override the command class used to perform a particular
+    # command by modifying this dict.
     commandClasses = { 'build'    : command.BuildCommand,
                        'resolve'  : command.ResolveCommand,
                        'stop'     : command.StopCommand,
                        'session'  : command.SessionCommand }
 
     def __init__(self, serverCfg, logger, slots=1):
+        """
+            param serverCfg: server.servercfg.rMakeConfiguration instance
+            param logger: lib.logger.Logger instance
+            param slots: number of commands that can be run at once
+            on this node.
+        """
         self.cfg = serverCfg
         self.logger = logger
         server.Server.__init__(self, logger)
         self.cfg.checkBuildSanity()
         self.idgen = CommandIdGen()
         self.chrootManager = rootmanager.ChrootManager(self.cfg, self.logger)
-        self._queuedCommands = []
         self._foundResult = False
-        self.commands = []
+        self._queuedCommands = [] # list of command classes + parameters
+                                  # for commands waiting to be run
+        self.commands = [] # list of command objects currently running
         self.slots = slots
 
     def hasActiveTroves(self):
         return self.commands or self._queuedCommands
-
-    def stopTroveLogger(self, trove):
-        if not hasattr(trove, 'logPid'):
-            return
-        pid = trove.logPid
-        if self._isKnownPid(pid):
-            self._killPid(pid)
 
     def buildTrove(self, buildCfg, jobId, trove, eventHandler,
                    buildReqs, crossReqs, targetLabel, logData=None,
@@ -150,6 +129,15 @@ class Worker(server.Server):
         return self._serveLoopHook()
 
     def _serveLoopHook(self):
+        """
+            Called to do maintenance inbetween accepting requests.
+
+            Checks for commands that have been added to the queue
+            and starts them running if there's space.  Looks for
+            children that have died that were forked by this process
+            and handles them.
+        """
+        # called once every .1 seconds when serving.
         if self._queuedCommands and (len(self.commands) < self.slots):
             commandTuple = self._queuedCommands.pop(0)
             commandClass, cfg, args = commandTuple
@@ -162,7 +150,24 @@ class Worker(server.Server):
             return True
         return False
 
+    def stopTroveLogger(self, trove):
+        if not hasattr(trove, 'logPid'):
+            return
+        pid = trove.logPid
+        if self._isKnownPid(pid):
+            self._killPid(pid)
+
     def handleRequestIfReady(self, sleep=0.1):
+        """
+            Called during serve loop to look for information being
+            returned from commands.  Passes any read data to the local
+            command instance for parsing.
+        """
+        # If a command involves forking, there are two versions of the 
+        # command object: one kept in the worker, its sibling forked
+        # command that is doing the actual work.  Information is passed
+        # back to the worker via pipes that are read here, and then
+        # parsed by the worker-held instance of the command.
         ready = []
         if not self.commands:
             return
@@ -176,6 +181,7 @@ class Worker(server.Server):
             # we'll get our error message there.
             pass
         for command in ready:
+            # commands know how to handle their own information.
             command.handleRead()
 
     def listQueuedCommands(self):
@@ -193,6 +199,19 @@ class Worker(server.Server):
             return cmds[0]
 
     def runCommand(self, commandClass, cfg, commandId, *args):
+        """
+            Start the given command by instantiating the given class.
+
+            Returns the command object that was created unless there
+            was an error instantiating the command object, in which
+            case None is returned.
+
+            The function may also return False, which means that the
+            command could not be run at this time (but did not error)
+
+            If the command is forked, then the command object is appended
+            the the list of running commands.
+        """
         command = None
         try:
             # errors before this point imply a problem w/ the node.
@@ -229,6 +248,14 @@ class Worker(server.Server):
         return command
 
     def _pidDied(self, pid, status, name=None):
+        """
+            Called automatically from collectChildren, after a pid has 
+            been collected through waitpid().
+
+            If the pid is for a command, then we call status functions,
+            commandCompleted and commandErrored, which can be overridden
+            by plugins.
+        """
         if name is None:
             name = self._pids.get(pid, 'Unknown')
         self.info('Pid %s (%s) died' % (pid, name))
@@ -260,3 +287,35 @@ class Worker(server.Server):
     def stopAllCommands(self):
         for command in self.commands:
             self.stopCommand(command.commandId)
+
+
+class CommandIdGen(object):
+    """
+        Tracker and generator for command ids to ensure that each
+        commandId is unique.
+    """
+    def __init__(self):
+        self._commandIds = {}
+
+    def getBuildCommandId(self, buildTrove):
+        str = 'BUILD-%s-%s' % (buildTrove.jobId, buildTrove.getName())
+        return self._getCommandId(str)
+
+    def getResolveCommandId(self, buildTrove):
+        str = 'RESOLVE-%s-%s' % (buildTrove.jobId, buildTrove.getName())
+        return self._getCommandId(str)
+
+    def getStopCommandId(self, targetCommandId):
+        str = 'STOP-%s' % (targetCommandId)
+        return self._getCommandId(str)
+
+    def getSessionCommandId(self, chrootPath):
+        str = 'SESSION-%s' % (chrootPath)
+        return self._getCommandId(str)
+
+    def _getCommandId(self, str):
+        self._commandIds.setdefault(str, 0)
+        self._commandIds[str] += 1
+        str += '-%s' % self._commandIds[str]
+        return str
+

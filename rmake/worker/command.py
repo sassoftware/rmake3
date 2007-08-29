@@ -29,18 +29,28 @@ from rmake.lib.apiutils import thaw, freeze
 
 
 class Command(server.Server):
-    name = 'command'
-    # handles one job then exists.
-    def __init__(self, cfg, commandId, jobId, logData = None):
+    """
+        Superclass for commands.  Expects information to run one operation
+        which it will perform and report about.
+
+        The command is set up to handle forked operation:
+            The main action occurs inside the pipe and any information
+            processed is set via pipe.  The readPipe, if it exists,
+            will parse data sent over that pipe.
+    """
+    name = 'command' # command name is used for logging purposes.
+
+    def __init__(self, cfg, commandId, jobId):
         server.Server.__init__(self)
         self.cfg = cfg
-        self.logData = None
         self.commandId = commandId
         self.jobId = jobId
         self._isErrored = False
         self._errorMessage = ''
-        self._output = []
+        self._output = [] # default location for information read in 
+                          # from the readPipe.
         self.readPipe = None
+        self.writePipe = None
 
     def _exit(self, exitRc):
         sys.exit(exitRc)
@@ -52,15 +62,30 @@ class Command(server.Server):
         return True
 
     def setWritePipe(self, writePipe):
+        """
+            Sets the pipe to read data in.  This should match a readPipe
+            set on the other side of a fork.
+            @type readPipe: instance of lib.pipereader.PipeWriter
+        """
         self.writePipe = writePipe
 
     def setReadPipe(self, readPipe):
+        """
+            Sets the pipe to read data in.  This should match a writePipe
+            set on the other side of a fork.
+            @type readPipe: instance of lib.pipereader.PipeReader
+        """
         self.readPipe = readPipe
 
     def fileno(self):
+        """
+            Enables calling select() on a command.
+        """
         return self.readPipe.fileno()
 
     def handleRead(self):
+        # depending on the class of readPipe, this may not return data
+        # until full objects have been read in.
         data = self.readPipe.handle_read()
         if data:
             self._handleData(data)
@@ -75,6 +100,9 @@ class Command(server.Server):
         self.writePipe.handle_write()
 
     def _handleData(self, data):
+        """ 
+            Default behavior for handling incoming data on the readPipe.
+        """
         self._output.append(data)
 
     def getCommandId(self):
@@ -84,6 +112,10 @@ class Command(server.Server):
         return None
 
     def getLogPath(self):
+        """
+            All commands log their activities to a file based on their command
+            it.  Returns the path for that logFile.
+        """
         commandId = (self.getCommandId().replace('/', '_')
                                                     .replace('~', '')
                                                     .replace(' ', ''))
@@ -108,6 +140,9 @@ class Command(server.Server):
             os._exit(1)
 
     def _serveLoopHook(self):
+        """
+            Called inside the forked command process until the command is done.
+        """
         self.writePipe.handleWriteIfReady()
         self._collectChildren()
 
