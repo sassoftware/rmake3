@@ -345,6 +345,9 @@ def getSourceTrovesFromJob(job, serverCfg, repos):
                                                 *loadInstalledList)
         repos = trovesource.stack(*loadInstalledList)
 
+        for source in repos.iterSources():
+            source.searchAsRepository()
+
         allTroves.extend(loadSourceTroves(job, repos, buildFlavor, troveList,
                          total=total, count=count,
                          loadInstalledSource=loadInstalledSource,
