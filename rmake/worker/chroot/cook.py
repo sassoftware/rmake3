@@ -11,7 +11,7 @@ import tempfile
 import time
 import traceback
 
-from conary.build import cook,use
+from conary.build import cook,macros,use
 from conary.deps import deps
 from conary.lib import epdb
 from conary.lib import log,util
@@ -224,8 +224,13 @@ def _cookTrove(cfg, repos, name, version, flavorList, targetLabel,
                loadSpecsList, builtTroves, csFile, failureFd, logger):
     baseFlavor = cfg.buildFlavor
     db = database.Database(cfg.root, cfg.dbPath)
+    buildLabel = version.trailingLabel()
+    buildBranch = version.branch()
     if targetLabel:
         source = recipeutil.RemoveHostSource(db, targetLabel.getHost())
+        if version.trailingLabel() == targetLabel and version.depth() > 1:
+            buildBranch = version.branch().parentBranch()
+            buildLabel = buildBranch.label()
     else:
         source = db
     loaders = []
@@ -330,8 +335,12 @@ def _cookTrove(cfg, repos, name, version, flavorList, targetLabel,
         groupOptions = cook.GroupCookOptions(alwaysBumpCount=False,
                                         shortenFlavors=cfg.shortenGroupFlavors,
                                         errorOnFlavorChange=False)
+        m = macros.Macros()
+        m._override('buildlabel', str(buildLabel))
+        m._override('buildbranch', str(buildBranch))
         built = cook.cookObject(repos, cfg, recipeClasses, version,
-                                prep=False, macros={},
+                                prep=False,
+                                macros=m,
                                 targetLabel=targetLabel,
                                 changeSetFile=csFile,
                                 alwaysBumpCount=False,
