@@ -161,8 +161,9 @@ class DependencyBasedBuildState(AbstractBuildState):
     def _flavorsMatch(self, troveFlavor, provFlavor, reqFlavor, isCross):
         if isCross:
             troveFlavor = flavorutil.getSysRootFlavor(troveFlavor)
-        archFlavor = flavorutil.getArchFlags(troveFlavor, getTarget=False,
-                                              withFlags=False)
+        archFlavor = flavorutil.getBuiltFlavor(flavorutil.getArchFlags(
+                                               troveFlavor, getTarget=False,
+                                               withFlags=False))
         if reqFlavor is None:
             reqFlavor = archFlavor
         else:
@@ -483,7 +484,7 @@ class DependencyHandler(object):
     def moreToDo(self):
         return self.depState.moreToDo()
 
-    def _addResolutionDeps(self, trv, jobSet, crossJobSet):
+    def _addResolutionDeps(self, trv, jobSet, crossJobSet, inCycle=False):
         found = set()
         for jobs, isCross in ((jobSet, False), (crossJobSet, True)):
             for (name, oldInfo, newInfo, isAbs) in jobs:
@@ -513,6 +514,13 @@ class DependencyHandler(object):
                             continue
                         if self.depState.isRejectedDep(trv, provTrove, isCross):
                             continue
+                        if (inCycle and not self.depState._flavorsMatch(
+                                                trv.getFlavor(),newInfo[1],
+                                                None, isCross)):
+                            self.depState.hardDependencyOn(trv, provTrove, 
+                                          deps.parseDep('trove: %s' % name))
+                            found.add(provTrove)
+                            break
                         if self.depState.areRelated(trv, provTrove):
                             # if these two are already related in any way
                             # via other dependencies, then the ordering is
@@ -526,6 +534,7 @@ class DependencyHandler(object):
                                            (isCross, 
                                             (trv.getNameVersionFlavor(),
                                             deps.parseDep('trove: %s' % name))))
+                        break
         return found
 
     def _getResolveJob(self, buildTrove, inCycle=False, cycleTroves=None):
@@ -734,11 +743,10 @@ class DependencyHandler(object):
             buildReqs = results.getBuildReqs()
             crossReqs = results.getCrossReqs()
             self._cycleTroves = []
-            if results.inCycle:
+            newDeps = self._addResolutionDeps(trv, buildReqs, crossReqs,
+                                              results.inCycle)
+            if not newDeps and results.inCycle:
                 self.depState.depGraph.deleteEdges(trv)
-                newDeps = None
-            else:
-                newDeps = self._addResolutionDeps(trv, buildReqs, crossReqs)
             if newDeps:
                 # there are runtime reqs that are being
                 # rebuild.
@@ -753,6 +761,7 @@ class DependencyHandler(object):
                 return
             elif (trv.getPrebuiltRequirements() is not None
                   and not trv.isGroupRecipe()):
+
                 preBuiltReqs = set(
                     [ x for x in trv.getPrebuiltRequirements() if ':' in x[0]])
                 # only compare components, since packages are not necessarily

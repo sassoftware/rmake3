@@ -196,6 +196,11 @@ def hasTarget(flavor):
 
 def getBuiltFlavor(flavor):
     if not hasTarget(flavor):
+        majorArch = getTargetArch(flavor)[1]
+        if majorArch:
+            f = deps.Flavor()
+            f.addDep(deps.InstructionSetDependency, deps.Dependency(majorArch))
+            flavor = deps.overrideFlavor(flavor, f)
         return flavor
     if flavor.stronglySatisfies(crossFlavor):
         return flavor
