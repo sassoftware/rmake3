@@ -382,7 +382,7 @@ class DependencyHandler(object):
         self._resolving = {}
         self.priorities = []
         self._delayed = {}
-        self._cycleTroves = []
+        self._cycleChecked = {}
         self._allowFastResolution = True
 
         statusLog.subscribe(statusLog.TROVE_BUILT, self.troveBuilt)
@@ -528,12 +528,12 @@ class DependencyHandler(object):
                                             deps.parseDep('trove: %s' % name))))
         return found
 
-    def _getResolveJob(self, buildTrove, inCycle=False):
+    def _getResolveJob(self, buildTrove, inCycle=False, cycleTroves=None):
         if (buildTrove.isPrebuilt() and buildTrove.allowFastRebuild()
             and self._allowFastResolution):
             buildTrove.troveBuilt(buildTrove.getPrebuiltBinaries())
             return
-        self._resolving[buildTrove] = True
+        self._resolving[buildTrove] = cycleTroves
         if buildTrove.hasTargetArch():
             builtTroves = self.depState.getNonCrossCompiledBinaries()
             crossTroves = self.depState.getCrossCompiledBinaries()
@@ -557,11 +557,10 @@ class DependencyHandler(object):
          return [ x for x in troveList
                   if (x.needsBuildreqs()
                       and not x in self._resolving
+                      and not x in self._cycleChecked
                       and not x in self._delayed) ]
 
-    def _attemptFastResolve(self, breakCycles=True):
-        compGraph = self.depState.depGraph.getStronglyConnectedGraph()
-        nodeLists = compGraph.getLeaves()
+    def _attemptFastResolve(self, nodeLists, breakCycles=True):
         nodeLists = [ (sorted(x.getPrebuiltTime() for x in y 
                               if x.getPrebuiltTime()), y) for y in nodeLists ]
         nodeLists.sort()
@@ -590,47 +589,42 @@ class DependencyHandler(object):
         if len(self._resolving) >= 10:
             return None
 
+        compGraph = self.depState.depGraph.getStronglyConnectedGraph()
+        leafCycles = compGraph.getLeaves()
         if self._allowFastResolution:
-            result = self._attemptFastResolve(breakCycles=breakCycles)
+            result = self._attemptFastResolve(breakCycles=breakCycles,
+                                              nodeLists=leafCycles)
             if result or self._allowFastResolution:
                 return result
-        leaves = sorted(depGraph.getLeaves(), key=self.getPriority)
-        if not leaves:
-            if self._resolving or not breakCycles:
-                return
-            return self.getResolveJobFromCycles(depGraph)
-        leaves = self._filterTroves(leaves)
 
-        if leaves:
-            self.logger.debug(
-                '%s buildable: attempting to resolve buildreqs' % len(leaves))
-            trv = leaves[0]
-            return self._getResolveJob(trv)
-
-    def getResolveJobFromCycles(self, depGraph, cycle=None):
-        # no leaves in the dep graph at this point - we've got to break a dep
-        # cycle.  There's no great way to break a cycle, unless you have some 
-        # external knowledge about what packages are more 'basic'.
-        checkedTroves = {}
-        self.logger.debug('cycle detected!')
-        self.graphCount += 1
-
-        if self._cycleTroves:
-            # We're already trying to break a cycle.
-            # Go ahead and try other troves in that cycle.
-            trv = self._cycleTroves[0]
-            self._cycleTroves = self._cycleTroves[1:]
-            return self._getResolveJob(trv, inCycle=True)
-        start = time.time()
-        compGraph = depGraph.getStronglyConnectedGraph()
-        leafCycles = compGraph.getLeaves()
-        self._displayCycleInfo(depGraph, leafCycles)
-
-        checkedSomething = False
-        for cycleTroves in leafCycles:
-            resolveJob = self._getResolveJobFromCycle(depGraph, cycleTroves)
-            if resolveJob:
-                return resolveJob
+        leafCycles = [ (min(self.getPriority(x) for x in leafCycle), 
+                       sorted(leafCycle, key=self.getPriority))
+                        for leafCycle in leafCycles ]
+        leafCycles = [ x[1] for x in sorted(leafCycles) ]
+        if leafCycles and min(len(x) for x in leafCycles) > 1:
+            self._displayCycleInfo(depGraph, leafCycles)
+        for leafCycle in leafCycles:
+            if len(leafCycle) > 1:
+                if not breakCycles:
+                    continue
+                found = False
+                for trv in leafCycle:
+                    if trv in self._resolving:
+                        found = True
+                        break
+                if not found:
+                    resolveJob = self._getResolveJobFromCycle(depGraph,
+                                                              leafCycle)
+                    if resolveJob:
+                        return resolveJob
+            else:
+                leaves = self._filterTroves(leafCycle)
+                if not leaves:
+                    continue
+                trv = leaves[0]
+                resolveJob = self._getResolveJob(trv)
+                if resolveJob:
+                    return resolveJob
 
     def _getResolveJobFromCycle(self, depGraph, cycleTroves):
         def _cycleNodeOrder(node):
@@ -650,8 +644,8 @@ class DependencyHandler(object):
                 numParentsChildren = 0
             return numParentsChildren
 
-        cycleTroves = self._filterTroves(cycleTroves)
-        if not cycleTroves:
+        buildableTroves = self._filterTroves(cycleTroves)
+        if not buildableTroves:
             return
         self.logger.debug('cycle involves %s troves' % len(cycleTroves))
         # if it's got a hard dependency on anything, it's
@@ -664,12 +658,11 @@ class DependencyHandler(object):
                      x.getPrebuiltTime(),  
                      _cycleNodeOrder(x),
                      x.getNameVersionFlavor(True),
-                     x) for x in cycleTroves ]
+                     x) for x in buildableTroves ]
         sortKeys.sort()
-        cycleTroves = [ x[-1] for x in sortKeys ]
-        trv = cycleTroves[0]
-        self._cycleTroves = cycleTroves[1:]
-        return self._getResolveJob(trv, inCycle=True)
+        buildableTroves = [ x[-1] for x in sortKeys ]
+        trv = buildableTroves[0]
+        return self._getResolveJob(trv, inCycle=True, cycleTroves=cycleTroves)
 
     def _displayCycleInfo(self, depGraph, leafCycles):
         self.logger.debug('Found %s cycles' % len(leafCycles))
@@ -731,7 +724,7 @@ class DependencyHandler(object):
             entries = newEntries
 
     def resolutionComplete(self, trv, results):
-        self._resolving.pop(trv, False)
+        cycleTroves = self._resolving.pop(trv, False)
         oldFastResolve = self._allowFastResolution
         self._allowFastResolution = False
 
@@ -773,10 +766,17 @@ class DependencyHandler(object):
                     self.depState.depGraph.deleteEdges(trv)
                     self._allowFastResolution = oldFastResolve
                     trv.troveBuilt(trv.getPrebuiltBinaries())
+                    if cycleTroves:
+                        for cycleTrove in cycleTroves:
+                            self._cycleChecked.pop(cycleTrove, False)
                     return
                 else:
                     self._logDifferenceInPrebuiltReqs(trv, buildReqTups,
                                                       preBuiltReqs)
+
+            if cycleTroves:
+                for cycleTrove in cycleTroves:
+                    self._cycleChecked.pop(cycleTrove, False)
             trv.troveBuildable()
             self.depState.troveBuildable(trv, buildReqs, crossReqs)
         else:
@@ -785,7 +785,11 @@ class DependencyHandler(object):
             # to include something that's buildable (see below where
             # we don't resolve anything but do break the cycle due to 
             # added dependencies)
-            if results.inCycle and self._cycleTroves:
+            self._cycleChecked[trv] = True
+            if results.inCycle:
+                remainingCycleTroves = [ x for x in cycleTroves 
+                                         if x not in self._cycleChecked ]
+            if results.inCycle and remainingCycleTroves:
                 # there more troves in this cycle that may be buildable
                 # check around to see if there's a better order to build things
                 # in.
@@ -810,7 +814,7 @@ class DependencyHandler(object):
                 else:
                     self._linkMissingDeps(trv, results.getMissingDeps())
                 return
-            if results.hasMissingBuildReqs():
+            elif results.hasMissingBuildReqs():
                 trv.troveMissingBuildReqs(results.getMissingBuildReqs())
             else:
                 assert(results.hasMissingDeps())
