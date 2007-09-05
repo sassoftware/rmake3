@@ -24,6 +24,7 @@ class AbstractChroot(object):
         self.filesToCopy = []
         self.dirsToCopy = []
         self.dirsToAdd = []
+        self.linksToCreate = []
         self.usersToSupport = []
         self.groupsToSupport = []
         self.devNodes = []
@@ -55,6 +56,9 @@ class AbstractChroot(object):
             Adds directory to be created when root is instantiated
         """
         self.dirsToAdd.append((directory, mode, uid, gid))
+
+    def addLink(self, fromLoc, toLoc):
+        self.linksToCreate.append((fromLoc, toLoc))
 
     def copyDir(self, sourceDir, targetDir=None):
         """
@@ -111,6 +115,7 @@ class BasicChroot(AbstractChroot):
         self._createDirs()
         self._copyFiles()
         self._copyDirs()
+        self._createLinks()
         self._supportGroups()
         self._supportUsers()
         self._addDeviceNodes()
@@ -134,6 +139,16 @@ class BasicChroot(AbstractChroot):
                 os.chmod(dir, mode)
             if (uid or gid) and not os.getuid():
                 os.chown(dir, uid, gid)
+
+    def _createLinks(self):
+        for fromLoc, toLoc in self.linksToCreate:
+            fromLoc = self.root + fromLoc
+            fromLoc = os.path.realpath(fromLoc)
+            util.mkdirChain(os.path.dirname(fromLoc))
+            if os.path.exists(fromLoc):
+                return
+                os.remove(fromLoc)
+            os.symlink(toLoc, fromLoc)
 
     def _copyFiles(self):
         for (sourceFile, targetFile, mode) in self.filesToCopy:
