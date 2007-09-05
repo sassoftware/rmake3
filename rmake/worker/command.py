@@ -45,6 +45,7 @@ class Command(server.Server):
         self.cfg = cfg
         self.commandId = commandId
         self.jobId = jobId
+        self.logData = None
         self._isErrored = False
         self._errorMessage = ''
         self._output = [] # default location for information read in 

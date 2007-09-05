@@ -71,7 +71,7 @@ def loadRecipe(repos, name, version, flavor, recipeFile=None,
                                        version, fullFlavor, recipeFile,
                                        loadInstalledSource=loadInstalledSource,
                                        installLabelPath=installLabelPath,
-                                       buildLabel=buildLabel, 
+                                       buildLabel=buildLabel,
                                        groupRecipeSource=groupRecipeSource,
                                        cfg=cfg)
         relevantFlavor = use.usedFlagsToFlavor(recipeObj.name)
@@ -343,10 +343,16 @@ def getSourceTrovesFromJob(job, serverCfg, repos):
         loadInstalledList.append(repos)
         loadInstalledSource = trovesource.stack(buildTroveSource,
                                                 *loadInstalledList)
+        loadInstalledList = [ trovesource.TroveListTroveSource(repos, x)
+                                for x in resolveTroveTups ]
+        loadInstalledList.append(repos)
         repos = trovesource.stack(*loadInstalledList)
 
-        for source in repos.iterSources():
-            source.searchAsRepository()
+        if isinstance(repos, trovesource.TroveSourceStack):
+            for source in repos.iterSources():
+                source._getLeavesOnly = True
+                source.searchWithFlavor()
+                # keep allowNoLabel set.
 
         allTroves.extend(loadSourceTroves(job, repos, buildFlavor, troveList,
                          total=total, count=count,

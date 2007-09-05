@@ -301,7 +301,7 @@ def _cookTrove(cfg, repos, name, version, flavorList, targetLabel,
             # FIXME: is this cached?
             builtTroves = repos.getTroves(builtTroves, withFiles=False)
 
-            builtTroves = resolvesource.BuiltTroveSource(builtTroves)
+            builtTroves = resolvesource.BuiltTroveSource(builtTroves, repos)
             builtTroves.searchAsRepository()
             if targetLabel:
                 builtTroves = recipeutil.RemoveHostSource(builtTroves,
@@ -313,7 +313,9 @@ def _cookTrove(cfg, repos, name, version, flavorList, targetLabel,
             # this should only make a difference when cooking groups, redirects,
             # etc.
             oldRepos = repos
-            repos = resolvesource.TroveSourceMesh(builtTroves, repos)
+            repos = resolvesource.DepHandlerSource(builtTroves,
+                                                   None,
+                                                   repos)
             repos.TROVE_QUERY_ALL = oldRepos.TROVE_QUERY_ALL
 
         # if we're already on the target label, we'll assume no targeting 

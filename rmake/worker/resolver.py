@@ -105,7 +105,8 @@ class DependencyResolver(object):
             builtTroveTups = resolveJob.getBuiltTroves()
 
         builtTroves = self.repos.getTroves(builtTroveTups, withFiles=False)
-        builtTroveSource = resolvesource.BuiltTroveSource(builtTroves)
+        builtTroveSource = resolvesource.BuiltTroveSource(builtTroves,
+                                                          self.repos)
         if builtTroves:
             # this makes sure that if someone searches for a buildreq on
             # :branch, and the only thing we have is on :branch/rmakehost,
@@ -120,7 +121,7 @@ class DependencyResolver(object):
         else:
             searchSource = resolvesource.DepHandlerSource(builtTroveSource,
                                                           [], self.repos)
-            resolveSource = resolvesource.DepResolutionByTroveLists(cfg,
+            resolveSource = resolvesource.rMakeResolveSource(cfg,
                                                         builtTroveSource, [],
                                                         self.repos)
         if cross:
@@ -146,7 +147,7 @@ class DependencyResolver(object):
                            searchSourceTroves,
                            self.repos,
                            useInstallLabelPath=not cfg.resolveTrovesOnly)
-        resolveSource = resolvesource.DepResolutionByTroveLists(cfg, 
+        resolveSource = resolvesource.rMakeResolveSource(cfg,
                                                         builtTroveSource,
                                                         searchSourceTroves,
                                                         self.repos)
@@ -258,7 +259,8 @@ class DependencyResolver(object):
                 missingBuildReqs.append(troveSpec)
                 okay = False
             else:
-                sol = _findBestSolution(trove, troveSpec, solutions, searchFlavor)
+                sol = _findBestSolution(trove, troveSpec, solutions,
+                                        searchFlavor, self.repos)
                 if sol is None:
                     missingBuildReqs.append(troveSpec)
                     okay = False
@@ -278,7 +280,7 @@ class DependencyResolver(object):
         uJob.setSearchSource(searchSource)
         jobSet = client._updateChangeSet(itemList, uJob, useAffinity=False)
         (depList, suggMap, cannotResolve, splitJob, keepList) = \
-        client.resolver.resolveDependencies(uJob, jobSet, 
+        client.resolver.resolveDependencies(uJob, jobSet,
                                             resolveDeps=True,
                                             useRepos=False, split=False,
                                             resolveSource=resolveSource)
@@ -310,7 +312,7 @@ class DependencyResolver(object):
 
 
 def _findBestSolution(trove, (name, versionSpec, flavorSpec), 
-                      solutions, searchFlavor):
+                      solutions, searchFlavor, repos):
     """Given a trove, a buildRequirement troveSpec, and a set of troves
        that may match that buildreq, find the best trove.
     """
@@ -320,6 +322,7 @@ def _findBestSolution(trove, (name, versionSpec, flavorSpec),
     # However, in some cases it's not - for example, if two different
     # flavors of a trove are in the same group (glibc, e.g.).
     filter = resolve.DepResolutionMethod(None, None)
+    filter.setFlavorPreferences(repos._flavorPreferences)
     result = None
     affDict = dict.fromkeys(x[0] for x in solutions)
     for flavor in searchFlavor:
