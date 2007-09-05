@@ -38,6 +38,14 @@ class CachingTroveSource:
         return self._cache.getTroves(self._troveSource, troveList,
                                      withFiles=withFiles, callback = None)
 
+    def hasTroves(self, troveList):
+        if self._depsOnly:
+            return self._troveSource.hasTroves(troveList)
+        return self._cache.hasTroves(self._troveSource, troveList)
+
+    def hasTrove(self, name, version, flavor):
+        return self.hasTroves([(name, version, flavor)])[name, version, flavor]
+
     def getTrove(self, name, version, flavor, withFiles=True, callback=None):
         trv = self.getTroves([(name, version, flavor)], withFiles=withFiles,
                               callback=callback)[0]
@@ -173,6 +181,28 @@ class RepositoryCache(object):
         for result, depSet in itertools.izip(allFound, depList):
             allResults[depSet] = result
         return allResults
+
+    def hasTroves(self, repos, troveList):
+        results = {}
+        needed = []
+        for troveTup in troveList:
+            n,v,f = troveTup
+            csHash = str(self.hashTrove(n,v,f,
+                                        withFiles=False,
+                                        withFileContents=False))
+            if self.store.hasFile(csHash):
+                results[troveTup] = True
+            else:
+                csHash = str(self.hashTrove(n,v,f,
+                                        withFiles=True,
+                                        withFileContents=False))
+                if self.store.hasFile(csHash):
+                    results[troveTup] = True
+                else:
+                    needed.append(troveTup)
+        hasTroves = repos.hasTroves(needed)
+        results.update(hasTroves)
+        return results
 
     def getChangeSets(self, repos, jobList, withFiles=True,
                       withFileContents=True, callback=None):
