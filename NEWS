@@ -4,6 +4,8 @@ Changes in 1.0.11:
        an explicit path (an explicit path can also be specified using the
        --path operator, for cases when the rMake server has been restarted)
        (RMK-569)
+     * Only subscriptions in the main build configuration will be used. 
+       (RMK-558)
   o Build Changes:
      * you can now specify matchTroveRules in your configuration file, and also
        in a context.  This allows you to not build certain troves within a
