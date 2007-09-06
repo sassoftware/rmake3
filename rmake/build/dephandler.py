@@ -717,7 +717,7 @@ class DependencyHandler(object):
             for (fromTrove,toTrove), steps in entries:
                 if fromTrove == toTrove:
                     continue
-                for child in depGraph.iterChildren(toTrove):
+                for child in sorted(depGraph.iterChildren(toTrove)):
                     if child == fromTrove:
                         cycleSteps = [fromTrove] + steps + [toTrove, fromTrove]
                         if set(cycleSteps) & remainingTroves:
