@@ -230,7 +230,8 @@ class _AbstractBuildJob(trovesource.SearchableTroveSource):
         return False
 
     def getMainConfig(self):
-        return self.configs['']
+        if '' in self.configs:
+            return self.configs['']
 
     def setMainConfig(self, config):
         self.configs[''] = config
