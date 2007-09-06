@@ -106,8 +106,10 @@ class Database(DBInterface):
 
     def addJob(self, job):
         jobId = self.jobStore.addJob(job)
-        for subscriber in job.getMainConfig().subscribe.values():
-            self.subscriberStore.add(jobId, subscriber)
+        cfg = job.getMainConfig()
+        if cfg:
+            for subscriber in cfg.subscribe.values():
+                self.subscriberStore.add(jobId, subscriber)
         self.commit()
         return job
 
