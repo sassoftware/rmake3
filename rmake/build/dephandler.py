@@ -711,7 +711,7 @@ class DependencyHandler(object):
                 if child != trove:
                     map[trove, child] = []
         changed = True
-        entries = map.items()
+        entries = sorted(map.items())
         while entries:
             newEntries = []
             for (fromTrove,toTrove), steps in entries:
@@ -730,7 +730,7 @@ class DependencyHandler(object):
                     elif (fromTrove,child) not in map:
                         map[fromTrove,child] = steps + [toTrove]
                         newEntries.append(((fromTrove, child), map[fromTrove,child]))
-            entries = newEntries
+            entries = sorted(newEntries)
 
     def resolutionComplete(self, trv, results):
         cycleTroves = self._resolving.pop(trv, False)
