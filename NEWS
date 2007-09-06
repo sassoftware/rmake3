@@ -8,6 +8,7 @@ Changes in 1.0.11:
      * you can now specify matchTroveRules in your configuration file, and also
        in a context.  This allows you to not build certain troves within a
        group based on a the values in the context. (RMK-561)
+     * matchTroveRules accept a * for a glob in the package name (RMK-564)
      * removed defaultBuildReqs epdb:python and procps:runtime, as they
        are often not necessary and add build requirement loops.
      * The build logs now give a more detailed explanation about why a

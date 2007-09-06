@@ -2,6 +2,7 @@
 # Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
 #
 import copy
+import fnmatch
 import itertools
 import re
 import os
@@ -211,11 +212,16 @@ def _filterListByMatchSpecs(reposName, matchSpecs, troveList):
             hasAddSpec = True
             removeSpec = False
         if not name:
-            finalMatchSpecs.update(dict.fromkeys([(x[0], matchSpec[1],
-                                            matchSpec[2]) for x in troveMap],
-                                            removeSpec))
+            filterFn = lambda x: True
         else:
-            finalMatchSpecs[(name, matchSpec[1], matchSpec[2])] = removeSpec
+            filterFn = lambda x: fnmatch.fnmatchcase(x[0], name)
+
+        # add all packages that match glob (could be empty in which case
+        # all packages are added.
+        finalMatchSpecs.update(dict.fromkeys([(x[0], matchSpec[1],
+                                        matchSpec[2]) for x in troveMap
+                                        if filterFn(x)],
+                                        removeSpec))
 
 
     troveSource = trovesource.SimpleTroveSource(troveMap)

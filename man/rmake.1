@@ -382,6 +382,8 @@ MatchTroveRules can be specified multiple times, and should consist of parts of 
 MatchTroveRules can be made negative by prepending a '-' in front of the rule.  For example, "matchTroveRule -=localhost@rpl:linux" would specify not to build anything on localhost@rpl:linux".  
 
 All positive match rules are applied before all negative rules.  For example, if you had match rules for "foo" and "-localhost@rpl:linux" this would build foo unless it was on localhost@rpl:linux.
+
+A * can be used in the package name portion of the rule to match 0 or more name characters.  For example, foo* would match packages with names foo or foobar.
 .TP
 .B resolveTroves
 Specifies the troves to resolve against when building troves using rmake.
