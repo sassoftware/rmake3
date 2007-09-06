@@ -4,8 +4,9 @@ Changes in 1.0.11:
        an explicit path (an explicit path can also be specified using the
        --path operator, for cases when the rMake server has been restarted)
        (RMK-569)
-     * Only subscriptions in the main build configuration will be used. 
-       (RMK-558)
+     * Only subscriptions in the main build configuration will be used.
+       This means that subscribers that are also in subcontexts will no 
+       longer be used multiple times. (RMK-558)
   o Build Changes:
      * you can now specify matchTroveRules in your configuration file, and also
        in a context.  This allows you to not build certain troves within a
@@ -52,6 +53,8 @@ Changes in 1.0.11:
        jobs tried to cache the same package or file at exactly the same time.
      * r.macros.buildlabel and r.macros.buildbranch are now set as expected
        when building from .recipe files. (RMK-583)
+     * Some errors (like chrooting to a non-existant chroot) no longer give
+       a traceback but instead give an error message. (RMK-537)
 
 Changes in 1.0.10:
   o Build Changes:

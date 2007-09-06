@@ -61,7 +61,7 @@ class TroveNotFound(RmakeError):
 
     def __freeze__(self):
         return (self.args[0], freeze('troveTuple', self.args[1:]))
-apiutils.register(JobNotFound)
+apiutils.register(TroveNotFound)
 
 
 class DatabaseSchemaTooNew(RmakeError):
@@ -76,12 +76,14 @@ class ServerError(RmakeError):
         Generic error for communicating with the rMakeServer.
     """
     pass
+apiutils.register(ServerError)
 
 class OpenError(ServerError):
     """
         Generic error for starting communication with the rMakeServer.
     """
     pass
+apiutils.register(OpenError)
 
 class InsufficientPermission(ServerError):
     """

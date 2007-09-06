@@ -252,7 +252,7 @@ class rMakeChroot(ConaryBasedChroot):
             rc = os.system('%s --unmount %s' % (self.chrootHelperPath, root))
             if rc:
                 if raiseError:
-                    raise errors.OpenError('Could not unmount old chroot')
+                    raise errors.ServerError('Could not unmount old chroot')
                 return False
         return True
 
@@ -265,7 +265,7 @@ class rMakeChroot(ConaryBasedChroot):
             rc = os.system('%s %s --clean' % (self.chrootHelperPath, root))
             if rc:
                 if raiseError:
-                    raise errors.OpenError(
+                    raise errors.ServerError(
                             'Cannot create chroot - chroot helper failed'
                             ' to clean old chroot')
                 else:
@@ -284,7 +284,7 @@ class rMakeChroot(ConaryBasedChroot):
             if os.path.exists(root):
                 removeFailed = True
         if removeFailed and raiseError:
-            raise errors.OpenError(
+            raise errors.ServerError(
                 'Cannot create chroot - old root at %s could not be removed.'
                 '  This may happen due to permissions problems such as root'
                 ' owned files, or earlier build processes that have not'

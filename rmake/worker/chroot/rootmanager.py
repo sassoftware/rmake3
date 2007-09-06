@@ -224,7 +224,7 @@ class ChrootManager(object):
         if not chrootPath.startswith(self.baseDir):
             chrootPath = self.baseDir + '/' +  chrootPath
         if not os.path.exists(chrootPath):
-            raise errors.OpenError("No such chroot exists")
+            raise errors.ServerError("No such chroot exists")
         targetArch = None
         if buildTrove:
             setArch, targetArch = flavorutil.getTargetArch(buildTrove.flavor)
@@ -411,7 +411,7 @@ class rMakeChrootServer(object):
             checkedPid, status = os.waitpid(pid, os.WNOHANG)
             if checkedPid:
                 msg = ('Chroot server failed to start - please check build log')
-                raise errors.OpenError(msg)
+                raise errors.ServerError(msg)
             return True
 
 
