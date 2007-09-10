@@ -290,7 +290,8 @@ class XMLApiServer(ApiServer):
 
     def _close(self):
         ApiServer._close(self)
-        self.server.server_close()
+        if self.server:
+            self.server.server_close()
 
     def handleRequestIfReady(self, sleepTime=0.1):
         try:
