@@ -56,7 +56,7 @@ class TroveSourceMesh(trovesource.SearchableTroveSource):
             hasTroves = self.mainSource.hasTroves(troveList)
             results = [ x[0] or x[1] for x in itertools.izip(results,
                                                              hasTroves) ]
-        return results
+        return dict(itertools.izip(troveList, results))
 
     def trovesByName(self, name):
         return list(set(self.mainSource.trovesByName(name)) 
