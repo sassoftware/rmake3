@@ -164,6 +164,8 @@ class rMakeHelper(object):
                     limitToHosts=None, limitToLabels=None, recurseGroups=False,
                     buildConfig=None, configDict=None, matchSpecs=None,
                     quiet=False, infoOnly=False):
+        if not isinstance(troveSpecList, (list, tuple)):
+            troveSpecList = [troveSpecList]
         if buildConfig is None:
             buildConfig = self.buildConfig
         if limitToHosts:
