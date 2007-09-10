@@ -41,10 +41,22 @@ class TroveSourceMesh(trovesource.SearchableTroveSource):
             return getattr(self.repos, key)
         return getattr(self.mainSource, key)
 
-    def hasTroves(self, *args, **kw):
+    def hasTroves(self, troveList):
         if self.repos:
-            return self.repos.hasTroves(*args, **kw)
-        return self.mainSource.hasTroves(*args, **kw)
+            results = self.repos.hasTroves(troveList)
+            if isinstance(results, dict):
+                results = [ results[x] for x in troveList ]
+        else:
+            results = [ False for x in troveList ]
+        if self.extraSource:
+            hasTroves = self.extraSource.hasTroves(troveList)
+            results = [ x[0] or x[1] for x in itertools.izip(results,
+                                                                hasTroves) ]
+        if self.mainSource:
+            hasTroves = self.mainSource.hasTroves(troveList)
+            results = [ x[0] or x[1] for x in itertools.izip(results,
+                                                             hasTroves) ]
+        return results
 
     def trovesByName(self, name):
         return list(set(self.mainSource.trovesByName(name)) 
