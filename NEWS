@@ -58,6 +58,9 @@ Changes in 1.0.11:
      * When possible, build requirements are updated after the build (This
        is sometimes not possible when multiple versions of a package are
        built) (RMK-499)
+     * Derived package recipes can now be built (must be from checkout,
+       unowned recipe files will not work, since the derived package must be
+       a shadow of somewhere.  Requires conary 1.2) (CNY-1948)
 
 Changes in 1.0.10:
   o Build Changes:
