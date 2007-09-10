@@ -14,7 +14,7 @@ from rmake import errors
 testing = False
 
 class ConaryVersion(object):
-    maxKnownVersion = "1.1.25"
+    maxKnownVersion = "1.1.95"
     _warnedUser = False
 
     def __init__(self, conaryVersion=None):
@@ -61,6 +61,9 @@ class ConaryVersion(object):
         if not hasattr(state.ConaryState, 'stateVersion'):
             return 0
         return state.ConaryState.stateVersion
+
+    def acceptsPartialBuildReqCloning(self):
+        return self.checkVersion(None, 95)
 
     def supportsFindGroupSources(self):
         return self.checkVersion(None, 21)

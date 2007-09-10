@@ -134,10 +134,13 @@ def commitJobs(conaryclient, jobList, reposName, message=None,
                    '\n'.join(outdated))
             return False, err
 
+    # only update build info if we'll be okay if some buildreqs are not 
+    # updated
+    updateBuildInfo = compat.ConaryVersion().acceptsPartialBuildReqCloning()
     callback = callbacks.CloneCallback(conaryclient.cfg, message)
     passed, cs = conaryclient.createTargetedCloneChangeSet(
                                         branchMap, trovesToClone,
-                                        updateBuildInfo=False,
+                                        updateBuildInfo=updateBuildInfo,
                                         cloneSources=False,
                                         trackClone=False,
                                         callback=callback, fullRecurse=False)

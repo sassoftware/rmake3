@@ -55,6 +55,9 @@ Changes in 1.0.11:
        when building from .recipe files. (RMK-583)
      * Some errors (like chrooting to a non-existant chroot) no longer give
        a traceback but instead give an error message. (RMK-537)
+     * When possible, build requirements are updated after the build (This
+       is sometimes not possible when multiple versions of a package are
+       built) (RMK-499)
 
 Changes in 1.0.10:
   o Build Changes:
