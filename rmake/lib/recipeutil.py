@@ -139,6 +139,8 @@ def getRecipeObj(repos, name, version, flavor, recipeFile,
     use.resetUsed()
     use.track(True)
     ignoreInstalled = not loadInstalledSource
+    macros = {'buildlabel' : buildLabel.asString(),
+              'buildbranch' : version.asString()}
     if recipeFile:
         loader = loadrecipe.RecipeLoader(recipeFile[0], cfg, repos,
                                          name + ':source', branch,
@@ -157,24 +159,21 @@ def getRecipeObj(repos, name, version, flavor, recipeFile,
         recipeClass = loader.getRecipe()
     if recipe.isGroupRecipe(recipeClass):
         recipeObj = recipeClass(repos, cfg, buildLabel, None, None,
-                            extraMacros={'buildlabel' : buildLabel.asString()})
+                            extraMacros=macros)
         recipeObj.sourceVersion = version
         recipeObj.setup()
         if groupRecipeSource:
             sourceComponents = recipeObj._findSources(groupRecipeSource)
             recipeObj.delayedRequires = sourceComponents
     elif recipe.isPackageRecipe(recipeClass):
-        recipeObj = recipeClass(cfg, None, None,
-                                {'buildlabel' : buildLabel.asString()},
-                                lightInstance=True)
+        recipeObj = recipeClass(cfg, None, None, macros, lightInstance=True)
         recipeObj.sourceVersion = version
         if not recipeObj.needsCrossFlags():
             recipeObj.crossRequires = []
         recipeObj.loadPolicy()
         recipeObj.setup()
     elif recipe.isInfoRecipe(recipeClass):
-        recipeObj = recipeClass(cfg, None, None,
-                                {'buildlabel' : buildLabel.asString()})
+        recipeObj = recipeClass(cfg, None, None, macros)
         recipeObj.sourceVersion = version
         recipeObj.setup()
     elif recipe.isRedirectRecipe(recipeClass):
