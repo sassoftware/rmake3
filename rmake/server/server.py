@@ -67,6 +67,7 @@ class rMakeServer(apirpc.XMLApiServer):
     @api(version=1)
     @api_parameters(1, None)
     def stopJob(self, callData, jobId):
+        callData.logger.logRPCDetails('stopJob', jobId=jobId)
         jobId = self.db.convertToJobId(jobId)
         job = self.db.getJob(jobId, withTroves=True)
         self._stopJob(job)
