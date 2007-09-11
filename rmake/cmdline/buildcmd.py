@@ -180,7 +180,7 @@ def getTrovesToBuild(cfg, conaryclient, troveSpecList, message=None, recurseGrou
 
     toBuild.extend(localTroves)
 
-    if matchSpecs:
+    if matchSpecs and recurseGroups:
         toBuild = _filterListByMatchSpecs(reposName, matchSpecs, toBuild)
     return toBuild
 

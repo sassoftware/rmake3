@@ -61,6 +61,7 @@ Changes in 1.0.11:
      * Derived package recipes can now be built (must be from checkout,
        unowned recipe files will not work, since the derived package must be
        a shadow of somewhere.  Requires conary 1.2) (CNY-1948)
+     * matchTroveRules only apply now when building groups recursively (RMK-571)
 
 Changes in 1.0.10:
   o Build Changes:
