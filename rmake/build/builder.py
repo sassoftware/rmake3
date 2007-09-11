@@ -311,6 +311,7 @@ class EventHandler(subscriber.StatusSubscriber):
                   'TROVE_RESOLVED'         : 'troveResolutionCompleted',
                   'TROVE_LOG_UPDATED'      : 'troveLogUpdated',
                   'TROVE_BUILDING'         : 'troveBuilding',
+                  'TROVE_DUPLICATE'        : 'troveDuplicate',
                   'TROVE_STATE_UPDATED'    : 'troveStateUpdated' }
 
     def __init__(self, job, server):
@@ -361,10 +362,15 @@ class EventHandler(subscriber.StatusSubscriber):
         t = self.job.getTrove(*troveTuple)
         t.troveBuilding(pid)
 
+    def troveDuplicate(self, (jobId, troveTuple), troveList):
+        t = self.job.getTrove(*troveTuple)
+        t.troveDuplicate(troveList)
+
     def troveStateUpdated(self, (jobId, troveTuple), state, status):
         if state not in (buildtrove.TROVE_STATE_FAILED,
                          buildtrove.TROVE_STATE_UNBUILDABLE,
                          buildtrove.TROVE_STATE_BUILT,
+                         buildtrove.TROVE_STATE_DUPLICATE,
                          buildtrove.TROVE_STATE_RESOLVING,
                          buildtrove.TROVE_STATE_PREPARING,
                          buildtrove.TROVE_STATE_BUILDING):
