@@ -140,7 +140,7 @@ def getRecipeObj(repos, name, version, flavor, recipeFile,
     use.track(True)
     ignoreInstalled = not loadInstalledSource
     macros = {'buildlabel' : buildLabel.asString(),
-              'buildbranch' : version.asString()}
+              'buildbranch' : version.branch().asString()}
     if recipeFile:
         loader = loadrecipe.RecipeLoader(recipeFile[0], cfg, repos,
                                          name + ':source', branch,

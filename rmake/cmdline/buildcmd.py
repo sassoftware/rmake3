@@ -9,7 +9,7 @@ import os
 import shutil
 import tempfile
 
-from conary.build import cook, grouprecipe, use
+from conary.build import cook, grouprecipe, recipe, use
 from conary.build.cook import signAbsoluteChangeset
 from conary.conaryclient import cmdline
 from conary.deps import deps
@@ -303,12 +303,21 @@ def _getPathList(repos, cfg, recipePath):
 
     log.info("Getting relevant path information from %s..." % recipeClass.name)
     srcdirs = [ os.path.dirname(recipeClass.filename) ]
-    recipeObj = recipeClass(cfg, None, srcdirs, cfg.macros, lightInstance=True)
-    try:
-        cook._callSetup(cfg, recipeObj)
-    except (conaryerrors.ConaryError, conaryerrors.CvcError), msg:
-        raise errors.RmakeError("could not initialize recipe: %s" % (msg))
-    pathList = recipeObj.fetchLocalSources() + [recipePath ]
+    recipeObj = None
+    buildLabel = sourceVersion.trailingLabel()
+    macros = {'buildlabel' : buildLabel.asString(),
+              'buildbranch' : sourceVersion.branch().asString()}
+    if recipe.isPackageRecipe(recipeClass):
+        recipeObj = recipeClass(cfg, None, srcdirs, macros, lightInstance=True)
+    elif recipe.isGroupRecipe(recipeClass):
+        recipeObj = recipeClass(repos, cfg, buildLabel, None, None,
+                                extraMacros=macros)
+    if recipeObj:
+        try:
+            cook._callSetup(cfg, recipeObj)
+        except (conaryerrors.ConaryError, conaryerrors.CvcError), msg:
+            raise errors.RmakeError("could not initialize recipe: %s" % (msg))
+        pathList = recipeObj.fetchLocalSources() + [recipePath ]
     return recipeClass, pathList
 
 
