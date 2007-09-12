@@ -25,6 +25,7 @@ Changes in 1.0.11:
           build types (such as x86 and x86_64 packages) build together in
           the same job. (RMK-585)
         * Multiple cycles can be resolved at the same time. (RMK-483)
+     * You can now build fileset recipes with rMake. (RMK-519)
   o Server Changes:
      * When loading packages, calls to loadRecipe cache the results
        of the findTroves calls.  This should result in a slight speed increase

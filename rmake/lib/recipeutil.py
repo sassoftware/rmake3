@@ -180,6 +180,10 @@ def getRecipeObj(repos, name, version, flavor, recipeFile,
         recipeObj = recipeClass(repos, cfg, buildLabel, flavor)
         recipeObj.sourceVersion = version
         recipeObj.setup()
+    elif recipe.isFileSetRecipe(recipeClass):
+        recipeObj = recipeClass(repos, cfg, buildLabel, flavor, extraMacros=macros)
+        recipeObj.sourceVersion = version
+        recipeObj.setup()
     else:
         raise RuntimeError, 'Unknown class type %s for recipe %s' % (recipeClass, name)
     return recipeObj, loader

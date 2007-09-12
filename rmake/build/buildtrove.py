@@ -72,7 +72,7 @@ def getRecipeType(recipeClass):
         return RECIPE_TYPE_INFO
     if recipe.isRedirectRecipe(recipeClass):
         return RECIPE_TYPE_REDIRECT
-    if recipe.isFilesetRecipe(recipeClass):
+    if recipe.isFileSetRecipe(recipeClass):
         return RECIPE_TYPE_FILESET
     return RECIPE_TYPE_UNKNOWN
 
