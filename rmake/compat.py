@@ -106,6 +106,8 @@ class ConaryVersion(object):
             if oneOneVersion is None:
                 return False
             return self.minorVersion >= oneOneVersion
+        # default to supporting everything - we're running something really new!
+        return True
 
 def checkRequiredVersions():
     ConaryVersion().checkRequiredVersion()
