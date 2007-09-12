@@ -59,8 +59,11 @@ class TroveSourceMesh(trovesource.SearchableTroveSource):
         return dict(itertools.izip(troveList, results))
 
     def trovesByName(self, name):
-        return list(set(self.mainSource.trovesByName(name)) 
-                    | set(self.extraSource.trovesByName(name)))
+        if self.mainSource:
+            return list(set(self.mainSource.trovesByName(name)) 
+                        | set(self.extraSource.trovesByName(name)))
+        else:
+            return self.extraSource.trovesByName(name)
 
     def getTroves(self, troveList, *args, **kw):
         if self.repos:
@@ -84,9 +87,6 @@ class TroveSourceMesh(trovesource.SearchableTroveSource):
         d1 = getattr(self.extraSource, fn)(query, *args, **kw)
         result = {}
         self._mergeTroveQuery(result, d1)
-        for name in query.keys():
-            if name in d1 and len(query[name]) == 1:
-                del query[name]
         if self.mainSource:
             d2 = getattr(self.mainSource, fn)(query, *args, **kw)
             self._mergeTroveQuery(result, d2)
@@ -95,13 +95,29 @@ class TroveSourceMesh(trovesource.SearchableTroveSource):
             self._mergeTroveQuery(result, d3)
         return result
 
+    def _addLabelsToQuery(self, query):
+        newQuery = query.copy()
+        names = query
+        for name in query:
+            labels = set(x[1].trailingLabel() for x in
+                         self.extraSource.trovesByName(name))
+            #asserts there is only one flavorList
+            flavorList, = set(x and tuple(x) for x in query[name].values())
+            for label in labels:
+                if label not in query[name]:
+                    newQuery[name][label] = flavorList
+        return newQuery
+
     def getTroveLatestByLabel(self, query, *args, **kw):
+        query = self._addLabelsToQuery(query)
         return self._call('getTroveLatestByLabel', query, *args, **kw)
 
     def getTroveLeavesByLabel(self, query, *args, **kw):
+        query = self._addLabelsToQuery(query)
         return self._call('getTroveLeavesByLabel', query, *args, **kw)
 
     def getTroveVersionsByLabel(self, query, *args, **kw):
+        query = self._addLabelsToQuery(query)
         return self._call('getTroveVersionsByLabel', query, *args, **kw)
 
     def getTroveLeavesByBranch(self, query, *args, **kw):
@@ -189,6 +205,8 @@ class DepHandlerSource(TroveSourceMesh):
         stack = trovesource.TroveSourceStack()
         stack.searchWithFlavor()
         stack.setFlavorPreferenceList(flavorPrefs)
+        self.setFlavorPreferenceList(flavorPrefs)
+
         if isinstance(troveListList, trovesource.SimpleTroveSource):
             troveListList.setFlavorPreferenceList(flavorPrefs)
             self.stack.addSource(troveListList)
@@ -438,6 +456,7 @@ class rMakeResolveSource(ResolutionMesh):
         for source in sources:
             source.setFlavorPreferences(flavorPreferences)
         ResolutionMesh.__init__(self, cfg, builtResolveSource, mainMethod)
+        self.setFlavorPreferences(flavorPreferences)
 
     def setLabelPath(self, labelPath):
         if labelPath:

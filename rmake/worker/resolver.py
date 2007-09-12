@@ -235,6 +235,7 @@ class DependencyResolver(object):
 
     def _resolve(self, cfg, resolveResult, trove, searchSource, resolveSource,
                  installLabelPath, searchFlavor, reqs, isCross=False):
+        resolveSource.setLabelPath(installLabelPath)
         client = conaryclient.ConaryClient(cfg)
 
         finalToInstall = {}
@@ -260,7 +261,7 @@ class DependencyResolver(object):
                 okay = False
             else:
                 sol = _findBestSolution(trove, troveSpec, solutions,
-                                        searchFlavor, self.repos)
+                                        searchFlavor, resolveSource)
                 if sol is None:
                     missingBuildReqs.append(troveSpec)
                     okay = False
@@ -273,8 +274,6 @@ class DependencyResolver(object):
 
         itemList = [ (x[0], (None, None), (x[1], x[2]), True)
                                                 for x in buildReqTups ]
-
-        resolveSource.setLabelPath(installLabelPath)
 
         uJob = database.UpdateJob(None)
         uJob.setSearchSource(searchSource)
@@ -312,7 +311,7 @@ class DependencyResolver(object):
 
 
 def _findBestSolution(trove, (name, versionSpec, flavorSpec), 
-                      solutions, searchFlavor, repos):
+                      solutions, searchFlavor, resolveSource):
     """Given a trove, a buildRequirement troveSpec, and a set of troves
        that may match that buildreq, find the best trove.
     """
@@ -321,15 +320,8 @@ def _findBestSolution(trove, (name, versionSpec, flavorSpec),
     # flavorSpec _should_ have been handled by findTroves.
     # However, in some cases it's not - for example, if two different
     # flavors of a trove are in the same group (glibc, e.g.).
-    filter = resolve.DepResolutionMethod(None, None)
-    filter.setFlavorPreferences(repos._flavorPreferences)
-    result = None
     affDict = dict.fromkeys(x[0] for x in solutions)
-    for flavor in searchFlavor:
-        result = filter.selectResolutionTrove(trove, None, None,
-                                              solutions, flavor,
-                                              affDict)
-        if result:
-            break
-    return result
+    return resolveSource.selectResolutionTrove(trove, None, None,
+                                                 solutions, None,
+                                                 affDict)
 
