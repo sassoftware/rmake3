@@ -32,6 +32,12 @@ class ResetCommand(daemon.DaemonCommand):
             if os.path.exists(dir):
                 print "Deleting %s" % dir
                 shutil.rmtree(dir)
+        for dir in (cfg.getChrootDir(), cfg.getChrootArchiveDir(),
+                    cfg.getCacheDir()):
+            if os.path.exists(dir):
+                print "Deleting subdirectories of %s" % dir
+                for subDir in os.listdir(dir):
+                    shutil.rmtree(dir + '/' + subDir)
         for path in (cfg.getDbPath(),):
             if os.path.exists(path):
                 print "Deleting %s" % path

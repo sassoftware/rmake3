@@ -60,9 +60,15 @@ restart() {
 }
 
 reset() {
-    stop
+    status rmake-server > /dev/null
+    RUNNING=$?
+    if [ $RUNNING -eq 0 ] ; then
+        stop
+    fi
     resetinternal || return $?
-    start || return $?
+    if [ $RUNNING -eq 0 ] ; then
+        start || return $?
+    fi
 }
 
 resetinternal() {
