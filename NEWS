@@ -63,6 +63,8 @@ Changes in 1.0.11:
        a shadow of somewhere.  Requires conary 1.2) (CNY-1948)
      * matchTroveRules only apply now when building groups recursively (RMK-571)
      * Fixed a bug that caused noarch troves to result in a traceback. (RMK-594)
+     * "rmake chroot" will now be more resilient through the restarts of the rmake 
+       server (RMK-574)
 
 Changes in 1.0.10:
   o Build Changes:

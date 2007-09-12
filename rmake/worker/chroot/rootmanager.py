@@ -41,7 +41,8 @@ class ChrootQueue(object):
             for name in os.listdir(self.root):
                 path = self.root + '/' + name
                 if os.path.isdir(path):
-                    chroots.add(path)
+                    # root part of path, that's not relevant here
+                    chroots.add(path[len(self.root)+1:])
         return [ x for x in chroots if x not in self.badChroots ]
 
     def listOldChroots(self):
@@ -221,10 +222,14 @@ class ChrootManager(object):
 
     def useExistingChroot(self, chrootPath, useChrootUser=True, 
                           buildTrove = None):
-        if not chrootPath.startswith(self.baseDir):
+        if chrootPath.startswith('archive/'):
+            chrootPath = self.archiveDir + chrootPath[len('archive'):]
+        elif not chrootPath.startswith(self.baseDir):
             chrootPath = self.baseDir + '/' +  chrootPath
         if not os.path.exists(chrootPath):
             raise errors.ServerError("No such chroot exists")
+        chrootPath = os.path.realpath(chrootPath)
+        assert(chrootPath.startswith(self.baseDir) or chrootPath.startswith(self.archiveDir))
         targetArch = None
         if buildTrove:
             setArch, targetArch = flavorutil.getTargetArch(buildTrove.flavor)
