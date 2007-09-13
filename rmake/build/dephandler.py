@@ -6,7 +6,9 @@ Dependency Handler and DependencyState classes
 """
 
 import itertools
+import sys
 import time
+import traceback
 
 from conary.deps import deps
 from conary.lib import graph
@@ -14,6 +16,8 @@ from conary import display
 from conary import trove
 from conary import versions
 
+from rmake import errors
+from rmake import failure
 from rmake.build.buildstate import AbstractBuildState
 
 from rmake.lib.apiutils import freeze,thaw,register
@@ -182,12 +186,20 @@ class DependencyBasedBuildState(AbstractBuildState):
                 self.trovesByPackage.setdefault(package, []).append(trove)
 
         for trove in sourceTroves:
-            trove.addBuildRequirements(trove.cfg.defaultBuildReqs)
-            for buildReq in trove.getBuildRequirementSpecs():
-                self._addReq(trove, buildReq, False)
+            try:
+                trove.addBuildRequirements(trove.cfg.defaultBuildReqs)
+                for buildReq in trove.getBuildRequirementSpecs():
+                    self._addReq(trove, buildReq, False)
 
-            for crossReq in trove.getCrossRequirementSpecs():
-                self._addReq(trove, crossReq, True)
+                for crossReq in trove.getCrossRequirementSpecs():
+                    self._addReq(trove, crossReq, True)
+            except Exception, err:
+                errMsg =  'Error adding buildreqs to %s: %s: %s' % (trove.getName(), err.__class__.__name__, err)
+                failureReason = failure.LoadFailed(errMsg,
+                                                   traceback.format_exc())
+                trove.troveFailed(failureReason)
+                # We can't continue the build now
+                raise errors.RmakeError, errMsg, sys.exc_info()[2]
 
             # if we're loading something that we're also building
             # then we should make sure that we build the thing with the 
