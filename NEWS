@@ -70,6 +70,8 @@ Changes in 1.0.11:
        (RMK-478)
      * "service rmake reset" will not start rMake if it was not already
        running (RMK-581)
+     * rmake build --commit now works with the monitor plugins provided in extras 
+       (RMK-501)
 
 Changes in 1.0.10:
   o Build Changes:

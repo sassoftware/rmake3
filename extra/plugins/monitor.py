@@ -54,9 +54,11 @@ def restore_terminal(oldTerm, oldFlags):
     if oldFlags:
         fcntl.fcntl(fd, fcntl.F_SETFL, oldFlags)
 
-def monitorJob(client, jobId, uri, showTroveLogs=False, showBuildLogs=False):
-    receiver = XMLRPCJobLogReceiver(uri, client, showTroveLogs=showTroveLogs, 
-                                    showBuildLogs=showBuildLogs)
+def monitorJob(client, jobId, uri, showTroveLogs=False, showBuildLogs=False,
+               exitOnFinish=False):
+    receiver = XMLRPCJobLogReceiver(uri, client, showTroveLogs=showTroveLogs,
+                                    showBuildLogs=showBuildLogs,
+                                    exitOnFinish=exitOnFinish)
     receiver.subscribe(jobId)
     receiver.serve_forever()
 
@@ -532,7 +534,7 @@ class DisplayManager(object):
         self.display.setWatchTroves(not self.display.getWatchTroves())
 
     def _isFinished(self):
-        return False # never exit automatically any more
+        return self.display._isFinished()
 
     def close(self):
         self.display.close()
@@ -569,10 +571,12 @@ class XMLRPCJobLogReceiver(object):
 
     def __init__(self, uri=None, client=None,
                  displayManagerClass=DisplayManager,
-                 showTroveLogs=False, showBuildLogs=False, out=None):
+                 showTroveLogs=False, showBuildLogs=False, out=None,
+                 exitOnFinish=False):
         self.client = client
         self.showTroveLogs = showTroveLogs
         self.showBuildLogs = showBuildLogs
+        self.exitOnFinish = exitOnFinish
         serverObj = None
 
         if uri:
@@ -629,7 +633,7 @@ class XMLRPCJobLogReceiver(object):
             while True:
                 self.handleRequestIfReady(.1)
                 self._serveLoopHook()
-                if self.manager._isFinished():
+                if self.exitOnFinish and self.manager._isFinished():
                     break
         finally:
             self.manager.close()

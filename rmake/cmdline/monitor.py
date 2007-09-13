@@ -14,9 +14,11 @@ from rmake import subscribers
 from rmake.subscribers import xmlrpc
 
 
-def monitorJob(client, jobId, uri, showTroveLogs=False, showBuildLogs=False):
+def monitorJob(client, jobId, uri, showTroveLogs=False, showBuildLogs=False,
+               exitOnFinish=None):
     receiver = XMLRPCJobLogReceiver(uri, client, showTroveLogs=showTroveLogs, 
-                                    showBuildLogs=showBuildLogs)
+                                    showBuildLogs=showBuildLogs,
+                                    exitOnFinish=exitOnFinish)
     receiver.subscribe(jobId)
     receiver.serve_forever()
 
@@ -139,11 +141,13 @@ class JobLogDisplay(_AbstractDisplay):
 
 class XMLRPCJobLogReceiver(object):
     def __init__(self, uri=None, client=None, displayClass=JobLogDisplay,
-                 showTroveLogs=False, showBuildLogs=False, out=None):
+                 showTroveLogs=False, showBuildLogs=False, out=None,
+                 exitOnFinish=None):
         self.uri = uri
         self.client = client
         self.showTroveLogs = showTroveLogs
         self.showBuildLogs = showBuildLogs
+        self.exitOnFinish = exitOnFinish
         serverObj = None
 
         if uri:
