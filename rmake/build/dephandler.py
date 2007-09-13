@@ -165,6 +165,8 @@ class DependencyBasedBuildState(AbstractBuildState):
     def _flavorsMatch(self, troveFlavor, provFlavor, reqFlavor, isCross):
         if isCross:
             troveFlavor = flavorutil.getSysRootFlavor(troveFlavor)
+        if flavorutil.getArchFlags(provFlavor).isEmpty():
+            return True
         archFlavor = flavorutil.getBuiltFlavor(flavorutil.getArchFlags(
                                                troveFlavor, getTarget=False,
                                                withFlags=False))
@@ -201,7 +203,7 @@ class DependencyBasedBuildState(AbstractBuildState):
                 # We can't continue the build now
                 raise errors.RmakeError, errMsg, sys.exc_info()[2]
 
-            # if we're loading something that we're also building
+            # if're loading something that we're also building
             # then we should make sure that we build the thing with the 
             # loadInstalled line secondly
             for loadSpec, sourceTup in trove.iterAllLoadedSpecs():
