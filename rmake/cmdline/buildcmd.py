@@ -136,8 +136,8 @@ def getTrovesToBuild(cfg, conaryclient, troveSpecList, message=None, recurseGrou
             and os.access(troveSpec[0], os.R_OK)):
             # don't rely on cwd, but do allow for symlinks to change
             # when restarting.  Is that sane?  Or should I just do realpath?
-            troveSpec[0] == os.path.abspath(troveSpec[0])
-            cfg.buildTroveSpecs.append((troveSpec[0], None, troveSpec[2]))
+            troveSpec = (os.path.abspath(troveSpec[0]),) + troveSpec[1:]
+            cfg.buildTroveSpecs.append(troveSpec)
             recipesToCook.append((os.path.realpath(troveSpec[0]), troveSpec[2]))
             continue
         cfg.buildTroveSpecs.append(troveSpec)

@@ -5,7 +5,13 @@
 Commit command
 """
 import itertools
+import os
+import shutil
+import tempfile
 
+from conary import checkin
+from conary import state
+from conary import versions
 from conary.trove import Trove
 from conary.build.cook import signAbsoluteChangeset
 from conary.lib import log
@@ -208,3 +214,41 @@ def _checkOutdatedSources(repos, sourceTups):
             if latestVersion != shadowedFrom:
                 outdated.append((troveSpec[0], shadowedFrom, latestVersion))
     return outdated
+
+def updateRecipes(repos, cfg, recipeList, committedSources):
+    committedSourcesByNB = {}
+    for name, version, flavor in committedSources:
+        committedSourcesByNB[name, version.branch()] = version
+    for recipe in recipeList:
+        recipeDir = os.path.dirname(recipe)
+        stateFilePath = recipeDir + '/CONARY'
+        if not os.path.exists(stateFilePath):
+            continue
+        conaryStateFile = state.ConaryStateFromFile(stateFilePath)
+        if not conaryStateFile.hasSourceState():
+            continue
+        context = conaryStateFile.getContext()
+        stateFile = conaryStateFile.getSourceState()
+        troveName = stateFile.getName()
+        branch = stateFile.getBranch()
+        if (troveName, branch) not in committedSourcesByNB:
+            continue
+        stateVersion = stateFile.getVersion()
+        newVersion = committedSourcesByNB[troveName, branch]
+        if stateVersion != versions.NewVersion():
+            log.info('Updating %s after commit' % recipeDir)
+            checkin.updateSrc(repos, [recipeDir])
+        else:
+            log.info('Replacing CONARY file %s after initial commit' % recipeDir)
+            d = tempfile.mkdtemp(dir='/var/tmp',
+                                 prefix='rmake-update-%s' % troveName)
+            # check out the newly committed version of this recipe
+            # (too much work, since we only want the CONARY file not
+            # the file contents.  Oh well.) and update the CONARY state
+            # file to it. This will not lose any local changes made after
+            # the build started but _will_ cause any added/removed files
+            # to need to be readded/removed via cvc add/remove
+            checkin.checkout(repos, cfg, d, ['%s=%s' % (troveName, newVersion)])
+            newConaryStateFile = state.ConaryStateFromFile(d + '/CONARY')
+            newConaryStateFile.setContext(context)
+            newConaryStateFile.write(stateFilePath)

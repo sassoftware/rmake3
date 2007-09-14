@@ -273,7 +273,7 @@ class rMakeHelper(object):
 
     def commitJobs(self, jobIds, message=None, commitOutdatedSources=False,
                    commitWithFailures=True, waitForJob=False,
-                   sourceOnly=False):
+                   sourceOnly=False, updateRecipes=True):
         """
             Commits a set of jobs.
 
@@ -299,7 +299,7 @@ class rMakeHelper(object):
         """
         if not isinstance(jobIds, (list, tuple)):
             jobIds = [jobIds]
-        jobs = self.client.getJobs(jobIds)
+        jobs = self.client.getJobs(jobIds, withConfigs=True)
         finalJobs = []
         for job in jobs:
             jobId = job.jobId
@@ -354,19 +354,6 @@ class rMakeHelper(object):
 
                 self.client.commitSucceeded(data)
 
-                for jobId, troveTupleDict in sorted(data.iteritems()):
-                    print
-                    print 'Committed job %s:\n' % jobId,
-                    for buildTroveTup, committedList in \
-                                            sorted(troveTupleDict.iteritems()):
-                        committedList = [ x for x in committedList
-                                            if (':' not in x[0]
-                                                or x[0].endswith(':source')) ]
-                        print '    %s ->' % _formatTup(buildTroveTup)
-                        print ''.join('       %s=%s[%s]\n' % x
-                                      for x in sorted(committedList,
-                                                      _sortCommitted))
-                return True
             else:
                 self.client.commitFailed(jobIds, data)
                 log.error(data)
@@ -378,6 +365,35 @@ class rMakeHelper(object):
             self.client.commitFailed(jobIds, str(err))
             log.error(err)
             raise
+        sourceComponents = []
+        for jobId, troveTupleDict in sorted(data.iteritems()):
+            print
+            print 'Committed job %s:\n' % jobId,
+            for buildTroveTup, committedList in \
+                                    sorted(troveTupleDict.iteritems()):
+                committedList = [ x for x in committedList
+                                    if (':' not in x[0]
+                                        or x[0].endswith(':source')) ]
+                sourceComponents += [ x for x in committedList 
+                                     if x[0].endswith(':source') ]
+                print '    %s ->' % _formatTup(buildTroveTup)
+                print ''.join('       %s=%s[%s]\n' % x
+                              for x in sorted(committedList,
+                                              _sortCommitted))
+        if updateRecipes:
+            # After the build is done, update .recipe files with the
+            # committed versions.
+            recipes = []
+            for config in job.iterConfigList():
+                for name, version, flavor in config.buildTroveSpecs:
+                    if (os.path.exists(name)
+                        and name.endswith('.recipe')):
+                        recipes.append(name)
+            if recipes:
+                commit.updateRecipes(self.getRepos(), self.buildConfig, recipes,
+                                     sourceComponents)
+        return True
+
     commitJob = commitJobs # for bw compat
 
     def deleteJobs(self, jobIdList):

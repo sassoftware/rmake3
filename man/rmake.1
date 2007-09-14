@@ -149,10 +149,10 @@ This command is exactly like running several
 that the packages are built from.  Note that if you cooked from a recipe, then 
 the source components are also committed upstream.  (Warning: if you cook from a recipe, you must immediately run cvc up in the checkout after the commit to avoid having to merge conflicts.)
 
-\fBNote: committing multiple jobs together may not work.\fP Changes to conary 
-are being made to make this functionality work all of the time, they should be 
-available in conary 1.1.19.  This release supports multiple job commits to 
-have the necessary rMake code available immediately.
+If the commit is successful, then rMake will attempt to update any source 
+directories associated with those packages.  This may fail if you have made
+local changes to that directory after starting the cook, in that case,
+rMake will print the error message to the screen.
 .RS 4
 .TP 4
 .B \-\-commit-outdated-sources

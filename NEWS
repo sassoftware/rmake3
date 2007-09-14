@@ -7,6 +7,10 @@ Changes in 1.0.11:
      * Only subscriptions in the main build configuration will be used.
        This means that subscribers that are also in subcontexts will no 
        longer be used multiple times. (RMK-558)
+     * After "rmake commit" when building recipes, rMake will now attempt
+       to update the source directories where the recipes were built.  This
+       includes the directories for new packages, which should continue to be 
+       usable. (RMK-513, RMK-534)
   o Build Changes:
      * you can now specify matchTroveRules in your configuration file, and also
        in a context.  This allows you to not build certain troves within a
