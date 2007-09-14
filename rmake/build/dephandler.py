@@ -165,8 +165,6 @@ class DependencyBasedBuildState(AbstractBuildState):
     def _flavorsMatch(self, troveFlavor, provFlavor, reqFlavor, isCross):
         if isCross:
             troveFlavor = flavorutil.getSysRootFlavor(troveFlavor)
-        if flavorutil.getArchFlags(provFlavor).isEmpty():
-            return True
         archFlavor = flavorutil.getBuiltFlavor(flavorutil.getArchFlags(
                                                troveFlavor, getTarget=False,
                                                withFlags=False))
@@ -174,6 +172,9 @@ class DependencyBasedBuildState(AbstractBuildState):
             reqFlavor = archFlavor
         else:
             reqFlavor = deps.overrideFlavor(archFlavor, reqFlavor)
+        if flavorutil.getArchFlags(provFlavor).isEmpty():
+            provFlavor = deps.overrideFlavor(archFlavor, provFlavor)
+
         if flavorutil.getBuiltFlavor(provFlavor).toStrongFlavor().satisfies(
                                                 reqFlavor.toStrongFlavor()):
             return True
