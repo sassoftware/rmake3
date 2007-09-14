@@ -87,6 +87,8 @@ class TroveSourceMesh(trovesource.SearchableTroveSource):
         d1 = getattr(self.extraSource, fn)(query, *args, **kw)
         result = {}
         self._mergeTroveQuery(result, d1)
+        for name in result:
+            query.pop(name)
         if self.mainSource:
             d2 = getattr(self.mainSource, fn)(query, *args, **kw)
             self._mergeTroveQuery(result, d2)
@@ -109,15 +111,18 @@ class TroveSourceMesh(trovesource.SearchableTroveSource):
         return newQuery
 
     def getTroveLatestByLabel(self, query, *args, **kw):
-        query = self._addLabelsToQuery(query)
+        if self.expandLabelQueries:
+            query = self._addLabelsToQuery(query)
         return self._call('getTroveLatestByLabel', query, *args, **kw)
 
     def getTroveLeavesByLabel(self, query, *args, **kw):
-        query = self._addLabelsToQuery(query)
+        if self.expandLabelQueries:
+            query = self._addLabelsToQuery(query)
         return self._call('getTroveLeavesByLabel', query, *args, **kw)
 
     def getTroveVersionsByLabel(self, query, *args, **kw):
-        query = self._addLabelsToQuery(query)
+        if self.expandLabelQueries:
+            query = self._addLabelsToQuery(query)
         return self._call('getTroveVersionsByLabel', query, *args, **kw)
 
     def getTroveLeavesByBranch(self, query, *args, **kw):
@@ -197,7 +202,7 @@ class TroveSourceMesh(trovesource.SearchableTroveSource):
 
 class DepHandlerSource(TroveSourceMesh):
     def __init__(self, builtTroveSource, troveListList, repos=None,
-                 useInstallLabelPath=True):
+                 useInstallLabelPath=True, expandLabelQueries=False):
         if repos:
             flavorPrefs = repos._flavorPreferences
         else:
@@ -206,6 +211,7 @@ class DepHandlerSource(TroveSourceMesh):
         stack.searchWithFlavor()
         stack.setFlavorPreferenceList(flavorPrefs)
         self.setFlavorPreferenceList(flavorPrefs)
+        self.expandLabelQueries = expandLabelQueries
 
         if isinstance(troveListList, trovesource.SimpleTroveSource):
             troveListList.setFlavorPreferenceList(flavorPrefs)

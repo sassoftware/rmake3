@@ -120,7 +120,8 @@ class DependencyResolver(object):
                                                     builtTroveSource)
         else:
             searchSource = resolvesource.DepHandlerSource(builtTroveSource,
-                                                          [], self.repos)
+                                                          [], self.repos,
+                                                      expandLabelQueries=True)
             resolveSource = resolvesource.rMakeResolveSource(cfg,
                                                         builtTroveSource, [],
                                                         self.repos)
@@ -146,7 +147,8 @@ class DependencyResolver(object):
         searchSource = resolvesource.DepHandlerSource(builtTroveSource,
                            searchSourceTroves,
                            self.repos,
-                           useInstallLabelPath=not cfg.resolveTrovesOnly)
+                           useInstallLabelPath=not cfg.resolveTrovesOnly,
+                           expandLabelQueries=True)
         resolveSource = resolvesource.rMakeResolveSource(cfg,
                                                         builtTroveSource,
                                                         searchSourceTroves,
