@@ -71,7 +71,8 @@ class _AbstractBuildJob(trovesource.SearchableTroveSource):
         self.failureReason = failureReason
         self.searchAsDatabase()
         if not configs:
-            self.configs = {}
+            configs = {}
+        self.configs = configs
         for troveTup in troveList:
             self.addTrove(*troveTup)
 
@@ -311,6 +312,8 @@ class _FreezableBuildJob(_AbstractBuildJob):
                        for x in d['configs'])
         if configs:
             new.setConfigs(configs)
+        else:
+            new.configs = {}
         return new
 
 
