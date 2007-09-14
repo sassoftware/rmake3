@@ -41,9 +41,18 @@ class ChrootQueue(object):
             for name in os.listdir(self.root):
                 path = self.root + '/' + name
                 if os.path.isdir(path):
-                    # root part of path, that's not relevant here
-                    chroots.add(path[len(self.root)+1:])
-        return [ x for x in chroots if x not in self.badChroots ]
+                    chroots.add(path)
+        chroots = [ x for x in chroots if x not in self.badChroots ]
+        return self._shortenChrootPaths(chroots)
+
+
+    def _shortenChrootPaths(self, chrootPaths):
+        finalChroots = []
+        for chroot in chrootPaths:
+            if chroot.startswith(self.root):
+                chroot = chroot[len(self.root)+1:]
+                finalChroots.append(chroot)
+        return finalChroots
 
     def listOldChroots(self):
         chroots = []

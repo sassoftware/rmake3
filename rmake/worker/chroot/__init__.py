@@ -7,9 +7,6 @@ from rmake.lib.apiutils import freeze, thaw
 
 class Chroot(object):
     def __init__(self, host, path, jobId, troveTuple, active):
-        if host == '_local_':
-            import epdb
-            epdb.st()
         self.host = host
         self.path = path
         if not jobId:
