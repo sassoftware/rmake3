@@ -151,6 +151,9 @@ class Daemon(options.MainHandler):
                 os.setgid(pwent.pw_gid)
                 os.setuid(pwent.pw_uid)
 
+        logPath = os.path.join(self.cfg.logDir, "%s.log" % self.name)
+        self.logger.logToFile(logPath)
+        self.logger.disableConsole()
         pid = self.getPidFromLockFile(warnOnError=True)
         if not pid:
             self.error("could not kill %s: no pid found." % self.name)

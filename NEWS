@@ -34,6 +34,8 @@ Changes in 1.0.11:
      * When loading packages, calls to loadRecipe cache the results
        of the findTroves calls.  This should result in a slight speed increase
        when loading many packages.
+     * rMake is now quieter when you run "service rmake stop" when rmake is
+       not running (RMK-148)
   o Bug Fixes:
      * When building two noarch packages, one for x86 and one for x86_64, 
        as long as they result in the same components, one will be considered
