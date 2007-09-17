@@ -149,7 +149,7 @@ def getTrovesToBuild(cfg, conaryclient, troveSpecList, message=None, recurseGrou
         else:
             newTroveSpecs.append(troveSpec)
 
-    localTroves = [(_getLocalCook(conaryclient, x[0], message), x[1])
+    localTroves = [(_getLocalCook(conaryclient, cfg, x[0], message), x[1])
                      for x in recipesToCook ]
     localTroves = [(x[0][0], x[0][1], x[1]) for x in localTroves]
     if recurseGroups == BUILD_RECURSE_GROUPS_SOURCE:
@@ -266,36 +266,36 @@ def _getResolveTroveTups(cfg, repos):
 
 
 
-def _getLocalCook(conaryclient, recipePath, message):
+def _getLocalCook(conaryclient, cfg, recipePath, message):
     if not hasattr(cook, 'getRecipeInfoFromPath'):
         raise errors.RmakeError('Local cooks require at least conary 1.0.19')
     recipeDir = os.path.dirname(recipePath)
 
     # We do not want to sign commits to the local repository, doing so
     # would require that we manage keys in this repository as well.
-    oldKey = conaryclient.cfg.signatureKey
-    oldMap = conaryclient.cfg.signatureKeyMap
-    oldInteractive = conaryclient.cfg.interactive
+    oldKey = cfg.signatureKey
+    oldMap = cfg.signatureKeyMap
+    oldInteractive = cfg.interactive
     try:
-        conaryclient.cfg.signatureKey = None
-        conaryclient.cfg.signatureKeyMap = {}
-        conaryclient.cfg.interactive = False
+        cfg.signatureKey = None
+        cfg.signatureKeyMap = {}
+        cfg.interactive = False
 
         if os.access(recipeDir + '/CONARY', os.R_OK):
             stateFile = state.ConaryStateFromFile(recipeDir + '/CONARY')
             if stateFile.hasSourceState():
                 stateFile = stateFile.getSourceState()
                 if stateFile.getVersion() != versions.NewVersion():
-                    return _shadowAndCommit(conaryclient, recipeDir, stateFile, 
-                                            message)
+                    return _shadowAndCommit(conaryclient, cfg, recipeDir, 
+                                            stateFile, message)
                 else:
-                    return _commitRecipe(conaryclient, recipePath, message,
+                    return _commitRecipe(conaryclient, cfg, recipePath, message,
                                          branch=stateFile.getBranch())
-        return _commitRecipe(conaryclient, recipePath, message)
+        return _commitRecipe(conaryclient, cfg, recipePath, message)
     finally:
-        conaryclient.cfg.signatureKey = oldKey
-        conaryclient.cfg.signatureKeyMap = oldMap
-        conaryclient.cfg.interactive = True
+        cfg.signatureKey = oldKey
+        cfg.signatureKeyMap = oldMap
+        cfg.interactive = oldInteractive
 
 def _getPathList(repos, cfg, recipePath):
     loader, recipeClass, sourceVersion = cook.getRecipeInfoFromPath(repos, cfg,
@@ -322,8 +322,7 @@ def _getPathList(repos, cfg, recipePath):
 
 
 
-def _shadowAndCommit(conaryclient, recipeDir, stateFile, message):
-    cfg = conaryclient.cfg
+def _shadowAndCommit(conaryclient, cfg, recipeDir, stateFile, message):
     repos = conaryclient.getRepos()
     conaryCompat = compat.ConaryVersion()
 
@@ -456,8 +455,7 @@ def _doCommit(recipePath, repos, cfg, message):
                                 " local file %s" % recipePath)
     return rv
 
-def _commitRecipe(conaryclient, recipePath, message, branch=None):
-    cfg = conaryclient.cfg
+def _commitRecipe(conaryclient, cfg, recipePath, message, branch=None):
     repos = conaryclient.getRepos()
     conaryCompat = compat.ConaryVersion()
 
@@ -486,7 +484,9 @@ def _commitRecipe(conaryclient, recipePath, message, branch=None):
 
         if not repos.getTroveLeavesByBranch(
             { sourceName : { buildBranch : None } }).get(sourceName, None):
-            checkin.newTrove(repos, cfg, recipeClass.name, dir=recipeDir, **kw)
+            # we pass it None for repos to avoid the label-based check for
+            # existing packages.
+            checkin.newTrove(None, cfg, recipeClass.name, dir=recipeDir, **kw)
         else:
             # see if this package exists on our build branch
             checkin.checkout(repos, cfg, recipeDir,
