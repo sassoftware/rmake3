@@ -582,7 +582,8 @@ class DependencyHandler(object):
                   if (x.needsBuildreqs()
                       and not x in self._resolving
                       and not x in self._cycleChecked
-                      and not x in self._delayed) ]
+                      and not x in self._delayed
+                      and not self.depState.hasHardDependency(x)) ]
 
     def _attemptFastResolve(self, nodeLists, breakCycles=True):
         nodeLists = [ (sorted(x.getPrebuiltTime() for x in y 
@@ -676,10 +677,9 @@ class DependencyHandler(object):
         # not buildable now.
         # if we built it first before, that this is a good
         # indication that it's a good place to break a cycle.
-        sortKeys = [(int(self.depState.hasHardDependency(x)),
-                     -int(x.isPrebuilt()), # -1 if this thing has been prebuilt
+        sortKeys = [(-int(x.isPrebuilt()), # -1 if this thing has been prebuilt
                                            #  0 if it hasn't (-1 is better)
-                     x.getPrebuiltTime(),  
+                     x.getPrebuiltTime(),
                      _cycleNodeOrder(x),
                      x.getNameVersionFlavor(True),
                      x) for x in buildableTroves ]
@@ -836,28 +836,37 @@ class DependencyHandler(object):
                     trv.troveInCycleUnresolvableBuildReqs(
                                                 results.getMissingBuildReqs())
                 else:
-                    self._linkMissingDeps(trv, results.getMissingDeps())
+                    self._linkMissingDeps(trv, results.getMissingDeps(),
+                                          cycleTroves)
                 return
             elif results.hasMissingBuildReqs():
                 trv.troveMissingBuildReqs(results.getMissingBuildReqs())
             else:
                 assert(results.hasMissingDeps())
-                self._linkMissingDeps(trv, results.getMissingDeps())
+                self._linkMissingDeps(trv, results.getMissingDeps(),
+                                      cycleTroves)
 
-    def _linkMissingDeps(self, trv, missingDeps):
+    def _linkMissingDeps(self, trv, missingDeps, cycleTroves):
+        if cycleTroves:
+            cycleTroves = [ x for x in cycleTroves 
+                            if not self.depState.hasHardDependency(x) ]
+            if not cycleTroves or cycleTroves == [trv]:
+                trv.troveMissingDependencies(
+                    [x[1] for x in missingDeps])
         for isCross, (troveTup, depSet) in missingDeps:
             for troveDep in depSet.iterDepsByClass(
                                             deps.TroveDependencies):
                 neededTrove = troveDep.getName()[0]
                 package = neededTrove.split(':', 1)[0]
-                providers = self.depState.getTrovesByPackage(package)
+                providers = [ x for x in self.depState.getTrovesByPackage(package) if x != trv ]
                 if not providers:
                     trv.troveMissingDependencies(
                         [x[1] for x in missingDeps])
                     return
                 for provider in providers:
                     self.depState.dependsOn(trv, provider, 
-                                            (isCross, depSet))
+                                            (isCross, 
+                                         (trv.getNameVersionFlavor(), depSet)))
                     self.depState.hardDependencyOn(trv, 
                                               provider,
                                               (isCross, depSet))
