@@ -212,10 +212,12 @@ class DepHandlerSource(TroveSourceMesh):
         stack.setFlavorPreferenceList(flavorPrefs)
         self.setFlavorPreferenceList(flavorPrefs)
         self.expandLabelQueries = expandLabelQueries
+        self.resolveTroveSource = None
 
         if isinstance(troveListList, trovesource.SimpleTroveSource):
             troveListList.setFlavorPreferenceList(flavorPrefs)
             self.stack.addSource(troveListList)
+            self.resolveTroveSource = troveListList
         else:
             if troveListList:
                 troveSources = []
@@ -232,6 +234,7 @@ class DepHandlerSource(TroveSourceMesh):
                     stack.addSource(source)
                 if not useInstallLabelPath:
                     repos = None
+                self.resolveTroveSource = stack
         if not stack.sources:
             stack = None
         TroveSourceMesh.__init__(self, builtTroveSource, stack, repos)
@@ -438,10 +441,12 @@ class rMakeResolveSource(ResolutionMesh):
         requires foo:lib, it requires exactly the same version of foo:lib.
     """
 
-    def __init__(self, cfg, builtTroveSource, troveLists, repos):
+    def __init__(self, cfg, builtTroveSource, resolveTroveSource,
+                 troveLists, repos):
         self.removeFileDependencies = False
         self.builtTroveSource = builtTroveSource
         self.troveLists = troveLists
+        self.resolveTroveSource = resolveTroveSource
         self.repos = repos
         self.cfg = cfg
         self.repos = repos
@@ -533,12 +538,19 @@ class rMakeResolveSource(ResolutionMesh):
         # is keeping one from being picked over the other, prefer the
         # newly built package.
         builtTroves = []
+        resolveTroves = []
         newList = flavoredList
         for installFlavor, troveTup in flavoredList:
             if self.extraMethod.troveSource.hasTrove(*troveTup):
                 builtTroves.append((installFlavor, troveTup))
+            elif (self.resolveTroveSource 
+                  and self.resolveTroveSource.hasTrove(*troveTup)):
+                resolveTroves.append((installFlavor, troveTup))
+
         if builtTroves:
             newList = builtTroves
+        elif resolveTroves:
+            newList = resolveTroves
         return ResolutionMesh._selectMatchingResolutionTrove(self, requiredBy,
                                                              dep,
                                                              depClass, newList)

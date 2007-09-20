@@ -124,6 +124,7 @@ class DependencyResolver(object):
                                                       expandLabelQueries=True)
             resolveSource = resolvesource.rMakeResolveSource(cfg,
                                                         builtTroveSource, [],
+                                                        None,
                                                         self.repos)
         if cross:
             resolveSource.removeFileDependencies = True
@@ -150,9 +151,10 @@ class DependencyResolver(object):
                            useInstallLabelPath=not cfg.resolveTrovesOnly,
                            expandLabelQueries=True)
         resolveSource = resolvesource.rMakeResolveSource(cfg,
-                                                        builtTroveSource,
-                                                        searchSourceTroves,
-                                                        self.repos)
+                                                builtTroveSource,
+                                                searchSource.resolveTroveSource,
+                                                searchSourceTroves,
+                                                self.repos)
         return searchSource, resolveSource
 
     def resolve(self, resolveJob):
