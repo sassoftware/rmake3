@@ -189,7 +189,7 @@ class BuildCommand(rMakeCommand):
         argDef['commit'] = NO_PARAM
         argDef['macro'] = MULT_PARAM
         argDef['match'] = MULT_PARAM
-        argDef['message'] = ONE_PARAM
+        argDef['message'] = '-m', ONE_PARAM
         argDef['no-watch'] = NO_PARAM
         argDef['poll'] = NO_PARAM
         argDef['binary-search'] = NO_PARAM
@@ -267,7 +267,7 @@ class BuildCommand(rMakeCommand):
                     return 1
             elif not client.watch(jobId, showTroveLogs=not quiet,
                                showBuildLogs=not quiet,
-                               commit=commit):
+                               commit=commit, message=message):
                 return 1
         elif commit:
             if not client.commitJob(jobId, commitWithFailures=False,
@@ -287,7 +287,7 @@ class RestartCommand(BuildCommand):
 
     def addParameters(self, argDef):
         argDef['commit'] = NO_PARAM
-        argDef['message'] = NO_PARAM
+        argDef['message'] = '-m', NO_PARAM
         argDef['no-watch'] = NO_PARAM
         rMakeCommand.addParameters(self, argDef)
 
@@ -298,13 +298,14 @@ class RestartCommand(BuildCommand):
         jobId = _getJobIdOrUUId(jobId)
 
         commit  = argSet.pop('commit', False)
-        message  = argSet.pop('commit', None)
+        message  = argSet.pop('message', None)
         jobId = client.restartJob(jobId, troveSpecs)
         monitorJob = not argSet.pop('no-watch', False)
         if monitorJob:
             if not client.watch(jobId, commit=commit,
                                 showTroveLogs=True,
-                                showBuildLogs=True):
+                                showBuildLogs=True, 
+                                message=message):
                 return 1
         elif commit:
             if not client.commitJob(jobId, commitWithFailures=False,
@@ -354,7 +355,7 @@ repository back into the repository where their source package came from.
 
     def addParameters(self, argDef):
         argDef['source-only'] = NO_PARAM
-        argDef['message'] = ONE_PARAM
+        argDef['message'] = '-m', ONE_PARAM
         argDef['commit-outdated-sources'] = NO_PARAM
         rMakeCommand.addParameters(self, argDef)
 

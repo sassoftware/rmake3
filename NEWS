@@ -11,6 +11,8 @@ Changes in 1.0.11:
        to update the source directories where the recipes were built.  This
        includes the directories for new packages, which should continue to be 
        usable. (RMK-513, RMK-534)
+     * Added -m shortcut for --message
+
   o Build Changes:
      * you can now specify matchTroveRules in your configuration file, and also
        in a context.  This allows you to not build certain troves within a

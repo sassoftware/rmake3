@@ -466,7 +466,7 @@ class rMakeHelper(object):
         return self.client.listChroots()
 
     def watch(self, jobId, showTroveLogs = False, showBuildLogs = False,
-              commit = False):
+              commit = False, message = None):
         """
             Displays information about a currently running job.  Always displays
             high-level information like "Job building", "Job stopped".  Displays
@@ -501,7 +501,8 @@ class rMakeHelper(object):
                     print "You can restart commit by running 'rmake watch %s --commit'" % jobId
                 raise
             if commit:
-                return self.commitJob(jobId, commitWithFailures=False)
+                return self.commitJob(jobId, commitWithFailures=False,
+                                      message=message)
             return not self.client.getJob(jobId, withTroves=False).isFailed()
         finally:
             if tmpPath:
