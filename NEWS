@@ -32,6 +32,8 @@ Changes in 1.0.11:
           the same job. (RMK-585)
         * Multiple cycles can be resolved at the same time. (RMK-483)
      * You can now build fileset recipes with rMake. (RMK-519)
+     * Packages now display what other packages are blocking then when they
+       are delayed due to dependencies (RMK-568)
   o Server Changes:
      * When loading packages, calls to loadRecipe cache the results
        of the findTroves calls.  This should result in a slight speed increase
