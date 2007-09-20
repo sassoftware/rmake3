@@ -25,7 +25,7 @@ Changes in 1.0.11:
      * Made several changes to dependency resolution code:
         * restarts are now faster when resolveTrovesOnly is True
         * dependency resolution is now more likely to resolve cycles involving
-          missing dependencies quickly and correctly
+          missing dependencies quickly and correctly (RMK-606 among others)
         * more cycle information is logged
         * rMake is better about allowing multiple contexts with incompatible
           build types (such as x86 and x86_64 packages) build together in

@@ -790,7 +790,6 @@ class DependencyHandler(object):
                 if buildReqTups == preBuiltReqs:
                     # groups always get recooked, we may check them later
                     # to see if anything in them has changed
-                    self._cycleTroves = []
                     self.depState.depGraph.deleteEdges(trv)
                     self._allowFastResolution = oldFastResolve
                     trv.troveBuilt(trv.getPrebuiltBinaries())
@@ -851,12 +850,7 @@ class DependencyHandler(object):
                                       cycleTroves)
 
     def _linkMissingDeps(self, trv, missingDeps, cycleTroves):
-        if cycleTroves:
-            cycleTroves = [ x for x in cycleTroves 
-                            if not self.depState.hasHardDependency(x) ]
-            if not cycleTroves or cycleTroves == [trv]:
-                trv.troveMissingDependencies(
-                    [x[1] for x in missingDeps])
+        depsAdded = set()
         for isCross, (troveTup, depSet) in missingDeps:
             for troveDep in depSet.iterDepsByClass(
                                             deps.TroveDependencies):
@@ -864,8 +858,7 @@ class DependencyHandler(object):
                 package = neededTrove.split(':', 1)[0]
                 providers = [ x for x in self.depState.getTrovesByPackage(package) if x != trv ]
                 if not providers:
-                    trv.troveMissingDependencies(
-                        [x[1] for x in missingDeps])
+                    trv.troveMissingDependencies([(troveTup, depSet)])
                     return
                 for provider in providers:
                     self.depState.dependsOn(trv, provider, 
@@ -874,10 +867,20 @@ class DependencyHandler(object):
                     self.depState.hardDependencyOn(trv, 
                                               provider,
                                               (isCross, depSet))
+                    depsAdded.add(provider)
 
         # regenerate any cycles since we've changed the dep graph.
-        self._cycleTroves = []
         # in any case mark this trove an unresolvable
+        if cycleTroves:
+            for cycleTrove in cycleTroves:
+                depsAdded.discard(cycleTrove)
+            if not depsAdded:
+                trv.troveMissingDependencies(
+                    [x[1] for x in missingDeps])
+                return
+            for cycleTrove in cycleTroves:
+                self._cycleChecked.pop(cycleTrove, False)
+                    
         # so we know to possibly try again.
         trv.troveUnresolvableDepsReset(
             [x[1] for x in missingDeps])
