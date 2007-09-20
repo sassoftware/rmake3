@@ -509,8 +509,9 @@ class BuildTrove(_FreezableBuildTrove):
         # will be attempted on it again.
         self.finish = time.time()
         self.pid = 0
+        trovesToDelayFor = [ '%s=%s[%s]{%s}' % x.getNameVersionFlavor(True) for x in newDeps ]
         self._setState(TROVE_STATE_INIT,
-                      'Resolved buildreqs include %s other troves scheduled to be built - delaying' % (len(newDeps),))
+                      'Resolved buildreqs include %s other troves scheduled to be built - delaying: \n%s' % (len(newDeps), '\n'.join(trovesToDelayFor)))
 
     def troveInCycleUnresolvableBuildReqs(self, missingBuildReqs):
         self.finish = time.time()
