@@ -28,11 +28,15 @@ FAILURE_REASON_BUILDREQ = 1
 FAILURE_REASON_DEP = 2
 
 class ResolveJob(object):
-    def __init__(self, trove, buildCfg, builtTroves, crossTroves,
+    def __init__(self, trove, buildCfg, builtTroves=None, crossTroves=None,
                  inCycle=False):
         self.trove = trove
         self.buildCfg = buildCfg
+        if builtTroves is None:
+            builtTroves = []
         self.builtTroves = builtTroves
+        if crossTroves is None:
+            crossTroves = []
         self.crossTroves = crossTroves
         self.inCycle = inCycle
 
