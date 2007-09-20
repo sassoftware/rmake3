@@ -335,7 +335,10 @@ class BuildCommand(TroveCommand):
                 except CommitError, err:
                     # someone else committed this package between 
                     # our building and committing
-                    trove.troveDuplicate(troveList)
+                    if 'already exists' in str(err):
+                        trove.troveDuplicate(troveList)
+                    else:
+                        raise
                 else:
                     # sends off message that this trove built successfully
                     trove.troveBuilt(troveList)
