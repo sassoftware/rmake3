@@ -85,6 +85,8 @@ Changes in 1.0.11:
        extras (RMK-501)
      * Errors that occur while loading buildRequirements will now result
        in a more useful error message (RMK-549)
+     * restarts will now have the logs available the for troves that are 
+       prebuilt (RMK-607)
 
 Changes in 1.0.10:
   o Build Changes:

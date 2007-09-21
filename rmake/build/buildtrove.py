@@ -477,7 +477,7 @@ class BuildTrove(_FreezableBuildTrove):
                        'Resolving build requirements', host, pid)
 
     def trovePrebuilt(self, buildReqs, binaryTroves, preBuiltTime=0,
-                      fastRebuild=False):
+                      fastRebuild=False, logPath=''):
         self.finish = time.time()
         self.pid = 0
         self._setState(TROVE_STATE_PREBUILT, '', buildReqs, binaryTroves)
@@ -487,6 +487,7 @@ class BuildTrove(_FreezableBuildTrove):
             preBuiltTime = 0
         self.preBuiltTime = preBuiltTime
         self.fastRebuild = fastRebuild
+        self.logPath = logPath
 
     def allowFastRebuild(self):
         return self.fastRebuild

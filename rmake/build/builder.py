@@ -253,7 +253,8 @@ class Builder(object):
                         and oldCfg.resolveTroveTups == newCfg.resolveTroveTups
                         and oldCfg.flavor == newCfg.flavor)
                     toBuild.trovePrebuilt(buildReqs, binaries,
-                                          trv.getBuildTime(), fastRebuild)
+                                          trv.getBuildTime(), fastRebuild,
+                                          trove.logPath)
 
     def _checkBuildSanity(self, buildTroves):
         def _isSolitaryTrove(trv):
