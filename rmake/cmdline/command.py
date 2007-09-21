@@ -208,6 +208,8 @@ class BuildCommand(rMakeCommand):
             log.setVerbosity(log.INFO)
         command, troveSpecs = self.requireParameters(args, 'troveSpec',
                                                      appendExtra=True)
+        if command == 'buildgroup':
+            log.warning('"buildgroup" is deprecated and will be removed in a future release - use "build --recurse" instead')
         flavorSpec = argSet.pop('flavor', None)
         if flavorSpec:
             flavor = deps.parseFlavor(flavorSpec)
