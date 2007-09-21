@@ -309,7 +309,8 @@ class DisplayState(xmlrpc.BasicXMLRPCStatusSubscriber):
     def isBuilding(self, jobId, troveTuple):
         return self.getTroveState(jobId, troveTuple) in (
                                             buildtrove.TROVE_STATE_BUILDING,
-                                            buildtrove.TROVE_STATE_PREPARING)
+                                            buildtrove.TROVE_STATE_PREPARING,
+                                            buildtrove.TROVE_STATE_RESOLVING)
 
     def isFailed(self, jobId, troveTuple):
         # don't iterate through unbuildable - they are failures due to 
