@@ -231,8 +231,8 @@ int unmountchroot(const char * chrootDir, int opt_clean) {
             }
             rc = snprintf(childPath, PATH_MAX, "%s/%s",
                           tmpDirs[i], dirent_h->d_name);
-	    if (opt_verbose)
-		printf("  deleting %s\n", childPath);
+            if (opt_verbose)
+                printf("  deleting %s\n", childPath);
             if ((rc > PATH_MAX) || (rc < 0)) {
                 /* silently ignore paths that are too long - this is
                    not a major deal */
@@ -270,6 +270,31 @@ int unmountchroot(const char * chrootDir, int opt_clean) {
                     ;
                 }
             }
+        }
+    }
+
+    if (opt_verbose)
+        printf("deleting other files owned by  uid=%d\n", myUid);
+    pid = fork();
+    if (pid == 0) {
+        execl("/sbin/busybox", "/sbin/busybox",  "sh", "-c", "/sbin/busybox find / | /sbin/busybox sh -c 'while read file; do if `/sbin/busybox test -O $file`; then /sbin/busybox rm -rf $file; fi; done'", NULL);
+        /* this will not return unless error */
+        perror("execl");
+        _exit(1);
+    } else {
+        int status;
+        if (-1 == waitpid(pid, &status, 0)) {
+            perror("waitpid");
+            return 1;
+        }
+        else if (!WIFEXITED(status)) {
+            fprintf(stderr, "error: cleanup exited abnormally\n");
+            return 1;
+        }
+        else if (WEXITSTATUS(status) != 0) {
+            fprintf(stderr, "error: cleanup exited abnormally\n");
+            return 1;
+            ;
         }
     }
 

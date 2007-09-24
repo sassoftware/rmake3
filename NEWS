@@ -35,6 +35,8 @@ Changes in 1.0.11:
      * Packages now display what other packages are blocking then when they
        are delayed due to dependencies (RMK-568)
      * buildgroup is now deprecated (RMK-532)
+     * Chroots can now handle when the chroot builder installs a file
+       elsewhere in the chroot other than /tmp and /var/tmp. (RMK-611)
   o Server Changes:
      * When loading packages, calls to loadRecipe cache the results
        of the findTroves calls.  This should result in a slight speed increase
