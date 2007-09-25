@@ -12,6 +12,10 @@ Changes in 1.0.11:
        includes the directories for new packages, which should continue to be 
        usable. (RMK-513, RMK-534)
      * Added -m shortcut for --message
+     * Added --no-update, --update, to "rmake restart" command to control
+       which packages get updated on restart. (RMK-600)
+     * Added --exclude to "rmake restart" to remove troves from an rmake
+       build. (RMK-601)
 
   o Build Changes:
      * you can now specify matchTroveRules in your configuration file, and also

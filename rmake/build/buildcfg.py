@@ -283,6 +283,11 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
     def addMatchRule(self, matchRule):
         self.configLine('matchTroveRule %s' % matchRule)
 
+    def clearMatchRules(self):
+        self.matchTroveRule = []
+        for section in self.iterSections():
+            section.matchTroveRule = []
+
     def getTargetLabel(self, versionOrLabel):
         if isinstance(versionOrLabel, versions.Label):
             cookLabel = versionOrLabel

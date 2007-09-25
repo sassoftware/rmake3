@@ -34,7 +34,7 @@ BUILD_RECURSE_GROUPS_SOURCE = 2 # find and recurce the source version of the
 
 def getBuildJob(buildConfig, conaryclient, troveSpecList,
                 message=None, recurseGroups=BUILD_RECURSE_GROUPS_NONE, 
-                configDict=None):
+                configDict=None, oldTroveDict=None, updateSpecs=None):
     trovesByContext = {}
 
     for troveSpec in list(troveSpecList):
@@ -67,6 +67,7 @@ def getBuildJob(buildConfig, conaryclient, troveSpecList,
 
     baseMatchRules = mainConfig.matchTroveRule
     for contextStr, troveSpecList in trovesByContext.iteritems():
+        contextBaseMatchRules = baseMatchRules
         if configDict and contextStr in configDict:
             cfg = configDict[contextStr]
         elif contextStr:
@@ -76,6 +77,8 @@ def getBuildJob(buildConfig, conaryclient, troveSpecList,
                 cfg.setContext(context)
             cfg.dropContexts()
         else:
+            # don't bother with baseMatchRules in the base config.
+            contextBaseMatchRules = []
             cfg = copy.deepcopy(buildConfig)
             cfg.dropContexts()
             contextStr = ''
@@ -88,8 +91,13 @@ def getBuildJob(buildConfig, conaryclient, troveSpecList,
         troveList = getTrovesToBuild(cfg, conaryclient, troveSpecList,
                          message=None,
                          recurseGroups=recurseGroups,
-                         matchSpecs=baseMatchRules + cfg.matchTroveRule,
+                         matchSpecs=contextBaseMatchRules + cfg.matchTroveRule,
                          reposName=mainConfig.reposName)
+        if updateSpecs and oldTroveDict and contextStr in oldTroveDict:
+            troveList = _matchUpdateRestrictions(mainConfig.reposName,
+                                                 oldTroveDict[contextStr],
+                                                 troveList,
+                                                 updateSpecs)
         for name, version, flavor in troveList:
             if flavor is None:
                 flavor = deps.parseFlavor('')
@@ -99,7 +107,9 @@ def getBuildJob(buildConfig, conaryclient, troveSpecList,
             job.setTroveConfig(bt, cfg)
     return job
 
-def getTrovesToBuild(cfg, conaryclient, troveSpecList, message=None, recurseGroups=BUILD_RECURSE_GROUPS_NONE, matchSpecs=None, reposName=None):
+def getTrovesToBuild(cfg, conaryclient, troveSpecList, message=None, 
+                     recurseGroups=BUILD_RECURSE_GROUPS_NONE, matchSpecs=None, 
+                     reposName=None):
     toBuild = []
     toFind = {}
     groupsToFind = []
@@ -180,7 +190,7 @@ def getTrovesToBuild(cfg, conaryclient, troveSpecList, message=None, recurseGrou
 
     toBuild.extend(localTroves)
 
-    if matchSpecs and recurseGroups:
+    if matchSpecs:
         toBuild = _filterListByMatchSpecs(reposName, matchSpecs, toBuild)
     return toBuild
 
@@ -241,6 +251,86 @@ def _filterListByMatchSpecs(reposName, matchSpecs, troveList):
         toAdd = set(troveMap)
     toAdd.difference_update(toRemove)
     return list(itertools.chain(*(troveMap[x] for x in toAdd)))
+
+def _matchUpdateRestrictions(reposName, oldTroveList,
+                             newTroveList, updateSpecs):
+    troveMap = {}
+    for troveTup in itertools.chain(oldTroveList, newTroveList):
+        key = (troveTup[0].split(':')[0] + ':source', troveTup[1], troveTup[2])
+        troveMap.setdefault(key, []).append(troveTup)
+
+    updateDict = {}
+    newUpdateSpecs = []
+    for troveSpec in updateSpecs:
+        if not isinstance(troveSpec, tuple):
+            troveSpec = cmdutil.parseTroveSpec(troveSpec)
+
+        troveSpec = (troveSpec[0].split(':')[0] + ':source', troveSpec[1], troveSpec[2])
+        if troveSpec[0] and troveSpec[0][0] == '-':
+            sense = False
+            troveSpec = (troveSpec[0][1:], troveSpec[1], troveSpec[2])
+        else:
+            sense = True
+
+        name = troveSpec[0]
+        if not name:
+            filterFn = lambda x: True
+        else:
+            filterFn = lambda x: fnmatch.fnmatchcase(x[0], name)
+
+        # add all packages that match glob (could be empty in which case
+        # all packages are added.
+        specs = set([(x[0], troveSpec[1], troveSpec[2]) for x in troveMap
+                      if filterFn(x)])
+        updateDict.update(dict.fromkeys(specs, sense))
+        for spec in specs:
+            if spec in newUpdateSpecs:
+                newUpdateSpecs.remove(spec)
+        newUpdateSpecs.extend(specs)
+
+    allNewNames = set([ x[0] for x in newTroveList ])
+    allOldNames = set([ x[0] for x in oldTroveList ])
+    oldTroveList = [ x for x in oldTroveList if x[0] in allNewNames ]
+
+    oldTroves = trovesource.SimpleTroveSource(oldTroveList)
+    oldTroves = recipeutil.RemoveHostSource(oldTroves, reposName)
+    newTroves = trovesource.SimpleTroveSource(newTroveList)
+    newTroves = recipeutil.RemoveHostSource(newTroves, reposName)
+
+    toUse = set()
+    firstMatch = True
+    for updateSpec in newUpdateSpecs:
+        positiveMatch = updateDict[updateSpec]
+        oldResults = oldTroves.findTroves(None, [updateSpec], None,
+                                          allowMissing=True).get(updateSpec, [])
+        newResults = newTroves.findTroves(None, [updateSpec], None,
+                                          allowMissing=True).get(updateSpec, [])
+        oldNames = set(x[0] for x in oldResults)
+        newNames = set(x[0] for x in newResults)
+        if positiveMatch:
+            if firstMatch:
+                # if the user starts with --update info-foo then they want to
+                # by default not update anything not mentioned
+                toUse = set(oldTroveList)
+                toUse.update(x for x in newTroveList 
+                             if x[0] not in allOldNames)
+                firstMatch = False
+            # don't discard any packages for which we don't have
+            toKeep = [ x for x in toUse if x[0] not in newNames ]
+            toUse.difference_update(oldResults)
+            toUse.update(newResults)
+            toUse.update(toKeep)
+        else:
+            if firstMatch:
+                # if the user starts with --update -info-foo then they want to
+                # update everything _except_ info-foo
+                toUse = set(newTroveList)
+                firstMatch = False
+            toKeep = [ x for x in toUse if x[0] not in oldNames ]
+            toUse.difference_update(newResults)
+            toUse.update(oldResults)
+            toUse.update(toKeep)
+    return list(toUse)
 
 def _getResolveTroveTups(cfg, repos):
     # get resolve troves - use installLabelPath and install flavor
@@ -657,4 +747,6 @@ def displayBuildInfo(job, verbose=False, quiet=False):
             print '%s=%s/%s%s%s' % (n, v.trailingLabel(),
                                     v.trailingRevision(), f,
                                     contextStr)
+
+
 

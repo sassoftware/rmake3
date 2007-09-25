@@ -873,7 +873,8 @@ class DependencyHandler(object):
         # in any case mark this trove an unresolvable
         if cycleTroves:
             for cycleTrove in cycleTroves:
-                depsAdded.discard(cycleTrove)
+                if cycleTrove in self._cycleChecked:
+                    depsAdded.discard(cycleTrove)
             if not depsAdded:
                 trv.troveMissingDependencies(
                     [x[1] for x in missingDeps])

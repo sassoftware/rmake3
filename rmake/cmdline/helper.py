@@ -124,15 +124,24 @@ class rMakeHelper(object):
         self.buildConfig.display()
 
 
-    def restartJob(self, jobId, troveSpecs=None):
+
+    def restartJob(self, jobId, troveSpecs=None, updateSpecs=None,
+                   excludeSpecs=None):
         job = self.client.getJob(jobId, withConfigs=True)
-        configDict = {}
         troveSpecList = []
+        oldTroveDict = {}
         configDict = {}
         mainConfig = copy.deepcopy(self.buildConfig)
+        recurseGroups = job.getMainConfig().recurseGroups
+        if not excludeSpecs:
+            excludeSpecs = []
+
         for contextStr, jobConfig in job.getConfigDict().iteritems():
             troveSpecList += [ (x[0], x[1], x[2], contextStr)
                                 for x in jobConfig.buildTroveSpecs ]
+            oldTroveDict[contextStr] = [ x.getNameVersionFlavor()
+                                         for x in job.iterTroves()
+                                         if x.context == contextStr ]
             if not contextStr:
                 cfg = mainConfig
             else:
@@ -151,23 +160,41 @@ class rMakeHelper(object):
                 cfg.resolveTroves = jobConfig.resolveTroves
                 cfg.resolveTrovesOnly = jobConfig.resolveTrovesOnly
                 cfg.installLabelPath = jobConfig.installLabelPath
-                cfg.matchTroveRule = jobConfig.matchTroveRule
+                if recurseGroups:
+                    cfg.matchTroveRule = jobConfig.matchTroveRule
+                for spec in excludeSpecs:
+                    if isinstance(spec, tuple):
+                        spec, context = cmdutil.getSpecStringFromTuple(spec)
+                    else:
+                        spec, context = cmdutil.parseTroveSpecContext(spec)
+                    if context is None or context == contextStr:
+                        cfg.addMatchRule('-%s' % spec)
+
         mainConfig.jobContext += [jobId]
-        recurseGroups = job.getMainConfig().recurseGroups
         if troveSpecs:
             troveSpecList.extend(troveSpecs)
         return self.buildTroves(troveSpecList, buildConfig=mainConfig,
                                 configDict=configDict,
-                                recurseGroups=recurseGroups)
+                                recurseGroups=recurseGroups,
+                                updateSpecs=updateSpecs,
+                                oldTroveDict=oldTroveDict)
 
     def buildTroves(self, troveSpecList,
                     limitToHosts=None, limitToLabels=None, recurseGroups=False,
                     buildConfig=None, configDict=None, matchSpecs=None,
-                    quiet=False, infoOnly=False):
+                    quiet=False, infoOnly=False, updateSpecs=None,
+                    oldTroveDict=None):
+
         if not isinstance(troveSpecList, (list, tuple)):
             troveSpecList = [troveSpecList]
-        if buildConfig is None:
-            buildConfig = self.buildConfig
+        if configDict:
+            buildConfig = configDict['']
+        else:
+            if buildConfig is None:
+                buildConfig = self.buildConfig
+            if not recurseGroups:
+                # only use default match rules when recursing.
+                buildConfig.clearMatchRules()
         if limitToHosts:
             buildConfig.limitToHosts(limitToHosts)
         if limitToLabels:
@@ -180,7 +207,9 @@ class rMakeHelper(object):
                                    self.getConaryClient(buildConfig),
                                    troveSpecList,
                                    recurseGroups=recurseGroups,
-                                   configDict=configDict)
+                                   configDict=configDict,
+                                   updateSpecs=updateSpecs,
+                                   oldTroveDict=oldTroveDict)
 
         if infoOnly:
             verbose = log.getVerbosity() <= log.DEBUG

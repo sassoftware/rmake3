@@ -132,6 +132,22 @@ Restarts the job specified.  This will find the same sources as if you had speci
 If you specify additional troves, they will be added onto the earlier job.
 
 In between when the state is marked as potentially already built and when rMake has actually determined that all of the build prerequisites are exactly the same, the trove will be marked as "Prebuilt".  When the trove has been marked as already built it will move into the "Built" status and be indistinguishable from other troves that were actually built as part of the job.
+.RS 4
+.TP
+.B \-\-no-update
+Do not update any of the packages in this build to newer versions.  Instead, use all of the source versions used by the last rebuild of these packages.
+.TP
+.B \-\-update \fI[-]<troveSpec>\fP
+May be specified multiple times.  Ordered.  Specifies that the particular package be updated or not be updated.  If the first update specifier given is positive, then it is assumed that by default no other package should be updated.  If the first update specifier given is negative, then it is assumed that by default all packages should be updated _except_ the ones listed.
+
+For example, "rmake restart 6 --update tmpwatch" will only update the tmpwatch package and use the same source versions as used for the last build for rest of the packages.
+
+"rmake restart 6 --update -tmpwatch" will update all packages except tmpwatch.
+
+Globs may be used in the trove names, and more explicit updates may be used to override the globs.  For example, "rmake restart --update -info-* --update info-foo" will not update any info- packages except for info-foo.
+.TP
+.B \-\-exclude \fI<troveSpec>\fP
+May be specified multiple times.  Removes any troves matched from the build, as if a negative matchTroveRule had been added.
 .RE
 .TP
 .B changeset \fI<jobId>\fP \f[troveSpec]*\fP \fI<path>\fP 

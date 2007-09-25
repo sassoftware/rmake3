@@ -288,6 +288,9 @@ class RestartCommand(BuildCommand):
     help = 'Rebuild an earlier job'
 
     def addParameters(self, argDef):
+        argDef['exclude'] = MULT_PARAM
+        argDef['update'] = MULT_PARAM
+        argDef['no-update'] = NO_PARAM
         argDef['commit'] = NO_PARAM
         argDef['message'] = '-m', NO_PARAM
         argDef['no-watch'] = NO_PARAM
@@ -301,12 +304,22 @@ class RestartCommand(BuildCommand):
 
         commit  = argSet.pop('commit', False)
         message  = argSet.pop('message', None)
-        jobId = client.restartJob(jobId, troveSpecs)
+        noUpdate = argSet.pop('no-update', False)
+        if noUpdate:
+            updateSpecs = ['-*']
+        else:
+            updateSpecs = []
+        updateSpecs.extend(argSet.pop('update', []))
+        excludeSpecs = argSet.pop('exclude', [])
+
+        jobId = client.restartJob(jobId, troveSpecs,
+                                  updateSpecs=updateSpecs,
+                                  excludeSpecs=excludeSpecs)
         monitorJob = not argSet.pop('no-watch', False)
         if monitorJob:
             if not client.watch(jobId, commit=commit,
                                 showTroveLogs=True,
-                                showBuildLogs=True, 
+                                showBuildLogs=True,
                                 message=message):
                 return 1
         elif commit:
