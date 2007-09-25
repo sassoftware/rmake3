@@ -18,6 +18,7 @@ class ConaryVersion(object):
     _warnedUser = False
 
     def __init__(self, conaryVersion=None):
+        testing = False
         if conaryVersion is None:
             if not testing:
                 conaryVersion = constants.version
@@ -70,6 +71,9 @@ class ConaryVersion(object):
 
     def supportsNewPkgBranch(self):
         return self.checkVersion(None, 25)
+
+    def updateSrcTakesMultipleVersions(self):
+        return self.checkVersion(None, 90)
 
     def requireFindGroupSources(self):
         return self.requireVersion(None, 21, 'building group sources')

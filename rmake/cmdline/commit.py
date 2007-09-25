@@ -237,7 +237,15 @@ def updateRecipes(repos, cfg, recipeList, committedSources):
         newVersion = committedSourcesByNB[troveName, branch]
         if stateVersion != versions.NewVersion():
             log.info('Updating %s after commit' % recipeDir)
-            checkin.updateSrc(repos, [recipeDir])
+            if compat.ConaryVersion().updateSrcTakesMultipleVersions():
+                checkin.updateSrc(repos, [recipeDir])
+            else:
+                curDir = os.getcwd()
+                try:
+                    os.chdir(recipeDir)
+                    checkin.updateSrc(repos)
+                finally:
+                    os.chdir(curDir)
         else:
             log.info('Replacing CONARY file %s after initial commit' % recipeDir)
             d = tempfile.mkdtemp(dir='/var/tmp',
