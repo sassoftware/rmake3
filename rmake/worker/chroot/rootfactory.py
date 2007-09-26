@@ -19,8 +19,9 @@ from conary.deps import deps
 from conary.lib import util, log
 
 #rmake
-from rmake import constants
 from rmake import errors
+from rmake import compat
+from rmake import constants
 from rmake.lib import flavorutil
 from rmake.lib import rootfactory
 
@@ -168,6 +169,7 @@ class rMakeChroot(ConaryBasedChroot):
         self.serverCfg = serverCfg
         self.callback = ChrootCallback(self.buildTrove, logger,
                                        caching=bool(csCache))
+        self.copyInConary = copyInConary
 
         if copyInConary:
             self._copyInConary()
@@ -178,6 +180,14 @@ class rMakeChroot(ConaryBasedChroot):
 
     def getRoot(self):
         return self.cfg.root
+
+    def checkSanity(self):
+        if not self.copyInConary:
+            return
+        for job in self.jobList:
+            if job[0] == 'conary:python':
+                version = job[2][0].trailingRevision().getVersion()
+                compat.ConaryVersion(version).checkRequiredVersion()
 
     def useStandardRoot(self):
         return True
@@ -297,6 +307,9 @@ class FakeRmakeRoot(rMakeChroot):
     def canChroot(self):
         return False
 
+    def checkSanity(self):
+        pass
+
     def install(self):
         pass
 
@@ -321,6 +334,9 @@ class ExistingChroot(rMakeChroot):
         return self.root
 
     def _postInstall(self):
+        pass
+
+    def checkSanity(self):
         pass
 
 class FullRmakeChroot(rMakeChroot):

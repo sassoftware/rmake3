@@ -47,6 +47,8 @@ Changes in 1.0.11:
        when loading many packages.
      * rMake is now quieter when you run "service rmake stop" when rmake is
        not running (RMK-148)
+     * rMake will now complain if it is asked to create a chroot with a conary
+       version that is too old for it to use. (RMK-578)
   o Bug Fixes:
      * When building two noarch packages, one for x86 and one for x86_64, 
        as long as they result in the same components, one will be considered

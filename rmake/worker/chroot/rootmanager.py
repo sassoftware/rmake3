@@ -339,6 +339,7 @@ class rMakeChrootServer(object):
         return self.chroot.unmount(self.getRoot())
 
     def create(self):
+        self.chroot.checkSanity()
         if not self.root:
             if not self.chroot.useStandardRoot():
                 self.root = tempfile.mkdtemp(dir='/tmp',
