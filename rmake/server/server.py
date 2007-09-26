@@ -510,7 +510,7 @@ class rMakeServer(apirpc.XMLApiServer):
                            # while we make this check.
             return
         elif job.isCommitting():
-            job.jobStopped('User requested stop')
+            return
         elif not job.isRunning():
             raise errors.RmakeError('Cannot stop job %s - it is'
                                     ' already stopped' % job.jobId)
