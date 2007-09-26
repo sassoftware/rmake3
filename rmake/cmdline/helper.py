@@ -332,6 +332,8 @@ class rMakeHelper(object):
         finalJobs = []
         for job in jobs:
             jobId = job.jobId
+            if job.isCommitting():
+                raise errors.RmakeError("Job %s is already committing" % job.jobId)
             if not job.isFinished() and waitForJob:
                 print "Waiting for job %s to complete before committing" % jobId
                 try:

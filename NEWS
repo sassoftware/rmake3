@@ -16,6 +16,10 @@ Changes in 1.0.11:
        which packages get updated on restart. (RMK-600)
      * Added --exclude to "rmake restart" to remove troves from an rmake
        build. (RMK-601)
+     * "rmake stop" may now be used to mark a trove in the committing state
+       as "stopped".  This is useful for when a job is no longer committing.
+       Eventually this will be changed as the committing process is more
+       tightly tied to the server. (RMK-509)
 
   o Build Changes:
      * you can now specify matchTroveRules in your configuration file, and also
@@ -95,6 +99,9 @@ Changes in 1.0.11:
        in a more useful error message (RMK-549)
      * restarts will now have the logs available the for troves that are 
        prebuilt (RMK-607)
+     * if a job is already committing and you run "rmake commit" for that
+       job again, rMake will complain that the job is already committing.
+       (RMK-509)
 
 Changes in 1.0.10:
   o Build Changes:

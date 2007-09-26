@@ -177,6 +177,9 @@ class _AbstractBuildJob(trovesource.SearchableTroveSource):
     def isCommitted(self):
         return self.state == JOB_STATE_COMMITTED
 
+    def isCommitting(self):
+        return self.state == JOB_STATE_COMMITTING
+
     def trovesInProgress(self):
         for trove in self.iterTroves():
             if trove.isBuilding() or trove.isBuildable():
