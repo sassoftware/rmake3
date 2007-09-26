@@ -402,6 +402,7 @@ class DependencyHandler(object):
         self.priorities = []
         self._delayed = {}
         self._cycleChecked = {}
+        self._seenCycles = []
         self._allowFastResolution = True
 
         statusLog.subscribe(statusLog.TROVE_BUILT, self.troveBuilt)
@@ -467,7 +468,7 @@ class DependencyHandler(object):
                 depState.troveFailed(trove)
 
     def troveBuilding(self, trove, pid=0):
-        pass
+        self._seenCycles = [ x for x in self._seenCycles if trove not in x ]
 
     def popBuildableTrove(self):
         return self.depState.popBuildableTrove()
@@ -627,8 +628,14 @@ class DependencyHandler(object):
                        sorted(leafCycle, key=self.getPriority))
                         for leafCycle in leafCycles ]
         leafCycles = [ x[1] for x in sorted(leafCycles) ]
-        if leafCycles and min(len(x) for x in leafCycles) > 1:
-            self._displayCycleInfo(depGraph, leafCycles)
+        newCycles = [ x for x in leafCycles if (len(x) > 1
+                                             and x not in self._seenCycles
+                                             and self._filterTroves(x) == x) ]
+        if newCycles:
+            # try to only display cycle information about cycles that
+            # we haven't seen before.
+            self._seenCycles.extend(newCycles)
+            self._displayCycleInfo(depGraph, newCycles)
 
         for leafCycle in leafCycles:
             if len(leafCycle) > 1:
