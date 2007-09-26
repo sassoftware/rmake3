@@ -310,7 +310,6 @@ class DependencyBasedBuildState(AbstractBuildState):
         self.buildReqTroves.pop(trove, False)
         self.depGraph.delete(trove)
         self.hardDepGraph.delete(trove)
-        self._cycleTroves = []
 
         newBuilt = {}
         for binaryTup in binaryTroveList:
@@ -478,13 +477,11 @@ class DependencyHandler(object):
 
     def troveBuilt(self, trove, troveList):
         self.depState.troveBuilt(trove, troveList)
-        # This trove built successfully, any troves that
-        # were waiting for this trove to finish are now
-        # fair game for dep resolution.
-        for wasDelayed, delayers in self._delayed.items():
-            delayers.discard(trove)
-            if not delayers:
-                self._delayed.pop(wasDelayed)
+        # This trove built successfully, any troves that were 
+        # delayed due to missing deps may be buildable again
+        # FIXME: this could be a much more fine-grained test if we had the
+        # deps provided by the newly built troves.
+        self._delayed = {}
 
     def troveDuplicate(self, trove, troveList):
         package = trove.getName().split(':')[0]
@@ -632,6 +629,7 @@ class DependencyHandler(object):
         leafCycles = [ x[1] for x in sorted(leafCycles) ]
         if leafCycles and min(len(x) for x in leafCycles) > 1:
             self._displayCycleInfo(depGraph, leafCycles)
+
         for leafCycle in leafCycles:
             if len(leafCycle) > 1:
                 if not breakCycles:
@@ -654,6 +652,15 @@ class DependencyHandler(object):
                 resolveJob = self._getResolveJob(trv)
                 if resolveJob:
                     return resolveJob
+        # no resolve job found.  That's ok if work is going on elsewhere
+        # in the system.
+        if self.depState.hasBuildableTroves() or self._resolving:
+            return
+        # otherwise, we've got a bunch of troves that were delayed 
+        # because they have dependencies that couldn't be matched.
+        # fail 'em.
+        for trv,missingDeps in self._delayed.items():
+            trv.troveMissingDependencies(missingDeps)
 
     def _getResolveJobFromCycle(self, depGraph, cycleTroves):
         def _cycleNodeOrder(node):
@@ -761,7 +768,6 @@ class DependencyHandler(object):
         if results.success:
             buildReqs = results.getBuildReqs()
             crossReqs = results.getCrossReqs()
-            self._cycleTroves = []
             newDeps = self._addResolutionDeps(trv, buildReqs, crossReqs,
                                               results.inCycle)
             if not newDeps and results.inCycle:
@@ -812,8 +818,8 @@ class DependencyHandler(object):
             # to include something that's buildable (see below where
             # we don't resolve anything but do break the cycle due to 
             # added dependencies)
-            self._cycleChecked[trv] = True
             if results.inCycle:
+                self._cycleChecked[trv] = True
                 remainingCycleTroves = [ x for x in cycleTroves 
                                          if x not in self._cycleChecked ]
             if results.inCycle and remainingCycleTroves:
@@ -881,10 +887,9 @@ class DependencyHandler(object):
                 return
             for cycleTrove in cycleTroves:
                 self._cycleChecked.pop(cycleTrove, False)
-                    
-        # so we know to possibly try again.
+        self._delayed[trv] = [x[1] for x in missingDeps]
         trv.troveUnresolvableDepsReset(
-            [x[1] for x in missingDeps])
+                [x[1] for x in missingDeps])
 
 
     def _logDifferenceInPrebuiltReqs(self, trv, buildReqTups, preBuiltReqs):
