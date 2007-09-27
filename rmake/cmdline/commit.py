@@ -18,11 +18,13 @@ from conary.lib import log
 from conary.conaryclient import callbacks
 from conary.deps.deps import Flavor
 from conary.repository import changeset
+from conary.repository import trovesource
 
 from rmake import compat
 
 def commitJobs(conaryclient, jobList, reposName, message=None,
-               commitOutdatedSources=False, sourceOnly = False):
+               commitOutdatedSources=False, sourceOnly = False,
+               excludeSpecs=None):
     jobsToCommit = {}
     alreadyCommitted = []
     finalCs = changeset.ReadOnlyChangeSet()
@@ -51,6 +53,41 @@ def commitJobs(conaryclient, jobList, reposName, message=None,
                                ' nowhere to commit to!' % trove.getName())
                     return False, message
     assert(allTroves)
+    source = trovesource.SimpleTroveSource()
+    if excludeSpecs:
+        excludeSpecsWithContext = {}
+        troveMap = {}
+        for excludeSpec in excludeSpecs:
+            if len(excludeSpec) == 4:
+                context = excludeSpec[3]
+            else:
+                context = None
+
+            excludeSpecsWithContext.setdefault(
+                                        excludeSpec[:3], []).append(context)
+        excludeSpecs = [ x[:3] for x in excludeSpecs ]
+
+        for trove in allTroves:
+            troveTup = (trove.getName().split(':')[0],
+                        trove.getVersion(),
+                        trove.getFlavor())
+            source.addTrove(*troveTup)
+            troveMap.setdefault(troveTup, []).append(trove)
+
+        source.searchAsDatabase()
+        matches = source.findTroves(None, excludeSpecs, None, allowMissing=True)
+        trvMatches = []
+        for excludeSpec, matchList in matches.iteritems():
+            contexts = excludeSpecsWithContext[excludeSpec]
+            for match in matchList:
+                for trv in troveMap[match]:
+                    if trv.context in contexts or None in contexts:
+                        trvMatches.append(trv)
+
+        allTroves = [ x for x in allTroves if x not in trvMatches ]
+        if not allTroves:
+            message = ('All troves excluded - not committing')
+            return False, message
 
     repos = conaryclient.getRepos()
 

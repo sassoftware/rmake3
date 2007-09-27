@@ -185,6 +185,9 @@ Commit any changes made to sources by building *.recipe files, without
 committing the resulting binaries.
 .B \-\-message
 The message to use as a log for all source commits.
+.TP 4
+.B \-\-exclude \fI<troveSpec>[{context}]\fP
+Can be specified multiple times.  Will not commit the given package in the commit.  \fBUse with care\fP - this could allow you to commit a package that does not have its dependencies completed.
 .TP
 .B config
 Displays the configuration settings for the rmake client, including build 

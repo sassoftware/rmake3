@@ -20,6 +20,8 @@ Changes in 1.0.11:
        as "stopped".  This is useful for when a job is no longer committing.
        Eventually this will be changed as the committing process is more
        tightly tied to the server. (RMK-509)
+     * "rmake commit" now takes an --exclude parameter to allow you to not
+       commit some packages. (RMK-392)
 
   o Build Changes:
      * you can now specify matchTroveRules in your configuration file, and also

@@ -302,7 +302,7 @@ class rMakeHelper(object):
 
     def commitJobs(self, jobIds, message=None, commitOutdatedSources=False,
                    commitWithFailures=True, waitForJob=False,
-                   sourceOnly=False, updateRecipes=True):
+                   sourceOnly=False, updateRecipes=True, excludeSpecs=[]):
         """
             Commits a set of jobs.
 
@@ -360,13 +360,15 @@ class rMakeHelper(object):
         if not jobs:
             log.error('Job(s) already committed')
             return False
+        excludeSpecs = [ cmdutil.parseTroveSpec(x) for x in excludeSpecs ]
 
         self.client.startCommit(jobIds)
         try:
             succeeded, data = commit.commitJobs(self.getConaryClient(), jobs,
                                    self.buildConfig.reposName, message,
                                    commitOutdatedSources=commitOutdatedSources,
-                                   sourceOnly=sourceOnly)
+                                   sourceOnly=sourceOnly,
+                                   excludeSpecs=excludeSpecs)
             if succeeded:
                 def _sortCommitted(tup1, tup2):
                     return cmp((tup1[0].endswith(':source'), tup1),

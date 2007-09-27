@@ -370,12 +370,15 @@ repository back into the repository where their source package came from.
     docs = {'commit-outdated-sources' : ("Allow commits of source components when another"
                                          " commit has been made upstream"),
             'source-only'             : "Only commit the source changes",
+            'exclude'                 : "Do not commit from specified"
+                                        " sources",
             'message'                 : "The message to give for all"
                                         " committed sources"}
 
     def addParameters(self, argDef):
         argDef['source-only'] = NO_PARAM
         argDef['message'] = '-m', ONE_PARAM
+        argDef['exclude'] = MULT_PARAM
         argDef['commit-outdated-sources'] = NO_PARAM
         rMakeCommand.addParameters(self, argDef)
 
@@ -385,12 +388,14 @@ repository back into the repository where their source package came from.
         commitOutdated = argSet.pop('commit-outdated-sources', False)
         sourceOnly = argSet.pop('source-only', False)
         message = argSet.pop('message', None)
+        excludeSpecs = argSet.pop('exclude', None)
         jobIds = _getJobIdOrUUIds(jobIds)
         success = client.commitJobs(jobIds,
                                     commitOutdatedSources=commitOutdated,
                                     commitWithFailures=True, waitForJob=True,
                                     sourceOnly=sourceOnly,
-                                    message=message)
+                                    message=message,
+                                    excludeSpecs=excludeSpecs)
         if success:
             return 0
         else:
