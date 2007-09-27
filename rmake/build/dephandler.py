@@ -631,6 +631,8 @@ class DependencyHandler(object):
 
         compGraph = self.depState.depGraph.getStronglyConnectedGraph()
         leafCycles = compGraph.getLeaves()
+        self._allowFastResolution = False # FIXME: turn off fast resolution
+                                          # until RMK-620 is fixed
         if self._allowFastResolution:
             result = self._attemptFastResolve(breakCycles=breakCycles,
                                               nodeLists=leafCycles)
