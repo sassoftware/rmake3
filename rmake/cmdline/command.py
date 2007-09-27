@@ -165,6 +165,8 @@ class BuildCommand(rMakeCommand):
                         "Only build troves that match the given specification"),
             'no-watch'  : "do not show build status",
             'poll'   : (options.VERBOSE_HELP, 'backwards compatibility option'),
+            'prep'   : (options.VERBOSE_HELP,
+                            'do not build package, only create chroot'),
             'quiet'  : "show less build info - don't tail logs",
             'commit' : "commit job when it is done",
             'message' : "Message to assign to troves upon commit",
@@ -187,6 +189,7 @@ class BuildCommand(rMakeCommand):
         argDef['quiet'] = NO_PARAM
         argDef['info'] = NO_PARAM
         argDef['commit'] = NO_PARAM
+        argDef['prep'] = NO_PARAM
         argDef['macro'] = MULT_PARAM
         argDef['match'] = MULT_PARAM
         argDef['message'] = '-m', ONE_PARAM
@@ -228,6 +231,8 @@ class BuildCommand(rMakeCommand):
         if 'no-clean' in argSet:
             client.buildConfig.cleanAfterCook = False
             del argSet['no-clean']
+        if 'prep' in argSet:
+            client.buildConfig.prepOnly = argSet.pop('prep', False)
 
         macros = argSet.pop('macro', [])
         for macro in macros:

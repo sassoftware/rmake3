@@ -108,7 +108,7 @@ class JobStore(object):
                     SELECT jobId, BuildTroves.troveId, troveName, version,
                         flavor, context, state, status, failureReason, 
                         failureData, start, finish, logPath, pid, recipeType, 
-                        Chroots.path, Chroots.nodeName
+                        buildType, Chroots.path, Chroots.nodeName
                         FROM tJobIdList
                         JOIN BuildTroves USING(jobId)
                         LEFT JOIN Chroots USING(chrootId)
@@ -118,7 +118,7 @@ class JobStore(object):
 
                 for (jobId, troveId, name, version, flavor, context,
                      state, status, failureReason, failureData, start, finish,
-                     logPath, pid, recipeType,
+                     logPath, pid, recipeType, buildType,
                      chrootPath, chrootHost) in results:
 
                     if chrootPath is None:
@@ -137,6 +137,7 @@ class JobStore(object):
                                                pid=pid, recipeType=recipeType,
                                                chrootPath=chrootPath,
                                                chrootHost=chrootHost,
+                                               buildType=buildType,
                                                context=context)
                     trovesById[troveId] = buildTrove
                     jobsById[jobId].addTrove(name, version, flavor, context,
@@ -328,14 +329,17 @@ class JobStore(object):
         cu.execute("INSERT INTO Jobs (jobId, uuid, state) VALUES (NULL, ?, ?)", 
                    job.uuid, job.state)
         jobId = cu.lastrowid
-        for troveName, version, flavor, context in job.iterTroveList(True):
-            cu.execute("INSERT INTO BuildTroves "
-                       "(jobId, troveName, version, flavor, state, context) "
-                       "VALUES (?, ?, ?, ?, ?, ?)", (
-                jobId, troveName, version.freeze(),
-                flavor.freeze(), TROVE_STATE_INIT, context))
         for trove in job.iterTroves():
             trove.jobId = jobId
+            (troveName, version,
+                flavor, context) = trove.getNameVersionFlavor(True)
+            cu.execute("""INSERT INTO BuildTroves
+                       (jobId, troveName, version, flavor,
+                        state, context, buildType)
+                       VALUES (?, ?, ?, ?, ?, ?, ?)""", (
+                jobId, troveName, version.freeze(),
+                flavor.freeze(), TROVE_STATE_INIT, context,
+                trove.buildType))
         for context, jobConfig in job.getConfigDict().items():
             self.addJobConfig(jobId, context, jobConfig)
         self.db.commit()
@@ -413,6 +417,7 @@ class JobStore(object):
                   failureReason=failureTup[0],
                   failureData=failureTup[1],
                   recipeType=trove.recipeType,
+                  buildType=trove.buildType,
                   chrootId=chrootId)
         fieldList = '=?, '.join(kw) + '=?'
         valueList = kw.values()
@@ -451,6 +456,7 @@ class JobStore(object):
                   state=trove.state,
                   failureReason=failureTup[0],
                   failureData=failureTup[1],
+                  buildType=trove.buildType,
                   context=trove.getContext())
         fieldList = ', '.join(kw.keys())
         valueList = kw.values()

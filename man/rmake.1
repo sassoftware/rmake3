@@ -102,6 +102,9 @@ command is similar to \-\-host above, but it is more specific.
 Uses the value VALUE for macro NAME for each recipe.  Equivalent to the same
 option for cvc cook.
 .TP
+.B \-\-prep
+Creates the chroot and checks out the package in the chroot but does not build it.
+.TP
 .B \-\-match="[-][name][=version][[flavor]]"
 Causes the troves specified (usually by buildgroup) to be filtered so that
 only the troves matching the --match parameters will be used.

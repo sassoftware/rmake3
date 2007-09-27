@@ -28,6 +28,7 @@ class JobStatusPublisher(publisher.Publisher):
                   'TROVE_RESOLVING',
                   'TROVE_RESOLVED',
                   'TROVE_DUPLICATE',
+                  'TROVE_PREPARED',
                   'TROVE_FAILED',
                   'JOB_LOG_UPDATED',
                   'JOB_STATE_UPDATED',
@@ -69,6 +70,8 @@ class JobStatusPublisher(publisher.Publisher):
             self._emit(self.TROVE_BUILDING, '', buildTrove, *args)
         elif buildTrove.isFailed():
             self._emit(self.TROVE_FAILED, '', buildTrove, *args)
+        if buildTrove.isPrepared():
+            self._emit(self.TROVE_PREPARED, '', buildTrove, *args)
 
     def troveLogUpdated(self, buildTrove, message):
         self._emit(self.TROVE_LOG_UPDATED, '', buildTrove, buildTrove.state,

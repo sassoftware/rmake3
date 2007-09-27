@@ -28,6 +28,7 @@ troveStates = {
     'TROVE_STATE_UNBUILDABLE' : 8,
     'TROVE_STATE_PREBUILT'    : 9,
     'TROVE_STATE_DUPLICATE'   : 10,
+    'TROVE_STATE_PREPARED'    : 11,
 }
 
 recipeTypes = {
@@ -39,11 +40,17 @@ recipeTypes = {
     'RECIPE_TYPE_REDIRECT'     : 5,
 }
 
+buildTypes = {
+    'TROVE_BUILD_TYPE_NORMAL'        : 0,
+    'TROVE_BUILD_TYPE_PREP'          : 1,
+}
+
 
 # assign troveStates to this module's dict so that they can be referenced with
 # module 'getattribute' notation (eg; buildtrove.TROVE_STATE_INIT)
 sys.modules[__name__].__dict__.update(troveStates)
 sys.modules[__name__].__dict__.update(recipeTypes)
+sys.modules[__name__].__dict__.update(buildTypes)
 
 stateNames = dict([(x[1], x[0].rsplit('_', 1)[-1].capitalize()) \
                    for x in troveStates.iteritems()])
@@ -90,7 +97,8 @@ class _AbstractBuildTrove:
                  pid=0, recipeType=RECIPE_TYPE_PACKAGE,
                  chrootHost='', chrootPath='', 
                  preBuiltRequirements=None, preBuiltBinaries=None,
-                 context='', flavorList=None):
+                 context='', flavorList=None, 
+                 buildType=TROVE_BUILD_TYPE_NORMAL):
         assert(name.endswith(':source'))
         self.jobId = jobId
         self.name = name
@@ -110,6 +118,7 @@ class _AbstractBuildTrove:
         self.finish = finish
         self.failureReason = failureReason
         self.pid = pid
+        self.buildType = buildType
         self.chrootHost = chrootHost
         self.chrootPath = chrootPath
         self.recipeType = recipeType
@@ -218,7 +227,14 @@ class _AbstractBuildTrove:
         return self.state == TROVE_STATE_BUILT
 
     def isFinished(self):
-        return self.isFailed() or self.isBuilt() or self.isDuplicate()
+        return (self.isFailed() or self.isBuilt()
+                or self.isDuplicate() or self.isPrepared())
+
+    def isPrepOnly(self):
+        return self.buildType == TROVE_BUILD_TYPE_PREP
+
+    def isPrepared(self):
+        return self.state == TROVE_STATE_PREPARED
 
     def isBuildable(self):
         return self.state == TROVE_STATE_BUILDABLE
@@ -382,6 +398,7 @@ class _FreezableBuildTrove(_AbstractBuildTrove):
                  'chrootPath'        : 'str',
                  'loadedSpecsList'   : 'LoadSpecsList',
                  'flavorList'        : 'flavorList',
+                 'buildType'         : 'int',
                  }
 
     def __freeze__(self):
@@ -599,6 +616,11 @@ class BuildTrove(_FreezableBuildTrove):
         self.pid = 0
         self.setBuiltTroves(troveList)
         self._setState(TROVE_STATE_BUILT, '', troveList)
+
+    def trovePrepared(self):
+        self.finish = time.time()
+        self.pid = 0
+        self._setState(TROVE_STATE_PREPARED, '')
 
     def troveDuplicate(self, troveList):
         self._setState(TROVE_STATE_DUPLICATE, '', troveList)

@@ -13,11 +13,13 @@ import traceback
 
 from conary.lib import options, util
 from conary.lib import coveragehook
+from conary import checkin
 from conary import conarycfg
 from conary import conaryclient
 
 from rmake.worker.chroot import cook
 
+from rmake import compat
 from rmake import constants
 from rmake.build import buildcfg
 from rmake.lib.apiutils import *
@@ -28,14 +30,19 @@ class ChrootServer(apirpc.XMLApiServer):
     _CLASS_API_VERSION = 1
 
     @api(version=1)
-    @api_parameters(1, 'BuildConfiguration', 'label',
-                       'str', 'version', 'flavorList', 'LoadSpecsList',
-                       'troveTupleList', None)
+    @api_parameters(1, 'BuildConfiguration')
     @api_return(1, None)
-    def buildTrove(self, callData, buildCfg, targetLabel,
-                   name, version, flavorList, loadSpecsList, builtTroves,
-                   logData):
-        flavorList = tuple(flavorList)
+    def storeConfig(self, callData, buildCfg):
+        buildCfg = self._updateConfig(buildCfg)
+        path = '%s/tmp/conaryrc' % self.cfg.root
+        util.mkdirChain(os.path.dirname(path))
+        conaryrc = open(path, 'w')
+        conaryrc.write('# This is the actual conary configuration used when\n'
+                       '# building.\n')
+        buildCfg.storeConaryCfg(conaryrc)
+        conaryrc.close()
+
+    def _updateConfig(self, buildCfg):
         buildCfg.root = self.cfg.root
         buildCfg.buildPath = self.cfg.root + '/tmp/rmake/builds'
         buildCfg.lookaside = self.cfg.root + '/tmp/rmake/cache'
@@ -54,19 +61,44 @@ class ChrootServer(apirpc.XMLApiServer):
             # test path - we don't have a way to have managed policy
             # in this case.
             buildCfg.enforceManagedPolicy = False
-        path = '%s/tmp/conaryrc' % self.cfg.root
-        util.mkdirChain(os.path.dirname(path))
-        conaryrc = open(path, 'w')
-        conaryrc.write('# This is the actual conary configuration used when\n'
-                       '# building.\n')
-        buildCfg.storeConaryCfg(conaryrc)
-        conaryrc.close()
+        return buildCfg
 
+    def _getRepos(self, buildCfg, caching=True):
         repos = conaryclient.ConaryClient(buildCfg).getRepos()
-        if not name.startswith('group-'):
+        if caching:
             repos = repocache.CachingTroveSource(repos,
-                                        self.cfg.root + '/tmp/cscache',
-                                        readOnly=True)
+                                            self.cfg.root + '/tmp/cscache',
+                                            readOnly=True)
+        return repos
+
+
+    @api(version=1)
+    @api_parameters(1, 'BuildConfiguration', 'str', 'version')
+    def checkoutPackage(self, callData, buildCfg, troveName, troveVersion):
+        buildCfg = self._updateConfig(buildCfg)
+        repos = self._getRepos(buildCfg, caching=True)
+        workDir = buildCfg.root + '/tmp/rmake'
+        troveName = troveName.split(':')[0]
+        checkoutPath = '%s/%s-checkout' % (workDir, troveName)
+
+        util.mkdirChain(workDir)
+        os.chmod(workDir, 0770)
+        checkin.checkout(repos, buildCfg, checkoutPath,
+                         ['%s=%s' % (troveName, troveVersion)])
+        os.chmod(checkoutPath, 0770)
+
+    @api(version=1)
+    @api_parameters(1, 'BuildConfiguration', 'label',
+                       'str', 'version', 'flavorList', 'LoadSpecsList',
+                       'troveTupleList', None)
+    @api_return(1, None)
+    def buildTrove(self, callData, buildCfg, targetLabel,
+                   name, version, flavorList, loadSpecsList, builtTroves,
+                   logData):
+        buildCfg = self._updateConfig(buildCfg)
+        flavorList = tuple(flavorList)
+
+        repos = self._getRepos(buildCfg, caching=not name.startswith('group-'))
         logPath, pid, buildInfo = cook.cookTrove(buildCfg, repos, self._logger,
                                                  name, version, flavorList,
                                                  targetLabel, loadSpecsList,
@@ -138,8 +170,8 @@ class ChrootServer(apirpc.XMLApiServer):
             self._sessionPid = pid
             return port
         try:
-            if os.path.exists('/tmp/rmake/builds'):
-                workDir = '/tmp/rmake/builds'
+            if os.path.exists('/tmp/rmake'):
+                workDir = '/tmp/rmake'
             else:
                 workDir = '/'
             t = telnetserver.TelnetServerForCommand(('', port), command,
@@ -245,6 +277,12 @@ class ChrootClient(object):
 
     def getPid(self):
         return self.pid
+
+    def storeConfig(self, buildCfg):
+        return self.proxy.storeConfig(buildCfg)
+
+    def checkoutPackage(self, buildCfg, name, version):
+        return self.proxy.checkoutPackage(buildCfg, name, version)
 
     def buildTrove(self, buildCfg, targetLabel, name, version, flavorList,
                    loadSpecs=None, builtTroves=None, logData=None):

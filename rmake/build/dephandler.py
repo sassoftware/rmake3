@@ -189,12 +189,16 @@ class DependencyBasedBuildState(AbstractBuildState):
         sourceTroves = [ x for x in sourceTroves if not x.isFailed() ]
         [ self.depGraph.addNode(trove) for trove in sourceTroves ]
         for trove in sourceTroves:
+            if trove.isPrepOnly():
+                continue
             for package in trove.getDerivedPackages():
                 self.trovesByPackage.setdefault(package, []).append(trove)
 
         for trove in sourceTroves:
             try:
                 trove.addBuildRequirements(trove.cfg.defaultBuildReqs)
+                if trove.isPrepOnly():
+                    continue
                 for buildReq in trove.getBuildRequirementSpecs():
                     self._addReq(trove, buildReq, False)
 
@@ -322,6 +326,11 @@ class DependencyBasedBuildState(AbstractBuildState):
             newBuilt[nbf] = binaryTup
         self.builtTroves.update(newBuilt)
 
+    def trovePrepared(self, trove):
+        self.buildReqTroves.pop(trove, False)
+        self.depGraph.delete(trove)
+        self.hardDepGraph.delete(trove)
+
     def getAllBinaries(self):
         return self.builtTroves.values()
 
@@ -406,6 +415,7 @@ class DependencyHandler(object):
         self._allowFastResolution = True
 
         statusLog.subscribe(statusLog.TROVE_BUILT, self.troveBuilt)
+        statusLog.subscribe(statusLog.TROVE_PREPARED, self.trovePrepared)
         statusLog.subscribe(statusLog.TROVE_DUPLICATE, self.troveDuplicate)
         statusLog.subscribe(statusLog.TROVE_BUILDING, self.troveBuilding)
         statusLog.subscribe(statusLog.TROVE_FAILED, self.troveFailed)
@@ -475,6 +485,9 @@ class DependencyHandler(object):
 
     def jobPassed(self):
         return self.depState.jobPassed()
+
+    def trovePrepared(self, trove):
+        self.depState.trovePrepared(trove)
 
     def troveBuilt(self, trove, troveList):
         self.depState.troveBuilt(trove, troveList)
@@ -663,7 +676,7 @@ class DependencyHandler(object):
         # in the system.
         if self.depState.hasBuildableTroves() or self._resolving:
             return
-        # otherwise, we've got a bunch of troves that were delayed 
+        # otherwise, we've got a bunch of troves that were delayed
         # because they have dependencies that couldn't be matched.
         # fail 'em.
         for trv,missingDeps in self._delayed.items():

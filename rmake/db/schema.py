@@ -8,7 +8,7 @@ from rmake import errors
 
 # NOTE: this schema is sqlite-specific
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 def createJobs(db):
     cu = db.cursor()
@@ -136,6 +136,7 @@ def createBuildTroves(db):
             logPath        STRING NOT NULL DEFAULT '',
             recipeType     INTEGER NOT NULL DEFAULT 1,
             chrootId       INTEGER NOT NULL DEFAULT 0,
+            buildType      INTEGER NOT NULL DEFAULT 0,
             CONSTRAINT BuildTroves_jobId_fk
                 FOREIGN KEY(jobId) REFERENCES Jobs(jobId)
                 ON DELETE CASCADE ON UPDATE RESTRICT
@@ -405,11 +406,18 @@ class Migrator(AbstractMigrator):
                         "STRING NOT NULL DEFAULT ''")
         self._addColumn('JobConfig',  "context",
                         "STRING NOT NULL DEFAULT ''")
+        self._addColumn('BuildTroves', "buildType",
+                        "INTEGER NOT NULL DEFAULT 0")
         self.cu.execute("DROP INDEX BuildTrovesIdx") # this idx is no longer
                                                      # unique
         createJobConfig(self.db) # add index
         createBuildTroves(self.db) # add indexes
-        return 7
+        return 8
+
+    def migrateFrom7(self):
+        self._addColumn('BuildTroves', "buildType",
+                        "INTEGER NOT NULL DEFAULT 0")
+        return 8
 
 
 

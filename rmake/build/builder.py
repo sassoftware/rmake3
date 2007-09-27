@@ -307,6 +307,7 @@ from rmake.lib import subscriber
 class EventHandler(subscriber.StatusSubscriber):
     listeners = { 'TROVE_PREPARING_CHROOT' : 'trovePreparingChroot',
                   'TROVE_BUILT'            : 'troveBuilt',
+                  'TROVE_PREPARED'         : 'trovePrepared',
                   'TROVE_FAILED'           : 'troveFailed',
                   'TROVE_RESOLVING'        : 'troveResolving',
                   'TROVE_RESOLVED'         : 'troveResolutionCompleted',
@@ -332,6 +333,13 @@ class EventHandler(subscriber.StatusSubscriber):
         t = self.job.getTrove(*troveTuple)
         self.server.stopTroveLogger(t)
         t.troveBuilt(binaryTroveList)
+        t.own()
+
+    def trovePrepared(self, (jobId, troveTuple)):
+        self._hadEvent = True
+        t = self.job.getTrove(*troveTuple)
+        self.server.stopTroveLogger(t)
+        t.trovePrepared()
         t.own()
 
     def troveLogUpdated(self, (jobId, troveTuple), state, log):
@@ -366,6 +374,7 @@ class EventHandler(subscriber.StatusSubscriber):
     def troveDuplicate(self, (jobId, troveTuple), troveList):
         t = self.job.getTrove(*troveTuple)
         t.troveDuplicate(troveList)
+        t.own()
 
     def troveStateUpdated(self, (jobId, troveTuple), state, status):
         if state not in (buildtrove.TROVE_STATE_FAILED,

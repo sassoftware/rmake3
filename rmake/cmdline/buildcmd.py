@@ -98,11 +98,17 @@ def getBuildJob(buildConfig, conaryclient, troveSpecList,
                                                  oldTroveDict[contextStr],
                                                  troveList,
                                                  updateSpecs)
+        if mainConfig.prepOnly:
+            buildType = buildtrove.TROVE_BUILD_TYPE_PREP
+        else:
+            buildType = buildtrove.TROVE_BUILD_TYPE_NORMAL
+
         for name, version, flavor in troveList:
             if flavor is None:
                 flavor = deps.parseFlavor('')
             bt = buildtrove.BuildTrove(None, name, version, flavor,
-                                       context=contextStr)
+                                       context=contextStr,
+                                       buildType=buildType)
             job.addTrove(name, version, flavor, contextStr, bt)
             job.setTroveConfig(bt, cfg)
     return job

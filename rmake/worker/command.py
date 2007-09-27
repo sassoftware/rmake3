@@ -3,6 +3,7 @@
 #
 import errno
 import os
+import shutil
 import socket
 import sys
 import tempfile
@@ -299,7 +300,27 @@ class BuildCommand(TroveCommand):
             self.logger.error(traceback.format_exc())
             trove.chrootFailed(str(err), traceback.format_exc())
             return
+
+        # this will grab the actual conary configuration used and write
+        # it out to disk at /etc/conaryrc.
+        self.chroot.storeConfig(self.buildCfg)
+        oldPath = '%s/tmp/conaryrc' % self.chrootFactory.root
+        if os.path.exists(oldPath):
+            newPath = '%s/etc/conaryrc' % self.chrootFactory.root
+            util.mkdirChain(os.path.dirname(newPath))
+            if os.path.exists(newPath):
+                os.remove(newPath)
+            shutil.copy(oldPath, newPath)
+
         n,v = trove.getName(), trove.getVersion()
+        self.chroot.checkoutPackage(self.buildCfg, n, v)
+
+        if trove.isPrepOnly():
+            # we start the chroot in prepare mode to make sure that
+            # tagscripts are run, and that the chroot is valid.
+            self.chroot.stop()
+            trove.trovePrepared()
+            return
         flavorList = trove.getFlavorList()
         logPath, pid = self.chroot.buildTrove(self.buildCfg,
                                               self.targetLabel,

@@ -194,8 +194,8 @@ class ChrootManager(object):
         if not setArch:
             targetArch = None
 
-        if (not cfg.strictMode and
-              (buildTrove.isRedirectRecipe() or buildTrove.isGroupRecipe()
+        if (not cfg.strictMode and not buildTrove.isPrepOnly() and
+            (buildTrove.isRedirectRecipe() or buildTrove.isGroupRecipe()
                or buildTrove.isFilesetRecipe())):
             # we don't need to actually instantiate a root to cook
             # these packages - if we're not worried about using the 
