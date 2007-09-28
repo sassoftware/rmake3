@@ -302,7 +302,7 @@ class rMakeHelper(object):
 
     def commitJobs(self, jobIds, message=None, commitOutdatedSources=False,
                    commitWithFailures=True, waitForJob=False,
-                   sourceOnly=False, updateRecipes=True, excludeSpecs=[]):
+                   sourceOnly=False, updateRecipes=True, excludeSpecs=None):
         """
             Commits a set of jobs.
 
@@ -360,7 +360,8 @@ class rMakeHelper(object):
         if not jobs:
             log.error('Job(s) already committed')
             return False
-        excludeSpecs = [ cmdutil.parseTroveSpec(x) for x in excludeSpecs ]
+        if excludeSpecs:
+            excludeSpecs = [ cmdutil.parseTroveSpec(x) for x in excludeSpecs ]
 
         self.client.startCommit(jobIds)
         try:

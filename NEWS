@@ -1,3 +1,8 @@
+Changes in 1.0.11.1:
+  o Bug Fixes:
+     * A bug that caused "rmake commit" to traceback unless the --exclude 
+       option was passed to it has been fixed. (RMK-622)
+
 Changes in 1.0.11:
   o Client Changes:
      * "rmake chroot" now takes a jobId and a package specifier instead of
