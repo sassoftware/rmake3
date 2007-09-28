@@ -154,7 +154,7 @@ class rMakeHelper(object):
             jobConfig.entitlement.extend(cfg.entitlement)
             if not updateConfigKeys:
                 cfg = jobConfig
-            elif all in updateConfigKeys:
+            elif 'all' in updateConfigKeys:
                 pass
             else:
                 for key in updateConfigKeys:

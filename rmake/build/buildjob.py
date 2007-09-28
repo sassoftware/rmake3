@@ -280,7 +280,7 @@ class _FreezableBuildJob(_AbstractBuildJob):
                  'configs'        : 'manual'}
 
 
-    def __freeze__(self):
+    def __freeze__(self, sanitize=False):
         d = {}
         for attr, attrType in self.attrTypes.iteritems():
             d[attr] = freeze(attrType, getattr(self, attr))
@@ -290,8 +290,12 @@ class _FreezableBuildJob(_AbstractBuildJob):
         d['troves'] = [ (freeze('troveContextTuple', x[0]),
                          x[1] and freeze('BuildTrove', x[1]) or '')
                         for x in self.troves.iteritems() ]
-        d['configs'] = [ (x[0], freeze('BuildConfiguration', x[1]))
-                          for x in self.configs.items() ]
+        if sanitize:
+            freezeClass = 'SanitizedBuildConfiguration'
+        else:
+            freezeClass = 'BuildConfiguration'
+        d['configs'] = [ (x[0], freeze(freezeClass, x[1]))
+                              for x in self.configs.items() ]
         return d
 
     @classmethod

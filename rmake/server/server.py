@@ -98,18 +98,16 @@ class rMakeServer(apirpc.XMLApiServer):
                                       withTroves=withTroves,
                                       withConfigs=withConfigs)
         jobIds = self.db.convertToJobIds(jobIds)
-        return [ freeze('BuildJob', x)
+        return [ x.__freeze__(sanitize=True)
                  for x in self.db.getJobs(jobIds, withTroves=withTroves,
                                           withConfigs=withConfigs) ]
 
     @api(version=1)
     @api_parameters(1, None)
-    @api_return(1, 'BuildConfiguration')
+    @api_return(1, 'SanitizedBuildConfiguration')
     def getJobConfig(self, callData, jobId):
         jobId = self.db.convertToJobId(jobId)
         jobCfg = self.db.getJobConfig(jobId)
-        # don't return user/password info - it should be kept secret
-        jobCfg.user = []
         return jobCfg
 
     @api(version=1)

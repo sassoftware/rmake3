@@ -384,7 +384,7 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
         for name, cfgItem in obj._options.iteritems():
             if name in d:
                 lines = d[name]
-                if not lines:
+                if not lines and obj[name] is None:
                     obj[name] = lines
 
                 for line in d.get(name, []):
@@ -401,3 +401,17 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
 
 apiutils.register(apiutils.api_freezable(BuildConfiguration),
                   'BuildConfiguration')
+
+class SanitizedBuildConfiguration:
+
+    @staticmethod
+    def __freeze__(cfg):
+        cfg = apiutils.freeze('BuildConfiguration', cfg)
+        cfg['user'] = []
+        cfg['entitlement'] = []
+        return cfg
+
+    @staticmethod
+    def __thaw__(cfg):
+        return apiutils.thaw('BuildConfiguration', cfg)
+apiutils.register(SanitizedBuildConfiguration)
