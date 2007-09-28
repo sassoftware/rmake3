@@ -126,12 +126,11 @@ class rMakeHelper(object):
 
 
     def restartJob(self, jobId, troveSpecs=None, updateSpecs=None,
-                   excludeSpecs=None):
+                   excludeSpecs=None, updateConfigKeys=None):
         job = self.client.getJob(jobId, withConfigs=True)
         troveSpecList = []
         oldTroveDict = {}
         configDict = {}
-        mainConfig = copy.deepcopy(self.buildConfig)
         recurseGroups = job.getMainConfig().recurseGroups
         if not excludeSpecs:
             excludeSpecs = []
@@ -142,34 +141,38 @@ class rMakeHelper(object):
             oldTroveDict[contextStr] = [ x.getNameVersionFlavor()
                                          for x in job.iterTroves()
                                          if x.context == contextStr ]
-            if not contextStr:
-                cfg = mainConfig
-            else:
-                cfg = copy.deepcopy(self.buildConfig)
-            configDict[contextStr] = cfg
+            cfg = copy.deepcopy(self.buildConfig)
+
             for context in contextStr.split(','):
                 if context:
                     if cfg.hasSection(context):
                         cfg.setContext(context)
                     else:
                         log.warning('Context %s used in job %s does not exist' % (context, jobId))
-                # FIXME: how do we determine what parts of the jobConfig get
-                # overridden
-                cfg.flavor = jobConfig.flavor
-                cfg.buildFlavor = jobConfig.buildFlavor
-                cfg.resolveTroves = jobConfig.resolveTroves
-                cfg.resolveTrovesOnly = jobConfig.resolveTrovesOnly
-                cfg.installLabelPath = jobConfig.installLabelPath
-                if recurseGroups:
-                    cfg.matchTroveRule = jobConfig.matchTroveRule
-                for spec in excludeSpecs:
-                    if isinstance(spec, tuple):
-                        spec, context = cmdutil.getSpecStringFromTuple(spec)
-                    else:
-                        spec, context = cmdutil.parseTroveSpecContext(spec)
-                    if context is None or context == contextStr:
-                        cfg.addMatchRule('-%s' % spec)
+            jobConfig.user.extend(cfg.user)
+            jobConfig.repositoryMap.update(cfg.repositoryMap)
+            jobConfig.entitlement.extend(cfg.entitlement)
+            if not updateConfigKeys:
+                cfg = jobConfig
+            elif all in updateConfigKeys:
+                pass
+            else:
+                for key in updateConfigKeys:
+                    if key not in cfg:
+                        raise errors.ParseError('Unknown value for updateConfigKeys: "%s"' % key)
+                    jobConfig[key] = cfg[key]
+                cfg = jobConfig
 
+            for spec in excludeSpecs:
+                if isinstance(spec, tuple):
+                    spec, context = cmdutil.getSpecStringFromTuple(spec)
+                else:
+                    spec, context = cmdutil.parseTroveSpecContext(spec)
+                if context is None or context == contextStr:
+                    cfg.addMatchRule('-%s' % spec)
+            configDict[contextStr] = cfg
+
+        mainConfig = configDict['']
         mainConfig.jobContext += [jobId]
         if troveSpecs:
             troveSpecList.extend(troveSpecs)

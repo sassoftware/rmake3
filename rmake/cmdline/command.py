@@ -295,6 +295,7 @@ class RestartCommand(BuildCommand):
     def addParameters(self, argDef):
         argDef['exclude'] = MULT_PARAM
         argDef['update'] = MULT_PARAM
+        argDef['update-config'] = MULT_PARAM
         argDef['no-update'] = NO_PARAM
         argDef['commit'] = NO_PARAM
         argDef['message'] = '-m', NO_PARAM
@@ -310,6 +311,7 @@ class RestartCommand(BuildCommand):
         commit  = argSet.pop('commit', False)
         message  = argSet.pop('message', None)
         noUpdate = argSet.pop('no-update', False)
+        updateConfigKeys = argSet.pop('update-config', None)
         if noUpdate:
             updateSpecs = ['-*']
         else:
@@ -319,7 +321,8 @@ class RestartCommand(BuildCommand):
 
         jobId = client.restartJob(jobId, troveSpecs,
                                   updateSpecs=updateSpecs,
-                                  excludeSpecs=excludeSpecs)
+                                  excludeSpecs=excludeSpecs,
+                                  updateConfigKeys=updateConfigKeys)
         monitorJob = not argSet.pop('no-watch', False)
         if monitorJob:
             if not client.watch(jobId, commit=commit,
