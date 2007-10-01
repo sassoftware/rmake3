@@ -126,6 +126,7 @@ class _AbstractBuildTrove:
         self.preBuiltBinaries = preBuiltBinaries
         self.preBuiltTime = 0
         self.preBuildFast = 0
+        self.preBuiltLog = ''
         self.context = context
         if flavorList is None:
             self.flavorList = [flavor]
@@ -504,7 +505,7 @@ class BuildTrove(_FreezableBuildTrove):
             preBuiltTime = 0
         self.preBuiltTime = preBuiltTime
         self.fastRebuild = fastRebuild
-        self.logPath = logPath
+        self.preBuiltLog = logPath
 
     def allowFastRebuild(self):
         return self.fastRebuild
@@ -601,7 +602,7 @@ class BuildTrove(_FreezableBuildTrove):
         self.setBuiltTroves(troveList)
         self._setState(TROVE_STATE_BUILT, '', troveList)
 
-    def troveBuilt(self, troveList):
+    def troveBuilt(self, troveList, prebuilt=False):
         """
             Sets the trove state to built.
 
@@ -616,6 +617,8 @@ class BuildTrove(_FreezableBuildTrove):
         self.pid = 0
         self.setBuiltTroves(troveList)
         self._setState(TROVE_STATE_BUILT, '', troveList)
+        if prebuilt:
+            self.logPath = self.preBuiltLog
 
     def trovePrepared(self):
         self.finish = time.time()

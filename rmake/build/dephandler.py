@@ -570,7 +570,8 @@ class DependencyHandler(object):
     def _getResolveJob(self, buildTrove, inCycle=False, cycleTroves=None):
         if (buildTrove.isPrebuilt() and buildTrove.allowFastRebuild()
             and self._allowFastResolution):
-            buildTrove.troveBuilt(buildTrove.getPrebuiltBinaries())
+            buildTrove.troveBuilt(buildTrove.getPrebuiltBinaries(),
+                                  prebuilt=True)
             return
         self._resolving[buildTrove] = cycleTroves
         if buildTrove.hasTargetArch():
@@ -820,7 +821,7 @@ class DependencyHandler(object):
                     # to see if anything in them has changed
                     self.depState.depGraph.deleteEdges(trv)
                     self._allowFastResolution = oldFastResolve
-                    trv.troveBuilt(trv.getPrebuiltBinaries())
+                    trv.troveBuilt(trv.getPrebuiltBinaries(), prebuilt=True)
                     if cycleTroves:
                         for cycleTrove in cycleTroves:
                             self._cycleChecked.pop(cycleTrove, False)
