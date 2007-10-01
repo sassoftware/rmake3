@@ -221,15 +221,17 @@ class DependencyBasedBuildState(AbstractBuildState):
                 for provTrove in providingTroves:
                     if provTrove.getVersion() != sourceTup[1]:
                         continue
-                    if (flavor is None or
-                        provTrove.getFlavor().toStrongFlavor().satisfies(
-                                                flavor.toStrongFlavor())):
+                    elif self._flavorsMatch(trove.getFlavor(),
+                                            provTrove.getFlavor(),
+                                            flavor, False):
                         # FIXME: we really shouldn't allow loadInstalled
                         # loops to occur.  It means that we're building
                         # two recipes that loadInstall each other which
                         # means that we can't even trust the buildReqs
                         # specified for each.
                         self.dependsOn(trove, provTrove, (False, loadSpec))
+                    else:
+                        self.rejectDep(trove, provTrove, False)
 
             # If we have multiple groups that are building w/ the same
             # name and version, we send them to be built together.
@@ -437,6 +439,7 @@ class DependencyHandler(object):
         publisher = trove.getPublisher()
         publisher.unsubscribe(publisher.TROVE_FAILED, self.troveFailed)
         publisher.cork()
+        self._delayed.pop(trove)
         self._troveFailed(trove)
         publisher.subscribe(publisher.TROVE_FAILED, self.troveFailed)
         publisher.uncork()
@@ -684,6 +687,7 @@ class DependencyHandler(object):
         # fail 'em.
         for trv,missingDeps in self._delayed.items():
             trv.troveMissingDependencies(missingDeps)
+        self._delayed = {}
 
     def _getResolveJobFromCycle(self, depGraph, cycleTroves):
         def _cycleNodeOrder(node):
