@@ -8,6 +8,8 @@ Change sin @NEW@:
        (RMK-619)
   o Bug Fixes:
      * Build logs no longer accumulate after restarts. (RMK-628)
+     * loadInstalled lines do not create cross-arch buildreq dependencies
+       (RMK-631)
 
 Changes in 1.0.11.1:
   o Bug Fixes:
