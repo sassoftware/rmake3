@@ -314,7 +314,6 @@ def loadSourceTroves(job, repos, buildFlavor, troveList,
 def getSourceTrovesFromJob(job, serverCfg, repos):
     # called by builder.
     troveList = sorted(job.iterTroveList())
-    repos = CachingSource(repos)
 
     # create fake "packages" for all the troves we're building so that
     # they can be found for loadInstalled.
@@ -356,9 +355,10 @@ def getSourceTrovesFromJob(job, serverCfg, repos):
                 source._getLeavesOnly = True
                 source.searchWithFlavor()
                 # keep allowNoLabel set.
+        cachedRepos = CachingSource(repos)
 
-        allTroves.extend(loadSourceTroves(job, repos, buildFlavor, troveList,
-                         total=total, count=count,
+        allTroves.extend(loadSourceTroves(job, cachedRepos, buildFlavor, 
+                         troveList, total=total, count=count,
                          loadInstalledSource=loadInstalledSource,
                          installLabelPath=buildCfg.installLabelPath,
                          groupRecipeSource=groupRecipeSource))
