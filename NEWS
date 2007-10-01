@@ -10,6 +10,8 @@ Change sin @NEW@:
      * Build logs no longer accumulate after restarts. (RMK-628)
      * loadInstalled lines do not create cross-arch buildreq dependencies
        (RMK-631)
+     * fastRestart is now more cautious about marking packages as "prebuilt"
+       (RMK-620)
 
 Changes in 1.0.11.1:
   o Bug Fixes:

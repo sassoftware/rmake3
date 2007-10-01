@@ -439,7 +439,7 @@ class DependencyHandler(object):
         publisher = trove.getPublisher()
         publisher.unsubscribe(publisher.TROVE_FAILED, self.troveFailed)
         publisher.cork()
-        self._delayed.pop(trove)
+        self._delayed.pop(trove, False)
         self._troveFailed(trove)
         publisher.subscribe(publisher.TROVE_FAILED, self.troveFailed)
         publisher.uncork()
@@ -568,11 +568,25 @@ class DependencyHandler(object):
                                             (trv.getNameVersionFlavor(),
                                             deps.parseDep('trove: %s' % name))))
                         break
+        # there are runtime reqs that are being
+        # rebuild.
+        # Try rebuilding those first, it is possible
+        # it will be needed by a lot of things so trying
+        # to build it now might help.
+        # The trove that is delayed has had an extra link
+        # added into the network.
+        for depTrv in found:
+            self.prioritize(depTrv)
         return found
 
     def _getResolveJob(self, buildTrove, inCycle=False, cycleTroves=None):
         if (buildTrove.isPrebuilt() and buildTrove.allowFastRebuild()
             and self._allowFastResolution):
+            buildReqs = buildTrove.getPrebuiltRequirements()
+            newDeps = self._addResolutionDeps(buildTrove, buildReqs, [],
+                                              inCycle)
+            if newDeps:
+                return
             buildTrove.troveBuilt(buildTrove.getPrebuiltBinaries(),
                                   prebuilt=True)
             return
@@ -618,10 +632,15 @@ class DependencyHandler(object):
             if len(withPrebuilt) == 1:
                 return self._getResolveJob(list(withPrebuilt)[0])
             elif breakCycles:
-                return self._getResolveJobFromCycle(self.depState.depGraph,
-                                                    withPrebuilt)
-        else:
-            self._allowFastResolution = False
+                # if we're in a cycle and some of the packages in the
+                # cycle are new, then the whole cycle is suspect -
+                # it could have been used in a previous build.
+                allPrebuilt = not [ x for x in withPrebuilt
+                                    if not x.isPrebuilt() ]
+                if allPrebuilt:
+                    return self._getResolveJobFromCycle(self.depState.depGraph,
+                                                        withPrebuilt)
+        self._allowFastResolution = False
 
     def getNextResolveJob(self, breakCycles=True):
         """
@@ -635,8 +654,6 @@ class DependencyHandler(object):
 
         compGraph = self.depState.depGraph.getStronglyConnectedGraph()
         leafCycles = compGraph.getLeaves()
-        self._allowFastResolution = False # FIXME: turn off fast resolution
-                                          # until RMK-620 is fixed
         if self._allowFastResolution:
             result = self._attemptFastResolve(breakCycles=breakCycles,
                                               nodeLists=leafCycles)
@@ -800,15 +817,6 @@ class DependencyHandler(object):
             if not newDeps and results.inCycle:
                 self.depState.depGraph.deleteEdges(trv)
             if newDeps:
-                # there are runtime reqs that are being
-                # rebuild.
-                # Try rebuilding those first, it is possible
-                # it will be needed by a lot of things so trying
-                # to build it now might help.
-                # The trove that is delayed has had an extra link
-                # added into the network.
-                for depTrv in newDeps:
-                    self.prioritize(depTrv)
                 trv.troveResolvedButDelayed(newDeps)
                 return
             elif (trv.getPrebuiltRequirements() is not None
