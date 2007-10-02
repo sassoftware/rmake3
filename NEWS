@@ -12,6 +12,7 @@ Change sin @NEW@:
        (RMK-631)
      * fastRestart is now more cautious about marking packages as "prebuilt"
        (RMK-620)
+     * /dev/zero is now created correctly in the chroot. (RMK-634)
 
 Changes in 1.0.11.1:
   o Bug Fixes:
