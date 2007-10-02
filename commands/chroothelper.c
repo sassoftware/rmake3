@@ -335,30 +335,11 @@ int enter_chroot(const char * chrootDir, const char * socketPath,
             return rc;
     }
 
-    /* keep our capabilities as we transition back to our real uid */
-    prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0);
-
-    if (switch_to_user(RMAKE_USER)) {
-	fprintf(stderr, "ERROR: can not assume %s privileges\n", RMAKE_USER);
-	return -1;
-    }
-
-    /* also initgroups here */
-
-    /* retain chroot() and mknod() */
-    cap = cap_from_text("cap_sys_chroot,cap_mknod,cap_setuid,cap_setgid+ep");
-    if (NULL == cap) {
-        perror("cap_from_text");
-        return 1;
-    }
-    if (0 != cap_set_proc(cap)) {
-        perror("cap_set_proc");
-        return 1;
-    }
-    cap_free(cap);
-
     /* we need to allow creation of 666 devices */
     umask(0);
+    /* make sure we create all nodes as root.root */
+    if ((rc = switch_to_uid_gid(0, 0)))
+        return rc;
     /* mknod here */
     for(i=0; i < (sizeof(devices) / sizeof(devices[0])); i++) {
         struct devinfo_t device = devices[i];
@@ -384,6 +365,30 @@ int enter_chroot(const char * chrootDir, const char * socketPath,
     }
     /* restore sane umask */
     umask(0002);
+
+
+
+    /* keep our capabilities as we transition back to our real uid */
+    prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0);
+
+    if (switch_to_user(RMAKE_USER)) {
+	fprintf(stderr, "ERROR: can not assume %s privileges\n", RMAKE_USER);
+	return -1;
+    }
+
+    /* also initgroups here */
+
+    /* retain chroot() and mknod() */
+    cap = cap_from_text("cap_sys_chroot,cap_setuid,cap_setgid+ep");
+    if (NULL == cap) {
+        perror("cap_from_text");
+        return 1;
+    }
+    if (0 != cap_set_proc(cap)) {
+        perror("cap_set_proc");
+        return 1;
+    }
+    cap_free(cap);
 
     /* make required symlinks */
     for(i=0; i < (sizeof(symlinks) / sizeof(symlinks[0])); i++) {

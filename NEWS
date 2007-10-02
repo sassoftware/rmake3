@@ -13,6 +13,7 @@ Changes in 1.0.12:
      * fastRestart is now more cautious about marking packages as "prebuilt"
        (RMK-620)
      * /dev/zero is now created correctly in the chroot. (RMK-634)
+     * All devices are now owned by root.
 
 Changes in 1.0.11.1:
   o Bug Fixes:
