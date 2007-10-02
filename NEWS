@@ -1,4 +1,4 @@
-Change sin @NEW@:
+Changes in 1.0.12:
   o Client Changes:
      * User and entitlement information is no longer returned to clients on
        getJob calls (RMK-621)
