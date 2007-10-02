@@ -583,6 +583,8 @@ class DependencyHandler(object):
         if (buildTrove.isPrebuilt() and buildTrove.allowFastRebuild()
             and self._allowFastResolution):
             buildReqs = buildTrove.getPrebuiltRequirements()
+            buildReqs = [ (x[0], (None, None), (x[1], x[2]), False)
+                           for x in buildReqs ]
             newDeps = self._addResolutionDeps(buildTrove, buildReqs, [],
                                               inCycle)
             if newDeps:
