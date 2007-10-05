@@ -42,6 +42,7 @@ def commitJobs(conaryclient, jobList, reposName, message=None,
 
     allTroves = []
     trovesByBranch = {}
+    alreadyCommitted = False
     for job in jobsToCommit:
         mapping[job.jobId] = {}
         for trove in job.iterTroves():
@@ -98,6 +99,9 @@ def commitJobs(conaryclient, jobList, reposName, message=None,
     for trove in allTroves:
         builtTroves = list(trove.iterBuiltTroves())
         if not builtTroves:
+            continue
+        if builtTroves[0][1].getHost() != reposName:
+            alreadyCommitted = True
             continue
 
         troveVersion = trove.getVersion()
@@ -163,6 +167,8 @@ def commitJobs(conaryclient, jobList, reposName, message=None,
     if not trovesToClone:
         if sourceOnly:
             err = 'Could not find sources to commit'
+        elif alreadyCommitted:
+            err = 'All built troves have already been committed'
         else:
             err = 'Can only commit built troves, none found'
         return False, err
