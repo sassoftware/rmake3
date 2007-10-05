@@ -96,7 +96,7 @@ class ServerProxy(xmlrpclib.ServerProxy):
             # __host is the server object
             self.__host = uri
 
-        self.__handler = None
+        self.__handler = ''
         self.__transport = transport
         self.__encoding = encoding
         self.__verbose = verbose
