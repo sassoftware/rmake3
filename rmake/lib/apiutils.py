@@ -6,6 +6,7 @@ Along with apirpc, implements an API-validating and versioning scheme for
 xmlrpc calls.
 """
 
+import inspect
 import itertools
 import traceback
 
@@ -53,6 +54,13 @@ def registerFreeze(name, freezeMethod):
 def isRegistered(name):
     return name in apitypes
 
+def canHandle(name, instance):
+    if name not in apitypes:
+        return False
+    handler = apitypes[name]
+    if not inspect.isclass(handler):
+        return True
+    return isinstance(instance, handler)
 
 # ----- decorators for describing a method's API.
 

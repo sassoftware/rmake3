@@ -327,15 +327,22 @@ def _freezeReturn(api, val, version):
     return returnType.__freeze__(val)
 
 def _freezeException(err):
-    errorClass = err.__class__
-    if apiutils.isRegistered(str(errorClass)):
-        frzMethod = str(errorClass)
-    elif apiutils.isRegistered(errorClass.__name__):
-        frzMethod = errorClass.__name__
-    else:
+    try:
+        frzMethod = None
+        errorClass = err.__class__
+        if apiutils.canHandle(str(errorClass), err):
+            frzMethod = str(errorClass)
+        elif apiutils.canHandle(errorClass.__name__, err):
+            frzMethod = errorClass.__name__
+        else:
+            frzMethod = 'Exception'
+        return frzMethod, apiutils.freeze(frzMethod, err)
+    except Exception, err2:
+        if frzMethod == 'Exception':
+            raise
+        err = err2
         frzMethod = 'Exception'
-    return frzMethod, apiutils.freeze(frzMethod, err)
-
+        return frzMethod, apiutils.freeze(frzMethod, err)
 
 def _thawParams(api, paramList, version):
     paramTypes = api.params[version]
