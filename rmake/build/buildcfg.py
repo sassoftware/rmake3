@@ -111,7 +111,8 @@ class RmakeBuildContext(cfg.ConfigSection):
                              'conary:runtime',
                              'conary-build:runtime', 'dev:runtime',
                              'grep:runtime', 'sed:runtime',
-                             'findutils:runtime', 'gawk:runtime'])
+                             'findutils:runtime', 'gawk:runtime',
+                             'info-rmake:user', 'info-rmake-chroot:user'])
     resolveTroves        = (CfgList(CfgQuotedLineList(CfgTroveSpec)),
                             [[('group-dist', None, None)]])
     matchTroveRule       = (CfgList(CfgString), [])

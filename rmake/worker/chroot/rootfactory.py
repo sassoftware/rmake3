@@ -358,20 +358,8 @@ class FullRmakeChroot(rMakeChroot):
         if os.path.exists('/etc/localtime'):
             self.copyFile('/etc/localtime')
         # glibc:runtime should provide a good default nsswitch
-        #if os.path.exists('/etc/nsswitch.conf'):
-        #    self.copyFile('/etc/nsswitch.conf')
-
-        # ********
-        # NOTE:
-        # We copy in local system files, including policy and use dirs,
-        # in order to make the use of rmake as easy as possible.  If rMake
-        # ever gets to the point where its use is distributed, we should 
-        # no longer copy anything but required networking/system info 
-        # from the host system, and instead generate or pass in this
-        # information from the host system
-        self.copyFile('/etc/passwd')
-        self.copyFile('/etc/group')
-
+        if os.path.exists('/etc/nsswitch.conf'):
+            self.copyFile('/etc/nsswitch.conf')
 
         if self.cfg.copyInConfig:
             for option in ['archDirs', 'mirrorDirs',

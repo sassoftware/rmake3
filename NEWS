@@ -15,6 +15,9 @@ Changes in 1.0.12:
      * /dev/zero is now created correctly in the chroot. (RMK-634)
      * All devices are now owned by root.
      * rMake now freezes conary's OpenErrors correctly. (RMK-636)
+     * The /etc/passwd file is no longer overwritten on install from the
+       root system.  Also, the info-rmake and info-rmake-chroot are now
+       installed to ensure that the chroot can run. (RMK-635, RMK-547)
 
 Changes in 1.0.11.1:
   o Bug Fixes:
