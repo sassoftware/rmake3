@@ -14,7 +14,7 @@ Changes in 1.0.12:
        (RMK-620)
      * /dev/zero is now created correctly in the chroot. (RMK-634)
      * All devices are now owned by root.
-     * rMake now freezes conary's OpenErrors correctly. (RMK-637)
+     * rMake now freezes conary's OpenErrors correctly. (RMK-636)
 
 Changes in 1.0.11.1:
   o Bug Fixes:
