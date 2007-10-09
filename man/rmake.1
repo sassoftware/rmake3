@@ -74,10 +74,10 @@ rmake build <job> followed by rmake commit <jobId>.  If the build does not
 complete successfully, the commit is not performed.
 .TP
 .B \-\-recurse
-Groups that are specified at the command line will cause rMake to find the 
-source version of this group and build all contained troves.  It does not 
-currently pay attention to removes lines to avoid building troves, and it does 
-not recurse into other groups that are added.
+Groups that are specified with build --recurse at the command line will cause 
+rMake to find the source version of this group and build all contained troves.  
+It does not currently pay attention to removes lines to avoid building troves, 
+and it does not recurse into other groups that are added.
 .TP
 .B \-\-flavor=FLAVOR
 Specify the flavor to build with.  For example, rMake uses this parameter to 
