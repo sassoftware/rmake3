@@ -14,7 +14,7 @@ stored in a local repository until you wish to commit them.
 After packages have been built and stored into this exclusive rmake local
 repository, they are then cloned from this repository to your main repository
 upon committing them. For more information about the architecture of rMake,
-see the rMake developer documentation (not yet available).
+see the rMake developer documentation.
 
 \fBNote that rMake is now at a STABLE RELEASE; behavior is generally likely
 to remain the same or be expanded upon until the next major release of rMake.
@@ -37,7 +37,7 @@ build foo from that repository.
 The following \fBcommands\fP are used to start, query, monitor, and commit
 builds using rMake.
 .TP 4
-.B [build|buildgroup] [<\fItrovename\fP[=\fI<versionSpec>\fP\fI[<flavor>]\fP>]|<recipe>]\fI[<flavor>]\fP\fI[{context}]\fP
+.B [build] [<\fItrovename\fP[=\fI<versionSpec>\fP\fI[<flavor>]\fP>]|<recipe>]\fI[<flavor>]\fP\fI[{context}]\fP
 Builds the packages specified.  If a versionSpec is specified, it should
 point to a source version of \fI<troveName>\fP. Although this command finds
 source packages to build, the :source component part of the name is implicit.
@@ -62,9 +62,9 @@ documentation and on the conary Wiki.
 
 rMake can also build groups, redirects and filesets, \fIas long as they are the only trove specfied as part of the job\fP.  If these types of troves are specified as part of a larger job they will be failed.  This limitation may be lifted in a future version of rMake.
 
-If you use the command buildgroup instead of build, groups that are specified at the command line will cause rMake to find the source version of this group and build all contained troves.  It does not currently pay attention to removes lines to avoid building troves, and it does not recurse into other groups that are added.
+If you use the command build --recurse instead of build, groups that are specified at the command line will cause rMake to find the source version of this group and build all contained troves.  It does not currently pay attention to removes lines to avoid building troves, and it does not recurse into other groups that are added.
 
-If you add the \-\-binary-search option with buildgroup, rMake will instead find the matching \fIbinary\fP version of this group, and rebuild the packages within that group with the flavors they were built with previously.
+If you add the \-\-binary-search option with build --recurse, rMake will instead find the matching \fIbinary\fP version of this group, and rebuild the packages within that group with the flavors they were built with previously.
 
 .RS 4
 .TP
@@ -72,6 +72,12 @@ If you add the \-\-binary-search option with buildgroup, rMake will instead find
 After the build finishes successfully, commit the build.  This is like running
 rmake build <job> followed by rmake commit <jobId>.  If the build does not
 complete successfully, the commit is not performed.
+.TP
+.B \-\-recurse
+Groups that are specified at the command line will cause rMake to find the 
+source version of this group and build all contained troves.  It does not 
+currently pay attention to removes lines to avoid building troves, and it does 
+not recurse into other groups that are added.
 .TP
 .B \-\-flavor=FLAVOR
 Specify the flavor to build with.  For example, rMake uses this parameter to 
@@ -106,10 +112,10 @@ option for cvc cook.
 Creates the chroot and checks out the package in the chroot but does not build it.
 .TP
 .B \-\-match="[-][name][=version][[flavor]]"
-Causes the troves specified (usually by buildgroup) to be filtered so that
+Causes the troves specified (usually by build --recurse) to be filtered so that
 only the troves matching the --match parameters will be used.
 
-Example: rmake buildgroup group-dist --match=tmpwatch --match="=:1-compat" --match="kernel[kernel.smp]" --match="-kernel[xen]"
+Example: rmake build --recurse group-dist --match=tmpwatch --match="=:1-compat" --match="kernel[kernel.smp]" --match="-kernel[xen]"
 
 This will build any trove in group-dist that has the name tmpwatch, as well as any trove that is has a label that ends in :1-compat, as well as kernels in group-dist with the flavor kernel.smp, unless they have the smp flavor.
 .TP
