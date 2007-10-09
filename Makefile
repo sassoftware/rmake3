@@ -73,7 +73,7 @@ sanitycheck: archive
 forcedist: archive sanitycheck
 
 tag:
-	hg tag rmake-$(VERSION)
+	hg tag -f rmake-$(VERSION)
 
 clean: clean-subdirs default-clean
 
