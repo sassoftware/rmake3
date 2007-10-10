@@ -500,7 +500,3 @@ class PipePublisher(subscriber._RmakePublisherProxy):
         self.pipeWriter.send((jobId, freeze('EventList', eventList)))
         self.pipeWriter.flush()
 
-def attach(trove, p):
-    _RmakeBusPublisher(client).attach(trove)
-
-
