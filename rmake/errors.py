@@ -10,6 +10,7 @@ from conary.errors import ParseError # make ParseError available from
                                      # rmake as well
 
 from rmake.lib import apiutils
+from rmake.lib.apiutils import freeze, thaw
 
 class RmakeInternalError(Exception):
     pass
