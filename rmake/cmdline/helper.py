@@ -10,12 +10,12 @@ functionality that crosses client/server boundaries.
 
 import copy
 import itertools
-from optparse import OptionParser
 import os
 import socket
 import sys
-import tempfile
 import time
+
+from optparse import OptionParser
 
 from conary import conarycfg
 from conary import conaryclient
@@ -450,21 +450,8 @@ class rMakeHelper(object):
             Creates a silent subscriber that returns when the job is finished.
             @rtype: None
         """
-        if (not isinstance(self.client.uri, str)
-            or self.client.uri.startswith('unix://')):
-            fd, tmpPath = tempfile.mkstemp()
-            os.close(fd)
-            uri = 'unix://' + tmpPath
-        else:
-            host = socket.gethostname()
-            uri = 'http://%s' % host
-            tmpPath = None
-        try:
-            jobMonitor = monitor.waitForJob(self.client, jobId, uri)
-            return not self.client.getJob(jobId, withTroves=False).isFailed()
-        finally:
-            if tmpPath:
-                os.remove(tmpPath)
+        jobMonitor = monitor.waitForJob(self.client, jobId)
+        return not self.client.getJob(jobId, withTroves=False).isFailed()
 
     def startChrootSession(self, jobId, troveSpec, command, 
                            superUser=False, chrootHost=None, chrootPath=None):
@@ -518,32 +505,20 @@ class rMakeHelper(object):
             commit requested).
             @rtype: bool
         """
-        if self.client.uri.startswith('unix://'):
-            fd, tmpPath = tempfile.mkstemp()
-            os.close(fd)
-            uri = 'unix://' + tmpPath
-        else:
-            host = socket.gethostname()
-            uri = 'http://%s' % host
-            tmpPath = None
         try:
-            try:
-                jobMonitor = monitor.monitorJob(self.client, jobId, uri,
-                                                showTroveLogs = showTroveLogs,
-                                                showBuildLogs = showBuildLogs,
-                                                exitOnFinish=commit)
-            except Exception, err:
-                if commit:
-                    print "Poll interrupted, not committing"
-                    print "You can restart commit by running 'rmake watch %s --commit'" % jobId
-                raise
+            jobMonitor = monitor.monitorJob(self.client, jobId,
+                                            showTroveDetails = showTroveLogs,
+                                            showBuildLogs = showBuildLogs,
+                                            exitOnFinish=commit)
+        except Exception, err:
             if commit:
-                return self.commitJob(jobId, commitWithFailures=False,
-                                      message=message)
-            return not self.client.getJob(jobId, withTroves=False).isFailed()
-        finally:
-            if tmpPath:
-                os.remove(tmpPath)
+                print "Poll interrupted, not committing"
+                print "You can restart commit by running 'rmake watch %s --commit'" % jobId
+            raise
+        if commit:
+            return self.commitJob(jobId, commitWithFailures=False,
+                                  message=message)
+        return not self.client.getJob(jobId, withTroves=False).isFailed()
     poll = watch # backwards compatibility
 
 

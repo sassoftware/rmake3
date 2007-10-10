@@ -1,40 +1,77 @@
 #
 # Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
 #
-import select
+import os
+import socket
 import sys
+import tempfile
 import time
 
-from conary.lib import util
-
 from rmake.build import buildjob, buildtrove
-from rmake.lib.apiutils import thaw, freeze
-from rmake.lib import rpclib, localrpc
-from rmake import subscribers
 from rmake.subscribers import xmlrpc
 
+def _getUri(client):
+    if not isinstance(client.uri, str) or client.uri.startswith('unix://'):
+        fd, tmpPath = tempfile.mkstemp()
+        os.close(fd)
+        uri = 'unix://' + tmpPath
+    else:
+        host = socket.gethostname()
+        uri = 'http://%s' % host
+        tmpPath = None
+    return uri, tmpPath
 
-def monitorJob(client, jobId, uri, showTroveLogs=False, showBuildLogs=False,
-               exitOnFinish=None):
-    receiver = XMLRPCJobLogReceiver(uri, client, showTroveLogs=showTroveLogs, 
-                                    showBuildLogs=showBuildLogs,
-                                    exitOnFinish=exitOnFinish)
-    receiver.subscribe(jobId)
-    receiver.serve_forever()
+def monitorJob(client, jobId, showTroveDetails=False, showBuildLogs=False,
+               exitOnFinish=None, uri=None, serve=True, out=None,
+               displayClass=None):
+    if not uri:
+        uri, tmpPath = _getUri(client)
+    else:
+        tmpPath = None
+    if not displayClass:
+        displayClass = JobLogDisplay
 
-def waitForJob(client, jobId, uri):
-    receiver = XMLRPCJobLogReceiver(uri, client, displayClass=SilentDisplay)
-    receiver.subscribe(jobId)
-    receiver.serve_forever()
+    try:
+        display = displayClass(client, showBuildLogs=showBuildLogs, out=out,
+                               exitOnFinish=exitOnFinish)
+        display._primeOutput(jobId)
+        client = client.listenToEvents(uri, jobId, display,
+                                       showTroveDetails=showTroveDetails,
+                                       serve=serve)
+        return client
+    finally:
+        if serve and tmpPath:
+            os.remove(tmpPath)
+
+def waitForJob(client, jobId, uri=None, serve=True):
+    if not uri:
+        uri, tmpPath = _getUri(client)
+    else:
+        tmpPath = None
+    try:
+        display = SilentDisplay(client)
+        display._primeOutput(jobId)
+        return client.listenToEvents(uri, jobId, display, serve=serve)
+    finally:
+        if tmpPath:
+            os.remove(tmpPath)
 
 class _AbstractDisplay(xmlrpc.BasicXMLRPCStatusSubscriber):
-    def __init__(self, client, showBuildLogs=True, out=None):
+    def __init__(self, client, showBuildLogs=True, out=None,
+                 exitOnFinish=True):
         self.client = client
         self.finished = False
+        self.exitOnFinish = True # override exitOnFinish setting
         self.showBuildLogs = showBuildLogs
         if not out:
             out = sys.stdout
         self.out = out
+
+    def close(self):
+        pass
+
+    def _serveLoopHook(self):
+        pass
 
     def _msg(self, msg, *args):
         self.out.write('[%s] %s\n' % (time.strftime('%X'), msg))
@@ -52,39 +89,48 @@ class _AbstractDisplay(xmlrpc.BasicXMLRPCStatusSubscriber):
     def _isFinished(self):
         return self.finished
 
-    def _primeOutput(self, client, jobId):
-        job = client.getJob(jobId, withTroves=False)
+    def _shouldExit(self):
+        return self._isFinished() and self.exitOnFinish
+
+    def _primeOutput(self, jobId):
+        job = self.client.getJob(jobId, withTroves=False)
         if job.isFinished():
             self._setFinished()
 
 class SilentDisplay(_AbstractDisplay):
-    def _updateBuildLog(self):
-        pass
+    pass
 
 class JobLogDisplay(_AbstractDisplay):
 
-    def __init__(self, client, showBuildLogs=True, out=None):
-        _AbstractDisplay.__init__(self, client, out)
+    def __init__(self, client, showBuildLogs=True, out=None,
+                 exitOnFinish=None):
+        _AbstractDisplay.__init__(self, client, out, exitOnFinish=exitOnFinish)
         self.showBuildLogs = showBuildLogs
         self.buildingTroves = {}
 
     def _tailBuildLog(self, jobId, troveTuple):
-        self.buildingTroves[jobId, troveTuple] =  0
+        mark = self.buildingTroves.get((jobId, troveTuple), [0])[0]
+        self.buildingTroves[jobId, troveTuple] =  [mark, True]
         self.out.write('Tailing %s build log:\n\n' % troveTuple[0])
 
-    def _updateBuildLog(self):
+    def _stopTailing(self, jobId, troveTuple):
+        mark = self.buildingTroves.get((jobId, troveTuple), [0])[0]
+        self.buildingTroves[jobId, troveTuple] = [ mark, False ]
+
+    def _serveLoopHook(self):
         if not self.buildingTroves:
             return
-        for (jobId, troveTuple), mark in self.buildingTroves.items():
-            moreData = True
+        for (jobId, troveTuple), (mark, tail) in self.buildingTroves.items():
+            if not tail:
+                continue
             moreData, data, mark = self.client.getTroveBuildLog(jobId,
-                                                          troveTuple,
-                                                          mark)
+                                                                troveTuple,
+                                                                mark)
             self.out.write(data)
             if not moreData:
                 del self.buildingTroves[jobId, troveTuple]
             else:
-                self.buildingTroves[jobId, troveTuple] =  mark
+                self.buildingTroves[jobId, troveTuple][0] =  mark
 
     def _jobTrovesSet(self, jobId, troveData):
         self._msg('[%d] - job troves set' % jobId)
@@ -93,7 +139,7 @@ class JobLogDisplay(_AbstractDisplay):
         _AbstractDisplay._jobStateUpdated(self, jobId, state, status)
         state = buildjob._getStateName(state)
         if self._isFinished():
-            self._updateBuildLog()
+            self._serveLoopHook()
         self._msg('[%d] - State: %s' % (jobId, state))
         if status:
             self._msg('[%d] - %s' % (jobId, status))
@@ -110,6 +156,8 @@ class JobLogDisplay(_AbstractDisplay):
             self._msg('[%d] - %s - %s' % (jobId, troveTuple[0], status))
         if isBuilding and self.showBuildLogs:
             self._tailBuildLog(jobId, troveTuple)
+        else:
+            self._stopTailing(jobId, troveTuple)
 
     def _troveLogUpdated(self, (jobId, troveTuple), state, status):
         state = buildtrove._getStateName(state)
@@ -122,10 +170,10 @@ class JobLogDisplay(_AbstractDisplay):
             msg = 'Chroot at Node %s:%s' % (host, path)
         self._msg('[%d] - %s - %s' % (jobId, troveTuple[0], msg))
 
-    def _primeOutput(self, client, jobId):
+    def _primeOutput(self, jobId):
         logMark = 0
         while True:
-            newLogs = client.getJobLogs(jobId, logMark)
+            newLogs = self.client.getJobLogs(jobId, logMark)
             if not newLogs:
                 break
             logMark += len(newLogs)
@@ -133,98 +181,15 @@ class JobLogDisplay(_AbstractDisplay):
                 print '[%s] [%s] - %s' % (timeStamp, jobId, message)
 
         BUILDING = buildtrove.TROVE_STATE_BUILDING
-        troveTups = client.listTrovesByState(jobId, BUILDING).get(BUILDING, [])
+        troveTups = self.client.listTrovesByState(jobId, BUILDING).get(BUILDING, [])
         for troveTuple in troveTups:
             self._tailBuildLog(jobId, troveTuple)
 
-        _AbstractDisplay._primeOutput(self, client, jobId)
-
-class XMLRPCJobLogReceiver(object):
-    def __init__(self, uri=None, client=None, displayClass=JobLogDisplay,
-                 showTroveLogs=False, showBuildLogs=False, out=None,
-                 exitOnFinish=None):
-        self.uri = uri
-        self.client = client
-        self.showTroveLogs = showTroveLogs
-        self.showBuildLogs = showBuildLogs
-        self.exitOnFinish = exitOnFinish
-        serverObj = None
-
-        if uri:
-            if isinstance(uri, str):
-                import urllib
-                type, url = urllib.splittype(uri)
-                if type == 'unix':
-                    util.removeIfExists(url)
-                    serverObj = rpclib.UnixDomainDelayableXMLRPCServer(url,
-                                                       logRequests=False)
-                elif type in ('http', 'https'):
-                    # path is ignored with simple server.
-                    host, path = urllib.splithost(url)
-                    if ':' in host:
-                        host, port = urllib.splitport(host)
-                        port = int(port)
-                    else:
-                        port = 0
-                    serverObj = rpclib.DelayableXMLRPCServer(('', port))
-                    if not port:
-                        uri = '%s://%s:%s' % (type, host,
-                                                   serverObj.getPort())
-                else:
-                    raise NotImplmentedError
-            else:
-                serverObj = uri
-        self.uri = uri
-        self.server = serverObj
-        self.display = displayClass(self.client, showBuildLogs=showBuildLogs, 
-                                    out=out)
-
-        if serverObj:
-            serverObj.register_instance(self)
-
-    def subscribe(self, jobId):
-        subscriber = subscribers.SubscriberFactory('monitor_', 'xmlrpc', self.uri)
-        subscriber.watchEvent('JOB_STATE_UPDATED')
-        subscriber.watchEvent('JOB_LOG_UPDATED')
-        if self.showTroveLogs:
-            subscriber.watchEvent('TROVE_STATE_UPDATED')
-            subscriber.watchEvent('TROVE_LOG_UPDATED')
-            subscriber.watchEvent('TROVE_PREPARING_CHROOT')
-        self.jobId = jobId
-        self.subscriber = subscriber
-        self.client.subscribe(jobId, subscriber)
-
-        self.display._primeOutput(self.client, jobId)
-
-
-    def serve_forever(self):
-        try:
-            while True:
-                self.handleRequestIfReady(1)
-                self._serveLoopHook()
-                if self.display._isFinished():
-                    break
-        finally:
-            self.unsubscribe()
-
-    def handleRequestIfReady(self, sleepTime=0.1):
-        ready, _, _ = select.select([self.server], [], [], sleepTime)
-        if ready:
-            self.server.handle_request()
-
-    def _serveLoopHook(self):
-        self.display._updateBuildLog()
-
-    def unsubscribe(self):
-        if self.client:
-            self.client.unsubscribe(self.subscriber.subscriberId)
+        _AbstractDisplay._primeOutput(self, jobId)
 
     def _dispatch(self, methodname, (callData, responseHandler, args)):
         if methodname.startswith('_'):
             raise NoSuchMethodError(methodname)
         else:
-            rv = getattr(self.display, methodname)(*args)
-            if rv is None:
-                rv = ''
-            responseHandler.sendResponse(rv)
-
+            responseHandler.sendResponse('')
+            getattr(self, methodname)(*args)

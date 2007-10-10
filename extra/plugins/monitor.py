@@ -26,15 +26,19 @@ from rmake.lib.apiutils import thaw, freeze
 from rmake.lib import rpclib, localrpc
 from rmake.subscribers import xmlrpc
 
-
+from rmake.cmdline import monitor
 from rmake.plugins import plugin
+
+oldMonitorJob = monitor.monitorJob
 
 class MonitorPlugin(plugin.ClientPlugin):
     def client_preInit(self, main, argv):
-        from rmake.cmdline import monitor
         if sys.stdout.isatty() and sys.stdin.isatty():
             monitor.monitorJob = monitorJob
 
+def monitorJob(*args, **kw):
+    kw.setdefault('displayClass', DisplayManager)
+    return oldMonitorJob(*args, **kw)
 
 
 def set_raw_mode():
@@ -54,13 +58,6 @@ def restore_terminal(oldTerm, oldFlags):
     if oldFlags:
         fcntl.fcntl(fd, fcntl.F_SETFL, oldFlags)
 
-def monitorJob(client, jobId, uri, showTroveLogs=False, showBuildLogs=False,
-               exitOnFinish=False):
-    receiver = XMLRPCJobLogReceiver(uri, client, showTroveLogs=showTroveLogs,
-                                    showBuildLogs=showBuildLogs,
-                                    exitOnFinish=exitOnFinish)
-    receiver.subscribe(jobId)
-    receiver.serve_forever()
 
 class _AbstractDisplay(xmlrpc.BasicXMLRPCStatusSubscriber):
     def __init__(self, client, showBuildLogs=True, out=None):
@@ -89,9 +86,6 @@ class _AbstractDisplay(xmlrpc.BasicXMLRPCStatusSubscriber):
     def _isFinished(self):
         return self.finished
 
-    def _primeOutput(self, client, jobId):
-        pass
-
     def close(self):
         self.erasePrompt()
         self.out.flush()
@@ -119,6 +113,8 @@ class JobLogDisplay(_AbstractDisplay):
 
     def updatePrompt(self):
         if self.troveToWatch:
+            if self.troveToWatch not in self.state.troves:
+                self.troveToWatch = self.state.troves[0]
             state = self.state.getTroveState(*self.troveToWatch)
             state = buildtrove._getStateName(state)
             name = self.troveToWatch[1][0].split(':', 1)[0] # remove :source
@@ -284,7 +280,7 @@ class DisplayState(xmlrpc.BasicXMLRPCStatusSubscriber):
         self.client = client
         self.jobState = None
 
-    def subscribe(self, jobId):
+    def _primeOutput(self, jobId):
         assert(not self.jobId)
         self.jobId = jobId
         job = self.client.getJob(jobId, withTroves=False)
@@ -328,7 +324,8 @@ class DisplayState(xmlrpc.BasicXMLRPCStatusSubscriber):
 
     def getBuildingTroves(self):
         return [ x[0] for x in self.states.iteritems()
-                 if x[1] in (buildtrove.TROVE_STATE_BUILDING, buildtrove.TROVE_STATE_RESOLVING) ]
+                 if x[1] in (buildtrove.TROVE_STATE_BUILDING, 
+                             buildtrove.TROVE_STATE_RESOLVING) ]
 
     def updateTrovesForJob(self, jobId):
         self.troves = []
@@ -340,7 +337,10 @@ class DisplayState(xmlrpc.BasicXMLRPCStatusSubscriber):
         self.troves.sort()
 
     def _troveStateUpdated(self, (jobId, troveTuple), state, status):
-        self.states[jobId, troveTuple] = state
+        if (jobId, troveTuple) not in self.states:
+            self.updateTrovesForJob(jobId)
+        else:
+            self.states[jobId, troveTuple] = state
 
     def _jobStateUpdated(self, jobId, state, status):
         self.jobState = state
@@ -357,7 +357,7 @@ class DisplayManager(object):
     displayClass = JobLogDisplay
     stateClass = DisplayState
 
-    def __init__(self, client, showBuildLogs, out=None):
+    def __init__(self, client, showBuildLogs, out=None, exitOnFinish=None):
         self.termInfo = set_raw_mode()
         if out is None:
             out = open('/dev/tty', 'w')
@@ -367,6 +367,31 @@ class DisplayManager(object):
         self.troveToWatch = None
         self.troveIndex = 0
         self.showBuildLogs = showBuildLogs
+        if exitOnFinish is None:
+            exitOnFinish = False
+        self.exitOnFinish = exitOnFinish
+
+    def _receiveEvents(self, *args, **kw):
+        methodname = '_receiveEvents'
+        method = getattr(self.state, methodname, None)
+        if method:
+            try:
+                method(*args)
+            except errors.uncatchableExceptions:
+                raise
+            except Exception, err:
+                print 'Error in handler: %s\n%s' % (err,
+                                                    traceback.format_exc())
+        method = getattr(self.display, methodname, None)
+        if method:
+            try:
+                method(*args)
+            except errors.uncatchableExceptions:
+                raise
+            except Exception, err:
+                print 'Error in handler: %s\n%s' % (err,
+                                                    traceback.format_exc())
+        return ''
 
     def getCurrentTrove(self):
         if self.state.troves:
@@ -374,11 +399,12 @@ class DisplayManager(object):
         else:
             return None
 
-    def subscribe(self, jobId):
-        self.state.subscribe(jobId)
+    def _primeOutput(self, jobId):
+        self.state._primeOutput(jobId)
         self.display._msg('Watching job %s' % jobId)
         if self.getCurrentTrove():
             self.displayTrove(*self.getCurrentTrove())
+
 
     def displayTrove(self, jobId, troveTuple):
         self.display.setTroveToWatch(jobId, troveTuple)
@@ -537,6 +563,9 @@ class DisplayManager(object):
     def _isFinished(self):
         return self.display._isFinished()
 
+    def _shouldExit(self):
+        return self._isFinished() and self.exitOnFinish
+
     def close(self):
         self.display.close()
         restore_terminal(*self.termInfo)
@@ -546,108 +575,4 @@ class DisplayManager(object):
             responseHandler.sendError(NoSuchMethodError(methodname))
         else:
             responseHandler.sendResponse('')
-            # call display method
-            method = getattr(self.state, methodname, None)
-            if method:
-                try:
-                    method(*args)
-                except errors.uncatchableExceptions:
-                    raise
-                except Exception, err:
-                    print 'Error in handler: %s\n%s' % (err,
-                                                        traceback.format_exc())
-            method = getattr(self.display, methodname, None)
-            if method:
-                try:
-                    method(*args)
-                except errors.uncatchableExceptions:
-                    raise
-                except Exception, err:
-                    print 'Error in handler: %s\n%s' % (err,
-                                                        traceback.format_exc())
-            return ''
-
-
-class XMLRPCJobLogReceiver(object):
-
-    def __init__(self, uri=None, client=None,
-                 displayManagerClass=DisplayManager,
-                 showTroveLogs=False, showBuildLogs=False, out=None,
-                 exitOnFinish=False):
-        self.client = client
-        self.showTroveLogs = showTroveLogs
-        self.showBuildLogs = showBuildLogs
-        self.exitOnFinish = exitOnFinish
-        serverObj = None
-
-        if uri:
-            if isinstance(uri, str):
-                import urllib
-                type, url = urllib.splittype(uri)
-                if type == 'unix':
-                    util.removeIfExists(url)
-                    serverObj = rpclib.UnixDomainDelayableXMLRPCServer(url,
-                                                       logRequests=False)
-                elif type == 'http':
-                    # path is ignored with simple server.
-                    host, path = urllib.splithost(url)
-                    if ':' in host:
-                        host, port = urllib.splitport(host)
-                        port = int(port)
-                    else:
-                        port = 0
-                    serverObj = rpclib.DelayableXMLRPCServer(('', port))
-                    if not port:
-                        uri = '%s://%s:%s' % (type, host,
-                                                   serverObj.getPort())
-                else:
-                    raise NotImplmentedError
-            else:
-                serverObj = uri
-
-        self.server = serverObj
-        self.manager = displayManagerClass(self.client,
-                                           showBuildLogs=showBuildLogs, 
-                                           out=out)
-
-        self.uri = uri
-        if serverObj:
-            serverObj.register_instance(self.manager)
-
-    def subscribe(self, jobId):
-        subscriber = subscribers.SubscriberFactory('monitor_', 'xmlrpc',
-                                                   self.uri)
-        subscriber.watchEvent('JOB_STATE_UPDATED')
-        subscriber.watchEvent('JOB_LOG_UPDATED')
-        subscriber.watchEvent('JOB_TROVES_SET')
-        if self.showTroveLogs:
-            subscriber.watchEvent('TROVE_STATE_UPDATED')
-            subscriber.watchEvent('TROVE_LOG_UPDATED')
-            subscriber.watchEvent('TROVE_PREPARING_CHROOT')
-        self.jobId = jobId
-        self.subscriber = subscriber
-        self.client.subscribe(jobId, subscriber)
-        self.manager.subscribe(jobId)
-
-    def serve_forever(self):
-        try:
-            while True:
-                self.handleRequestIfReady(.1)
-                self._serveLoopHook()
-                if self.exitOnFinish and self.manager._isFinished():
-                    break
-        finally:
-            self.manager.close()
-            self.unsubscribe()
-
-    def handleRequestIfReady(self, sleepTime=0.1):
-        ready, _, _ = select.select([self.server], [], [], sleepTime)
-        if ready:
-            self.server.handle_request()
-
-    def _serveLoopHook(self):
-        self.manager._serveLoopHook()
-
-    def unsubscribe(self):
-        if self.client:
-            self.client.unsubscribe(self.subscriber.subscriberId)
+            self._receiveEvents(*args)

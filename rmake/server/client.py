@@ -1,11 +1,16 @@
 #
 # Copyright (c) 2006-2007 rPath, Inc.  All rights reserved.
 #
+import select
 import time
+import urllib
 
+from conary.lib import util
+
+from rmake import subscribers
 from rmake.build import buildjob
 from rmake.build import buildtrove
-from rmake.lib import apirpc
+from rmake.lib import apirpc, rpclib, localrpc
 from rmake.lib.apiutils import thaw, freeze
 
 from rmake.server import server
@@ -300,3 +305,95 @@ class rMakeClient(object):
         if conaryProxy:
             cfg.conaryProxy['http'] = conaryProxy
             cfg.conaryProxy['https'] = conaryProxy
+
+    def listenToEvents(self, uri, jobId, listener, showTroveDetails=False,
+                       serve=True):
+        receiver = XMLRPCJobLogReceiver(listener, uri, self,
+                                        showTroveDetails=showTroveDetails)
+        if serve:
+            receiver.subscribe(jobId)
+            receiver.serve_forever()
+        return receiver
+
+class XMLRPCJobLogReceiver(object):
+    def __init__(self, listener, uri=None, client=None,
+                 showTroveDetails=False):
+        self.uri = uri
+        self.client = client
+        self.showTroveDetails = showTroveDetails
+        self.listener = listener
+        serverObj = None
+
+        if uri:
+            if isinstance(uri, str):
+                type, url = urllib.splittype(uri)
+                if type == 'unix':
+                    util.removeIfExists(url)
+                    serverObj = rpclib.UnixDomainDelayableXMLRPCServer(url,
+                                                       logRequests=False)
+                elif type in ('http', 'https'):
+                    # path is ignored with simple server.
+                    host, path = urllib.splithost(url)
+                    if ':' in host:
+                        host, port = urllib.splitport(host)
+                        port = int(port)
+                    else:
+                        port = 0
+                    serverObj = rpclib.DelayableXMLRPCServer(('', port))
+                    if not port:
+                        uri = '%s://%s:%s' % (type, host,
+                                                   serverObj.getPort())
+                else:
+                    raise NotImplmentedError
+            else:
+                serverObj = uri
+        self.uri = uri
+        self.server = serverObj
+
+        if serverObj:
+            serverObj.register_instance(listener)
+
+    def subscribe(self, jobId):
+        subscriber = subscribers.SubscriberFactory('monitor_', 'xmlrpc', self.uri)
+        subscriber.watchEvent('JOB_STATE_UPDATED')
+        subscriber.watchEvent('JOB_LOG_UPDATED')
+        if self.showTroveDetails:
+            subscriber.watchEvent('TROVE_STATE_UPDATED')
+            subscriber.watchEvent('TROVE_LOG_UPDATED')
+            subscriber.watchEvent('TROVE_PREPARING_CHROOT')
+        self.jobId = jobId
+        self.subscriber = subscriber
+        self.client.subscribe(jobId, subscriber)
+        self.listener._primeOutput(self.jobId)
+
+    def serve_forever(self):
+        try:
+            while True:
+                self.handleRequestIfReady(1)
+                self._serveLoopHook()
+                if self.listener._shouldExit():
+                    break
+        finally:
+            self.unsubscribe()
+
+    def handleRequestIfReady(self, sleepTime=0.1):
+        ready, _, _ = select.select([self.server], [], [], sleepTime)
+        if ready:
+            self.server.handle_request()
+
+    def _serveLoopHook(self):
+        self.listener._serveLoopHook()
+
+    def unsubscribe(self):
+        self.listener.close()
+        if self.client:
+            self.client.unsubscribe(self.subscriber.subscriberId)
+
+    def _dispatch(self, methodname, (callData, responseHandler, args)):
+        if methodname.startswith('_'):
+            raise NoSuchMethodError(methodname)
+        else:
+            rv = getattr(self.listener, methodname)(*args)
+            if rv is None:
+                rv = ''
+            responseHandler.sendResponse(rv)
