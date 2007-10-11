@@ -29,6 +29,9 @@ Changes in 1.0.12:
        with it (RMK-642)
      * deleting a job that was once restarted job will no longer
        result in a traceback when restarting the child job. (RMK-644)
+     * rMake correctly recognizes when a binary doesn't need to be committed
+       on restart (because another binary from that job conflicted with it
+       and was committed). (RMK-643)
 
 Changes in 1.0.11.1:
   o Bug Fixes:

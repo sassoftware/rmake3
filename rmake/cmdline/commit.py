@@ -102,6 +102,8 @@ def commitJobs(conaryclient, jobList, reposName, message=None,
             continue
         if builtTroves[0][1].getHost() != reposName:
             alreadyCommitted = True
+            for n,v,f in builtTroves:
+                trovesByNBF[n, v.branch(), f] = (trove, v)
             continue
 
         troveVersion = trove.getVersion()
@@ -127,6 +129,10 @@ def commitJobs(conaryclient, jobList, reposName, message=None,
             # we can tell what commit resulted in what binaries.
             nbf = (troveTup[0], targetBranch, troveTup[2])
             if nbf in trovesByNBF:
+                otherBinary = trovesByNBF[nbf][0].getBinaryTroves()[0]
+                if otherBinary[1].branch() == targetBranch:
+                    # this one's already committed.
+                    break
                 # discard the later of the two commits.
                 if trovesByNBF[nbf][0].getVersion() > trove.getVersion():
                     # we're the earlier one
@@ -162,7 +168,8 @@ def commitJobs(conaryclient, jobList, reposName, message=None,
             branchMap[branch] = targetBranch
 
     for nbf, (trove, tupVersion) in trovesByNBF.items():
-        trovesToClone.append((nbf[0], tupVersion, nbf[2]))
+        if tupVersion.branch() != nbf[1]:
+            trovesToClone.append((nbf[0], tupVersion, nbf[2]))
 
     if not trovesToClone:
         if sourceOnly:
