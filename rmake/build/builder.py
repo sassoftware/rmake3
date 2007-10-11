@@ -236,7 +236,7 @@ class Builder(object):
                     continue
                 toBuild = trovesByNVF.pop(trove.getNameVersionFlavor(), None)
                 if toBuild:
-                    buildReqs = None
+                    buildReqs = False
                     binaries = trove.getBinaryTroves()
                     for troveTup in binaries:
                         if ':' not in troveTup[0]:
@@ -244,7 +244,7 @@ class Builder(object):
                                                       *troveTup)
                             buildReqs = trv.getBuildRequirements()
                             break
-                    if not buildReqs:
+                    if buildReqs is False:
                         continue
                     oldCfg = trove.getConfig()
                     newCfg = toBuild.getConfig()
