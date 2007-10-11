@@ -351,7 +351,7 @@ class XMLRPCJobLogReceiver(object):
         self.server = serverObj
 
         if serverObj:
-            serverObj.register_instance(listener)
+            serverObj.register_instance(self.listener)
 
     def subscribe(self, jobId):
         subscriber = subscribers.SubscriberFactory('monitor_', 'xmlrpc', self.uri)
@@ -388,12 +388,3 @@ class XMLRPCJobLogReceiver(object):
         self.listener.close()
         if self.client:
             self.client.unsubscribe(self.subscriber.subscriberId)
-
-    def _dispatch(self, methodname, (callData, responseHandler, args)):
-        if methodname.startswith('_'):
-            raise NoSuchMethodError(methodname)
-        else:
-            rv = getattr(self.listener, methodname)(*args)
-            if rv is None:
-                rv = ''
-            responseHandler.sendResponse(rv)

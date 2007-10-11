@@ -97,6 +97,13 @@ class _AbstractDisplay(xmlrpc.BasicXMLRPCStatusSubscriber):
         if job.isFinished():
             self._setFinished()
 
+    def _dispatch(self, methodname, (callData, responseHandler, args)):
+        if methodname.startswith('_'):
+            raise NoSuchMethodError(methodname)
+        else:
+            responseHandler.sendResponse('')
+            getattr(self, methodname)(*args)
+
 class SilentDisplay(_AbstractDisplay):
     pass
 
@@ -186,10 +193,3 @@ class JobLogDisplay(_AbstractDisplay):
             self._tailBuildLog(jobId, troveTuple)
 
         _AbstractDisplay._primeOutput(self, jobId)
-
-    def _dispatch(self, methodname, (callData, responseHandler, args)):
-        if methodname.startswith('_'):
-            raise NoSuchMethodError(methodname)
-        else:
-            responseHandler.sendResponse('')
-            getattr(self, methodname)(*args)
