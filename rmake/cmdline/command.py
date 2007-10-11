@@ -668,13 +668,19 @@ class ChrootCommand(rMakeCommand):
 
     def runCommand(self, client, cfg, argSet, args):
         command, jobId, troveSpec = self.requireParameters(args,
-                                                        ['jobId', 'troveName'])
+                                                        ['jobId'],
+                                                        allowExtra=True,
+                                                        maxExtra=1)
         superUser = argSet.pop('super', False)
         path = argSet.pop('path', None)
         if path:
             chrootHost, chrootPath = self._getChroot(path)
         else:
             chrootHost = chrootPath = None
+        if not troveSpec:
+            troveSpec = None
+        else:
+            troveSpec = troveSpec[0]
         client.startChrootSession(jobId, troveSpec, ['/bin/bash', '-l'],
                                   superUser=superUser,
                                   chrootHost=chrootHost,

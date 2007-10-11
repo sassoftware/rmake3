@@ -6,6 +6,8 @@ Changes in 1.0.12:
        command.  This will allow you to update configuration values from
        the old rmake build with the current values in your configuration files.
        (RMK-619)
+     * rmake chroot will now work only the jobId specified if there is only
+       one trove in the job.
   o Bug Fixes:
      * Build logs no longer accumulate after restarts. (RMK-628)
      * loadInstalled lines do not create cross-arch buildreq dependencies
