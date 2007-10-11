@@ -23,6 +23,10 @@ Changes in 1.0.12:
        can run. (RMK-635, RMK-547)
      * Don't recommit troves that were committed in earlier jobs (after
        a restart) (RMK-637)
+     * rmake chroot --super now works again without having to modify the 
+       root first (RMK-641)
+     * The checkout in the chroot no longer has a context associated
+       with it (RMK-642)
 
 Changes in 1.0.11.1:
   o Bug Fixes:

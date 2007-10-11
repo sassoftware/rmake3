@@ -82,10 +82,12 @@ class ChrootServer(apirpc.XMLApiServer):
         checkoutPath = '%s/%s-checkout' % (workDir, troveName)
 
         util.mkdirChain(workDir)
-        os.chmod(workDir, 0770)
+        # make sure we don't set the context during checkout, as
+        # the context doesn't exist at this point.
+        buildCfg.context = None
         checkin.checkout(repos, buildCfg, checkoutPath,
                          ['%s=%s' % (troveName, troveVersion)])
-        os.chmod(checkoutPath, 0770)
+        os.chmod(checkoutPath, 0775)
 
     @api(version=1)
     @api_parameters(1, 'BuildConfiguration', 'label',

@@ -57,7 +57,8 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
             self.addDir('%s/usr/lib' % self.sysroot)
 
     def moveOldRoot(self, oldRoot, newRoot):
-        self.logger.info('Moving root from %s to %s for reuse')
+        self.logger.info('Moving root from %s to %s for reuse' % (oldRoot,
+                                                                  newRoot))
         if os.path.exists(newRoot):
             self.logger.warning('Root already exists at %s - cannot move old root to that spot')
             return False
