@@ -86,9 +86,20 @@ class _AbstractDisplay(xmlrpc.BasicXMLRPCStatusSubscriber):
     def _isFinished(self):
         return self.finished
 
-    def close(self):
-        self.erasePrompt()
-        self.out.flush()
+    def _shouldExit(self):
+        return self._isFinished() and self.exitOnFinish
+
+    def _primeOutput(self, jobId):
+        job = self.client.getJob(jobId, withTroves=False)
+        if job.isFinished():
+            self._setFinished()
+
+    def _dispatch(self, methodname, (callData, responseHandler, args)):
+        if methodname.startswith('_'):
+            raise NoSuchMethodError(methodname)
+        else:
+            responseHandler.sendResponse('')
+            getattr(self, methodname)(*args)
 
 class SilentDisplay(_AbstractDisplay):
     def _updateBuildLog(self):
@@ -569,10 +580,3 @@ class DisplayManager(object):
     def close(self):
         self.display.close()
         restore_terminal(*self.termInfo)
-
-    def _dispatch(self, methodname, (auth, responseHandler, args)):
-        if methodname.startswith('_'):
-            responseHandler.sendError(NoSuchMethodError(methodname))
-        else:
-            responseHandler.sendResponse('')
-            self._receiveEvents(*args)
