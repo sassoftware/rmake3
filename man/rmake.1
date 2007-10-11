@@ -286,10 +286,11 @@ Archives the given chroot so that it will not be overwritten by a future build.
 The chroot is moved to a separate directory.  After archiving, the chroot can be accessed by "rmake chroot archive/<newName>"
 .RE
 .TP 4
-.B chroot \fI<jobId>\fP \fI<trove>\fP
+.B chroot \fI<jobId>\fP \fI[<trove>]\fP
 Enters the chroot specified by \fI<jobId>\fP and \fI<trove>\fP as the
 rmake-chroot user and runs "sh", allowing you to execute commands in the
-chroot as the build process did.
+chroot as the build process did.  If you do not specify the trove, rMake will
+find the trove automatically if there's only one trove in the job.
 .RS 4
 .TP 4
 .B \-\-super
