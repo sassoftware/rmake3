@@ -27,6 +27,8 @@ Changes in 1.0.12:
        root first (RMK-641)
      * The checkout in the chroot no longer has a context associated
        with it (RMK-642)
+     * deleting a job that was once restarted job will no longer
+       result in a traceback when restarting the child job. (RMK-644)
 
 Changes in 1.0.11.1:
   o Bug Fixes:

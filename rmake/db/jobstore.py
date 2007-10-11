@@ -362,6 +362,8 @@ class JobStore(object):
             for table in ['Jobs', 'JobConfig', 'Subscriber', 'BuildTroves',
                           'StateLogs', 'JobQueue' ]:
                 cu.execute('DELETE FROM %s WHERE jobId=?' % table, jobId)
+            cu.execute('''DELETE FROM JobConfig
+                          WHERE key="jobContext" AND value=?''', jobId)
         return troveList
 
     def addJobConfig(self, jobId, context, jobConfig):
