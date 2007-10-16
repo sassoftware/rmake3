@@ -108,8 +108,6 @@ class ChrootQueue(object):
             If goodRootsOnly is True, be more discerning about which chroot
             to use - only use ones that have more than half matching packages.
         """
-	import epdb
-	epdb.st()
         if not reuseRoot:
             for chroot in self.listOldChroots():
                 # return oldest directory
