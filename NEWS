@@ -8,6 +8,12 @@ Changes in 1.0.12:
        (RMK-619)
      * rmake chroot will now work only the jobId specified if there is only
        one trove in the job.
+  o Build Changes:
+     * If a built trove not on your installLabelPath for a trove is available
+       and a resolveTrove that is on your installLabelPath is available, 
+       dep resolution will now prefer the resolve trove.  Similarly, rmake
+       will prefer a resolveTrove that is on your ILP versus one that is not.
+       (RMK-647)
   o Bug Fixes:
      * Build logs no longer accumulate after restarts. (RMK-628)
      * loadInstalled lines do not create cross-arch buildreq dependencies

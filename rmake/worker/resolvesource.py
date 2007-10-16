@@ -400,7 +400,6 @@ class ResolutionMesh(resolve.BasicResolutionMethod):
 
         return self._selectMatchingResolutionTrove(requiredBy, dep,
                                                    depClass, flavoredList)
-
     def _selectMatchingResolutionTrove(self, requiredBy, dep, depClass,
                                        flavoredList):
         # this function should be an exact match of
@@ -433,6 +432,13 @@ class ResolutionMesh(resolve.BasicResolutionMethod):
         else:
             # highest score, then latest timestamp, then name.
             return scoredList[-1][-1]
+
+    if hasattr(resolve.BasicResolutionMethod,
+               '_selectMatchingResolutionTrove'):
+        selectResolutionTrove = resolve.BasicResolutionMethod.selectResolutionTrove
+        _selectMatchingResolutionTrove = resolve.BasicResolutionMethod._selectMatchingResolutionTrove
+
+
 
 class rMakeResolveSource(ResolutionMesh):
     """ 
@@ -540,17 +546,38 @@ class rMakeResolveSource(ResolutionMesh):
         builtTroves = []
         resolveTroves = []
         newList = flavoredList
+        ilp = self.cfg.installLabelPath
         for installFlavor, troveTup in flavoredList:
             if self.extraMethod.troveSource.hasTrove(*troveTup):
-                builtTroves.append((installFlavor, troveTup))
-            elif (self.resolveTroveSource 
+                label = troveTup[1].branch().parentBranch().label()
+                list = builtTroves
+            elif (self.resolveTroveSource
                   and self.resolveTroveSource.hasTrove(*troveTup)):
-                resolveTroves.append((installFlavor, troveTup))
 
-        if builtTroves:
-            newList = builtTroves
-        elif resolveTroves:
-            newList = resolveTroves
+                list = resolveTroves
+                label = troveTup[1].trailingLabel()
+            else:
+                continue
+
+            if label in ilp:
+                index = ilp.index(label)
+            else:
+                index = len(ilp)
+            list.append((index, (installFlavor, troveTup)))
+
+        if builtTroves or resolveTroves:
+            minBuiltIndex = minResolveIndex = len(ilp) + 1
+            if builtTroves:
+                minBuiltIndex = sorted(builtTroves, key=lambda x: x[0])[0][0]
+            if resolveTroves:
+                minResolveIndex = sorted(resolveTroves,
+                                         key=lambda x: x[0])[0][0]
+            if minBuiltIndex <= minResolveIndex:
+                newList = builtTroves
+            else:
+                newList = resolveTroves
+            minIndex = min(minResolveIndex, minBuiltIndex)
+            newList = [ x[1] for x in newList if x[0] == minIndex ]
         return ResolutionMesh._selectMatchingResolutionTrove(self, requiredBy,
                                                              dep,
                                                              depClass, newList)
