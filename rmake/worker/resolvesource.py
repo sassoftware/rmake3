@@ -158,7 +158,7 @@ class TroveSourceMesh(trovesource.SearchableTroveSource):
         if getLeaves is not None:
             kw.update(getLeaves=getLeaves)
 
-        for source in self.sources[:1]:
+        for source in self.sources:
             if source == self.repos:
                 # we need the labelPath for repos, otherwise
                 # we allow other algorithms to determine which 
