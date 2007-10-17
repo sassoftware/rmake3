@@ -34,7 +34,6 @@ def monitorJob(client, jobId, showTroveDetails=False, showBuildLogs=False,
     try:
         display = displayClass(client, showBuildLogs=showBuildLogs, out=out,
                                exitOnFinish=exitOnFinish)
-        display._primeOutput(jobId)
         client = client.listenToEvents(uri, jobId, display,
                                        showTroveDetails=showTroveDetails,
                                        serve=serve)
@@ -97,12 +96,7 @@ class _AbstractDisplay(xmlrpc.BasicXMLRPCStatusSubscriber):
         if job.isFinished():
             self._setFinished()
 
-    def _dispatch(self, methodname, (callData, responseHandler, args)):
-        if methodname.startswith('_'):
-            raise NoSuchMethodError(methodname)
-        else:
-            responseHandler.sendResponse('')
-            getattr(self, methodname)(*args)
+
 
 class SilentDisplay(_AbstractDisplay):
     pass

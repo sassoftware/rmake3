@@ -69,6 +69,10 @@ class _AbstractDisplay(xmlrpc.BasicXMLRPCStatusSubscriber):
         self.troveDislay = False
         self.out = OutBuffer(out)
 
+    def close(self):
+        pass
+
+
     def _msg(self, msg, *args):
         self.out.write('\r[%s] %s\n' % (time.strftime('%X'), msg))
         self.out.write('(h for help)>')
@@ -292,7 +296,7 @@ class DisplayState(xmlrpc.BasicXMLRPCStatusSubscriber):
         self.jobState = None
 
     def _primeOutput(self, jobId):
-        assert(not self.jobId)
+        #assert(not self.jobId)
         self.jobId = jobId
         job = self.client.getJob(jobId, withTroves=False)
         self.jobState = job.state
@@ -363,7 +367,7 @@ class DisplayState(xmlrpc.BasicXMLRPCStatusSubscriber):
         return self.jobState in (
                     buildjob.JOB_STATE_FAILED, buildjob.JOB_STATE_BUILT)
 
-class DisplayManager(object):
+class DisplayManager(xmlrpc.BasicXMLRPCStatusSubscriber):
 
     displayClass = JobLogDisplay
     stateClass = DisplayState

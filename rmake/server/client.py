@@ -351,7 +351,14 @@ class XMLRPCJobLogReceiver(object):
         self.server = serverObj
 
         if serverObj:
-            serverObj.register_instance(self.listener)
+            serverObj.register_instance(self)
+
+    def _dispatch(self, methodname, (callData, responseHandler, args)):
+        if methodname.startswith('_'):
+            raise NoSuchMethodError(methodname)
+        else:
+            responseHandler.sendResponse('')
+            getattr(self.listener, methodname)(*args)
 
     def subscribe(self, jobId):
         subscriber = subscribers.SubscriberFactory('monitor_', 'xmlrpc', self.uri)
