@@ -158,18 +158,23 @@ class TroveSourceMesh(trovesource.SearchableTroveSource):
         if getLeaves is not None:
             kw.update(getLeaves=getLeaves)
 
-        for source in self.sources:
-            # FIXME: it should be possible to reuse the trove finder
-            # but the bestFlavr and getLeaves data changes per source
-            # and is passed into several TroveFinder sub objects.  
-            # TroveFinder should be cleaned up
-            foundTroves = source.findTroves(labelPath, troveSpecs, 
+        for source in self.sources[:1]:
+            if source == self.repos:
+                # we need the labelPath for repos, otherwise
+                # we allow other algorithms to determine which 
+                # version of a particular trove to use - the same ones
+                # used during dep resolution.  Sometimes this will not 
+                # be a package on the ILP.
+                searchLabelPath = labelPath
+            else:
+                searchLabelPath = None
+            foundTroves = source.findTroves(searchLabelPath, troveSpecs,
                                             defaultFlavor=defaultFlavor,
                                             acrossLabels=acrossLabels,
                                             acrossFlavors=acrossFlavors,
                                             affinityDatabase=affinityDatabase,
                                             troveTypes=troveTypes,
-                                            exactFlavors=exactFlavors, 
+                                            exactFlavors=exactFlavors,
                                             allowMissing=True,
                                             **kw)
             for troveSpec, troveTups in foundTroves.iteritems():

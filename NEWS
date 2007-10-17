@@ -38,6 +38,12 @@ Changes in 1.0.12:
      * rMake correctly recognizes when a binary doesn't need to be committed
        on restart (because another binary from that job conflicted with it
        and was committed). (RMK-643)
+     * Building two related packages would not find the first of the two
+       as available to resolve a build requirement unless it happened to 
+       be on the installLabelPath.  This doesn't fit with the model of  
+       development where packages are first built on to <id>-devel and then
+       later promoted to devel, so now rmake can find previously built packages
+       from other locations. (RMK-649)
 
 Changes in 1.0.11.1:
   o Bug Fixes:
