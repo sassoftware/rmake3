@@ -551,7 +551,8 @@ class rMakeResolveSource(ResolutionMesh):
         builtTroves = []
         resolveTroves = []
         newList = flavoredList
-        minResolveIdx = len(self.resolveTroveSource.sources)
+        if self.resolveTroveSource:
+            minResolveIdx = len(self.resolveTroveSource.sources)
         ilp = self.cfg.installLabelPath
         for installFlavor, troveTup in flavoredList:
             if self.extraMethod.troveSource.hasTrove(*troveTup):
