@@ -551,6 +551,7 @@ class rMakeResolveSource(ResolutionMesh):
         builtTroves = []
         resolveTroves = []
         newList = flavoredList
+        minResolveIdx = len(self.resolveTroveSource.sources)
         ilp = self.cfg.installLabelPath
         for installFlavor, troveTup in flavoredList:
             if self.extraMethod.troveSource.hasTrove(*troveTup):
@@ -558,7 +559,19 @@ class rMakeResolveSource(ResolutionMesh):
                 list = builtTroves
             elif (self.resolveTroveSource
                   and self.resolveTroveSource.hasTrove(*troveTup)):
-
+                # if a package is both in the resolveTroves list
+                # and found via ILP, it might be in this list even
+                # though it was not found via resolveTroves.  So we
+                # limit results to ones found as early as possible
+                # in the resolveTroves list
+                for resolveIdx, source in enumerate(self.resolveTroveSource.sources):
+                    if source.hasTrove(*troveTup):
+                        if resolveIdx < minResolveIdx:
+                            resolveTroves = []
+                            minResolveIdx = resolveIdx
+                        break
+                if resolveIdx > minResolveIdx:
+                    continue
                 list = resolveTroves
                 label = troveTup[1].trailingLabel()
             else:

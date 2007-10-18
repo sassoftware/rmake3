@@ -324,7 +324,7 @@ def _findBestSolution(trove, (name, versionSpec, flavorSpec),
     # flavorSpec _should_ have been handled by findTroves.
     # However, in some cases it's not - for example, if two different
     # flavors of a trove are in the same group (glibc, e.g.).
-    affDict = dict.fromkeys(x[0] for x in solutions)
+    affDict = dict.fromkeys((x[0] for x in solutions), [])
     return resolveSource.selectResolutionTrove(trove, None, None,
                                                  solutions, None,
                                                  affDict)
