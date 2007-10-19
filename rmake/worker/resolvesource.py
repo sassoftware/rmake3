@@ -584,19 +584,12 @@ class rMakeResolveSource(ResolutionMesh):
                 index = len(ilp)
             list.append((index, (installFlavor, troveTup)))
 
-        if builtTroves or resolveTroves:
-            minBuiltIndex = minResolveIndex = len(ilp) + 1
-            if builtTroves:
-                minBuiltIndex = sorted(builtTroves, key=lambda x: x[0])[0][0]
-            if resolveTroves:
-                minResolveIndex = sorted(resolveTroves,
-                                         key=lambda x: x[0])[0][0]
-            if minBuiltIndex <= minResolveIndex:
-                newList = builtTroves
-            else:
-                newList = resolveTroves
-            minIndex = min(minResolveIndex, minBuiltIndex)
-            newList = [ x[1] for x in newList if x[0] == minIndex ]
+        if builtTroves:
+            minIndex = sorted(builtTroves, key=lambda x: x[0])[0][0]
+            newList = [ x[1] for x in builtTroves if x[0] == minIndex ]
+        elif resolveTroves:
+            minIndex = sorted(resolveTroves, key=lambda x: x[0])[0][0]
+            newList = [ x[1] for x in resolveTroves if x[0] == minIndex ]
         return ResolutionMesh._selectMatchingResolutionTrove(self, requiredBy,
                                                              dep,
                                                              depClass, newList)
