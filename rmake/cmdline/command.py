@@ -298,12 +298,17 @@ class RestartCommand(BuildCommand):
         argDef['update-config'] = MULT_PARAM
         argDef['no-update'] = NO_PARAM
         argDef['commit'] = NO_PARAM
+        argDef['info'] = NO_PARAM
+        argDef['quiet'] = NO_PARAM
         argDef['message'] = '-m', NO_PARAM
         argDef['no-watch'] = NO_PARAM
         rMakeCommand.addParameters(self, argDef)
 
     def runCommand(self, client, cfg, argSet, args):
-        log.setVerbosity(log.INFO)
+        if self.verbose:
+            log.setVerbosity(log.DEBUG)
+        else:
+            log.setVerbosity(log.INFO)
         command, jobId, troveSpecs = self.requireParameters(args, 'jobId', 
                                                             allowExtra=True)
         jobId = _getJobIdOrUUId(jobId)
@@ -311,6 +316,8 @@ class RestartCommand(BuildCommand):
         commit  = argSet.pop('commit', False)
         message  = argSet.pop('message', None)
         noUpdate = argSet.pop('no-update', False)
+        infoOnly  = argSet.pop('info', False)
+        infoOnly  = argSet.pop('quiet', False)
         updateConfigKeys = argSet.pop('update-config', None)
         if noUpdate:
             updateSpecs = ['-*']
@@ -322,13 +329,20 @@ class RestartCommand(BuildCommand):
         jobId = client.restartJob(jobId, troveSpecs,
                                   updateSpecs=updateSpecs,
                                   excludeSpecs=excludeSpecs,
-                                  updateConfigKeys=updateConfigKeys)
+                                  updateConfigKeys=updateConfigKeys,
+                                  infoOnly=infoOnly,
+                                  quiet=quiet)
+        if infoOnly:
+            return 0
         monitorJob = not argSet.pop('no-watch', False)
         if monitorJob:
-            if not client.watch(jobId, commit=commit,
-                                showTroveLogs=True,
-                                showBuildLogs=True,
-                                message=message):
+            if quiet:
+                if not client.waitForJob(jobId):
+                    return 1
+            elif not client.watch(jobId, commit=commit,
+                                  showTroveLogs=True,
+                                  showBuildLogs=True,
+                                  message=message):
                 return 1
         elif commit:
             if not client.commitJob(jobId, commitWithFailures=False,
