@@ -459,7 +459,7 @@ class rMakeHelper(object):
         if not troveSpec:
             troveTups = list(job.iterTroveList(True))
             if len(troveTups) > 1:
-                raise RmakeError('job has more than one trove in it, must specify trovespec to chroot into')
+                raise errors.RmakeError('job has more than one trove in it, must specify trovespec to chroot into')
 
         else:
             newTroveSpec = cmdutil.parseTroveSpec(troveSpec)
@@ -469,7 +469,7 @@ class rMakeHelper(object):
                 err = ['%s matches more than one trove:' % troveSpec]
                 for troveTup in troveTups:
                     err.append('  %s=%s[%s]{%s}' % troveTup)
-                raise RmakeError('\n'.join(err))
+                raise errors.RmakeError('\n'.join(err))
         troveTup = troveTups[0]
         chrootConnection = self.client.connectToChroot(jobId, troveTup,
                                                        command,
