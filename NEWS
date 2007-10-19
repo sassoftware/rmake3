@@ -8,6 +8,7 @@ Changes in 1.0.12:
        (RMK-619)
      * rmake chroot will now work only the jobId specified if there is only
        one trove in the job.
+     * Added --info support to rmake restart
   o Build Changes:
      * If a built trove not on your installLabelPath for a trove is available
        and a resolveTrove that is on your installLabelPath is available, 
