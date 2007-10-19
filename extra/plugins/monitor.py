@@ -72,7 +72,6 @@ class _AbstractDisplay(xmlrpc.BasicXMLRPCStatusSubscriber):
     def close(self):
         pass
 
-
     def _msg(self, msg, *args):
         self.out.write('\r[%s] %s\n' % (time.strftime('%X'), msg))
         self.out.write('(h for help)>')
@@ -120,6 +119,10 @@ class JobLogDisplay(_AbstractDisplay):
         self.lastLen = 0
         self.promptFormat = '%(jobId)s %(name)s%(context)s - %(state)s - (%(tailing)s) ([h]elp)>'
         self.updatePrompt()
+
+    def close(self):
+        self.out.write('\n')
+        self.out.flush()
 
     def _msg(self, msg, *args):
         self.erasePrompt()
