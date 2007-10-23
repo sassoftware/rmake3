@@ -109,6 +109,7 @@ class _AbstractBuildTrove:
         self.delayedRequirements = set()
         self.crossRequirements = set()
         self.builtTroves = set()
+        self.loadedTroves = []
         self.loadedSpecsList = [{}]
         self.packages = set([name.split(':')[0]])
         self.state = state
@@ -157,6 +158,12 @@ class _AbstractBuildTrove:
 
     def getLoadedSpecsList(self):
         return self.loadedSpecsList
+
+    def getLoadedTroves(self):
+        return self.loadedTroves
+
+    def setLoadedTroves(self, loadedTroves):
+        self.loadedTroves = loadedTroves
 
     def setLoadedSpecsList(self, loadedSpecsList):
         self.loadedSpecsList = [dict(x) for x in loadedSpecsList]

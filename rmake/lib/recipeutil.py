@@ -286,6 +286,7 @@ def loadSourceTroves(job, repos, buildFlavor, troveList,
                 buildTrove.setFlavor(relevantFlavor)
                 buildTrove.setRecipeType(recipeType)
                 buildTrove.setLoadedSpecs(_getLoadedSpecs(recipeObj))
+                buildTrove.setLoadedTroves(recipeObj.getLoadedTroves())
                 buildTrove.setDerivedPackages(getattr(recipeObj, 'packages',
                                                       [recipeObj.name]))
                 if 'delayedRequires' in recipeObj.__dict__:

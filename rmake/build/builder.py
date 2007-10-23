@@ -243,8 +243,11 @@ class Builder(object):
                             trv = self.repos.getTrove(withFiles=False,
                                                       *troveTup)
                             buildReqs = trv.getBuildRequirements()
+                            loadedReqs = trv.getLoadedTroves()
                             break
                     if buildReqs is False:
+                        continue
+                    if set(loadedReqs) != set(toBuild.getLoadedTroves()):
                         continue
                     oldCfg = trove.getConfig()
                     newCfg = toBuild.getConfig()
