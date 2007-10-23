@@ -317,7 +317,7 @@ class RestartCommand(BuildCommand):
         message  = argSet.pop('message', None)
         noUpdate = argSet.pop('no-update', False)
         infoOnly  = argSet.pop('info', False)
-        infoOnly  = argSet.pop('quiet', False)
+        quiet  = argSet.pop('quiet', False)
         updateConfigKeys = argSet.pop('update-config', None)
         if noUpdate:
             updateSpecs = ['-*']

@@ -126,7 +126,8 @@ class rMakeHelper(object):
 
 
     def restartJob(self, jobId, troveSpecs=None, updateSpecs=None,
-                   excludeSpecs=None, updateConfigKeys=None, infoOnly=False):
+                   excludeSpecs=None, updateConfigKeys=None, infoOnly=False,
+                   quiet=False):
         job = self.client.getJob(jobId, withConfigs=True)
         troveSpecList = []
         oldTroveDict = {}
@@ -181,7 +182,7 @@ class rMakeHelper(object):
                                 recurseGroups=recurseGroups,
                                 updateSpecs=updateSpecs,
                                 oldTroveDict=oldTroveDict,
-                                infoOnly=infoOnly)
+                                infoOnly=infoOnly, quiet=quiet)
 
     def buildTroves(self, troveSpecList,
                     limitToHosts=None, limitToLabels=None, recurseGroups=False,
