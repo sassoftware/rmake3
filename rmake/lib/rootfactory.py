@@ -37,7 +37,7 @@ class AbstractChroot(object):
 
     def clean(self, root, raiseError=True):
         """
-            Removes this root or any files in teh way of this root.
+            Removes this root or any files in the way of this root.
         """
         raise NotImplementedError
 
