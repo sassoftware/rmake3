@@ -512,7 +512,7 @@ class DependencyHandler(object):
             elif set(match.getBinaryTroves()) & set(troveList):
                 trove.troveFailed('Two versions of %s=%s[%s] were built at the same time but resulted in different components.  If these packages should have different flavors, then add flavor information to them.  Otherwise, try building only one of them.' % trove.getNameVersionFlavor())
                 return
-        trove.troveFailed('Package was committed at the same time as the same package was built in another job.  Make sure no one else is building the same packages as you, or that you didn\'t acidentally built the same package twice with the same flavor')
+        trove.troveFailed('Package was committed at the same time as the same package was built in another job.  Make sure no-one else is building the same packages as you, and that you didn\'t accidentally build the same package twice with the same flavor.')
 
     def moreToDo(self):
         return self.depState.moreToDo()
