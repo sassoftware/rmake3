@@ -1,8 +1,3 @@
-Changes in @NEW@:
-  o Build Changes:
-     * Changes to loaded superclasses also counts as grounds for rebuilding
-       a package on restart. (RMK-618)
-
 Changes in 1.0.12:
   o Client Changes:
      * User and entitlement information is no longer returned to clients on
@@ -20,6 +15,8 @@ Changes in 1.0.12:
        dep resolution will now prefer the resolve trove.  Similarly, rmake
        will prefer a resolveTrove that is on your ILP versus one that is not.
        (RMK-647)
+     * Changes to loaded superclasses also counts as grounds for rebuilding
+       a package on restart. (RMK-618)
   o Bug Fixes:
      * Build logs no longer accumulate after restarts. (RMK-628)
      * loadInstalled lines do not create cross-arch buildreq dependencies
@@ -50,6 +47,8 @@ Changes in 1.0.12:
        development where packages are first built on to <id>-devel and then
        later promoted to devel, so now rmake can find previously built packages
        from other locations. (RMK-649)
+     * Deleting a policy in a .recipe file and trying to build the recipe
+       with rMake no longer causes a traceback. (RMK-659)
 
 Changes in 1.0.11.1:
   o Bug Fixes:

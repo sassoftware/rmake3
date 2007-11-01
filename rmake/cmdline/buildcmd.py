@@ -410,6 +410,7 @@ def _getPathList(repos, cfg, recipePath):
                                 extraMacros=macros)
     if recipeObj:
         try:
+            recipeObj.loadPolicy()
             cook._callSetup(cfg, recipeObj)
         except (conaryerrors.ConaryError, conaryerrors.CvcError), msg:
             raise errors.RmakeError("could not initialize recipe: %s" % (msg))
