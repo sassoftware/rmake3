@@ -132,6 +132,7 @@ class RepositoryCache(object):
             # excluded
             t = trove.Trove(troveCs, skipIntegrityChecks = not withFiles)
             l.append(t)
+        self.fileCache.close()
         return l
 
     def resolveDependenciesByGroups(self, repos, groupTroves, depList):
