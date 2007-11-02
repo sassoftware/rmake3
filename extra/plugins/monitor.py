@@ -192,8 +192,12 @@ class JobLogDisplay(_AbstractDisplay):
         mark = self.getMark(jobId, troveTuple)
         if mark is None:
             return
-        moreData, data, mark = self.client.getTroveBuildLog(jobId, troveTuple,
-                                                            mark)
+        try:
+            moreData, data, mark = self.client.getTroveBuildLog(jobId,
+                                                                troveTuple,
+                                                                mark)
+        except:
+            return
         if data:
             self.erasePrompt()
             if data[0] == '\n':

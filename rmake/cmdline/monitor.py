@@ -124,9 +124,13 @@ class JobLogDisplay(_AbstractDisplay):
         for (jobId, troveTuple), (mark, tail) in self.buildingTroves.items():
             if not tail:
                 continue
-            moreData, data, mark = self.client.getTroveBuildLog(jobId,
-                                                                troveTuple,
-                                                                mark)
+            try:
+                moreData, data, mark = self.client.getTroveBuildLog(jobId,
+                                                                    troveTuple,
+                                                                    mark)
+            except:
+                moreData = True
+                data = ''
             self.out.write(data)
             if not moreData:
                 del self.buildingTroves[jobId, troveTuple]
