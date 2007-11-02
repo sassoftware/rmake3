@@ -56,7 +56,7 @@ class Builder(object):
         build.
         @type buildCfg: rmake.build.buildcfg.BuildConfiguration instance.
     """
-    def __init__(self, serverCfg, job, jobContext=None):
+    def __init__(self, serverCfg, job, jobContext=None, db=None):
         self.serverCfg = serverCfg
         self.buildCfg = job.getMainConfig()
         self.logger = BuildLogger(job.jobId,
@@ -66,6 +66,7 @@ class Builder(object):
         self.repos = self.getRepos()
         self.job = job
         self.jobId = job.jobId
+        self.db = db
         self.worker = worker.Worker(serverCfg, self.logger, serverCfg.slots)
         self.eventHandler = EventHandler(job, self.worker)
         if jobContext:
@@ -230,34 +231,47 @@ class Builder(object):
         for trove in buildTroves:
             trovesByNVF[trove.getNameVersionFlavor()] = trove
 
-        for job in reversed(jobContext): # go through last job first.
-            for trove in job.iterTroves():
-                if not trove.isBuilt():
-                    continue
-                toBuild = trovesByNVF.pop(trove.getNameVersionFlavor(), None)
+        for jobId in reversed(jobContext): # go through last job first.
+            needed = {}
+            configsNeeded = set()
+            if not trovesByNVF:
+                continue
+
+            builtState = buildtrove.TROVE_STATE_BUILT
+            for n,v,f,c in self.db.listTrovesByState(jobId,
+                                                     builtState)[builtState]:
+                toBuild = trovesByNVF.pop((n,v,f), False)
                 if toBuild:
-                    buildReqs = False
-                    binaries = trove.getBinaryTroves()
-                    for troveTup in binaries:
-                        if ':' not in troveTup[0]:
-                            trv = self.repos.getTrove(withFiles=False,
-                                                      *troveTup)
-                            buildReqs = trv.getBuildRequirements()
-                            loadedReqs = trv.getLoadedTroves()
-                            break
-                    if buildReqs is False:
-                        continue
-                    if set(loadedReqs) != set(toBuild.getLoadedTroves()):
-                        continue
-                    oldCfg = trove.getConfig()
-                    newCfg = toBuild.getConfig()
-                    fastRebuild = (oldCfg.resolveTrovesOnly
-                        and newCfg.resolveTrovesOnly
-                        and oldCfg.resolveTroveTups == newCfg.resolveTroveTups
-                        and oldCfg.flavor == newCfg.flavor)
-                    toBuild.trovePrebuilt(buildReqs, binaries,
-                                          trv.getBuildTime(), fastRebuild,
-                                          trove.logPath)
+                    needed[jobId, n,v,f,c] = toBuild
+                    configsNeeded.add(c)
+            if not needed:
+                continue
+            troveList = self.db.getTroves(needed)
+            configDict = dict((x, self.db.getConfig(jobId, x)) for x in 
+                            configsNeeded)
+            for trove, toBuild in zip(troveList, needed.values()):
+                buildReqs = False
+                binaries = trove.getBinaryTroves()
+                for troveTup in binaries:
+                    if ':' not in troveTup[0]:
+                        trv = self.repos.getTrove(withFiles=False,
+                                                  *troveTup)
+                        buildReqs = trv.getBuildRequirements()
+                        loadedReqs = trv.getLoadedTroves()
+                        break
+                if buildReqs is False:
+                    continue
+                if set(loadedReqs) != set(toBuild.getLoadedTroves()):
+                    continue
+                oldCfg = configDict[trove.getContext()]
+                newCfg = toBuild.getConfig()
+                fastRebuild = (oldCfg.resolveTrovesOnly
+                    and newCfg.resolveTrovesOnly
+                    and oldCfg.resolveTroveTups == newCfg.resolveTroveTups
+                    and oldCfg.flavor == newCfg.flavor)
+                toBuild.trovePrebuilt(buildReqs, binaries,
+                                      trv.getBuildTime(), fastRebuild,
+                                      trove.logPath)
 
     def _checkBuildSanity(self, buildTroves):
         def _isSolitaryTrove(trv):

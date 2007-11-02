@@ -182,6 +182,17 @@ class JobStore(object):
         finally:
             cu.execute("DROP TABLE tJobIdList", start_transaction = False)
 
+    def getConfig(self, jobId, context):
+        cu = self.db.cursor()
+        cu.execute("""SELECT  key, value
+                      FROM JobConfig WHERE jobId=? AND context=?
+                      ORDER by key, ord""", jobId, context)
+        frozenCfg = {}
+        for key, value in cu:
+            frozenCfg.setdefault(key, []).append(value)
+        cfg = thaw('BuildConfiguration', frozenCfg)
+        return cfg
+
     def _getTroveId(self, cu, jobId, name, version, flavor, context=''):
         cu.execute(
             '''

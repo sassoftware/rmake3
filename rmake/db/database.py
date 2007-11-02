@@ -148,6 +148,12 @@ class Database(DBInterface):
         except KeyError, err:
             raise errors.TroveNotFound(*err.args)
 
+    def getConfig(self, jobId, context=''):
+        try:
+            return self.jobStore.getConfig(jobId, context)
+        except KeyError, err:
+            raise errors.JobNotFound(err.args[0])
+
     def convertToJobId(self, jobIdOrUUId):
         return self.convertToJobIds([jobIdOrUUId])[0]
 

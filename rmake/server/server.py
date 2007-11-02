@@ -303,7 +303,7 @@ class rMakeServer(apirpc.XMLApiServer):
     # --- internal functions
 
     def getBuilder(self, job):
-        b = builder.Builder(self.cfg, job)
+        b = builder.Builder(self.cfg, job, db=self.db)
         self.plugins.callServerHook('server_builderInit', self, b)
         return b
 
@@ -412,10 +412,7 @@ class rMakeServer(apirpc.XMLApiServer):
                     buildCfg = job.getMainConfig()
 
                     if buildCfg.jobContext:
-                        jobs = self.db.getJobs(buildCfg.jobContext,
-                                               withTroves=True,
-                                               withConfigs=True)
-                        buildMgr.setJobContext(jobs)
+                        buildMgr.setJobContext(buildCfg.jobContext)
                     # don't do anything else in here, buildAndExit has 
                     # handling for ensuring that exceptions are handled 
                     # correctly.
