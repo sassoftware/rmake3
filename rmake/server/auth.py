@@ -6,11 +6,14 @@ from conary.repository.netrepos import netauth
 from rmake import errors
 
 class AuthenticationManager(object):
+
     def __init__(self, url, db):
         self.pwCheckUrl = url
         self.db = db
 
     def authCheck(self, user, challenge, ip='127.0.0.1'):
+        if self.db.auth.checkCache((user, challenge, ip)):
+            return True
         isValid = False
         if self.pwCheckUrl:
             if not user or not challenge:
@@ -37,5 +40,6 @@ No user given - check to make sure you've set rmakeUser config variable to match
         if not isValid:
             raise errors.InsufficientPermission("""\
 Access denied.  Make sure your rmakeUser configuration variable contains a user and password accepted by the rBuilder instance at %s""" % self.pwCheckUrl)
-        return isValid
-
+        else:
+            self.db.auth.cache((user, challenge, ip))
+            return True

@@ -318,6 +318,7 @@ class rMakeServer(apirpc.XMLApiServer):
 
     def _serveLoopHook(self):
         if not self._initialized and hasattr(self, 'worker'):
+            self.db.auth.resetCache()
             jobsToFail = self.db.getJobsByState(buildjob.JOB_STATE_STARTED)
             self._failCurrentJobs(jobsToFail, 'Server was stopped')
             self._initializeNodes()

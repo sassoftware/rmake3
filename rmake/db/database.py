@@ -9,6 +9,7 @@ from conary import dbstore
 
 from rmake import errors
 from rmake.build.subscriber import _JobDbLogger
+from rmake.db import authcache
 from rmake.db import schema
 from rmake.db import jobstore
 from rmake.db import logstore
@@ -81,6 +82,7 @@ class Database(DBInterface):
         db = self.open()
         DBInterface.__init__(self, db)
 
+        self.auth = authcache.AuthenticationCache(self)
         self.jobStore = jobstore.JobStore(self)
         self.logStore = logstore.LogStore(contentsPath + '/logs')
         self.jobQueue = jobstore.JobQueue(self)

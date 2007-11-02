@@ -8,7 +8,7 @@ from rmake import errors
 
 # NOTE: this schema is sqlite-specific
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 
 def createJobs(db):
     cu = db.cursor()
@@ -266,6 +266,21 @@ def createNodes(db):
         db.commit()
         db.loadSchema()
 
+def createAuthCache(db):
+    cu = db.cursor()
+    commit = False
+    if "AuthCache" not in db.tables:
+        cu.execute("""
+        CREATE TABLE AuthCache (
+            sessionId    VARCHAR PRIMARY KEY NOT NULL,
+            timeStamp    FLOAT NOT NULL
+        )""")
+        db.tables["AuthCache"] = []
+        commit = True
+    if commit:
+        db.commit()
+        db.loadSchema()
+
 def createPluginVersionTable(db):
     cu = db.cursor()
     commit = False
@@ -362,6 +377,7 @@ class SchemaManager(AbstractSchemaManager):
         createChroots(db)
         createNodes(db)
         createPluginVersionTable(db)
+        createAuthCache(db)
 
     def migrate(self, oldVersion, newVersion):
         Migrator(self.db, self).migrate(oldVersion, newVersion)
@@ -418,6 +434,10 @@ class Migrator(AbstractMigrator):
         self._addColumn('BuildTroves', "buildType",
                         "INTEGER NOT NULL DEFAULT 0")
         return 8
+
+    def migrateFrom8(self):
+        createAuthCache(self.db)
+        return 9
 
 
 

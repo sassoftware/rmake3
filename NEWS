@@ -9,6 +9,8 @@ Changes in 1.0.12:
      * rmake chroot will now work only the jobId specified if there is only
        one trove in the job.
      * Added --info support to rmake restart
+  o Server Changes:
+     * Added authentication cache (RMK-648)
   o Build Changes:
      * If a built trove not on your installLabelPath for a trove is available
        and a resolveTrove that is on your installLabelPath is available, 
@@ -49,6 +51,7 @@ Changes in 1.0.12:
        from other locations. (RMK-649)
      * Deleting a policy in a .recipe file and trying to build the recipe
        with rMake no longer causes a traceback. (RMK-659)
+     * Don't crash monitor if grabbing a piece of the log fails. (RMK-648)
 
 Changes in 1.0.11.1:
   o Bug Fixes:
