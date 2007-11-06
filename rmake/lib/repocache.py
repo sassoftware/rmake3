@@ -84,7 +84,7 @@ class RepositoryCache(object):
         self.store = DataStore(cacheDir)
         self.readOnly = readOnly
         self.depsOnly = depsOnly
-        self.fileCache = LazyFileCache(300)
+        self.fileCache = LazyFileCache(100)
 
     def hashGroupDeps(self, groupTroves, depClass, dependency):
         depSet = deps.DependencySet()
@@ -132,7 +132,6 @@ class RepositoryCache(object):
             # excluded
             t = trove.Trove(troveCs, skipIntegrityChecks = not withFiles)
             l.append(t)
-        self.fileCache.close()
         return l
 
     def resolveDependenciesByGroups(self, repos, groupTroves, depList):
