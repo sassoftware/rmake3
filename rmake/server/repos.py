@@ -237,7 +237,7 @@ def addUser(cfg, name, password=None, write=False):
         netRepos.auth.deleteUserByName(name)
 
     netRepos.auth.addUser(name, password)
-    netRepos.auth.addAcl(name, None, None, write, False, False)
+    netRepos.auth.addAcl(name, None, None, write, False)
 
 if __name__ == '__main__':
     sys.excepthook = util.genExcepthook()

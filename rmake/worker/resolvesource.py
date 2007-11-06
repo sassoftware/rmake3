@@ -301,12 +301,18 @@ class ResolutionMesh(resolve.BasicResolutionMethod):
         self.mainMethod = mainMethod
 
     def prepareForResolution(self, depList):
+        self.depList = [ x[1] for x in depList]
         self.extraMethod.prepareForResolution(depList)
         return self.mainMethod.prepareForResolution(depList)
 
     def resolveDependencies(self):
         suggMap = self.extraMethod.resolveDependencies()
         suggMap2 = self.mainMethod.resolveDependencies()
+        for depSet in self.depList:
+            if depSet not in suggMap:
+                suggMap[depSet] = [[] for x in depSet.iterDeps() ]
+            if depSet not in suggMap2:
+                suggMap2[depSet] = [[] for x in depSet.iterDeps() ]
         for depSet, results in suggMap.iteritems():
             finalResults = []
             mainResults = suggMap2[depSet]

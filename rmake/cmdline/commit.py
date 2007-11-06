@@ -201,8 +201,18 @@ def commitJobs(conaryclient, jobList, reposName, message=None,
                                         trackClone=False,
                                         callback=callback, fullRecurse=False)
     if passed:
+        oldTroves = []
         for troveCs in cs.iterNewTroveList():
-            trv = Trove(troveCs)
+            if troveCs.getOldVersion():
+                oldTroves.append(troveCs.getOldNameVersionFlavor())
+        if oldTroves:
+            oldTroves = dict(zip(oldTroves, repos.getTroves(oldTroves)))
+        for troveCs in cs.iterNewTroveList():
+            if troveCs.getOldVersion():
+                trv = oldTroves.pop(troveCs.getOldNameVersionFlavor())
+                trv.applyChangeSet(troveCs)
+            else:
+                trv = Trove(troveCs)
             for _, childVersion, _ in trv.iterTroveList(strongRefs=True,
                                                         weakRefs=True):
                 # make sure there are not 
@@ -216,9 +226,8 @@ def commitJobs(conaryclient, jobList, reposName, message=None,
     else:
         return False, 'Creating clone failed'
 
-    # Sign the troves if we have a signature key.
     signatureKey = conaryclient.cfg.signatureKey
-    if signatureKey:
+    if signatureKey and compat.ConaryVersion().signAfterPromote():
         finalCs = signAbsoluteChangeset(cs, signatureKey)
     repos.commitChangeSet(cs, callback=callback)
     return True, mapping

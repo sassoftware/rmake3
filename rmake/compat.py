@@ -14,7 +14,7 @@ from rmake import errors
 testing = False
 
 class ConaryVersion(object):
-    maxKnownVersion = "1.1.95"
+    maxKnownVersion = "2.0"
     _warnedUser = False
 
     def __init__(self, conaryVersion=None):
@@ -35,27 +35,40 @@ class ConaryVersion(object):
                                     for x in self.maxKnownVersion.split('.') ]
 
         self.majorVersion = self.conaryVersion[0:2]
-        self.minorVersion = self.conaryVersion[2]
+        if len(self.conaryVersion) < 3:
+            self.minorVersion = 0
+        else:
+            self.minorVersion = self.conaryVersion[2]
         self.isOneOne = self.majorVersion == (1,1)
+        self.isOneTwo = self.majorVersion == (1,2)
+        self.isTwoZero = self.majorVersion == (2,0)
 
     def checkRequiredVersion(self):
         oneZeroVersion = None
         oneOneVersion = 19
-        if not self.checkVersion(oneZeroVersion, oneOneVersion):
-            version = ''
-            if oneZeroVersion:
-                version = '1.0.%s or ' % oneZeroVersion
-            version += '1.1.%s' % oneOneVersion
+        oneTwoVersion = 0
+        twoZeroVersion = 0
+        if not self.checkVersion(oneZeroVersion, oneOneVersion,
+                                 oneTwoVersion, twoZeroVersion):
+            versions = []
+            if oneOneVersion:
+                versions.append('1.1.%s' % oneOneVersion)
+            if oneTwoVersion:
+                versions.append('1.2.%s' % oneTwoVersion)
+            if twoZeroVersion:
+                versions.append('2.0.%s' % twoZeroVersion)
+            versions = ' or '.join(versions)
             raise errors.RmakeError('rMake requires conary'
-                                    ' version %s or greater' % version)
+                                    ' version %s or greater' % versions)
 
-    def requireVersion(self, oneZeroVersion, oneOneVersion, msg):
-        if not self.checkVersion(oneZeroVersion, oneOneVersion):
+    def requireVersion(self, oneZeroVersion, oneOneVersion, twoZeroVersion,
+                       msg):
+        if not self.checkVersion(oneZeroVersion, oneOneVersion, twoZeroVersion):
             version = ''
             if oneZeroVersion:
                 version = '1.0.%s or ' % oneZeroVersion
             version += '1.1.%s' % oneOneVersion
-            raise errors.RmakeError('rMake requires a conary version %s or grater for %' % (version, msg))
+            raise errors.RmakeError('rMake requires a conary version %s or greater for %' % (version, msg))
         return True
 
     def stateFileVersion(self):
@@ -63,20 +76,23 @@ class ConaryVersion(object):
             return 0
         return state.ConaryState.stateVersion
 
+    def signAfterPromote(self):
+        return self.checkVersion(False, False, False, 0)
+
     def acceptsPartialBuildReqCloning(self):
-        return self.checkVersion(None, 95)
+        return self.checkVersion(False, 95)
 
     def supportsFindGroupSources(self):
-        return self.checkVersion(None, 21)
+        return self.checkVersion(False, 21)
 
     def supportsNewPkgBranch(self):
-        return self.checkVersion(None, 25)
+        return self.checkVersion(False, 25)
 
     def updateSrcTakesMultipleVersions(self):
-        return self.checkVersion(None, 90)
+        return self.checkVersion(False, 90)
 
     def requireFindGroupSources(self):
-        return self.requireVersion(None, 21, 'building group sources')
+        return self.requireVersion(False, 21, None, 'building group sources')
 
     def ConaryStateFromFile(self, path, repos=None, parseSource=True):
         if self.stateFileVersion() == 0: 
@@ -91,7 +107,7 @@ class ConaryVersion(object):
 
     def supportsCloneNoTracking(self):
         # support added in 1.1.17
-        return self.checkVersion(None, 17)
+        return self.checkVersion(False, 17)
 
     def supportsConfigIsDefault(self):
         # support added in 1.0.33 and 1.1.6
@@ -101,15 +117,28 @@ class ConaryVersion(object):
         # support added in 1.0.30 and 1.1.3
         return self.checkVersion(30, 3)
 
-    def checkVersion(self, oneZeroVersion, oneOneVersion):
+    def checkVersion(self, oneZeroVersion, oneOneVersion, oneTwoVersion=None,
+                     twoZeroVersion=None):
         if self.majorVersion == [1,0]:
-            if oneZeroVersion is None:
+            if not oneZeroVersion:
                 return False
             return self.minorVersion >= oneZeroVersion
         elif self.majorVersion == [1,1]:
-            if oneOneVersion is None:
+            if not oneOneVersion:
                 return False
             return self.minorVersion >= oneOneVersion
+        elif self.majorVersion == [1,2]:
+            if oneTwoVersion is None:
+                return True
+            if oneTwoVersion is False:
+                return False
+            return self.minorVersion >= oneTwoVersion
+        elif self.majorVersion == [2,0]:
+            if twoZeroVersion is None:
+                return True
+            if twoZeroVersion is False:
+                return False
+            return self.minorVersion >= twoZeroVersion
         # default to supporting everything - we're running something really new!
         return True
 
