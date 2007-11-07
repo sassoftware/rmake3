@@ -77,7 +77,7 @@ class ConaryVersion(object):
         return state.ConaryState.stateVersion
 
     def signAfterPromote(self):
-        return self.checkVersion(False, False, False, 0)
+        return self.checkVersion(True, True, True, False)
 
     def acceptsPartialBuildReqCloning(self):
         return self.checkVersion(False, 95)
@@ -120,24 +120,25 @@ class ConaryVersion(object):
     def checkVersion(self, oneZeroVersion, oneOneVersion, oneTwoVersion=None,
                      twoZeroVersion=None):
         if self.majorVersion == [1,0]:
+            if isinstance(oneZeroVersion, bool):
+                return True
             if not oneZeroVersion:
                 return False
             return self.minorVersion >= oneZeroVersion
         elif self.majorVersion == [1,1]:
+            if isinstance(oneOneVersion, bool): return oneOneVersion
             if not oneOneVersion:
                 return False
             return self.minorVersion >= oneOneVersion
         elif self.majorVersion == [1,2]:
+            if isinstance(oneTwoVersion, bool): return oneTwoVersion
             if oneTwoVersion is None:
                 return True
-            if oneTwoVersion is False:
-                return False
             return self.minorVersion >= oneTwoVersion
         elif self.majorVersion == [2,0]:
+            if isinstance(twoZeroVersion, bool): return oneTwoVersion
             if twoZeroVersion is None:
                 return True
-            if twoZeroVersion is False:
-                return False
             return self.minorVersion >= twoZeroVersion
         # default to supporting everything - we're running something really new!
         return True
