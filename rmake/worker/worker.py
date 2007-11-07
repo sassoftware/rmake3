@@ -82,8 +82,9 @@ class Worker(server.Server):
             return
         if not commandId:
             commandId = self.idgen.getStopCommandId(targetCommandId)
-        killFn = lambda pid: self._killPid(pid, killGroup=True,
-                                           hook=self._serveLoopHook)
+        def killFn(pid):
+            self._killPid(pid, killGroup=True,
+                          hook=self._serveLoopHook)
         self.runCommand(self.commandClasses['stop'], self.cfg, commandId,
                         targetCommand, killFn)
         targetCommand.trove.troveFailed('Stop requested')
