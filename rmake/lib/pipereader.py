@@ -45,6 +45,9 @@ class PipeReader(object):
             # handle length = 0
             if self.length:
                 newStr = os.read(self.fd, self.length)
+                if not newStr:
+                    self.close()
+                    return
                 newLen = len(newStr)
                 self.length -= newLen
                 self.buf.append(newStr)
@@ -55,6 +58,9 @@ class PipeReader(object):
             self.buf = []
             return text
         sizeChars = os.read(self.fd, self.sizeNeeded)
+        if not sizeChars:
+            self.close()
+            return
         self.sizeBuf.append(sizeChars)
         if len(sizeChars) == 0:
             os.close(self.fd)

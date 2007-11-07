@@ -52,6 +52,9 @@ Changes in 1.0.12:
      * Deleting a policy in a .recipe file and trying to build the recipe
        with rMake no longer causes a traceback. (RMK-659)
      * Don't crash monitor if grabbing a piece of the log fails. (RMK-648)
+     * Workers will no longer hang waiting to read from a pipe when the 
+       process is dead.  This should improve the reliability of "rmake 
+       stop"
 
 Changes in 1.0.11.1:
   o Bug Fixes:
