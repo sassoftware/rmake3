@@ -543,7 +543,10 @@ def _shadowAndCommit(conaryclient, cfg, recipeDir, stateFile, message):
 
 def _doCommit(recipePath, repos, cfg, message):
     try:
-        rv = checkin.commit(repos, cfg, message)
+        kw = {}
+        if compat.ConaryVersion().supportsForceCommit():
+            kw.update(force=True)
+        rv = checkin.commit(repos, cfg, message, **kw)
     except (conaryerrors.CvcError, conaryerrors.ConaryError), msg:
         raise errors.RmakeError("Could not commit changes to build"
                                 " recipe %s: %s" % (recipePath, msg))

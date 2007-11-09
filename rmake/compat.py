@@ -18,7 +18,7 @@ class ConaryVersion(object):
     _warnedUser = False
 
     def __init__(self, conaryVersion=None):
-        testing = False
+        global testing
         if conaryVersion is None:
             if not testing:
                 conaryVersion = constants.version
@@ -75,6 +75,9 @@ class ConaryVersion(object):
         if not hasattr(state.ConaryState, 'stateVersion'):
             return 0
         return state.ConaryState.stateVersion
+
+    def supportsForceCommit(self):
+        return self.checkVersion(False, False, 7)
 
     def signAfterPromote(self):
         return self.checkVersion(True, True, True, False)
