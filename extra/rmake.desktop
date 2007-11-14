@@ -5,5 +5,5 @@ Comment=rMake Command
 Exec=/usr/libexec/rmake/rmake-xml
 Terminal=true
 Type=Application
-OnlyShowIn=;
+OnlyShowIn=
 MimeType=application/x-rmake
