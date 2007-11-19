@@ -103,6 +103,11 @@ class rMakeHelper(object):
         return conaryclient.ConaryClient(buildConfig,
                                          passwordPrompter=self.pwPrompt)
 
+    def updateBuildConfig(self, buildConfig=None):
+        if buildConfig is None:
+            buildConfig = self.buildConfig
+        self.client.addRepositoryInfo(buildConfig)
+
     def getRepos(self, buildConfig=None):
         return self.getConaryClient(buildConfig).getRepos()
 
@@ -136,6 +141,7 @@ class rMakeHelper(object):
         if not excludeSpecs:
             excludeSpecs = []
 
+        self.updateBuildConfig()
         for contextStr, jobConfig in job.getConfigDict().iteritems():
             troveSpecList += [ (x[0], x[1], x[2], contextStr)
                                 for x in jobConfig.buildTroveSpecs ]
@@ -150,6 +156,15 @@ class rMakeHelper(object):
                         cfg.setContext(context)
                     else:
                         log.warning('Context %s used in job %s does not exist' % (context, jobId))
+            jobConfig.reposName = self.buildConfig.reposName
+            # a bug in how jobConfigs are stored + thawed
+            # (related to relative paths) causes :memory: not to get
+            # transferred correctly over the wire.  We reset the root
+            # to :memory: here since the bugfix is conary based.
+            jobConfig.root = ':memory:'
+            # make sure we have the necessary user information and
+            # repositoryMap info to contact the internal repository
+            # (in every context).
             jobConfig.user.extend(cfg.user)
             jobConfig.repositoryMap.update(cfg.repositoryMap)
             jobConfig.entitlement.extend(cfg.entitlement)

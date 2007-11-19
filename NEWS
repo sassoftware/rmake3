@@ -4,6 +4,9 @@ Changes in @NEW@:
        of a commit - this could happen if two .recipe files with the same name
        were build from two different labels. This fix requires conary 1.2.7
        or later. (RMK-685)
+     * rMake restart now works when you're staring a build of a recipe that
+       was built with a context. (RMK-692)
+
 Changes in 1.0.12:
   o Client Changes:
      * User and entitlement information is no longer returned to clients on
