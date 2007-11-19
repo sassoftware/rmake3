@@ -183,12 +183,19 @@ class rMakeChroot(ConaryBasedChroot):
         return self.cfg.root
 
     def checkSanity(self):
-        if not self.copyInConary:
+        if self.copyInConary:
+            # we're just overriding the version of conary used
+            # as long as that't the only sanity check we can return 
+            # immediately
             return
         for job in self.jobList:
             if job[0] == 'conary:python':
                 version = job[2][0].trailingRevision().getVersion()
-                compat.ConaryVersion(version).checkRequiredVersion()
+                try:
+                    compat.ConaryVersion(version).checkRequiredVersion()
+                except errors.RmakeError, error:
+                    errorMsg = str(error) + (' - tried to install version %s in chroot' % version)
+                    raise error.__class__(errorMsg)
 
     def useStandardRoot(self):
         return True
