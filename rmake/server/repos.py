@@ -101,7 +101,7 @@ def startRepository(cfg, fork = True, logger=None):
     # Note - this will automatically migrate this repository! 
     # Since this is a throwaway repos anyway, I think that's
     # acceptable.
-    schema.loadSchema(db)
+    schema.loadSchema(db, doMigrate=True)
     db.commit()
 
     user, password = cfg.reposUser.find(cfg.reposName)
