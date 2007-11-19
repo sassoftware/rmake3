@@ -124,7 +124,7 @@ class ConaryVersion(object):
                      twoZeroVersion=None):
         if self.majorVersion == [1,0]:
             if isinstance(oneZeroVersion, bool):
-                return True
+                return oneZeroVersion
             if not oneZeroVersion:
                 return False
             return self.minorVersion >= oneZeroVersion
@@ -139,7 +139,7 @@ class ConaryVersion(object):
                 return True
             return self.minorVersion >= oneTwoVersion
         elif self.majorVersion == [2,0]:
-            if isinstance(twoZeroVersion, bool): return oneTwoVersion
+            if isinstance(twoZeroVersion, bool): return twoZeroVersion
             if twoZeroVersion is None:
                 return True
             return self.minorVersion >= twoZeroVersion
