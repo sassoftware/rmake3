@@ -149,7 +149,8 @@ def getTrovesToBuild(cfg, conaryclient, troveSpecList, message=None,
             troveSpec = (troveSpec[0], troveSpec[1], deps.parseFlavor(''))
 
         if (not troveSpec[1] and not os.path.isdir(troveSpec[0])
-            and os.access(troveSpec[0], os.R_OK)):
+            and os.access(troveSpec[0], os.R_OK)
+            and troveSpec[0].endswith('.recipe')):
             # don't rely on cwd, but do allow for symlinks to change
             # when restarting.  Is that sane?  Or should I just do realpath?
             troveSpec = (os.path.abspath(troveSpec[0]),) + troveSpec[1:]

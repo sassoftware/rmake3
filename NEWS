@@ -6,7 +6,9 @@ Changes in @NEW@:
        or later. (RMK-685)
      * rMake restart now works when you're staring a build of a recipe that
        was built with a context. (RMK-692)
-     * Info .recipe files can be built again (MRK-662)
+     * Info .recipe files can be built again (RMK-662)
+     * Ignore files that don't end in .recipe when trying to determine whether
+       to build a local file or search the repository. (RMK-684)
 
 Changes in 1.0.12:
   o Client Changes:
