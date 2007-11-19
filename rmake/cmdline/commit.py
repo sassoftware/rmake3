@@ -206,16 +206,21 @@ def commitJobs(conaryclient, jobList, reposName, message=None,
             if troveCs.getOldVersion():
                 oldTroves.append(troveCs.getOldNameVersionFlavor())
         if oldTroves:
-            oldTroves = dict(zip(oldTroves, repos.getTroves(oldTroves)))
+            oldDict = {}
+            for oldTrove in repos.getTroves(oldTroves):
+                oldDict.setdefault(oldTrove.getNameVersionFlavor(),
+                                    []).append(oldTrove)
         for troveCs in cs.iterNewTroveList():
             if troveCs.getOldVersion():
-                trv = oldTroves.pop(troveCs.getOldNameVersionFlavor())
+                trv = oldDict[troveCs.getOldNameVersionFlavor()].pop()
                 trv.applyChangeSet(troveCs)
             else:
                 trv = Trove(troveCs)
             for _, childVersion, _ in trv.iterTroveList(strongRefs=True,
                                                         weakRefs=True):
-                # make sure there are not 
+                # make sure there are not any references to the internal
+                # rmake repository - that would be a bad bug - easy to
+                # do with the way we do cooking of groups.
                 onRepos = childVersion.getHost() == reposName
                 assert not onRepos, "Trove %s references repository" % trv
             n,v,f = troveCs.getNewNameVersionFlavor()
