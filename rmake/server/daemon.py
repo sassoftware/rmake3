@@ -20,6 +20,8 @@ from rmake.lib import daemon
 from rmake.server import repos
 from rmake.server import servercfg
 from rmake.server import server
+# needed for deleting chroots upon "reset"
+from rmake.worker.chroot import rootmanager
 
 class ResetCommand(daemon.DaemonCommand):
     commands = ['reset']
@@ -32,8 +34,8 @@ class ResetCommand(daemon.DaemonCommand):
             if os.path.exists(dir):
                 print "Deleting %s" % dir
                 shutil.rmtree(dir)
-        for dir in (cfg.getChrootDir(), cfg.getChrootArchiveDir(),
-                    cfg.getCacheDir()):
+
+        for dir in (cfg.getCacheDir(),):
             if os.path.exists(dir):
                 print "Deleting subdirectories of %s" % dir
                 for subDir in os.listdir(dir):
@@ -42,6 +44,11 @@ class ResetCommand(daemon.DaemonCommand):
             if os.path.exists(path):
                 print "Deleting %s" % path
                 os.remove(path)
+        rootManager = rootmanager.ChrootManager(cfg)
+        chroots = rootManager.listChroots()
+        print "Deleting %s chroots" % len(chroots)
+        for chroot in chroots:
+            rootManager.deleteChroot(chroot)
 
 class rMakeDaemon(daemon.Daemon):
     name = 'rmake-server'
