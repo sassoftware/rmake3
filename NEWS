@@ -11,6 +11,7 @@ Changes in @NEW@:
        to build a local file or search the repository. (RMK-684)
      * Fix bug keeping an error from being raised when an old version of
        conary was included in the chroot (RMK-689)
+     * Display a better message when rmake is started as non-root (RMK-670)
 
 Changes in 1.0.12:
   o Client Changes:

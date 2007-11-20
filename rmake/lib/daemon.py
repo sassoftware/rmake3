@@ -227,7 +227,13 @@ class Daemon(options.MainHandler):
                 os.setgid(pwent.pw_gid)
                 os.setuid(pwent.pw_uid)
         logPath = os.path.join(self.cfg.logDir, "%s.log" % self.name)
-        self.logger.logToFile(logPath)
+        try:
+            self.logger.logToFile(logPath)
+        except EnvironmentError, e:
+            # this should handle most permission problems nicely
+            self.logger.error('Could not open logfile: %s' % (e))
+            return 1
+
 
         pid = self.getPidFromLockFile()
         if pid:
