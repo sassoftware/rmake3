@@ -1,4 +1,6 @@
 Changes in 1.0.13:
+  o Client Changes:
+     * If your job is queued, the location in the queue is displayed. (RMK-640)
   o Bug Fixes:
      * Fixed a bug that could come from "changing active branch" as part
        of a commit - this could happen if two .recipe files with the same name
