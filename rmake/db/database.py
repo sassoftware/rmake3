@@ -199,6 +199,9 @@ class Database(DBInterface):
         self.commit()
         return self.getJob(jobId)
 
+    def listJobIdsOnQueue(self):
+        return self.jobQueue.listJobIds()
+
     def queueJob(self, job):
         self.jobQueue.add(job)
         self.commit()

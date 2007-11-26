@@ -520,4 +520,6 @@ class JobQueue(object):
         cu = self.db.cursor()
         return cu.execute('SELECT COUNT(*) FROM JobQueue').fetchall()[0]
 
-
+    def listJobIds(self):
+        cu = self.db.cursor()
+        return [ x[0] for x in cu.execute('SELECT jobId FROM JobQueue') ]

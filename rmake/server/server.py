@@ -330,6 +330,15 @@ class rMakeServer(apirpc.XMLApiServer):
             job = self._getNextJob()
             if job is None:
                 break
+            # tell everyone else on the queue that they've been bumped up one
+            jobIds = self.db.listJobIdsOnQueue()
+            queuedJobs = self.db.getJobs(jobIds,
+                                         withTroves=False, withConfigs=False)
+            for idx, queuedJob in enumerate(queuedJobs):
+                self._subscribeToJobInternal(queuedJob)
+                queuedJob.log(
+                  'Waiting for %s jobs ahead of you in queue to complete' % idx)
+
             try:
                 self._startBuild(job)
             except Exception, err:
