@@ -61,7 +61,12 @@ class rMakeServer(apirpc.XMLApiServer):
         self.db.addJob(job)
         self._subscribeToJob(job)
         self.db.queueJob(job)
-        job.jobQueued()
+        queuedIds = self.db.listJobIdsOnQueue()
+        if len(queuedIds) > 1:
+            message = 'Job Queued - Builds ahead of you: %s' % len(queuedIds)
+        else:
+            message = 'Job Queued - You are next in line for processing'
+        job.jobQueued(message)
         return job.jobId
 
     @api(version=1)
@@ -336,8 +341,12 @@ class rMakeServer(apirpc.XMLApiServer):
                                          withTroves=False, withConfigs=False)
             for idx, queuedJob in enumerate(queuedJobs):
                 self._subscribeToJobInternal(queuedJob)
-                queuedJob.log(
-                  'Waiting for %s jobs ahead of you in queue to complete' % idx)
+                if not idx:
+                    queuedJob.jobQueued(
+                            'Job Queued - You are next in line for building')
+                else:
+                    queuedJob.jobQueued(
+                      'Job Queued - Builds ahead of you: %s' % (idx + 1))
 
             try:
                 self._startBuild(job)

@@ -355,8 +355,10 @@ class BuildJob(_FreezableBuildJob):
             trove.own()
         self._publisher.buildTrovesSet(self)
 
-    def jobQueued(self):
-        self._setState(JOB_STATE_QUEUED, 'Job Queued')
+    def jobQueued(self, message=''):
+        if not message:
+            message = 'Job Queued'
+        self._setState(JOB_STATE_QUEUED, message)
 
     def jobStarted(self, message, pid=0):
         self.start = time.time()
