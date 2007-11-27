@@ -33,7 +33,7 @@ class Builder(object):
         Basically:
             * get a set of troves in init.
             * load the troves to determine what packages they create,
-              while flavors they use, and what build requirements they have.
+              what flavors they use, and what build requirements they have.
             * while buildable troves left:
                 * build one trove.
                 * commit to internal repos if successful.
