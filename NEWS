@@ -16,6 +16,9 @@ Changes in 1.0.13:
      * Display a better message when rmake is started as non-root (RMK-670)
      * "rmake reset" now will handle the case where other filesystems are still
        mounted in the chroot. (RMK-627)
+     * If you're using a conary 1.2.8 or later, build group-foo.recipe --recurse
+       with --host limitations will build the group itself if it was originally
+       on the right host. (RMK-705)
 
 Changes in 1.0.12:
   o Client Changes:

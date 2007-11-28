@@ -475,22 +475,43 @@ class RemoveHostSource(trovesource.SearchableTroveSource):
         return trovesource.SearchableTroveSource.findTroves(self, labelPath,
                                                             *args, **kw)
 
+    def getLabelsForTroveName(self, troveName,
+                              troveTypes=trovesource.TROVE_QUERY_PRESENT):
+        versionList = self.getTroveVersionList(troveName,
+                                               troveTypes=troveTypes)
+        labelSet = set()
+        for version in versionList:
+            if version.getHost() == self.host:
+                labelSet.add(self._removeLabel(version).trailingLabel())
+            else:
+                labelSet.add(version.trailingLabel())
+        return labelSet
+
+    def _removeLabel(self, version):
+        upVersion = None
+        if version.hasParentVersion():
+            return version.parentVersion()
+        elif version.branch().hasParentBranch():
+            branch = version.branch().parentBranch()
+            shadowLength = version.shadowLength() - 1
+            revision = version.trailingRevision().copy()
+            if revision.buildCount is not None:
+                revision.buildCount.truncateShadowCount(shadowLength)
+            revision.sourceCount.truncateShadowCount(shadowLength)
+            upVersion = branch.createVersion(revision)
+            if (revision.buildCount is not None 
+                and list(revision.buildCount.iterCounts())[-1] == 0):
+                upVersion.incrementBuildCount()
+            return upVersion
+        else:
+            return version
+
     def _filterByVersionQuery(self, versionType, versionList, versionQuery):
         versionMap = {}
         for version in versionList:
             upVersion = version
             if version.trailingLabel().getHost() == self.host:
-                if version.hasParentVersion():
-                    upVersion = version.parentVersion()
-                elif version.branch().hasParentBranch():
-                    branch = version.branch().parentBranch()
-                    shadowLength = version.shadowLength() - 1
-                    revision = version.trailingRevision().copy()
-                    revision.buildCount.truncateShadowCount(shadowLength)
-                    revision.sourceCount.truncateShadowCount(shadowLength)
-                    upVersion = branch.createVersion(revision)
-                    if list(revision.buildCount.iterCounts())[-1] == 0:
-                        upVersion.incrementBuildCount()
+                upVersion = self._removeTrailingLabel(version)
             versionMap[upVersion] = version
             versionMap[version] = version
         results = trovesource.SearchableTroveSource._filterByVersionQuery(
