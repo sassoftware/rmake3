@@ -511,7 +511,7 @@ class RemoveHostSource(trovesource.SearchableTroveSource):
         for version in versionList:
             upVersion = version
             if version.trailingLabel().getHost() == self.host:
-                upVersion = self._removeTrailingLabel(version)
+                upVersion = self._removeLabel(version)
             versionMap[upVersion] = version
             versionMap[version] = version
         results = trovesource.SearchableTroveSource._filterByVersionQuery(
