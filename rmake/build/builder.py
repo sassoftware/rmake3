@@ -238,8 +238,8 @@ class Builder(object):
                 continue
 
             builtState = buildtrove.TROVE_STATE_BUILT
-            for n,v,f,c in self.db.listTrovesByState(jobId,
-                                                     builtState)[builtState]:
+            trovesByState = self.db.listTrovesByState(jobId, builtState)
+            for n,v,f,c in trovesByState.get(builtState, []):
                 toBuild = trovesByNVF.pop((n,v,f), False)
                 if toBuild:
                     needed[jobId, n,v,f,c] = toBuild
