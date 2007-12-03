@@ -47,7 +47,7 @@ repository, then rmake will shadow that recipe to rmake's internal repository
 and commit your local changes to that shadow.  Then, when you commit that
 job, the related source component(s) will be also be committed.  
 
-You can also build recipes that are not source checkouts.  They will be committed to the branch that is your buildLabel, as if you'd done "cvc newpkg <pkg>; cd <pkg>; rmake build <pkg>.recipe; rmake commit".
+You can also build recipes that are not source checkouts.  They will be committed to the branch that is your buildLabel, as if you'd done "rmake newpkg <pkg>; cd <pkg>; rmake build <pkg>.recipe; rmake commit".
 
 Example: \fIrmake build 'glib=foresight.rpath.org@fl:desktop/1.0-1[!mysql]'\fP
 would build glib from the foresight repository, with the mysql flavor turned
@@ -232,7 +232,6 @@ to build.
 If no arguments are given, information about all jobs are listed.  Otherwise, 
 displays information about a job.  You can also query for a particular trove 
 by specifying the trove after the jobId.
-
 \fBNOTE: query output, options, and so on are very likely to change in future 
 iterations of rmake.\fP
 .RS 4
@@ -320,6 +319,31 @@ Lists the chroots that rMake knows about.  The names listed here can be used
 by the other rmake chroot commands.  If the trove that was built in that chroot is known, rMake will list that information.
 
 The output of the command is likely to change.
+.RE
+.TP
+.B checkout \fI<package>\fR+
+Works like "cvc checkout" - Check the \fI<package>\fB:source\fR component out of the repository
+and put it in directory \fI<dir>\fP if specified, and directory
+\fI<trove>\fP otherwise.  Fetches the most recent version
+specified by \fBbuildLabel\fP unless \fI<version>\fP is specified.
+Multiple source troves may be specified if the \-\-dir option is
+not used.
+Synonyms: \fBco\fP
+.RE
+.TP 4
+.B newpkg [\fI--template <recipeTemplate>\fP] \fI<name\fP[=\fIlabel\fP]>\fP
+Creates a new package.
+.TP 4
+.B context [name] [\-\-show-passwords]\fP
+When not passed a name, displays information about the current context.
+See \fIman conary\fP for more information on contexts, and the show-passwords
+option.
+.IP
+When passed a name, sets the context to <name> for the current directory.
+That context will then be used for all conary
+operations in the directory.  The commands \fBcvc checkout\fP and 
+\fBcvc newpkg\fP will transfer the current context into their newly 
+created directories.
 .RE
 .RE
 .\"

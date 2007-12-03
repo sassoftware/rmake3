@@ -1,6 +1,7 @@
 import sys
 
 from conary import conarycfg
+from conary import cvc
 from conary.deps import deps
 from conary.lib import log
 from conary.lib import options
@@ -761,6 +762,36 @@ class CleanCommand(rMakeCommand):
             client.deleteChroot(*self._getChroot(chroot))
 register(CleanCommand)
 
+from conary import cvc
+class CheckoutCommand(cvc.CheckoutCommand,rMakeCommand):
+    # Move this to the same section as NewPkg
+    commandGroup = 'Setup Commands'
+    def processConfigOptions(self, *args, **kw):
+        return rMakeCommand.processConfigOptions(self, *args, **kw)
+
+    def runCommand(self, client, cfg, argSet, args):
+        return cvc.CheckoutCommand.runCommand(self, cfg, argSet, args,
+                                              repos=client.getRepos())
+register(CheckoutCommand)
+
+class NewPkgCommand(cvc.NewPkgCommand, rMakeCommand):
+    commandGroup = 'Setup Commands'
+    def processConfigOptions(self, *args, **kw):
+        return rMakeCommand.processConfigOptions(self, *args, **kw)
+
+    def runCommand(self, client, cfg, argSet, args):
+        return cvc.NewPkgCommand.runCommand(self, cfg, argSet, args,
+                                            repos=client.getRepos())
+register(NewPkgCommand)
+
+class ContextCommand(cvc.ContextCommand, rMakeCommand):
+    def processConfigOptions(self, *args, **kw):
+        return rMakeCommand.processConfigOptions(self, *args, **kw)
+
+    def runCommand(self, client, cfg, argSet, args):
+        return cvc.ContextCommand.runCommand(self, cfg, argSet, args,
+                                             repos=client.getRepos())
+register(ContextCommand)
 
 def addCommands(main):
     for command in _commands:
