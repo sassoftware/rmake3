@@ -76,7 +76,7 @@ class RmakeMain(options.MainHandler):
                 context = conaryState.getContext()
 
         context = os.environ.get('CONARY_CONTEXT', context)
-        context = argSet.get('context', context)
+        context = argSet.pop('context', context)
         return context
 
     def runCommand(self, thisCommand, (buildConfig, conaryConfig,
