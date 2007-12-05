@@ -138,10 +138,8 @@ builds will generally be faster but require more memory and less disk space.  No
 build completes - they will be unmounted when the build finishes, removing all 
 of the contents.
 .TP 4
-.B useCache
-Allows you to disable the rMake internal cache and always download from the 
-repository.  This may be helpful in the case where you have an external cache
-that can generate the required changesets just as quickly.
+.B useCache (default False)
+Allows you to enable the rMake internal cache.  This speeds up rmake builds but must be removed on every reset of rmake.  The rmake cache should be tmpwatched or it will grow without bound.
 .TP
 .SH
 .PD 0
