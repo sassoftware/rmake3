@@ -298,6 +298,7 @@ class RestartCommand(BuildCommand):
         argDef['update'] = MULT_PARAM
         argDef['update-config'] = MULT_PARAM
         argDef['no-update'] = NO_PARAM
+        argDef['clear-build-list'] = NO_PARAM
         argDef['commit'] = NO_PARAM
         argDef['info'] = NO_PARAM
         argDef['quiet'] = NO_PARAM
@@ -317,6 +318,7 @@ class RestartCommand(BuildCommand):
         commit  = argSet.pop('commit', False)
         message  = argSet.pop('message', None)
         noUpdate = argSet.pop('no-update', False)
+        clearBuildList = argSet.pop('clear-build-list', False)
         infoOnly  = argSet.pop('info', False)
         quiet  = argSet.pop('quiet', False)
         updateConfigKeys = argSet.pop('update-config', None)
@@ -332,7 +334,7 @@ class RestartCommand(BuildCommand):
                                   excludeSpecs=excludeSpecs,
                                   updateConfigKeys=updateConfigKeys,
                                   infoOnly=infoOnly,
-                                  quiet=quiet)
+                                  quiet=quiet, clearBuildList=clearBuildList)
         if infoOnly:
             return 0
         monitorJob = not argSet.pop('no-watch', False)

@@ -132,7 +132,7 @@ class rMakeHelper(object):
 
     def restartJob(self, jobId, troveSpecs=None, updateSpecs=None,
                    excludeSpecs=None, updateConfigKeys=None, infoOnly=False,
-                   quiet=False):
+                   quiet=False, clearBuildList=False):
         job = self.client.getJob(jobId, withConfigs=True)
         troveSpecList = []
         oldTroveDict = {}
@@ -143,8 +143,9 @@ class rMakeHelper(object):
 
         self.updateBuildConfig()
         for contextStr, jobConfig in job.getConfigDict().iteritems():
-            troveSpecList += [ (x[0], x[1], x[2], contextStr)
-                                for x in jobConfig.buildTroveSpecs ]
+            if not clearBuildList:
+                troveSpecList += [ (x[0], x[1], x[2], contextStr)
+                                    for x in jobConfig.buildTroveSpecs ]
             oldTroveDict[contextStr] = [ x.getNameVersionFlavor()
                                          for x in job.iterTroves()
                                          if x.context == contextStr ]

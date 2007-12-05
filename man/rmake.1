@@ -161,6 +161,8 @@ May be specified multiple times.  Removes any troves matched from the build, as 
 .B \-\-update-config \fI<configKey>|all\fP
 May be specified multiple times.  Makes the job use the new values for the given configuration keys on restart.  For example, "rmake restart --update-config=installLabelPath will use all the configuration values from the old build for flavor, resolveTroves, etc, but will use the current values for given configurations the installLabelPath.
 .RE
+.B \-\-clear-build-list
+Do not use the build list from the previous build, but instead build only the packages you specify.
 .TP
 .B changeset \fI<jobId>\fP \f[troveSpec]*\fP \fI<path>\fP 
 
