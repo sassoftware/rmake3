@@ -200,7 +200,10 @@ class ApiServer(server.Server):
         """
         method = self._getMethod(methodName)
         if not isinstance(args[0], dict):
-            raise ApiError('Incompatible server API')
+            raise ApiError("Incompatible server API: your client is too old. "
+                "Please use a client that matches this server's version "
+                "(%s, API version %s)" % (constants.version,
+                    self._apiMajorVersion))
         callData = CallData(auth, args[0], self._logger, method,
                             responseHandler, debug=self._debug,
                             authMethod=self._authCheck)
@@ -211,8 +214,9 @@ class ApiServer(server.Server):
 
         if apiMajorVersion != self._apiMajorVersion:
             raise ApiError('Incompatible server API; '
-                'server supports %s, client supports %s' %
-                    (self._apiMajorVersion, apiMajorVersion))
+                'the server runs rMake version %s (API version %s), '
+                'while the client runs API version %s' %
+                    (constants.version, self._apiMajorVersion, apiMajorVersion))
 
         if methodVersion not in method.allowed_versions:
             raise RuntimeError(
