@@ -62,6 +62,7 @@ class _AbstractBuildJob(trovesource.SearchableTroveSource):
         self.jobId = jobId
         self.uuid = uuid
         self.pid = pid
+        self.owner = None
         self.state = state
         self.status = status
         self.troveContexts = {}

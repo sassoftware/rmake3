@@ -110,6 +110,8 @@ class SocketAuth(HttpAuth):
     def getSocketUser(self):
         return pwd.getpwuid(self.uid).pw_name
 
+    getUser = getSocketUser
+
     def getIP(self):
         return '127.0.0.1'
 

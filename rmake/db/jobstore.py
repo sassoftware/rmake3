@@ -337,8 +337,9 @@ class JobStore(object):
 
     def addJob(self, job):
         cu = self.db.cursor()
-        cu.execute("INSERT INTO Jobs (jobId, uuid, state) VALUES (NULL, ?, ?)", 
-                   job.uuid, job.state)
+        cu.execute("INSERT INTO Jobs (jobId, uuid, state, owner) "
+                   "VALUES (NULL, ?, ?, ?)",
+                   job.uuid, job.state, job.owner)
         jobId = cu.lastrowid
         for trove in job.iterTroves():
             trove.jobId = jobId

@@ -56,6 +56,7 @@ class rMakeServer(apirpc.XMLApiServer):
         for buildCfg in job.iterConfigList():
             self.updateBuildConfig(buildCfg)
         job.uuid = job.getMainConfig().uuid
+        job.owner = self.server.auth.getUser()
         self.db.addJob(job)
         self._subscribeToJob(job)
         self.db.queueJob(job)

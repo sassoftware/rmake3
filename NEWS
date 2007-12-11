@@ -3,6 +3,9 @@ Changes in 1.0.13:
      * If your job is queued, the location in the queue is displayed. (RMK-640)
      * Added --clear-build-list flag to "rmake restart" to remove all previously
        specified packages from a restart. (RMK-687)
+  o Server Changes:
+     * The server now stores the identity of the person who started a job.
+       (RMK-652)
   o Bug Fixes:
      * Fixed a bug that could come from "changing active branch" as part
        of a commit - this could happen if two .recipe files with the same name
