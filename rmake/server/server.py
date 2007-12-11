@@ -48,8 +48,6 @@ class rMakeServer(apirpc.XMLApiServer):
         See rMake client for documentation of API.
     """
 
-    _CLASS_API_VERSION = 1
-
     @api(version=1)
     @api_parameters(1, 'BuildJob')
     @api_return(1, 'int')

@@ -16,6 +16,8 @@ constants.py: constants.py.in ../Makefile ../Make.defs Makefile
 	    -e s,@chrootuser@,$(CHROOT_USER),g \
 	    -e s,@chrootrmake@,$(CHROOT_RMAKE),g \
 	    -e s,@chrootserver@,$(CHROOT_SERVER),g \
+	    -e s,@apiMajorVersion@,$(API_MAJOR_VERSION),g \
+	    -e s,@apiMinorVersion@,$(API_MINOR_VERSION),g \
 	    -e s,@libexecdir@,$(libexecdir),g \
 	$< > $@
 
