@@ -35,7 +35,7 @@ import xmlrpclib
 
 from conary.lib import coveragehook
 
-from rmake import errors
+from rmake import constants, errors
 
 from rmake.lib import apiutils
 from rmake.lib import localrpc
@@ -48,6 +48,8 @@ from rmake.lib import logger
 _API_VERSION = 1
 
 class ApiProxy(object):
+    _apiMajorVersion = constants.apiMajorVersion
+    _apiMinorVersion = constants.apiMinorVersion
 
     def __init__(self, apiClass, requestFn, uri):
         self.apiClass = apiClass
@@ -63,18 +65,18 @@ class ApiProxy(object):
         return "<ApiProxy>"
 
     def _addMethods(self, apiClass):
-        clientVersion = getattr(apiClass, '_CLASS_API_VERSION', 1)
         for name, methodApi in apiClass._listClassMethods():
-            self._methods[name] = methodApi, clientVersion
+            self._methods[name] = methodApi
 
     def __getattr__(self, name):
         """ Get a proxy for an individual method.  """
         if name not in self._methods:
             raise ApiError, 'cannot find method %s in api' % name
-        methodApi, clientVersion = self._methods[name]
+        methodApi = self._methods[name]
 
         return _ApiMethod(self._requestFn, name, self.uri,
-                          _API_VERSION, clientVersion, methodApi)
+                          self._apiMajorVersion, self._apiMinorVersion,
+                          methodApi)
 
 class XMLApiProxy(ApiProxy, localrpc.ServerProxy):
 
@@ -86,7 +88,7 @@ class XMLApiProxy(ApiProxy, localrpc.ServerProxy):
 class _ApiMethod(xmlrpclib._Method):
     """ Api-aware method proxy for xmlrpc.  """
 
-    def __init__(self, request, name, loc, metaApiVersion, clientVersion,
+    def __init__(self, request, name, loc, apiMajorVersion, apiMinorVersion,
                  methodApi):
         """
             @param metaApiVersion: version of apirpc data.
@@ -94,8 +96,8 @@ class _ApiMethod(xmlrpclib._Method):
             @param methodApi: client's description of this method's API
         """
         xmlrpclib._Method.__init__(self, request, name)
-        self.__metaApiVersion = metaApiVersion
-        self.__clientVersion = clientVersion
+        self._apiMajorVersion = apiMajorVersion
+        self._apiMinorVersion = apiMinorVersion
         self.__methodApi = methodApi
         self.__loc = loc
 
@@ -107,7 +109,9 @@ class _ApiMethod(xmlrpclib._Method):
         methodVersion = self.__methodApi.version
 
         args = list(_freezeParams(self.__methodApi, args, methodVersion))
-        callData = (self.__metaApiVersion, self.__clientVersion, methodVersion)
+        callData = dict(apiMajorVersion = self._apiMajorVersion,
+                        apiMinorVersion = self._apiMinorVersion,
+                        methodVersion = methodVersion)
 
         try:
             passed, rv = xmlrpclib._Method.__call__(self, callData, *args)
@@ -137,6 +141,8 @@ class BaseRPCLogger(logger.Logger):
         pass
 
 class ApiServer(server.Server):
+    _apiMajorVersion = constants.apiMajorVersion
+    _apiMinorVersion = constants.apiMinorVersion
 
     _debug = False
     def __init__(self, logger=None, forkByDefault = False):
@@ -193,21 +199,24 @@ class ApiServer(server.Server):
            method version as well.
         """
         method = self._getMethod(methodName)
+        if not isinstance(args[0], dict):
+            raise ApiError("Incompatible server API: your client is too old. "
+                "Please use a client that matches this server's version "
+                "(%s, API version %s)" % (constants.version,
+                    self._apiMajorVersion))
         callData = CallData(auth, args[0], self._logger, method,
                             responseHandler, debug=self._debug,
                             authMethod=self._authCheck)
         args = args[1:]
-        apiVersion    = callData.getApiVersion()
-        clientVersion = callData.getClientVersion()
+        apiMajorVersion = callData.getApiMajorVersion()
+        apiMinorVersion = callData.getApiMinorVersion()
         methodVersion = callData.getMethodVersion()
 
-        if apiVersion != _API_VERSION:
-            raise ApiError('Incompatible server API')
-
-
-        if clientVersion != getattr(self, '_CLASS_API_VERSION', 1):
-            raise RuntimeError(
-                    '%s: unsupported client version %s' % (methodName, version))
+        if apiMajorVersion != self._apiMajorVersion:
+            raise ApiError('Incompatible server API; '
+                'the server runs rMake version %s (API version %s), '
+                'while the client runs API version %s' %
+                    (constants.version, self._apiMajorVersion, apiMajorVersion))
 
         if methodVersion not in method.allowed_versions:
             raise RuntimeError(
@@ -372,15 +381,14 @@ class NoSuchMethodError(ApiError):
         ApiError.__init__(self, 'No such method: %s' % method)
 
 class CallData(object):
-    __slots__ = ['auth', 'apiVersion', 'clientVersion', 'methodVersion', 
+    __slots__ = ['auth', 'apiMajorVersion', 'apiMinorVersion', 'methodVersion',
                  'logger', 'method', 'responseHandler', 'debug',
                  'authMethod']
-    def __init__(self, auth, callTuple, logger, method, responseHandler,
+    def __init__(self, auth, callData, logger, method, responseHandler,
                  debug=False, authMethod=None):
-        apiVersion, clientVersion, methodVersion = callTuple
-        self.apiVersion = apiVersion
-        self.clientVersion = clientVersion
-        self.methodVersion = methodVersion
+        self.apiMajorVersion = callData['apiMajorVersion']
+        self.apiMinorVersion = callData['apiMinorVersion']
+        self.methodVersion = callData['methodVersion']
         self.auth = auth
         self.logger = logger
         self.method = method
@@ -419,11 +427,11 @@ class CallData(object):
     def delay(self):
         return rpclib.DelayedResponse()
 
-    def getApiVersion(self):
-        return self.apiVersion
+    def getApiMajorVersion(self):
+        return self.apiMajorVersion
 
-    def getClientVersion(self):
-        return self.clientVersion
+    def getApiMinorVersion(self):
+        return self.apiMinorVersion
 
     def getMethodVersion(self):
         return self.methodVersion

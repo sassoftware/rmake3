@@ -27,8 +27,6 @@ from rmake.lib import apirpc, daemon, logger, repocache, telnetserver
 
 class ChrootServer(apirpc.XMLApiServer):
 
-    _CLASS_API_VERSION = 1
-
     @api(version=1)
     @api_parameters(1, 'BuildConfiguration')
     @api_return(1, None)

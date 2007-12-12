@@ -8,7 +8,7 @@ from rmake import errors
 
 # NOTE: this schema is sqlite-specific
 
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 
 def createJobs(db):
     cu = db.cursor()
@@ -21,6 +21,7 @@ def createJobs(db):
             uuid           CHAR(32) NOT NULL DEFAULT '',
             state          INTEGER NOT NULL DEFAULT 0,
             status         STRING NOT NULL DEFAULT 'JobID entry created',
+            owner          STRING NOT NULL DEFAULT '',
             start          STRING NOT NULL DEFAULT '0',
             finish         STRING NOT NULL DEFAULT '0',
             failureReason  STRING NOT NULL DEFAULT '',
@@ -439,6 +440,10 @@ class Migrator(AbstractMigrator):
         createAuthCache(self.db)
         return 9
 
+    def migrateFrom9(self):
+        self._addColumn("Jobs", "owner",
+                        "STRING NOT NULL DEFAULT ''")
+        return 10
 
 
 class PluginSchemaManager(AbstractSchemaManager):

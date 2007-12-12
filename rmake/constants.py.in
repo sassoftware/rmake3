@@ -9,4 +9,6 @@ rmakeUser        = "@rmakeuser@"      # rmake user to run rmake server
 chrootUser       = "@chrootuser@"     # rmake user to build packages with
 chrootRmakePath  = "@chrootrmake@"    # path to rMake in the chroot (/usr/share)
 chrootServerPath = "@chrootserver@"   # path to rMake server command
+apiMajorVersion  = "@apiMajorVersion@" # major API version
+apiMinorVersion  = "@apiMinorVersion@" # minor API version
 subscriberApiVersion = 1

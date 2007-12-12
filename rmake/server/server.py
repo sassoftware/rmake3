@@ -48,8 +48,6 @@ class rMakeServer(apirpc.XMLApiServer):
         See rMake client for documentation of API.
     """
 
-    _CLASS_API_VERSION = 1
-
     @api(version=1)
     @api_parameters(1, 'BuildJob')
     @api_return(1, 'int')
@@ -58,6 +56,7 @@ class rMakeServer(apirpc.XMLApiServer):
         for buildCfg in job.iterConfigList():
             self.updateBuildConfig(buildCfg)
         job.uuid = job.getMainConfig().uuid
+        job.owner = self.server.auth.getUser()
         self.db.addJob(job)
         self._subscribeToJob(job)
         self.db.queueJob(job)

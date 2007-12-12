@@ -79,15 +79,15 @@ class JobStore(object):
                 cu.execute("INSERT INTO tJobIdList VALUES (?)",
                            jobId, start_transaction=False)
             results = cu.execute('''
-                            SELECT tjobIdList.jobId, Jobs.uuid, state, status, 
-                                   start, finish, failureReason, failureData,
-                                   pid
+                            SELECT tjobIdList.jobId, Jobs.uuid, Jobs.owner,
+                                   state, status, start, finish,
+                                   failureReason, failureData, pid
                             FROM tJobIdList
                             LEFT JOIN Jobs USING(jobId)
                                  ''')
 
             jobsById = {}
-            for (jobId, uuid, state, status, start,
+            for (jobId, uuid, owner, state, status, start,
                  finish, failureReason, failureData, pid) in results:
                 if state is None:
                     # quick catch check for missing jobs
@@ -99,7 +99,8 @@ class JobStore(object):
                                         start=float(start),
                                         finish=float(finish),
                                         failureReason=failureReason,
-                                        uuid=uuid, pid=pid)
+                                        uuid=uuid, pid=pid,
+                                        owner=owner)
                 jobsById[jobId] = job
 
             if withTroves:
@@ -337,8 +338,9 @@ class JobStore(object):
 
     def addJob(self, job):
         cu = self.db.cursor()
-        cu.execute("INSERT INTO Jobs (jobId, uuid, state) VALUES (NULL, ?, ?)", 
-                   job.uuid, job.state)
+        cu.execute("INSERT INTO Jobs (jobId, uuid, state, owner) "
+                   "VALUES (NULL, ?, ?, ?)",
+                   job.uuid, job.state, job.owner)
         jobId = cu.lastrowid
         for trove in job.iterTroves():
             trove.jobId = jobId
