@@ -4,6 +4,7 @@
 """
 Simple class for reading marshalled data through a pipe.
 """
+import fcntl
 import marshal
 import os
 import select
@@ -158,4 +159,8 @@ class MarshalPipeWriter(PipeWriter):
 
 def makeMarshalPipes():
     inF, outF = os.pipe()
+    fcntl.fcntl(inF, fcntl.F_SETFD,
+                fcntl.fcntl(inF, fcntl.F_GETFD) | fcntl.FD_CLOEXEC)
+    fcntl.fcntl(outF, fcntl.F_SETFD,
+                fcntl.fcntl(outF, fcntl.F_GETFD) | fcntl.FD_CLOEXEC)
     return MarshalPipeReader(inF), MarshalPipeWriter(outF)

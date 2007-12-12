@@ -2,6 +2,7 @@
 # Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
 #
 import errno
+import fcntl
 import itertools
 import os
 import resource
@@ -110,6 +111,8 @@ def cookTrove(cfg, repos, logger, name, version, flavorList, targetLabel,
     signal.signal(signal.SIGTTOU, signal.SIG_IGN)
 
     inF, outF = os.pipe()
+    fcntl.fcntl(inF, fcntl.FD_CLOEXEC)
+    fcntl.fcntl(outF, fcntl.FD_CLOEXEC)
     pid = os.fork()
     if not pid:
         try:
