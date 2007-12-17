@@ -207,7 +207,7 @@ below.
 .RS 4
 .TP 4
 .B \-\-show-passwords
-Normally, rmake config will mask passwords in repository maps, to avoid their
+Normally, rmake config will mask passwords to avoid their
 accidental display.  You can override this masking with --show-passwords.
 .RE
 .TP
@@ -231,9 +231,9 @@ to build.
 .RE
 .TP
 .B query [\fI<jobId>\fR [\fItrovename\fP[=\fRversion][\fI<flavor>\fP]\fP]]+
-If no arguments are given, information about all jobs are listed.  Otherwise, 
-displays information about a job.  You can also query for a particular trove 
-by specifying the trove after the jobId.
+If no arguments are given, information about the last 20 jobs are listed.  
+Otherwise, displays information about a job.  You can also query for a 
+particular trove by specifying the trove after the jobId.
 \fBNOTE: query output, options, and so on are very likely to change in future 
 iterations of rmake.\fP
 .RS 4
@@ -271,7 +271,7 @@ If a traceback is associated with a trove or job, that traceback is
 displayed.
 .TP
 .B \-\-troves
-Lists basic information about the troves within a trove.  This option is 
+Lists basic information about the troves within a job.  This option is 
 assumed with many other options.
 .RE
 .TP
