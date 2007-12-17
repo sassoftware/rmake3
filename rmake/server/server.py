@@ -56,7 +56,10 @@ class rMakeServer(apirpc.XMLApiServer):
         for buildCfg in job.iterConfigList():
             self.updateBuildConfig(buildCfg)
         job.uuid = job.getMainConfig().uuid
-        job.owner = self.server.auth.getUser()
+        authData = callData.getAuth()
+        if authData:
+            # should be true except for in testsuite
+            job.owner = authData.getUser()
         self.db.addJob(job)
         self._subscribeToJob(job)
         self.db.queueJob(job)

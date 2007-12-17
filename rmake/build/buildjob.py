@@ -57,7 +57,7 @@ class _AbstractBuildJob(trovesource.SearchableTroveSource):
     """
     def __init__(self, jobId=None, troveList=[], state=JOB_STATE_INIT,
                  start=0, status='', finish=0, failureReason=None,
-                 uuid='', pid=0, configs=None, owner=None):
+                 uuid='', pid=0, configs=None, owner=''):
         trovesource.SearchableTroveSource.__init__(self)
         self.jobId = jobId
         self.uuid = uuid
