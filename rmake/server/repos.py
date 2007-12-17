@@ -232,12 +232,10 @@ def addUser(cfg, name, password=None, write=False):
     try:
         netRepos.auth.userAuth.getUserIdByName(name)
     except UserNotFound: # yuck, we need a hasUser interface
-        pass
+        netRepos.auth.addUser(name, password)
+        netRepos.auth.addAcl(name, None, None, write, False)
     else:
-        netRepos.auth.deleteUserByName(name)
-
-    netRepos.auth.addUser(name, password)
-    netRepos.auth.addAcl(name, None, None, write, False)
+        netRepos.auth.setPassword(name, password)
 
 if __name__ == '__main__':
     sys.excepthook = util.genExcepthook()
