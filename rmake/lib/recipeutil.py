@@ -252,7 +252,8 @@ def _getLoadedSpecs(recipeClass):
 
 def loadSourceTroves(job, repos, buildFlavor, troveList,
                      loadInstalledSource=None, installLabelPath=None,
-                     groupRecipeSource=None, total=0, count=0):
+                     groupRecipeSource=None, internalHostName=None, 
+                     total=0, count=0):
     """
        Load the source troves associated set of (name, version, flavor) tuples
        and return a list of source trove tuples with relevant information about
@@ -273,6 +274,10 @@ def loadSourceTroves(job, repos, buildFlavor, troveList,
             n,v,f = buildTrove.getNameVersionFlavor()
             job.log('Loading %s out of %s: %s' % (count + idx + 1, total, n))
             relevantFlavor = None
+            if v.getHost() == internalHostName:
+                buildLabel = v.branch().parentBranch().label()
+            else:
+                buildLabel = v.trailingLabel()
             try:
                 (loader, recipeObj, relevantFlavor) = loadRecipe(repos,
                                      n, v, f,
@@ -280,6 +285,7 @@ def loadSourceTroves(job, repos, buildFlavor, troveList,
                                      buildFlavor,
                                      loadInstalledSource=loadInstalledSource,
                                      installLabelPath=installLabelPath,
+                                     buildLabel=buildLabel,
                                      groupRecipeSource=groupRecipeSource,
                                      cfg=job.getTroveConfig(buildTrove))
                 recipeType = buildtrove.getRecipeType(recipeObj)
@@ -362,7 +368,8 @@ def getSourceTrovesFromJob(job, serverCfg, repos):
                          troveList, total=total, count=count,
                          loadInstalledSource=loadInstalledSource,
                          installLabelPath=buildCfg.installLabelPath,
-                         groupRecipeSource=groupRecipeSource))
+                         groupRecipeSource=groupRecipeSource, 
+                         internalHostName=serverCfg.reposName))
         count = len(allTroves)
     return allTroves
 
