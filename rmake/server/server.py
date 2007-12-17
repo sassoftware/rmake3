@@ -592,7 +592,7 @@ class rMakeServer(apirpc.XMLApiServer):
             else:
                 logLevel = logging.INFO
             serverLogger.enableConsole(logLevel)
-        serverLogger.info('*** Started rMake Server at pid %s' % os.getpid())
+        serverLogger.info('*** Started rMake Server at pid %s (serving at %s)' % (os.getpid(), uri))
         try:
             self._initialized = False
             self.db = None
