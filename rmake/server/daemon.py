@@ -50,6 +50,12 @@ class ResetCommand(daemon.DaemonCommand):
         for chroot in chroots:
             rootManager.deleteChroot(chroot)
 
+class HelpCommand(daemon.DaemonCommand, command.HelpCommand):
+    commands = ['help']
+
+    def runCommand(self, daemon, cfg, argSet, args):
+        command.HelpCommand.runCommand(self, cfg, argSet, args)
+
 class rMakeDaemon(daemon.Daemon):
     name = 'rmake-server'
     commandName = 'rmake-server'
@@ -58,8 +64,7 @@ class rMakeDaemon(daemon.Daemon):
     loggerClass = server.ServerLogger
     user = constants.rmakeUser
     groups = [constants.chrootUser]
-    commandList = list(daemon.Daemon.commandList) + [ResetCommand,
-                                                     command.HelpCommand]
+    commandList = list(daemon.Daemon.commandList) + [ResetCommand, HelpCommand]
 
     def getConfigFile(self, argv):
         p = plugins.getPluginManager(argv, servercfg.rMakeConfiguration)
@@ -127,8 +132,8 @@ def main(argv):
     try:
         compat.checkRequiredVersions()
         rc = d.mainWithExceptionHandling(argv)
-        sys.exit(rc)
+        return rc
     except options.OptionError, err:
         d.usage()
         d.logger.error(err)
-        sys.exit(1)
+        return 1

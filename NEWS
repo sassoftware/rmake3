@@ -24,6 +24,7 @@ Changes in 1.0.13:
      * If you're using a conary 1.2.8 or later, build group-foo.recipe --recurse
        with --host limitations will build the group itself if it was originally
        on the right host. (RMK-705)
+     * rmake-server help no longer traces back (RMK-726)
   o Protocol Changes:
      * The protocol between clients and servers is better versioned, to make
        detection of out-of-date clients of servers easier. (RMK-623)
