@@ -177,6 +177,8 @@ class JobLogDisplay(_AbstractDisplay):
         return self.troveToWatch == (jobId, troveTuple)
 
     def displayTroveStates(self):
+        if not self.troveToWatch:
+            return
         self.erasePrompt()
         job = self.client.getJob(self.troveToWatch[0])
         query.displayTrovesByState(job, out=self.out)
