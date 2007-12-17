@@ -337,9 +337,14 @@ class DisplayState(xmlrpc.BasicXMLRPCStatusSubscriber):
                                             buildtrove.TROVE_STATE_FAILED,)
 
     def findTroveByName(self, troveName):
-        for jobId, troveTuple in self.states:
-            if troveTuple[0].startswith(troveName):
+        startsWith = None
+        for jobId, troveTuple in sorted(self.states):
+            if troveTuple[0].split(':', 1)[0] == troveName:
+                # exact matches take priority
                 return (jobId, troveTuple)
+            elif troveTuple[0].startswith(troveName) and startsWith is None:
+                startsWith = (jobId, troveTuple)
+        return startsWith
 
     def getTroveState(self, jobId, troveTuple):
         return self.states[jobId, troveTuple]
