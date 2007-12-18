@@ -415,6 +415,7 @@ class DependencyHandler(object):
         self._cycleChecked = {}
         self._seenCycles = []
         self._allowFastResolution = True
+        self._possibleDuplicates = {}
 
         statusLog.subscribe(statusLog.TROVE_BUILT, self.troveBuilt)
         statusLog.subscribe(statusLog.TROVE_PREPARED, self.trovePrepared)
@@ -500,6 +501,14 @@ class DependencyHandler(object):
         # deps provided by the newly built troves.
         self._delayed = {}
 
+        if trove in self._possibleDuplicates:
+            # there were troves that returned as "duplicate"
+            # before that we're waiting to compare to this package.
+            # now that we have it, do the duplicate comparison again
+            for matchedTrove, troveList in self._possibleDuplicates.pop(trove):
+                self.troveDuplicate(matchedTrove, troveList)
+
+
     def troveDuplicate(self, trove, troveList):
         package = trove.getName().split(':')[0]
         possibleMatches = self.depState.getTrovesByPackage(package)
@@ -511,6 +520,12 @@ class DependencyHandler(object):
                 return
             elif set(match.getBinaryTroves()) & set(troveList):
                 trove.troveFailed('Two versions of %s=%s[%s] were built at the same time but resulted in different components.  If these packages should have different flavors, then add flavor information to them.  Otherwise, try building only one of them.' % trove.getNameVersionFlavor())
+                return
+            elif not match.getBinaryTroves() and match.isBuilding():
+                # it's possible that the two results just came back in the 
+                # wrong order
+                self._possibleDuplicates.setdefault(match, []).append((trove, 
+                                                                 troveList))
                 return
         trove.troveFailed('Package was committed at the same time as the same package was built in another job.  Make sure no-one else is building the same packages as you, and that you didn\'t accidentally build the same package twice with the same flavor.')
 

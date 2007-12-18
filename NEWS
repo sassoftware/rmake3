@@ -29,6 +29,8 @@ Changes in 1.0.13:
      * rmake-server no longer removes and readds the rmake user after each
        start (this slows down 2.0 repositories). (RMK-717)
      * build --recurse now succeeds with group .recipe files. (RMK-737)
+     * Fixed a bug that rarely caused duplicate packages to show up
+       as if someone in another build had actually build the package.
   o Protocol Changes:
      * The protocol between clients and servers is better versioned, to make
        detection of out-of-date clients of servers easier. (RMK-623)
