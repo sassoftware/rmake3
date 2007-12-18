@@ -1,39 +1,53 @@
 Changes in 1.0.13:
   o Client Changes:
-     * If your job is queued, the location in the queue is displayed. (RMK-640)
-     * Added --clear-build-list flag to "rmake restart" to remove all previously
-       specified packages from a restart. (RMK-687)
-     * Added commit --to-file
+     * If your job is queued, the location in the queue is
+       displayed. (RMK-640)
+     * A "--clear-build-list" flag to the "rmake restart" command to
+       remove all previously specified packages from a
+       restart. (RMK-687)
+     * A "--to-file" argument as been added to the "rmake commit"
+       command.  When used, a changeset file will be created with the
+       specified name but the build will not be committed to the
+       repository.
   o Server Changes:
-     * The server now stores the identity of the person who started a job.
-       (RMK-652)
-  o Bug Fixes:
-     * Fixed a bug that could come from "changing active branch" as part
-       of a commit - this could happen if two .recipe files with the same name
-       were build from two different labels. This fix requires conary 1.2.7
-       or later. (RMK-685)
-     * rMake restart now works when you're staring a build of a recipe that
-       was built with a context. (RMK-692)
-     * Info .recipe files can be built again (RMK-662)
-     * Ignore files that don't end in .recipe when trying to determine whether
-       to build a local file or search the repository. (RMK-684)
-     * Fix bug keeping an error from being raised when an old version of
-       conary was included in the chroot (RMK-689)
-     * Display a better message when rmake is started as non-root (RMK-670)
-     * "rmake reset" now will handle the case where other filesystems are still
-       mounted in the chroot. (RMK-627)
-     * If you're using a conary 1.2.8 or later, build group-foo.recipe --recurse
-       with --host limitations will build the group itself if it was originally
-       on the right host. (RMK-705)
-     * rmake-server help no longer traces back (RMK-726)
-     * rmake-server no longer removes and readds the rmake user after each
-       start (this slows down 2.0 repositories). (RMK-717)
-     * build --recurse now succeeds with group .recipe files. (RMK-737)
-     * Fixed a bug that rarely caused duplicate packages to show up
-       as if someone in another build had actually built the package.
+     * The server now stores the identity of the person who started a
+       job.  (RMK-652)
   o Protocol Changes:
-     * The protocol between clients and servers is better versioned, to make
-       detection of out-of-date clients of servers easier. (RMK-623)
+     * The protocol between clients and servers is better versioned,
+       to make detection of out-of-date clients of servers
+       easier. (RMK-623)
+  o Bug Fixes:
+     * A bug that could occur when "changing active branch" as part of
+       a commit has been fixed.  This occured when two .recipe files
+       with the same name were build from two different labels.  This
+       fix requires conary 1.2.7 or later. (RMK-685)
+     * "rmake restart" now works when you're restarting a build of a
+       recipe that was built with a context. (RMK-692)
+     * Info .recipe files can be built again. (RMK-662)
+     * Files that do not end in ".recipe" are now ignored when trying
+       to determine whether to build from a local recipe file or
+       search the repository. (RMK-684)
+     * A bug that prevented an error from being raised when an old
+       version of conary was included in the chroot has been
+       fixed. (RMK-689)
+     * A better message is displayed when the rMake service is started
+       as non-root (RMK-670)
+     * "rmake reset" now will handle the case where a filesystem is
+       still mounted in a chroot. (RMK-627)
+     * If you're using a conary 1.2.8 or later, "rmake build
+       group-foo.recipe --recurse --host conary.example.com" will
+       build the group itself if group-foo.recipe was checked out from
+       conary.example.com. (RMK-705)
+     * "rmake-server help" no longer exits with a Traceback
+       message. (RMK-726)
+     * rmake-server no longer removes and re-adds the rmake Conary
+       repository user after each start.  This improves performance
+       with Conary 2.0 repositories. (RMK-717)
+     * "rmake build --recurse" now succeeds with group .recipe
+       files. (RMK-737)
+     * A bug that rarely caused duplicate packages to show up as if
+       someone in another build had actually built the package has
+       been fixed.
 
 Changes in 1.0.12:
   o Client Changes:
