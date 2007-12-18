@@ -96,7 +96,7 @@ class Database(DBInterface):
             return schema.SchemaManager(self.db).loadSchema()
 
     def open(self):
-        return dbstore.connect(self.dbpath, driver = "sqlite", timeout=10000,
+        return dbstore.connect(self.dbpath, driver = "sqlite", timeout=120000,
                                lockJournal=True)
 
     def subscribeToJob(self, job):
