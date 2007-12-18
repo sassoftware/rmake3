@@ -323,7 +323,8 @@ class rMakeHelper(object):
 
     def commitJobs(self, jobIds, message=None, commitOutdatedSources=False,
                    commitWithFailures=True, waitForJob=False,
-                   sourceOnly=False, updateRecipes=True, excludeSpecs=None):
+                   sourceOnly=False, updateRecipes=True, excludeSpecs=None,
+                   writeToFile=None):
         """
             Commits a set of jobs.
 
@@ -344,6 +345,8 @@ class rMakeHelper(object):
             @param waitForJob: if True, wait for the job to finish if necessary
             before committing.
             @param sourceOnly: if True, only commit the source component.
+            @param writeToFile: if set to a path, the changeset is written to
+            that path instead of committed to the repository (Advanced)
             @return: False if job failed to commit, True if it succeeded.
             @raise: JobNotFound: If job does not exist
         """
@@ -390,7 +393,8 @@ class rMakeHelper(object):
                                    self.buildConfig.reposName, message,
                                    commitOutdatedSources=commitOutdatedSources,
                                    sourceOnly=sourceOnly,
-                                   excludeSpecs=excludeSpecs)
+                                   excludeSpecs=excludeSpecs,
+                                   writeToFile=writeToFile)
             if succeeded:
                 def _sortCommitted(tup1, tup2):
                     return cmp((tup1[0].endswith(':source'), tup1),

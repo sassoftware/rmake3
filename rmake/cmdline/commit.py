@@ -24,7 +24,7 @@ from rmake import compat
 
 def commitJobs(conaryclient, jobList, reposName, message=None,
                commitOutdatedSources=False, sourceOnly = False,
-               excludeSpecs=None):
+               excludeSpecs=None, writeToFile=None):
     jobsToCommit = {}
     alreadyCommitted = []
     finalCs = changeset.ReadOnlyChangeSet()
@@ -234,7 +234,10 @@ def commitJobs(conaryclient, jobList, reposName, message=None,
     signatureKey = conaryclient.cfg.signatureKey
     if signatureKey and compat.ConaryVersion().signAfterPromote():
         finalCs = signAbsoluteChangeset(cs, signatureKey)
-    repos.commitChangeSet(cs, callback=callback)
+    if writeToFile:
+        cs.writeToFile(writeToFile)
+    else:
+        repos.commitChangeSet(cs, callback=callback)
     return True, mapping
 
 def _checkOutdatedSources(repos, sourceTups):

@@ -399,6 +399,7 @@ repository back into the repository where their source package came from.
         argDef['source-only'] = NO_PARAM
         argDef['message'] = '-m', ONE_PARAM
         argDef['exclude'] = MULT_PARAM
+        argDef['to-file'] = ONE_PARAM
         argDef['commit-outdated-sources'] = NO_PARAM
         rMakeCommand.addParameters(self, argDef)
 
@@ -410,12 +411,14 @@ repository back into the repository where their source package came from.
         message = argSet.pop('message', None)
         excludeSpecs = argSet.pop('exclude', None)
         jobIds = _getJobIdOrUUIds(jobIds)
+        toFile = argSet.pop('to-file', None)
         success = client.commitJobs(jobIds,
                                     commitOutdatedSources=commitOutdated,
                                     commitWithFailures=True, waitForJob=True,
                                     sourceOnly=sourceOnly,
                                     message=message,
-                                    excludeSpecs=excludeSpecs)
+                                    excludeSpecs=excludeSpecs,
+                                    writeToFile=toFile)
         if success:
             return 0
         else:
