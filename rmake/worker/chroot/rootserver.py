@@ -17,6 +17,10 @@ from conary import checkin
 from conary import conarycfg
 from conary import conaryclient
 
+if __name__ == '__main__':
+    coveragehook.install()
+    sys.path.insert(0, '/usr/share/rmake')
+
 from rmake.worker.chroot import cook
 
 from rmake import compat
@@ -398,6 +402,4 @@ def main(argv):
     sys.exit(rc)
 
 if __name__ == '__main__':
-    coveragehook.install()
-    sys.path.insert(0, '/usr/share/rmake')
     sys.exit(main(sys.argv))
