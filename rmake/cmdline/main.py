@@ -150,5 +150,5 @@ def main(argv):
         if e.errno != errno.EPIPE:
             raise
     except KeyboardInterrupt:
-        pass
+        return 1
     return 0
