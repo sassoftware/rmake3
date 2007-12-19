@@ -141,6 +141,7 @@ def main(argv):
         raise
     except errors.OpenError, err:
         log.error(str(err) + ' -- check to see that the server is running.')
+        return 1
     except (errors.RmakeError, conaryerrors.ConaryError, cfg.ParseError,
             conaryerrors.CvcError), err:
         log.error(err)
