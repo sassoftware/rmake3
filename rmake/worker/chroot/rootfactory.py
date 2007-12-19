@@ -233,7 +233,6 @@ class rMakeChroot(ConaryBasedChroot):
         self.copyDir(rmakeDir)
         # just copy to a standard path
         self.copyDir(rmakeDir, '/usr/share/rmake/rmake')
-        self.copyDir(rmakeDir, '/usr/lib/python2.4/site-packages/rmake')
 
     def _postInstall(self):
         self.createConaryRc()
