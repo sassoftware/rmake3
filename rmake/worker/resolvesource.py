@@ -562,7 +562,11 @@ class rMakeResolveSource(ResolutionMesh):
         ilp = self.cfg.installLabelPath
         for installFlavor, troveTup in flavoredList:
             if self.extraMethod.troveSource.hasTrove(*troveTup):
-                label = troveTup[1].branch().parentBranch().label()
+                branch = troveTup[1].branch()
+                if branch.hasParentBranch():
+                    label = branch.parentBranch().label()
+                else:
+                    label = branch.label()
                 list = builtTroves
             elif (self.resolveTroveSource
                   and self.resolveTroveSource.hasTrove(*troveTup)):
