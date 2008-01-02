@@ -111,6 +111,9 @@ option for cvc cook.
 .B \-\-prep
 Creates the chroot and checks out the package in the chroot but does not build it.
 .TP
+.B \-\-to\-file=FILE
+Stores the job in FILE instead of sending it to be build.  Later, this job can be started again by running "rmake load"
+.TP
 .B \-\-match="[-][name][=version][[flavor]]"
 Causes the troves specified (usually by build --recurse) to be filtered so that
 only the troves matching the --match parameters will be used.
@@ -169,7 +172,10 @@ Do not use the build list from the previous build, but instead build only the pa
 Creates a changeset for the given \fIjobId\fP and stores it at \fI<path>\fP.
 The created changeset contains all the binaries built for this job.  If you specify any troveSpecs, they the matching troves from the job will be added to the changeset instead of all such troves.  This works exactly like running conary 
 changeset <packages> \fI<path>\fP where packages is a list of troves built by \fIjobId\fP.
-
+.TP 4
+.B load \fI<path>\fP
+Loads the job specified.  The job must have been created by using the --to-file
+option for build or restart.  Takes the same options for display as build.
 .TP
 .B commit \fI<jobId>+\fP
 (Alias: ci)

@@ -7,7 +7,6 @@ Client that contains most of the behavior available from the command line.
 This client wraps around the low-level rMake Server client to provide
 functionality that crosses client/server boundaries.
 """
-
 import copy
 import itertools
 import os
@@ -128,11 +127,9 @@ class rMakeHelper(object):
                                            prettyPrint=prettyPrint)
         self.buildConfig.display()
 
-
-
-    def restartJob(self, jobId, troveSpecs=None, updateSpecs=None,
-                   excludeSpecs=None, updateConfigKeys=None, infoOnly=False,
-                   quiet=False, clearBuildList=False):
+    def createRestartJob(self, jobId, troveSpecs=None, updateSpecs=None,
+                         excludeSpecs=None, updateConfigKeys=None,
+                         clearBuildList=False):
         job = self.client.getJob(jobId, withConfigs=True)
         troveSpecList = []
         oldTroveDict = {}
@@ -193,19 +190,48 @@ class rMakeHelper(object):
         mainConfig.jobContext += [jobId]
         if troveSpecs:
             troveSpecList.extend(troveSpecs)
-        return self.buildTroves(troveSpecList, buildConfig=mainConfig,
-                                configDict=configDict,
-                                recurseGroups=recurseGroups,
-                                updateSpecs=updateSpecs,
-                                oldTroveDict=oldTroveDict,
-                                infoOnly=infoOnly, quiet=quiet)
+        return self._createBuildJob(troveSpecList, buildConfig=mainConfig,
+                                    configDict=configDict,
+                                    recurseGroups=recurseGroups,
+                                    updateSpecs=updateSpecs,
+                                    oldTroveDict=oldTroveDict)
 
-    def buildTroves(self, troveSpecList,
-                    limitToHosts=None, limitToLabels=None, recurseGroups=False,
-                    buildConfig=None, configDict=None, matchSpecs=None,
-                    quiet=False, infoOnly=False, updateSpecs=None,
-                    oldTroveDict=None):
 
+    def displayJob(self, job, quiet=False):
+        verbose = log.getVerbosity() <= log.DEBUG
+        return buildcmd.displayBuildInfo(job, verbose=verbose,
+                                         quiet=quiet)
+
+    def buildJob(self, job, quiet=False):
+        jobId = self.client.buildJob(job)
+        if not quiet:
+            print 'Added Job %s' % jobId
+            for (n,v,f) in sorted(job.iterTroveList()):
+                if f is not None and not f.isEmpty():
+                    f = '[%s]' % f
+                else:
+                    f = ''
+                print '  %s=%s/%s%s' % (n, v.trailingLabel(),
+                                           v.trailingRevision(), f)
+        else:
+            print jobId
+        return jobId
+
+    def createBuildJob(self, troveSpecList, limitToHosts=None,
+                       limitToLabels=None, recurseGroups=False,
+                       buildConfig=None, matchSpecs=None):
+        # added to limit api for createBuildJob to the bits that should
+        # be passed in from the front end.
+        return self._createBuildJob(troveSpecList, limitToHosts=limitToHosts,
+                                    limitToLabels=limitToLabels,
+                                    recurseGroups=recurseGroups,
+                                    buildConfig=buildConfig,
+                                    matchSpecs=matchSpecs)
+
+    def _createBuildJob(self, troveSpecList, limitToHosts=None,
+                        limitToLabels=None, recurseGroups=False,
+                        buildConfig=None, configDict=None, matchSpecs=None,
+                        oldTroveDict=None, updateSpecs=None):
         if not isinstance(troveSpecList, (list, tuple)):
             troveSpecList = [troveSpecList]
         if configDict:
@@ -223,6 +249,7 @@ class rMakeHelper(object):
         if matchSpecs:
             for matchSpec in matchSpecs:
                 buildConfig.addMatchRule(matchSpec)
+        self.updateBuildConfig(buildConfig=buildConfig)
 
         job = buildcmd.getBuildJob(buildConfig,
                                    self.getConaryClient(buildConfig),
@@ -231,22 +258,14 @@ class rMakeHelper(object):
                                    configDict=configDict,
                                    updateSpecs=updateSpecs,
                                    oldTroveDict=oldTroveDict)
+        return job
 
-        if infoOnly:
-            verbose = log.getVerbosity() <= log.DEBUG
-            return buildcmd.displayBuildInfo(job, verbose=verbose,
-                                             quiet=quiet)
-        jobId = self.client.buildJob(job)
-        if not quiet:
-            print 'Added Job %s' % jobId
-            for (n,v,f) in sorted(job.iterTroveList()):
-                if f is not None and not f.isEmpty():
-                    f = '[%s]' % f
-                else:
-                    f = ''
-                print '  %s=%s/%s%s' % (n, v.trailingLabel(),
-                                           v.trailingRevision(), f)
-        return jobId
+    def loadJobFromFile(self, loadPath):
+        job = buildjob.BuildJob.loadFromFile(loadPath)
+        for cfg in job.iterConfigList():
+            cfg.repositoryMap.update(self.buildConfig.repositoryMap)
+            cfg.user.extend(self.buildConfig.user)
+        return job
 
     def stopJob(self, jobId):
         """
@@ -549,4 +568,26 @@ class rMakeHelper(object):
         return not self.client.getJob(jobId, withTroves=False).isFailed()
     poll = watch # backwards compatibility
 
+    def buildTroves(self, *args, **kw):
+        """
+            Backwards compatibility interface.
+        """
+        infoOnly = kw.pop('infoOnly', False)
+        quiet = kw.pop('quiet', False)
+        job = self.createBuildJob(*args, **kw)
+        if infoOnly:
+            self.displayJob(job, quiet=quiet)
+        else:
+            return self.buildJob(job, quiet=quiet)
 
+    def restartJob(self, *args, **kw):
+        """
+            Backwards compatibility interface.
+        """
+        infoOnly = kw.pop('infoOnly', False)
+        quiet = kw.pop('quiet', False)
+        job = self.createRestartJob(*args, **kw)
+        if infoOnly:
+            self.displayJob(job, quiet=quiet)
+        else:
+            return self.buildJob(job, quiet=quiet)

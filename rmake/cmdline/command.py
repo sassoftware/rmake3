@@ -174,6 +174,10 @@ class BuildCommand(rMakeCommand):
             'macro'   : ('set macro NAME to VALUE', "'NAME VALUE'"),
             'no-clean': 'do not remove build directory even if build is'
                         ' successful',
+            'to-file': (options.VERBOSE_HELP,
+                        'store job in a file instead of sending it'
+                        ' to the server.  This makes it possible for others'
+                        ' to start the job.'),
             'binary-search': (options.VERBOSE_HELP,
                               'Search for the binary'
                               'version of group and build the latest'
@@ -184,22 +188,26 @@ class BuildCommand(rMakeCommand):
             'recurse':  ('recurse groups, building all included sources')}
 
     def addParameters(self, argDef):
+        self.addBuildParameters(argDef)
+        rMakeCommand.addParameters(self, argDef)
         argDef['flavor'] = ONE_PARAM
         argDef['host'] = MULT_PARAM
         argDef['label'] = MULT_PARAM
-        argDef['quiet'] = NO_PARAM
-        argDef['info'] = NO_PARAM
+        argDef['match'] = MULT_PARAM
+        argDef['binary-search'] = NO_PARAM
+        argDef['recurse'] = NO_PARAM
+
+    def addBuildParameters(self, argDef):
         argDef['commit'] = NO_PARAM
         argDef['prep'] = NO_PARAM
         argDef['macro'] = MULT_PARAM
-        argDef['match'] = MULT_PARAM
         argDef['message'] = '-m', ONE_PARAM
         argDef['no-watch'] = NO_PARAM
         argDef['poll'] = NO_PARAM
-        argDef['binary-search'] = NO_PARAM
-        argDef['recurse'] = NO_PARAM
         argDef['no-clean'] = NO_PARAM
-        rMakeCommand.addParameters(self, argDef)
+        argDef['to-file'] = ONE_PARAM
+        argDef['quiet'] = NO_PARAM
+        argDef['info'] = NO_PARAM
 
     def addConfigOptions(self, cfgMap, argDef):
         cfgMap['reuse'] = 'reuseRoots', NO_PARAM
@@ -228,23 +236,8 @@ class BuildCommand(rMakeCommand):
             client.buildConfig.flavor = newFlavors
 
         matchSpecs = argSet.pop('match', [])
-
-        if 'no-clean' in argSet:
-            client.buildConfig.cleanAfterCook = False
-            del argSet['no-clean']
-        if 'prep' in argSet:
-            client.buildConfig.prepOnly = argSet.pop('prep', False)
-
-        macros = argSet.pop('macro', [])
-        for macro in macros:
-            client.buildConfig.configLine('macros ' + macro)
-
         hosts = argSet.pop('host', [])
         labels = argSet.pop('label', [])
-        quiet = argSet.pop('quiet', False)
-        commit  = argSet.pop('commit', False)
-        message  = argSet.pop('message', None)
-        infoOnly  = argSet.pop('info', False)
         recurseGroups = argSet.pop('recurse', False) or command == 'buildgroup'
 
         if recurseGroups:
@@ -257,18 +250,40 @@ class BuildCommand(rMakeCommand):
                 recurseGroups = client.BUILD_RECURSE_GROUPS_BINARY
             else:
                 recurseGroups = client.BUILD_RECURSE_GROUPS_SOURCE
-        monitorJob = not argSet.pop('no-watch', False)
 
-        jobId = client.buildTroves(troveSpecs,
-                                   limitToHosts=hosts, limitToLabels=labels,
-                                   recurseGroups=recurseGroups,
-                                   matchSpecs=matchSpecs,
-                                   quiet=quiet,
-                                   infoOnly=infoOnly)
+        job = client.createBuildJob(troveSpecs, limitToHosts=hosts,
+                                    limitToLabels=labels,
+                                    recurseGroups=recurseGroups,
+                                    matchSpecs=matchSpecs)
+        return self._build(client, job, argSet)
+
+    def _build(self, client, job, argSet):
+        savePath = argSet.pop('to-file', False)
+
+        macros = argSet.pop('macro', [])
+        for macro in macros:
+            client.buildConfig.configLine('macros ' + macro)
+
+
+        monitorJob = not argSet.pop('no-watch', False)
+        if 'no-clean' in argSet:
+            client.buildConfig.cleanAfterCook = False
+            del argSet['no-clean']
+        if 'prep' in argSet:
+            client.buildConfig.prepOnly = argSet.pop('prep', False)
+
+        quiet = argSet.pop('quiet', False)
+        commit  = argSet.pop('commit', False)
+        message  = argSet.pop('message', None)
+        infoOnly  = argSet.pop('info', False)
+
         if infoOnly:
+            client.displayJob(job, quiet=quiet)
+        if savePath:
+            job.writeToFile(savePath, sanitize=True)
+        if infoOnly or savePath:
             return 0
-        if quiet:
-            print jobId
+        jobId = client.buildJob(job, quiet=quiet)
         if monitorJob:
             if quiet:
                 if not client.waitForJob(jobId):
@@ -282,8 +297,29 @@ class BuildCommand(rMakeCommand):
                                     waitForJob=True, message=message):
                 return 1
         return 0
-
 register(BuildCommand)
+
+class LoadJobCommand(BuildCommand):
+    '''Loads a job from a file that was created with --to-file'''
+
+    commands = ['load']
+    commandGroup = CG_BUILD
+    paramHelp = '<path>'
+
+    def addParameters(self, argDef):
+        self.addBuildParameters(argDef)
+        rMakeCommand.addParameters(self, argDef)
+
+    def runCommand(self, client, cfg, argSet, args):
+        if self.verbose:
+            log.setVerbosity(log.DEBUG)
+        else:
+            log.setVerbosity(log.INFO)
+        command, loadPath = self.requireParameters(args, 'path')
+        job = client.loadJobFromFile(loadPath)
+        return self._build(client, job, argSet)
+register(LoadJobCommand)
+
 
 class RestartCommand(BuildCommand):
     '''Rebuilds the specified job'''
@@ -294,33 +330,25 @@ class RestartCommand(BuildCommand):
     help = 'Rebuild an earlier job'
 
     def addParameters(self, argDef):
+        self.addBuildParameters(argDef)
+        rMakeCommand.addParameters(self, argDef)
         argDef['exclude'] = MULT_PARAM
         argDef['update'] = MULT_PARAM
         argDef['update-config'] = MULT_PARAM
         argDef['no-update'] = NO_PARAM
         argDef['clear-build-list'] = NO_PARAM
-        argDef['commit'] = NO_PARAM
-        argDef['info'] = NO_PARAM
-        argDef['quiet'] = NO_PARAM
-        argDef['message'] = '-m', NO_PARAM
-        argDef['no-watch'] = NO_PARAM
-        rMakeCommand.addParameters(self, argDef)
 
     def runCommand(self, client, cfg, argSet, args):
         if self.verbose:
             log.setVerbosity(log.DEBUG)
         else:
             log.setVerbosity(log.INFO)
-        command, jobId, troveSpecs = self.requireParameters(args, 'jobId', 
+        command, jobId, troveSpecs = self.requireParameters(args, 'jobId',
                                                             allowExtra=True)
         jobId = _getJobIdOrUUId(jobId)
 
-        commit  = argSet.pop('commit', False)
-        message  = argSet.pop('message', None)
         noUpdate = argSet.pop('no-update', False)
         clearBuildList = argSet.pop('clear-build-list', False)
-        infoOnly  = argSet.pop('info', False)
-        quiet  = argSet.pop('quiet', False)
         updateConfigKeys = argSet.pop('update-config', None)
         if noUpdate:
             updateSpecs = ['-*']
@@ -329,29 +357,12 @@ class RestartCommand(BuildCommand):
         updateSpecs.extend(argSet.pop('update', []))
         excludeSpecs = argSet.pop('exclude', [])
 
-        jobId = client.restartJob(jobId, troveSpecs,
+        job = client.createRestartJob(jobId, troveSpecs,
                                   updateSpecs=updateSpecs,
                                   excludeSpecs=excludeSpecs,
                                   updateConfigKeys=updateConfigKeys,
-                                  infoOnly=infoOnly,
-                                  quiet=quiet, clearBuildList=clearBuildList)
-        if infoOnly:
-            return 0
-        monitorJob = not argSet.pop('no-watch', False)
-        if monitorJob:
-            if quiet:
-                if not client.waitForJob(jobId):
-                    return 1
-            elif not client.watch(jobId, commit=commit,
-                                  showTroveLogs=True,
-                                  showBuildLogs=True,
-                                  message=message):
-                return 1
-        elif commit:
-            if not client.commitJob(jobId, commitWithFailures=False,
-                                    waitForJob=True, message=message):
-                return 1
-        return 0
+                                  clearBuildList=clearBuildList)
+        return self._build(client, job, argSet)
 register(RestartCommand)
 
 class ChangeSetCommand(rMakeCommand):

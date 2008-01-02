@@ -1,6 +1,7 @@
 #
 # Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
 #
+import bz2
 import itertools
 import sys
 import time
@@ -14,6 +15,8 @@ from rmake.lib import apiutils
 from rmake.lib.apiutils import thaw, freeze
 from rmake.build import buildtrove
 from rmake.build import publisher
+
+from xmlrpclib import dumps, loads
 
 jobStates = {
     'JOB_STATE_INIT'        : 0,
@@ -298,6 +301,18 @@ class _FreezableBuildJob(_AbstractBuildJob):
         d['configs'] = [ (x[0], freeze(freezeClass, x[1]))
                               for x in self.configs.items() ]
         return d
+
+    def writeToFile(self, path, sanitize=False):
+        jobStr = dumps((self.__freeze__(sanitize=sanitize),))
+        outFile = bz2.BZ2File(path, 'w')
+        outFile.write(jobStr)
+        outFile.close()
+
+    @classmethod
+    def loadFromFile(class_, path):
+        jobStr = bz2.BZ2File(path).read()
+        jobDict, = loads(jobStr)[0]
+        return class_.__thaw__(jobDict)
 
     @classmethod
     def __thaw__(class_, d):
