@@ -8,6 +8,7 @@ compatibility checks.
 from conary import constants
 from conary import state
 from conary.lib import log
+from conary.server import schema
 
 from rmake import errors
 
@@ -103,6 +104,12 @@ class ConaryVersion(object):
         else: # support added in 1.0.31 and 1.1.4
             return state.ConaryStateFromFile(path, repos=repos,
                                              parseSource=parseSource)
+
+    def loadServerSchema(self, db):
+        if self.checkVersion(False, False, 6):
+            schema.loadSchema(db, doMigrate=True)
+        else:
+            schema.loadSchema(db, migrate=True)
 
     def supportsCloneCallback(self):
         # support added in 1.0.30 and 1.1.3

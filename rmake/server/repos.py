@@ -48,6 +48,7 @@ sys.excepthook = oldExcepthook
 
 from conary.server import schema
 
+from rmake import compat
 from rmake import errors
 from rmake.lib import daemon
 from rmake.lib import logfile
@@ -101,7 +102,7 @@ def startRepository(cfg, fork = True, logger=None):
     # Note - this will automatically migrate this repository! 
     # Since this is a throwaway repos anyway, I think that's
     # acceptable.
-    schema.loadSchema(db, doMigrate=True)
+    compat.ConaryVersion().loadServerSchema(db)
     db.commit()
 
     user, password = cfg.reposUser.find(cfg.reposName)
