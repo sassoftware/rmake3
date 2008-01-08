@@ -8,7 +8,6 @@ compatibility checks.
 from conary import constants
 from conary import state
 from conary.lib import log
-from conary.server import schema
 
 from rmake import errors
 
@@ -106,6 +105,7 @@ class ConaryVersion(object):
                                              parseSource=parseSource)
 
     def loadServerSchema(self, db):
+        from conary.server import schema
         if self.checkVersion(False, False, 6):
             schema.loadSchema(db, doMigrate=True)
         else:
