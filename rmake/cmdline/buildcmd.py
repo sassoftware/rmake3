@@ -92,7 +92,8 @@ def getBuildJob(buildConfig, conaryclient, troveSpecList,
                          message=None,
                          recurseGroups=recurseGroups,
                          matchSpecs=contextBaseMatchRules + cfg.matchTroveRule,
-                         reposName=mainConfig.reposName)
+                         reposName=mainConfig.reposName,
+                         updateSpecs=updateSpecs)
         if updateSpecs and oldTroveDict and contextStr in oldTroveDict:
             troveList = _matchUpdateRestrictions(mainConfig.reposName,
                                                  oldTroveDict[contextStr],
@@ -115,7 +116,7 @@ def getBuildJob(buildConfig, conaryclient, troveSpecList,
 
 def getTrovesToBuild(cfg, conaryclient, troveSpecList, message=None, 
                      recurseGroups=BUILD_RECURSE_GROUPS_NONE, matchSpecs=None, 
-                     reposName=None):
+                     reposName=None, updateSpecs=None):
     toBuild = []
     toFind = {}
     groupsToFind = []
@@ -173,11 +174,14 @@ def getTrovesToBuild(cfg, conaryclient, troveSpecList, message=None,
         compat.ConaryVersion().requireFindGroupSources()
         localGroupTroves = [ x for x in localTroves 
                              if x[0].startswith('group-') ]
-        toBuild.extend(_findSourcesForSourceGroup(repos, cfg, groupsToFind,
-                                                  localGroupTroves))
+        toBuild.extend(_findSourcesForSourceGroup(repos, reposName, cfg,
+                                                  groupsToFind,
+                                                  localGroupTroves,
+                                                  updateSpecs))
     elif recurseGroups == BUILD_RECURSE_GROUPS_BINARY:
-        newTroveSpecs.extend(_findSpecsForBinaryGroup(repos, cfg,
-                                                      groupsToFind))
+        newTroveSpecs.extend(_findSpecsForBinaryGroup(repos, reposName, cfg,
+                                                      groupsToFind,
+                                                      updateSpecs))
 
     for troveSpec in newTroveSpecs:
         sourceName = troveSpec[0].split(':')[0] + ':source'
@@ -260,19 +264,31 @@ def _filterListByMatchSpecs(reposName, matchSpecs, troveList):
     return list(itertools.chain(*(troveMap[x] for x in toAdd)))
 
 def _matchUpdateRestrictions(reposName, oldTroveList,
-                             newTroveList, updateSpecs):
+                             newTroveList, updateSpecs, 
+                             binaries=False):
     troveMap = {}
     for troveTup in itertools.chain(oldTroveList, newTroveList):
-        key = (troveTup[0].split(':')[0] + ':source', troveTup[1], troveTup[2])
+        if binaries:
+            key = (troveTup[0].split(':')[0], troveTup[1], troveTup[2])
+        else: 
+            key = (troveTup[0].split(':')[0] + ':source', 
+                   troveTup[1], troveTup[2])
         troveMap.setdefault(key, []).append(troveTup)
 
     updateDict = {}
     newUpdateSpecs = []
+    if not updateSpecs:
+        return newTroveList
+    firstMatch = True
     for troveSpec in updateSpecs:
         if not isinstance(troveSpec, tuple):
             troveSpec = cmdutil.parseTroveSpec(troveSpec)
 
-        troveSpec = (troveSpec[0].split(':')[0] + ':source', troveSpec[1], troveSpec[2])
+        if binaries:
+            troveSpec = (troveSpec[0].split(':')[0], troveSpec[1], troveSpec[2])
+        else:
+            troveSpec = (troveSpec[0].split(':')[0] + ':source', 
+                         troveSpec[1], troveSpec[2])
         if troveSpec[0] and troveSpec[0][0] == '-':
             sense = False
             troveSpec = (troveSpec[0][1:], troveSpec[1], troveSpec[2])
@@ -289,6 +305,9 @@ def _matchUpdateRestrictions(reposName, oldTroveList,
         # all packages are added.
         specs = set([(x[0], troveSpec[1], troveSpec[2]) for x in troveMap
                       if filterFn(x)])
+        if not specs:
+            newUpdateSpecs.append(troveSpec)
+            updateDict[troveSpec] = sense
         updateDict.update(dict.fromkeys(specs, sense))
         for spec in specs:
             if spec in newUpdateSpecs:
@@ -640,37 +659,51 @@ def _commitRecipe(conaryclient, cfg, recipePath, message, branch=None):
         shutil.rmtree(recipeDir)
 
 
-def _findSpecsForBinaryGroup(repos, cfg, groupsToFind):
+def _findSpecsForBinaryGroup(repos, reposName, cfg, groupsToFind, updateSpecs):
     newTroveSpecs = []
     results = repos.findTroves(cfg.buildLabel,
                                groupsToFind, cfg.buildFlavor)
-    groupTuples = list(itertools.chain(*results.itervalues()))
+    groupTuples = []
+    for troveSpec, troveList in results.iteritems():
+        for troveTup in troveList:
+            groupTuples.append((troveTup[0], troveTup[1], troveTup[2]))
+    groupTuples = _matchUpdateRestrictions(reposName,
+                                           cfg.recursedGroupTroves,
+                                           troveList,
+                                           updateSpecs, binaries=True)
+
     groups = repos.getTroves(groupTuples)
     groups = dict(itertools.izip(groupTuples, groups))
-    for troveSpec, troveList in results.iteritems():
-        for groupTup in troveList:
-            group = groups[groupTup]
+    cfg.recursedGroupTroves.extend(groupTuples)
+    # line up troveSpec flavors to trovetuples
+    troveSpecsByName = {}
+    for troveSpec in groupsToFind:
+        troveSpecsByName.setdefault(troveSpec[0], []).append(troveSpec[2])
+    for groupTup in groupTuples:
+        group = groups[groupTup]
+        for flavor in troveSpecsByName[groupTup[0]]:
             groupSource = (group.getSourceName(),
                            group.getVersion().getSourceVersion(False),
-                           troveSpec[2])
+                           flavor)
             newTroveSpecs.append(groupSource)
 
-            troveTups = list(group.iterTroveList(strongRefs=True,
-                                                 weakRefs=True))
-            troveTups = ((x[0].split(':')[0], x[1], x[2])
-                             for x in troveTups)
-            troveTups = (x for x in troveTups
-                         if not x[0].startswith('group-'))
-            troveTups = list(set(troveTups))
-            troveList = repos.getTroves(troveTups, withFiles=False)
-            for trove in troveList:
-                n = trove.getSourceName()
-                newTroveSpecs.append((n,
-                            trove.getVersion().getSourceVersion().branch(),
-                            trove.getFlavor()))
+        troveTups = list(group.iterTroveList(strongRefs=True,
+                                             weakRefs=True))
+        troveTups = ((x[0].split(':')[0], x[1], x[2])
+                         for x in troveTups)
+        troveTups = (x for x in troveTups
+                     if not x[0].startswith('group-'))
+        troveTups = list(set(troveTups))
+        troveList = repos.getTroves(troveTups, withFiles=False)
+        for trove in troveList:
+            n = trove.getSourceName()
+            newTroveSpecs.append((n,
+                        trove.getVersion().getSourceVersion().branch(),
+                        trove.getFlavor()))
     return newTroveSpecs
 
-def _findSourcesForSourceGroup(repos, cfg, groupsToFind, localGroups):
+def _findSourcesForSourceGroup(repos, reposName, cfg, groupsToFind, 
+                               localGroups, updateSpecs):
     findSpecs = {}
     for troveSpec in groupsToFind:
         sourceName = troveSpec[0].split(':')[0] + ':source'
@@ -678,29 +711,33 @@ def _findSourcesForSourceGroup(repos, cfg, groupsToFind, localGroups):
         l.append(troveSpec[2])
     results = repos.findTroves(cfg.buildLabel, findSpecs, cfg.flavor)
     allTups = []
+    groupTuples = []
     for troveSpec, troveTupList in results.iteritems():
         flavors = findSpecs[troveSpec]
         for flavor in flavors:
             for troveTup in troveTupList:
                 name, version = troveTup[0:2]
-                (loader, recipeObj, relevantFlavor) = \
-                        recipeutil.loadRecipe(repos, name, version, flavor,
-                                      defaultFlavor=cfg.buildFlavor,
-                                      installLabelPath=cfg.installLabelPath)
-                troveTups = grouprecipe.findSourcesForGroup(repos, recipeObj)
-                allTups.extend(troveTups)
-    if localGroups:
-        serverHost = localGroups[0][1].trailingLabel().getHost()
-        localRepos = recipeutil.RemoveHostRepos(repos, serverHost)
-        for name, version, flavor in localGroups:
+                groupTuples.append((name, version, flavor))
+    groupTuples += localGroups
+    groupTuples = _matchUpdateRestrictions(reposName,
+                                           cfg.recursedGroupTroves,
+                                           groupTuples,
+                                           updateSpecs)
+
+    cfg.recursedGroupTroves = groupTuples
+    for name, version, flavor in groupTuples:
+        localRepos = recipeutil.RemoveHostRepos(repos, reposName)
+        if version.getHost() == reposName:
             realLabel = version.branch().parentBranch().label()
-            (loader, recipeObj, relevantFlavor) = \
-                    recipeutil.loadRecipe(repos, name, version, flavor,
-                                  defaultFlavor=cfg.buildFlavor,
-                                  installLabelPath=cfg.installLabelPath,
-                                  buildLabel=realLabel)
-            troveTups = grouprecipe.findSourcesForGroup(localRepos, recipeObj)
-            allTups.extend(troveTups)
+        else:
+            realLabel = version.trailingLabel()
+        (loader, recipeObj, relevantFlavor) = \
+                recipeutil.loadRecipe(repos, name, version, flavor,
+                              defaultFlavor=cfg.buildFlavor,
+                              installLabelPath=cfg.installLabelPath,
+                              buildLabel=realLabel)
+        troveTups = grouprecipe.findSourcesForGroup(localRepos, recipeObj)
+        allTups.extend(troveTups)
 
     allTups = [ x for x in allTups if not x[0].startswith('group-') ]
     return allTups

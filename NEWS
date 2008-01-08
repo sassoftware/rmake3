@@ -6,7 +6,9 @@ Changes in @NEW@:
   o Bug Fixes:
      * Fixed a traceback when building multiple packages without a parent 
        branch (RMK-732)
-     * Added back compatibility with conary < 1.2.6.
+     * Added back compatibility with conary < 1.2.6. (RMK-741)
+     * restart now will not update the version of groups used to recurse
+       when --no-update is used (RMK-735)
 
 Changes in 1.0.13:
   o Client Changes:
