@@ -288,13 +288,18 @@ class rMakeChroot(ConaryBasedChroot):
                 else:
                     return False
         self.logger.debug("removing old chroot tree: %s", root)
+        # First, remove the conary database
+        try:
+            os.unlink(util.joinPaths(root, '/var/lib/conarydb/conarydb'))
+        except OSError:
+            pass
+        # attempt to remove just the /tmp dir first.
+        # that's where the chroot process should have had all
+        # of its files.  Doing this makes sure we don't remove
+        # /bin/rm while it might still be needed the next time around.
         os.system('rm -rf %s/tmp' % root)
         removeFailed = False
         if os.path.exists(root + '/tmp'):
-            # attempt to remove just the /tmp dir first.
-            # that's where the chroot process should have had all
-            # of its files.  Doing this makes sure we don't remove
-            # /bin/rm while it might still be needed the next time around.
             removeFailed = True
         else:
             os.system('rm -rf %s' % root)
