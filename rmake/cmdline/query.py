@@ -276,6 +276,7 @@ def displayTrovesByState(job, indent='     ', out=None):
                    buildtrove.TROVE_STATE_UNBUILDABLE,
                    buildtrove.TROVE_STATE_FAILED,
                    buildtrove.TROVE_STATE_BUILT,
+                   buildtrove.TROVE_STATE_PREBUILT,
                    buildtrove.TROVE_STATE_INIT):
         troves = sorted(job.iterTrovesByState(state))
         if not troves:

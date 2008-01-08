@@ -9,6 +9,7 @@ Changes in @NEW@:
      * Added back compatibility with conary < 1.2.6. (RMK-741)
      * restart now will not update the version of groups used to recurse
        when --no-update is used (RMK-735)
+     * Prebuilt packages are now displayed in query --troves output. (RMK-707)
 
 Changes in 1.0.13:
   o Client Changes:
