@@ -165,7 +165,8 @@ def displayOneJob(dcfg, job, troveTupList):
                 buildTroveList = [ job.troves[x] for x in troveTupList ]
                 contexts = set(x.context for x in buildTroveList)
                 for ctx in sorted(contexts):
-                    sys.stdout.write('\n\n[%s]\n' % ctx)
+                    if ctx:
+                        sys.stdout.write('\n\n[%s]\n' % ctx)
                     configs[ctx].display(sys.stdout)
                 return
             mainConfig = configs.pop('')
