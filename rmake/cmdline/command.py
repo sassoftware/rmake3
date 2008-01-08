@@ -575,7 +575,8 @@ class QueryCommand(rMakeCommand):
             'flavors'         : 'Show full flavors',
             'tracebacks'      : 'Show tracebacks',
             'all'             : 'Show all jobs (not just last 20)',
-            'active'          : 'Show only active jobs'
+            'active'          : 'Show only active jobs',
+            'show-config'     : 'Show configuration for this job',
            }
 
 
@@ -590,6 +591,7 @@ class QueryCommand(rMakeCommand):
         argDef['watch']      = NO_PARAM
         argDef['all']        = NO_PARAM
         argDef['active']        = NO_PARAM
+        argDef['show-config'] = NO_PARAM
         rMakeCommand.addParameters(self, argDef)
 
     def runCommand(self, client, cfg, argSet, args):
@@ -613,6 +615,7 @@ class QueryCommand(rMakeCommand):
         showLabels = argSet.pop('labels', False)
         showTracebacks = argSet.pop('tracebacks', False)
         showLogs       = argSet.pop('logs', False)
+        showConfig     = argSet.pop('show-config', False)
         if argSet.pop('all', False):
             limit = None
         else:
@@ -628,6 +631,7 @@ class QueryCommand(rMakeCommand):
                                     showFullFlavors=showFullFlavors,
                                     showLabels=showLabels,
                                     showTracebacks=showTracebacks,
+                                    showConfig=showConfig,
                                     jobLimit=limit,
                                     activeOnly=activeOnly)
         if watchJob:

@@ -3,6 +3,8 @@ Changes in @NEW@:
      * Added a "rmake load" command and "--to-file" parameter to build command
        to allow the information about a job to be encapsulated and sent 
        between rmake instances. (RMK-522)
+     * A "--show-config" flag was added to "rmake query". This displays the
+       configuration used for the specified job. (RMK-624)
   o Bug Fixes:
      * Fixed a traceback when building multiple packages without a parent 
        branch (RMK-732)
@@ -10,6 +12,10 @@ Changes in @NEW@:
      * restart now will not update the version of groups used to recurse
        when --no-update is used (RMK-735)
      * Prebuilt packages are now displayed in query --troves output. (RMK-707)
+     * The Conary database from the chroot is removed before attempting to
+       clean up the chroot itself. This helps when the latter fails by not
+       leaving a Conary database that could potentially confuse rmake if it
+       chooses to reuse the chroot. (RMK-698)
 
 Changes in 1.0.13:
   o Client Changes:

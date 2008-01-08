@@ -34,7 +34,7 @@ class DisplayConfig(object):
                  displayJobDetail=False, displayTroveDetail=False,
                  showLogs=False, showBuildLogs=False, showFullVersions=False,
                  showFullFlavors=False, showLabels=False,
-                 showTracebacks=False):
+                 showTracebacks=False, showConfig=False):
         self.client = client
         self.displayTroves = displayTroves
         self.displayJobs = displayJobs
@@ -46,6 +46,7 @@ class DisplayConfig(object):
         self.showFullFlavors = showFullFlavors
         self.showLabels = showLabels
         self.showTracebacks = showTracebacks
+        self.showConfig = showConfig
 
         self.needTroves = displayTroves or displayJobDetail or showBuildLogs
 
@@ -74,13 +75,15 @@ def getJobsToDisplay(dcfg, client, jobId=None, troveSpecs=None,
         troveSpecs = ( cmdutil.parseTroveSpec(x) for x in troveSpecs )
         troveSpecs = [ (x[0].split(':')[0] + ':source', x[1], x[2], x[3]) for x in troveSpecs ]
 
+    # Only retrieve the configuration if we have to show it
+    withConfigs = dcfg.showConfig
     if not jobId:
         jobIds = client.client.listJobs(activeOnly=activeOnly,
                                         jobLimit=jobLimit)
         jobList = client.client.getJobs(jobIds,
                                         withTroves=dcfg.needTroves)
     else:
-        jobList = [ client.client.getJob(jobId) ]
+        jobList = [ client.client.getJob(jobId, withConfigs = withConfigs) ]
 
     newJobList = []
     if troveSpecs:
@@ -98,7 +101,7 @@ def displayJobInfo(client, jobId=None, troveSpecs=[], displayTroves=False,
                    displayDetails=False, showLogs=False, showBuildLogs=False,
                    showFullVersions=False, showFullFlavors=False,
                    showLabels=False, showTracebacks=False,
-                   activeOnly=False, jobLimit=None):
+                   showConfig=False, activeOnly=False, jobLimit=None):
     if troveSpecs:
         displayTroves = True
 
@@ -116,6 +119,7 @@ def displayJobInfo(client, jobId=None, troveSpecs=[], displayTroves=False,
                          displayJobDetail=displayJobDetail,
                          displayTroves=displayTroves,
                          displayTroveDetail=displayTroveDetail,
+                         showConfig=showConfig,
                          showTracebacks=showTracebacks,
                          showLogs=showLogs,
                          showBuildLogs=showBuildLogs,
@@ -154,7 +158,32 @@ def getOldTime(t):
 
 def displayOneJob(dcfg, job, troveTupList):
     if dcfg.displayJobs:
-        if dcfg.displayJobDetail:
+        if dcfg.showConfig:
+            configs = job.getConfigDict()
+            if troveTupList:
+                # Extract contexts for the troves in the job
+                buildTroveList = [ job.troves[x] for x in troveTupList ]
+                contexts = set(x.context for x in buildTroveList)
+                for ctx in sorted(contexts):
+                    sys.stdout.write('\n\n[%s]\n' % ctx)
+                    configs[ctx].display(sys.stdout)
+                return
+            mainConfig = configs.pop('')
+            mainConfig.setDisplayOptions(showContexts=True)
+            for ctxName, config in configs.items():
+                ncfg = config.__class__()
+                for k, v in config.iteritems():
+                    if k in mainConfig and mainConfig[k] != v:
+                        ncfg.setValue(k, v)
+                    else:
+                        # We need to convince the config object not to display
+                        # default values. Using the regular __setitem__ will
+                        # set isDefault to False, so we do this instead.
+                        ncfg.__dict__[k] = None
+                mainConfig._addSection(ctxName, ncfg)
+            mainConfig.display(sys.stdout)
+            return
+        elif dcfg.displayJobDetail:
             displayJobDetail(dcfg, job)
         else:
             times = []
