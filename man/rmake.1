@@ -236,7 +236,7 @@ notifications, such as when a trove is building and when it has built or failed
 to build.
 .RE
 .TP
-.B query [\fI<jobId>\fR [\fItrovename\fP[=\fRversion][\fI<flavor>\fP]\fP]]+
+.B query [ \fI<jobId>\fR [\fItrovename\fP[=\fRversion][\fI<flavor>\fP]\fP]]+
 If no arguments are given, information about the last 20 jobs are listed.  
 Otherwise, displays information about a job.  You can also query for a 
 particular trove by specifying the trove after the jobId.
@@ -279,6 +279,11 @@ displayed.
 .B \-\-troves
 Lists basic information about the troves within a job.  This option is 
 assumed with many other options.
+.TP
+.B \-\-show-config
+Shows the configuration for the specified job, including the contexts for all
+troves within that job. If the optional trove specifier is supplied, only the
+configuration for that trove is displayed.
 .RE
 .TP
 .B stop \fI<jobId>\fP
