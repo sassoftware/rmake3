@@ -230,7 +230,10 @@ class rMakeChroot(ConaryBasedChroot):
     def _copyInRmake(self):
         # should this be controlled by strict mode too?
         rmakeDir = os.path.dirname(sys.modules['rmake'].__file__)
-        self.copyDir(rmakeDir)
+        # don't copy in rmake into /usr/lib/python2.4/site-packages
+        # as its important that we don't muck with the standard file 
+        # system location for some test runs of rmake inside of rmake
+        #self.copyDir(rmakeDir)
         # just copy to a standard path
         self.copyDir(rmakeDir, '/usr/share/rmake/rmake')
 

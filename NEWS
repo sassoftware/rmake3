@@ -19,6 +19,9 @@ Changes in @NEW@:
        clean up the chroot itself. This helps when the latter fails by not
        leaving a Conary database that could potentially confuse rmake if it
        chooses to reuse the chroot. (RMK-698)
+     * the currently running rmake no longer installs itself into
+       /usr/lib/python2.4/site-pacakges/rmake, using 
+       /usr/share/rmake/rmake instead.
 
 Changes in 1.0.13:
   o Client Changes:
