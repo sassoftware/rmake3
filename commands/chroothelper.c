@@ -426,11 +426,16 @@ int enter_chroot(const char * chrootDir, const char * socketPath,
                 return 1;
             }
             else if (!WIFEXITED(status)) {
-                fprintf(stderr, "warning: tag scripts exited abnormally\n");
+                if (WIFSIGNALED(status)) {
+                    fprintf(stderr, "error: tag scripts exited abnormally with signal %d\n", WTERMSIG(status));
+                }
+                else {
+                    fprintf(stderr, "error: tag scripts exited abnormally\n");
+                }
                 return 1;
             }
             else if (WEXITSTATUS(status) != 0) {
-                fprintf(stderr, "warning: tag scripts exited with status %d\n", WEXITSTATUS(status));
+                fprintf(stderr, "error: tag scripts exited with status %d\n", WEXITSTATUS(status));
                 return 1;
             }
         }
