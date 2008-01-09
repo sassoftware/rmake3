@@ -1,4 +1,4 @@
-Changes in @NEW@:
+Changes in 1.0.14:
   o Client Changes:
      * Added a "rmake load" command and "--to-file" parameter to build command
        to allow the information about a job to be encapsulated and sent 
