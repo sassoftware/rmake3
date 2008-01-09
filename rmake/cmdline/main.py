@@ -65,19 +65,6 @@ class RmakeMain(options.MainHandler):
         conaryConfig = conarycfg.ConaryConfiguration(readConfigFiles=read)
         return buildConfig, conaryConfig, pluginManager
 
-    def _getContext(self, buildConfig, conaryConfig, argSet):
-        context = conaryConfig.context
-        if buildConfig.context:
-            context = buildConfig.context
-        if os.path.exists('CONARY'):
-            conaryState = compat.ConaryVersion().ConaryStateFromFile('CONARY',
-                                                           parseSource=False)
-            if conaryState.hasContext():
-                context = conaryState.getContext()
-
-        context = os.environ.get('CONARY_CONTEXT', context)
-        context = argSet.pop('context', context)
-        return context
 
     def runCommand(self, thisCommand, (buildConfig, conaryConfig,
                                        pluginManager), argSet, args):
@@ -93,19 +80,6 @@ class RmakeMain(options.MainHandler):
             # if we're running help, we make log.WARNING the default level,
             # and otherwise log.INFO is the default.
             log.setMinVerbosity(log.INFO)
-        context = self._getContext(buildConfig, conaryConfig, argSet)
-        usedContext = False
-        if conaryConfig and context:
-            if conaryConfig.hasSection(context):
-                usedContext = True
-                conaryConfig.setContext(context)
-
-        buildConfig.useConaryConfig(conaryConfig)
-        if context and buildConfig.hasSection(context):
-            buildConfig.setContext(context)
-            usedContext = True
-        if not usedContext and context:
-            raise errors.RmakeError('No such context "%s"' % context)
 
         # don't let the buildFlavor be overridden yet
         client = helper.rMakeHelper(buildConfig=buildConfig)

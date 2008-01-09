@@ -22,6 +22,8 @@ Changes in @NEW@:
      * the currently running rmake no longer installs itself into
        /usr/lib/python2.4/site-pacakges/rmake, using 
        /usr/share/rmake/rmake instead.
+     * The --config option will now correctly override values set in a
+       context. (RMK-748)
 
 Changes in 1.0.13:
   o Client Changes:

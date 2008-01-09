@@ -1,3 +1,4 @@
+import os
 import sys
 
 from conary import conarycfg
@@ -62,6 +63,35 @@ class rMakeCommand(options.AbstractCommand):
         d["verbose"] = NO_PARAM
         argDef[self.defaultGroup] = d
 
+    def _getContext(self, buildConfig, conaryConfig, argSet):
+        context = conaryConfig.context
+        if buildConfig.context:
+            context = buildConfig.context
+        if os.path.exists('CONARY'):
+            conaryState = compat.ConaryVersion().ConaryStateFromFile('CONARY',
+                                                           parseSource=False)
+            if conaryState.hasContext():
+                context = conaryState.getContext()
+
+        context = os.environ.get('CONARY_CONTEXT', context)
+        context = argSet.pop('context', context)
+        return context
+
+    def _setContext(self, buildConfig, conaryConfig, argSet):
+        context = self._getContext(buildConfig, conaryConfig, argSet)
+        usedContext = False
+        if conaryConfig and context:
+            if conaryConfig.hasSection(context):
+                usedContext = True
+                conaryConfig.setContext(context)
+
+        buildConfig.useConaryConfig(conaryConfig)
+        if context and buildConfig.hasSection(context):
+            buildConfig.setContext(context)
+            usedContext = True
+        if not usedContext and context:
+            raise errors.RmakeError('No such context "%s"' % context)
+
     def processConfigOptions(self, (buildConfig, conaryConfig, pluginManager), 
                              cfgMap, argSet):
         """
@@ -84,6 +114,7 @@ class rMakeCommand(options.AbstractCommand):
             conaryConfig = conarycfg.ConaryConfiguration(readConfigFiles=False)
         for path in configFileList:
             conaryConfig.read(path, exception=True)
+        self._setContext(buildConfig, conaryConfig, argSet)
 
         for (arg, data) in cfgMap.items():
             cfgName, paramType = data[0:2]
