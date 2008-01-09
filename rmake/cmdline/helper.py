@@ -129,7 +129,7 @@ class rMakeHelper(object):
 
     def createRestartJob(self, jobId, troveSpecs=None, updateSpecs=None,
                          excludeSpecs=None, updateConfigKeys=None,
-                         clearBuildList=False):
+                         clearBuildList=False, clearPrebuiltList=False):
         job = self.client.getJob(jobId, withConfigs=True)
         troveSpecList = []
         oldTroveDict = {}
@@ -187,7 +187,10 @@ class rMakeHelper(object):
             configDict[contextStr] = cfg
 
         mainConfig = configDict['']
-        mainConfig.jobContext += [jobId]
+        if clearPrebuiltList:
+            mainConfig.jobcontext = []
+        else:
+            mainConfig.jobContext += [jobId]
         if troveSpecs:
             troveSpecList.extend(troveSpecs)
         return self._createBuildJob(troveSpecList, buildConfig=mainConfig,
@@ -195,7 +198,6 @@ class rMakeHelper(object):
                                     recurseGroups=recurseGroups,
                                     updateSpecs=updateSpecs,
                                     oldTroveDict=oldTroveDict)
-
 
     def displayJob(self, job, quiet=False):
         verbose = log.getVerbosity() <= log.DEBUG

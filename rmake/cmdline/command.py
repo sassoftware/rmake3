@@ -337,6 +337,7 @@ class RestartCommand(BuildCommand):
         argDef['update-config'] = MULT_PARAM
         argDef['no-update'] = NO_PARAM
         argDef['clear-build-list'] = NO_PARAM
+        argDef['clear-prebuilt-list'] = NO_PARAM
 
     def runCommand(self, client, cfg, argSet, args):
         if self.verbose:
@@ -349,6 +350,7 @@ class RestartCommand(BuildCommand):
 
         noUpdate = argSet.pop('no-update', False)
         clearBuildList = argSet.pop('clear-build-list', False)
+        clearPrebuiltList = argSet.pop('clear-prebuilt-list', False)
         updateConfigKeys = argSet.pop('update-config', None)
         if noUpdate:
             updateSpecs = ['-*']
@@ -361,7 +363,8 @@ class RestartCommand(BuildCommand):
                                   updateSpecs=updateSpecs,
                                   excludeSpecs=excludeSpecs,
                                   updateConfigKeys=updateConfigKeys,
-                                  clearBuildList=clearBuildList)
+                                  clearBuildList=clearBuildList,
+                                  clearPrebuiltList=clearPrebuiltList)
         return self._build(client, job, argSet)
 register(RestartCommand)
 

@@ -5,6 +5,9 @@ Changes in @NEW@:
        between rmake instances. (RMK-522)
      * A "--show-config" flag was added to "rmake query". This displays the
        configuration used for the specified job. (RMK-624)
+     * Added --clear-prebuilt-list option for "rmake restart".  This option
+       will run the same job as before but not mark any packages as 
+       prebuilt (RMK-729).
   o Bug Fixes:
      * Fixed a traceback when building multiple packages without a parent 
        branch (RMK-732)

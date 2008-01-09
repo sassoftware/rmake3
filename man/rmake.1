@@ -166,6 +166,9 @@ May be specified multiple times.  Makes the job use the new values for the given
 .RE
 .B \-\-clear-build-list
 Do not use the build list from the previous build, but instead build only the packages you specify.
+.B \-\-clear-prebuilt-list
+Do not mark any packages as prebuilt.  This will act as if building the previous job from scratch.
+.TP
 .TP
 .B changeset \fI<jobId>\fP \f[troveSpec]*\fP \fI<path>\fP 
 
