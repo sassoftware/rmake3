@@ -79,6 +79,15 @@ class Builder(object):
     def _installSignalHandlers(self):
         signal.signal(signal.SIGTERM, self._signalHandler)
         signal.signal(signal.SIGINT, self._signalHandler)
+        def _interrupt(*args, **kw):
+            import epdb
+            if hasattr(epdb, 'serve'):
+                epdb.serve()
+            else:
+                epdb.st()
+        # if you kill the dispatcher w/ SIGUSR1 you'll get a breakpoint.
+        import signal
+        signal.signal(signal.SIGUSR1, _interrupt)
 
     def _closeLog(self):
         self.logFile.close()
