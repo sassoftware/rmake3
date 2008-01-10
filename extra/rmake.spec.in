@@ -93,7 +93,6 @@ fi
 %attr(775,rmake,rmake) %dir /srv/rmake
 %dir %{_sysconfdir}/rmake
 %dir %{_libexecdir}/rmake
-%{_libexecdir}/rmake/rmake-xml
 %attr(4755,root,rmake) %{_libexecdir}/rmake/chroothelper
 %{pythonlib}
 %{_bindir}/rmake

@@ -1,3 +1,8 @@
+Changes in @NEW@:
+  o Client changes:
+     * Removed rmake-xml + rmake.desktop files used for integration w/
+       rBuilder.  That integration is being removed and something else will
+       replace it. (RMK-749)
 Changes in 1.0.14:
   o Client Changes:
      * Added a "rmake load" command and "--to-file" parameter to build command

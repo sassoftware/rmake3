@@ -1,9 +1,0 @@
-[Desktop Entry]
-Encoding=UTF-8
-Name=rMake Command
-Comment=rMake Command
-Exec=/usr/libexec/rmake/rmake-xml
-Terminal=true
-Type=Application
-OnlyShowIn=
-MimeType=application/x-rmake
