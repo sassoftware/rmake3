@@ -86,7 +86,6 @@ class Builder(object):
             else:
                 epdb.st()
         # if you kill the dispatcher w/ SIGUSR1 you'll get a breakpoint.
-        import signal
         signal.signal(signal.SIGUSR1, _interrupt)
 
     def _closeLog(self):
