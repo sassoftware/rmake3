@@ -19,7 +19,8 @@ from conary import conaryclient
 
 if __name__ == '__main__':
     coveragehook.install()
-    sys.path.insert(0, '/usr/share/rmake')
+    rootPath = os.environ['RMAKE_ROOT']
+    sys.path.insert(0, rootPath + '/usr/share/rmake')
 
 from rmake.worker.chroot import cook
 

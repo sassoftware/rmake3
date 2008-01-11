@@ -397,10 +397,12 @@ class rMakeChrootServer(object):
             prog = (self.getRoot() + constants.chrootRmakePath
                     + constants.chrootServerPath)
             util.mkdirChain(self.getRoot() + '/tmp/rmake/lib')
+
             args = [prog, 'start', '-n', '--config',
                     'root %s' % self.getRoot(), '--socket', socketPath]
             env = {'PYTHONPATH' : '%s:%s' % (os.path.dirname(rmakeDir),
-                                             os.path.dirname(conaryDir))}
+                                             os.path.dirname(conaryDir)),
+                   'RMAKE_ROOT' : self.getRoot()}
             if 'COVERAGE_DIR' in os.environ:
                 import shutil
                 chrootRmakePath = self.getRoot() + constants.chrootRmakePath
