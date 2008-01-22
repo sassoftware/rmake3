@@ -7,6 +7,9 @@ Changes in @NEW@:
      * For conary versions 1.2.16 or greater, rMake will do a better job
        of correctly recording the build requirements that it uses when more
        than one version of a package is installed into a chroot. (CNY-2427)
+     * Fixed a bug in dependency resolution that would affect rmake repositories
+       where an older x86_64 build version was competing with a newer x86 
+       version built in the same job. (RMK-761)
 Changes in 1.0.14:
   o Client Changes:
      * Added a "rmake load" command and "--to-file" parameter to build command
