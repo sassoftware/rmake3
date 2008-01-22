@@ -12,7 +12,7 @@ import time
 import traceback
 
 if __name__ == '__main__':
-    rootPath = os.environ['RMAKE_ROOT']
+    rootPath = os.environ.get('RMAKE_ROOT', '/')
     sys.path.insert(0, rootPath + '/usr/share/rmake')
 from conary.lib import coveragehook
 coveragehook.install()
