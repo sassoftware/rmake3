@@ -11,16 +11,17 @@ import sys
 import time
 import traceback
 
-from conary.lib import options, util
+if __name__ == '__main__':
+    rootPath = os.environ['RMAKE_ROOT']
+    sys.path.insert(0, rootPath + '/usr/share/rmake')
 from conary.lib import coveragehook
+coveragehook.install()
+
+from conary.lib import options, util
 from conary import checkin
 from conary import conarycfg
 from conary import conaryclient
 
-if __name__ == '__main__':
-    coveragehook.install()
-    rootPath = os.environ['RMAKE_ROOT']
-    sys.path.insert(0, rootPath + '/usr/share/rmake')
 
 from rmake.worker.chroot import cook
 
