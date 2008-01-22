@@ -3,6 +3,10 @@ Changes in @NEW@:
      * Removed rmake-xml + rmake.desktop files used for integration w/
        rBuilder.  That integration is being removed and something else will
        replace it. (RMK-749)
+  o Bug Fixes:
+     * For conary versions 1.2.16 or greater, rMake will do a better job
+       of correctly recording the build requirements that it uses when more
+       than one version of a package is installed into a chroot. (CNY-2427)
 Changes in 1.0.14:
   o Client Changes:
      * Added a "rmake load" command and "--to-file" parameter to build command

@@ -90,7 +90,8 @@ class CookResults(object):
 
 
 def cookTrove(cfg, repos, logger, name, version, flavorList, targetLabel,
-              loadSpecsList=None, builtTroves=None, logData=None):
+              loadSpecsList=None, builtTroves=None, logData=None,
+              buildReqs=None, crossReqs=None):
     if not isinstance(flavorList, (tuple, list)):
         flavorList = [flavorList]
     util.mkdirChain(cfg.root + '/tmp')
@@ -132,7 +133,8 @@ def cookTrove(cfg, repos, logger, name, version, flavorList, targetLabel,
                 log.info("Cook process started (pid %s)" % os.getpid())
                 _cookTrove(cfg, repos, name, version, flavorList, targetLabel,
                            loadSpecsList, builtTroves,
-                           csFile, failureFd=outF, logger=logger)
+                           csFile, buildReqs=buildReqs, crossReqs=crossReqs,
+                           failureFd=outF, logger=logger)
             except Exception, msg:
                 if len(flavorList) > 1:
                     errMsg = 'Error cooking %s=%s with flavors %s: %s' % \
@@ -224,7 +226,8 @@ def _buildFailed(failureFd, errMsg, traceBack=''):
     os._exit(1)
 
 def _cookTrove(cfg, repos, name, version, flavorList, targetLabel,
-               loadSpecsList, builtTroves, csFile, failureFd, logger):
+               loadSpecsList, builtTroves, csFile, buildReqs, crossReqs,
+               failureFd, logger):
     baseFlavor = cfg.buildFlavor
     db = database.Database(cfg.root, cfg.dbPath)
     buildLabel = version.trailingLabel()
@@ -259,7 +262,8 @@ def _cookTrove(cfg, repos, name, version, flavorList, targetLabel,
                                            cfg=cfg)
             loaders.append(loader)
             recipeClasses.append(recipeClass)
-
+            recipeClass.buildRequirementsOverride = buildReqs
+            recipeClass.crossRequirementsOverride = crossReqs
         except Exception, msg:
             errMsg = 'Error loading recipe %s=%s[%s]: %s' % \
                                             (name, version, flavor, str(msg))

@@ -322,12 +322,16 @@ class BuildCommand(TroveCommand):
             trove.trovePrepared()
             return
         flavorList = trove.getFlavorList()
+        buildReqs = self.chrootFactory.getInstalledTroves()
+        crossReqs = self.chrootFactory.getInstalledCrossTroves()
         logPath, pid = self.chroot.buildTrove(self.buildCfg,
                                               self.targetLabel,
                                               n, v, flavorList,
                                               trove.getLoadedSpecsList(),
                                               self.builtTroves,
-                                              self.logData)
+                                              self.logData,
+                                              buildReqs=buildReqs,
+                                              crossReqs=crossReqs)
         # sends off message that this trove is building.
         self.chroot.subscribeToBuild(n,v, flavorList)
         trove.troveBuilding(pid)

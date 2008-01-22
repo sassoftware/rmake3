@@ -325,6 +325,12 @@ class rMakeChrootServer(object):
     def getRoot(self):
         return self.root
 
+    def getInstalledTroves(self):
+        return [(x[0], x[2][0], x[2][1]) for x in self.chroot.jobList]
+
+    def getInstalledCrossTroves(self):
+        return [(x[0], x[2][0], x[2][1]) for x in self.chroot.crossJobList]
+
     def getChrootName(self):
         return self.getRoot().rsplit('/', 1)[-1]
 

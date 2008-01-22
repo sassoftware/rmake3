@@ -95,11 +95,12 @@ class ChrootServer(apirpc.XMLApiServer):
     @api(version=1)
     @api_parameters(1, 'BuildConfiguration', 'label',
                        'str', 'version', 'flavorList', 'LoadSpecsList',
-                       'troveTupleList', None)
+                       'troveTupleList', None, 'troveTupleList', 
+                       'troveTupleList')
     @api_return(1, None)
     def buildTrove(self, callData, buildCfg, targetLabel,
                    name, version, flavorList, loadSpecsList, builtTroves,
-                   logData):
+                   logData, buildReqs, crossReqs):
         buildCfg = self._updateConfig(buildCfg)
         flavorList = tuple(flavorList)
 
@@ -107,7 +108,8 @@ class ChrootServer(apirpc.XMLApiServer):
         logPath, pid, buildInfo = cook.cookTrove(buildCfg, repos, self._logger,
                                                  name, version, flavorList,
                                                  targetLabel, loadSpecsList,
-                                                 builtTroves, logData)
+                                                 builtTroves, logData,
+                                                 buildReqs, crossReqs)
         pid = buildInfo[1]
         self._buildInfo[name, version, flavorList] = buildInfo
         return logPath, pid
@@ -290,19 +292,24 @@ class ChrootClient(object):
         return self.proxy.checkoutPackage(buildCfg, name, version)
 
     def buildTrove(self, buildCfg, targetLabel, name, version, flavorList,
-                   loadSpecs=None, builtTroves=None, logData=None):
+                   loadSpecs=None, builtTroves=None, logData=None,
+                   buildReqs=None, crossReqs=None):
         if loadSpecs is None:
             loadSpecs = [{}]
         if builtTroves is None:
             builtTroves = []
         if logData is None:
             logData = []
+        if buildReqs is None:
+            buildReqs = []
+        if crossReqs is None:
+            crossReqs = []
         if not isinstance(flavorList, (list, tuple)):
             flavorList = [flavorList]
         logPath, pid = self.proxy.buildTrove(buildCfg, targetLabel,
                                              name, version, flavorList,
                                              loadSpecs, builtTroves,
-                                             logData)
+                                             logData, buildReqs, crossReqs)
         logPath = self.root + logPath
         self.subscribeToBuild(name, version, flavorList)
         return logPath, pid

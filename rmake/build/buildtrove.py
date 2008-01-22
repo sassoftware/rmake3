@@ -325,7 +325,7 @@ class _AbstractBuildTrove:
                  for x in self.iterBuildRequirements() ]
 
     def getCrossRequirements(self):
-        return iter(self.crossRequirements)
+        return list(self.crossRequirements)
 
     def getCrossRequirementSpecs(self):
         return [ cmdline.parseTroveSpec(x)
