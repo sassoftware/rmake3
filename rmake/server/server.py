@@ -202,7 +202,15 @@ class rMakeServer(apirpc.XMLApiServer):
     @api_return(1, None)
     def listChroots(self, callData):
         chroots = self.db.listChroots()
-        return [ freeze('Chroot', x) for x in chroots ]
+        chrootNames = self.worker.listChrootsWithHost()
+        finalChroots = []
+        for chroot in chroots:
+            if (chroot.host, chroot.path) not in chrootNames:
+                # this has been removed from the file system
+                self.db.removeChroot(chroot.host, chroot.path)
+            else:
+                finalChroots.append(chroot)
+        return [ freeze('Chroot', x) for x in finalChroots ]
 
     @api(version=1)
     @api_parameters(1, None, 'troveContextTuple', 'str', 'bool', 'str', 'str')

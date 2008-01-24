@@ -282,11 +282,19 @@ class BuildCommand(rMakeCommand):
             else:
                 recurseGroups = client.BUILD_RECURSE_GROUPS_SOURCE
 
+        self._prep(client, argSet)
         job = client.createBuildJob(troveSpecs, limitToHosts=hosts,
                                     limitToLabels=labels,
                                     recurseGroups=recurseGroups,
                                     matchSpecs=matchSpecs)
         return self._build(client, job, argSet)
+
+    def _prep(self, client, argSet):
+        if 'no-clean' in argSet:
+            client.buildConfig.cleanAfterCook = False
+            del argSet['no-clean']
+        if 'prep' in argSet:
+            client.buildConfig.prepOnly = argSet.pop('prep')
 
     def _build(self, client, job, argSet):
         savePath = argSet.pop('to-file', False)
@@ -347,6 +355,7 @@ class LoadJobCommand(BuildCommand):
         else:
             log.setVerbosity(log.INFO)
         command, loadPath = self.requireParameters(args, 'path')
+        self._prep(client, argSet)
         job = client.loadJobFromFile(loadPath)
         return self._build(client, job, argSet)
 register(LoadJobCommand)
@@ -389,6 +398,7 @@ class RestartCommand(BuildCommand):
             updateSpecs = []
         updateSpecs.extend(argSet.pop('update', []))
         excludeSpecs = argSet.pop('exclude', [])
+        self._prep(client, argSet)
 
         job = client.createRestartJob(jobId, troveSpecs,
                                   updateSpecs=updateSpecs,

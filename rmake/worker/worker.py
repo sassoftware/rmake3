@@ -126,6 +126,9 @@ class Worker(server.Server):
     def listChroots(self):
         return self.chrootManager.listChroots()
 
+    def listChrootsWithHost(self):
+        return [('_local_', x) for x in self.chrootManager.listChroots()]
+
     def _checkForResults(self):
         return self._serveLoopHook()
 
