@@ -1,17 +1,3 @@
-Changes in @NEW@:
-  o Client changes:
-     * Removed rmake-xml + rmake.desktop files used for integration w/
-       rBuilder.  That integration is being removed and something else will
-       replace it. (RMK-749)
-  o Bug Fixes:
-     * For conary versions 1.2.16 or greater, rMake will do a better job
-       of correctly recording the build requirements that it uses when more
-       than one version of a package is installed into a chroot. (CNY-2427)
-     * Fixed a bug in dependency resolution that would affect rmake repositories
-       where an older x86_64 build version was competing with a newer x86 
-       version built in the same job. (RMK-761)
-     * Chroots that have been removed will no longer show up in "list chroot"
-       output (RMK-724)
 Changes in 1.0.14:
   o Client Changes:
      * Added a "rmake load" command and "--to-file" parameter to build command
@@ -22,6 +8,9 @@ Changes in 1.0.14:
      * Added --clear-prebuilt-list option for "rmake restart".  This option
        will run the same job as before but not mark any packages as 
        prebuilt (RMK-729).
+     * Removed rmake-xml + rmake.desktop files used for integration w/
+       rBuilder.  That integration is being removed and something else will
+       replace it. (RMK-749)
   o Bug Fixes:
      * Fixed a traceback when building multiple packages without a parent 
        branch (RMK-732)
@@ -38,6 +27,15 @@ Changes in 1.0.14:
        /usr/share/rmake/rmake instead.
      * The --config option will now correctly override values set in a
        context. (RMK-748)
+     * For conary versions 1.2.16 or greater, rMake will do a better job
+       of correctly recording the build requirements that it uses when more
+       than one version of a package is installed into a chroot. (CNY-2427)
+     * Fixed a bug in dependency resolution that would affect rmake repositories
+       where an older x86_64 build version was competing with a newer x86 
+       version built in the same job. (RMK-761)
+     * Chroots that have been removed will no longer show up in "list chroot"
+       output (RMK-724)
+
 
 Changes in 1.0.13:
   o Client Changes:
