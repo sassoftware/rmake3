@@ -232,11 +232,13 @@ def _cookTrove(cfg, repos, name, version, flavorList, targetLabel,
     db = database.Database(cfg.root, cfg.dbPath)
     buildLabel = version.trailingLabel()
     buildBranch = version.branch()
+    binaryBranch = version.getBinaryVersion().branch()
     if targetLabel:
         source = recipeutil.RemoveHostSource(db, targetLabel.getHost())
         if version.trailingLabel() == targetLabel and version.depth() > 1:
             buildBranch = version.branch().parentBranch()
             buildLabel = buildBranch.label()
+            binaryBranch = version.parentVersion().getBinaryVersion().branch()
     else:
         source = db
     loaders = []
@@ -347,6 +349,7 @@ def _cookTrove(cfg, repos, name, version, flavorList, targetLabel,
         m = macros.Macros()
         m._override('buildlabel', str(buildLabel))
         m._override('buildbranch', str(buildBranch))
+        m._override('binarybranch', binaryBranch)
         built = cook.cookObject(repos, cfg, recipeClasses, version,
                                 prep=False,
                                 macros=m,
