@@ -289,7 +289,7 @@ class Daemon(options.MainHandler):
                             os._exit(0)
                     os._exit(1)
             else:
-                time.sleep(1.5)
+                time.sleep(2)
                 pid, status = os.waitpid(pid, 0)
                 if os.WIFEXITED(status):
                     rc = os.WEXITSTATUS(status)
@@ -343,7 +343,7 @@ class Daemon(options.MainHandler):
                 debuggerException = errors.RmakeInternalError
             sys.excepthook = errors.genExcepthook(debug=debugAll,
                                                   debugCtrlC=debugAll)
-            self.main(argv)
+            rc = self.main(argv)
         except debuggerException, err:
             raise
         except errors.RmakeError, err:
@@ -351,4 +351,4 @@ class Daemon(options.MainHandler):
             return 1
         except KeyboardInterrupt:
             pass
-        return 0
+        return rc
