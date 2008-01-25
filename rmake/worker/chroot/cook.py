@@ -238,7 +238,9 @@ def _cookTrove(cfg, repos, name, version, flavorList, targetLabel,
         if version.trailingLabel() == targetLabel and version.depth() > 1:
             buildBranch = version.branch().parentBranch()
             buildLabel = buildBranch.label()
-            binaryBranch = version.parentVersion().getBinaryVersion().branch()
+            # FIXME: need a method that takes a branch and returns the upstream
+            # binary branch.
+            #binaryBranch = version.parentVersion().getBinaryVersion().branch()
     else:
         source = db
     loaders = []
