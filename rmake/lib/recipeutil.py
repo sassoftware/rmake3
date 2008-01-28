@@ -333,6 +333,8 @@ def getSourceTrovesFromJob(job, serverCfg, repos):
     repos = RemoveHostRepos(repos, serverCfg.reposName)
 
     groupRecipeSource = trovesource.SimpleTroveSource(troveList)
+    groupRecipeSource = RemoveHostSource(groupRecipeSource,
+                                         serverCfg.reposName)
 
     trovesByConfig = {}
     for trove in job.iterTroves():
