@@ -98,7 +98,6 @@ class RmakeMain(options.MainHandler):
 
 def main(argv):
     log.setVerbosity(log.WARNING)
-    rmakeMain = RmakeMain()
     try:
         argv = list(argv)
         debugAll = '--debug-all' in argv
