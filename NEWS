@@ -2,6 +2,9 @@ Changes in @NEW@:
   o Bug Fixes:
      * Building a group and its included troves as .recipe files now orders
        the group after the packages correctly. (RMK-770)
+     * You may now build a .recipe that references a source file in the 
+       current directory that has not been cvc added and rmake will add it
+       for you (RMK-771)
 Changes in 1.0.14:
   o Client Changes:
      * Added a "rmake load" command and "--to-file" parameter to build command
