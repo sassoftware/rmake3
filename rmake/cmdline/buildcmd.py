@@ -413,12 +413,13 @@ def _getLocalCook(conaryclient, cfg, recipePath, message):
         cfg.signatureKeyMap = oldMap
         cfg.interactive = oldInteractive
 
-def _getPathList(repos, cfg, recipePath):
+def _getPathList(repos, cfg, recipePath, relative=False):
     loader, recipeClass, sourceVersion = cook.getRecipeInfoFromPath(repos, cfg,
                                                                 recipePath)
 
     log.info("Getting relevant path information from %s..." % recipeClass.name)
-    srcdirs = [ os.path.dirname(recipeClass.filename) ]
+    recipeDir = os.path.dirname(recipeClass.filename)
+    srcdirs = [ recipeDir ]
     recipeObj = None
     buildLabel = sourceVersion.trailingLabel()
     macros = {'buildlabel' : buildLabel.asString(),
@@ -439,9 +440,24 @@ def _getPathList(repos, cfg, recipePath):
     except (conaryerrors.ConaryError, conaryerrors.CvcError), msg:
         raise errors.RmakeError("could not initialize recipe: %s" % (msg))
     pathList = recipeObj.fetchLocalSources() + [recipePath ]
-    return recipeClass, pathList
+    if relative:
+        finalPathList = []
+        for path in pathList:
+            if path[0] == '/':
+                path = path[(len(recipeDir) +1):]
+            finalPathList.append(path)
+    else:
+        finalPathList = pathList
+    return recipeClass, finalPathList
 
 
+def _getConfigInfo(fileName):
+    fileMagic = magic.magic(fileName)
+    if (checkin.cfgRe.match(fileName) 
+        or (fileMagic and isinstance(fileMagic, magic.script))):
+        return True
+    else:
+        return False
 
 def _shadowAndCommit(conaryclient, cfg, recipeDir, stateFile, message):
     repos = conaryclient.getRepos()
@@ -454,6 +470,8 @@ def _shadowAndCommit(conaryclient, cfg, recipeDir, stateFile, message):
                     'Cannot cook local recipes unless a target label is set')
     skipped, cs = conaryclient.createShadowChangeSet(str(targetLabel),
                                            [stateFile.getNameVersionFlavor()])
+    recipePath = stateFile.getName().split(':')[0] + '.recipe'
+    recipeClass, pathList = _getPathList(repos, cfg, recipePath, relative=True)
 
     troveName = stateFile.getName()
     troveVersion = stateFile.getVersion()
@@ -495,6 +513,7 @@ def _shadowAndCommit(conaryclient, cfg, recipeDir, stateFile, message):
 
         neededFiles = set(x[1] for x in oldState.iterFileList()
                           if os.path.exists(os.path.join(recipeDir, x[1])))
+        neededFiles.update(pathList)
         autoSourceFiles = set(x[1] for x in oldState.iterFileList()
                           if oldState.fileIsAutoSource(x[0]))
 
@@ -513,6 +532,9 @@ def _shadowAndCommit(conaryclient, cfg, recipeDir, stateFile, message):
                 shutil.copyfile(os.path.join(recipeDir, sourceFile), newPath)
 
         os.chdir(shadowSourceDir)
+        if hasattr(cfg.sourceSearchDir, '_getUnexpanded'):
+            cfg.configKey('sourceSearchDir',
+                          cfg.sourceSearchDir._getUnexpanded())
 
         for f in toDel:
             checkin.removeFile(f)
@@ -528,8 +550,11 @@ def _shadowAndCommit(conaryclient, cfg, recipeDir, stateFile, message):
         else:
             oldPathIds = dict((x[1], x[0]) for x in oldState.iterFileList())
             for path in toAdd:
-                isText = oldState.fileIsConfig(oldPathIds[path])
-                checkin.addFiles([path], text=isText)
+                if path in oldPathIds:
+                    isConfig = oldState.fileIsConfig(oldPathIds[path])
+                else:
+                    isConfig = _getConfigInfo(path)
+                checkin.addFiles([path], binary=not isConfig, text=isConfig)
             if toAdd:
                 # get the new pathIDs for all the added troves, 
                 # since we can't set the refresh setting without the 
@@ -540,7 +565,11 @@ def _shadowAndCommit(conaryclient, cfg, recipeDir, stateFile, message):
             newPathIds = dict((x[1], x[0]) for x in newState.iterFileList())
 
             for path in (toCopy | toAdd):
-                isConfig = oldState.fileIsConfig(oldPathIds[path])
+                if path in oldPathIds:
+                    isConfig = oldState.fileIsConfig(oldPathIds[path])
+                else:
+                    isConfig = _getConfigInfo(path)
+
                 newState.fileIsConfig(newPathIds[path], isConfig)
 
             for path in autoSourceFiles:
@@ -562,6 +591,9 @@ def _shadowAndCommit(conaryclient, cfg, recipeDir, stateFile, message):
         return newState.getSourceState().getNameVersionFlavor()
     finally:
         os.chdir(cwd)
+        if hasattr(cfg.sourceSearchDir, '_getUnexpanded'):
+            cfg.configKey('sourceSearchDir',
+                          cfg.sourceSearchDir._getUnexpanded())
         shutil.rmtree(shadowSourceDir)
 
 def _doCommit(recipePath, repos, cfg, message):
@@ -638,13 +670,7 @@ def _commitRecipe(conaryclient, cfg, recipePath, message, branch=None):
             # never be checked in, it doesn't really matter, but
             # conary likes us to give a value.
             for fileName in fileNames:
-                fileMagic = magic.magic(fileName)
-                if (checkin.cfgRe.match(fileName) 
-                    or (fileMagic and isinstance(fileMagic, magic.script))):
-                    isConfig = True
-                else:
-                    isConfig = False
-
+                isConfig = _getConfigInfo(fileName)
                 checkin.addFiles([fileName], binary=not isConfig, text=isConfig)
         else:
             checkin.addFiles(fileNames)
