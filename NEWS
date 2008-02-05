@@ -5,7 +5,12 @@ Changes in @NEW@:
      * You may now build a .recipe that references a source file in the 
        current directory that has not been cvc added and rmake will add it
        for you (RMK-771)
-     * rMake will now work with conary 2.0.5 and later.
+     * A backwards incompatibility was added to conary 2.0.5 that caused it
+       to no longer work with rMake.  This version of rMake fixes that
+       backwards incompatibility.
+     * Recipe files that modify the upstream version would fail to build with
+       rmake 1.0.14, giving a cryptic error message.  Both the cause of the 
+       failure and the error message for similar bugs have been fixed. (RMK-775)
 Changes in 1.0.14:
   o Client Changes:
      * Added a "rmake load" command and "--to-file" parameter to build command

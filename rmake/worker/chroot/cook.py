@@ -140,6 +140,8 @@ def cookTrove(cfg, repos, logger, name, version, flavorList, targetLabel,
                     errMsg = 'Error cooking %s=%s with flavors %s: %s' % \
                         (name, version, ', '.join([str(x) for x in flavorList]),
                          str(msg))
+                else:
+                    errMsg = str(msg)
                 _buildFailed(outF, errMsg, traceback.format_exc())
                 logFile.close()
                 os._exit(1)
@@ -238,9 +240,11 @@ def _cookTrove(cfg, repos, name, version, flavorList, targetLabel,
         if version.trailingLabel() == targetLabel and version.depth() > 1:
             buildBranch = version.branch().parentBranch()
             buildLabel = buildBranch.label()
-            # FIXME: need a method that takes a branch and returns the upstream
-            # binary branch.
-            #binaryBranch = version.parentVersion().getBinaryVersion().branch()
+            revision = versions.Revision('1-1')
+            binaryBranch = version.parentVersion().getBinaryVersion().branch()
+
+            binaryBranch = buildBranch.createVersion(revision)\
+                                            .getBinaryVersion().branch()
     else:
         source = db
     loaders = []
