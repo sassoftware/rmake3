@@ -470,7 +470,7 @@ def _shadowAndCommit(conaryclient, cfg, recipeDir, stateFile, message):
                     'Cannot cook local recipes unless a target label is set')
     skipped, cs = conaryclient.createShadowChangeSet(str(targetLabel),
                                            [stateFile.getNameVersionFlavor()])
-    recipePath = stateFile.getName().split(':')[0] + '.recipe'
+    recipePath = recipeDir + '/' + stateFile.getName().split(':')[0] + '.recipe'
     recipeClass, pathList = _getPathList(repos, cfg, recipePath, relative=True)
 
     troveName = stateFile.getName()
