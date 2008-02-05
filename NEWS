@@ -1,4 +1,4 @@
-Changes in @NEW@:
+Changes in 1.0.15:
   o Bug Fixes:
      * Building a group and its included troves as .recipe files now orders
        the group after the packages correctly. (RMK-770)
