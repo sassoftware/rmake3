@@ -125,10 +125,6 @@ def cookTrove(cfg, repos, logger, name, version, flavorList, targetLabel,
                 os.umask(0022)
                 # don't allow us to create core dumps
                 resource.setrlimit(resource.RLIMIT_CORE, (0,0))
-                #if logData:
-                #    logFile.logToPort(*logData)
-                #else:
-                #    logFile.redirectOutput()
                 log.setVerbosity(log.DEBUG)
                 log.info("Cook process started (pid %s)" % os.getpid())
                 _cookTrove(cfg, repos, name, version, flavorList, targetLabel,
