@@ -5,6 +5,7 @@ Changes in @NEW@:
      * You may now build a .recipe that references a source file in the 
        current directory that has not been cvc added and rmake will add it
        for you (RMK-771)
+     * rMake will now work with conary 2.0.5 and later.
 Changes in 1.0.14:
   o Client Changes:
      * Added a "rmake load" command and "--to-file" parameter to build command

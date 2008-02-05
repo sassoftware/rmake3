@@ -72,58 +72,143 @@ class TroveSourceMesh(trovesource.SearchableTroveSource):
             return self.mainSource.getTroves(troveList, *args, **kw)
 
     def _mergeTroveQuery(self, resultD, response):
-        for troveName, troveVersions in response.iteritems():
-            if not resultD.has_key(troveName):
-                resultD[troveName] = {}
-            versionDict = resultD[troveName]
-            for version, flavors in troveVersions.iteritems():
-                if version not in versionDict:
-                    versionDict[version] = []
-                resultD[troveName][version].extend(flavors)
+        if isinstance(resultD, dict):
+            for troveName, troveVersions in response.iteritems():
+                if not resultD.has_key(troveName):
+                    resultD[troveName] = {}
+                versionDict = resultD[troveName]
+                for version, flavors in troveVersions.iteritems():
+                    if version not in versionDict:
+                        versionDict[version] = []
+                    resultD[troveName][version].extend(flavors)
+        else:
+            if not resultD:
+                for resultList in response:
+                    resultD.append(list(resultList))
+            else:
+                for idx, resultList in enumerate(response):
+                    resultD[idx].extend(resultList)
         return resultD
 
+    def _mergeListTroveQuery(self, resultList, result2, altFlavors, altFlavors2,
+                            map, query):
+        newMap = []
+        newQuery = []
+        for idx, items in enumerate(result2):
+            if not items:
+                newMap.append(map[idx])
+                newQuery.append(query[idx])
+                if altFlavors2:
+                    altFlavors[map[idx]].extend(altFlavors2[idx])
+            else:
+                resultList[map[idx]].extend(items)
+                altFlavors[map[idx]] = []
+        return newMap, newQuery
+
+
     def _call(self, fn, query, *args, **kw):
-        query = dict(query)
-        d1 = getattr(self.extraSource, fn)(query, *args, **kw)
-        result = {}
-        self._mergeTroveQuery(result, d1)
-        for name in result:
-            query.pop(name)
-        if self.mainSource:
-            d2 = getattr(self.mainSource, fn)(query, *args, **kw)
-            self._mergeTroveQuery(result, d2)
-        if self.repos:
-            d3 = getattr(self.repos, fn)(query, *args, **kw)
-            self._mergeTroveQuery(result, d3)
+        if not isinstance(query, dict):
+            query = list(query)
+            result, altFlavors = getattr(self.extraSource, fn)(query,
+                                                               *args, **kw)
+            map = []
+            newQuery = []
+            for idx, item in enumerate(result):
+                if not item:
+                    map.append(idx)
+                    newQuery.append(query[idx])
+            if self.mainSource:
+                result2, altFlavors2 = getattr(self.mainSource, fn)(newQuery,
+                                                                   *args, **kw)
+                newQuery, map = self._mergeListTroveQuery(result, result2,
+                                                          altFlavors,
+                                                          altFlavors2,
+                                                          map, newQuery)
+            if self.repos:
+                result3, altFlavors3 = getattr(self.repos, fn)(newQuery, 
+                                                               *args, **kw)
+                newQuery, map = self._mergeListTroveQuery(result, result3,
+                                                          altFlavors,
+                                                          altFlavors3,
+                                                          map, newQuery)
+            result = result, altFlavors
+        else:
+            query = dict(query)
+            d1 = getattr(self.extraSource, fn)(query, *args, **kw)
+            result = {}
+            self._mergeTroveQuery(result, d1)
+            for name in result:
+                query.pop(name)
+            if self.mainSource:
+                d2 = getattr(self.mainSource, fn)(query, *args, **kw)
+                self._mergeTroveQuery(result, d2)
+            if self.repos:
+                d3 = getattr(self.repos, fn)(query, *args, **kw)
+                self._mergeTroveQuery(result, d3)
         return result
 
     def _addLabelsToQuery(self, query):
-        newQuery = query.copy()
-        names = query
-        for name in query:
-            labels = set(x[1].trailingLabel() for x in
-                         self.extraSource.trovesByName(name))
-            #asserts there is only one flavorList
-            flavorList, = set(x and tuple(x) for x in query[name].values())
-            for label in labels:
-                if label not in query[name]:
-                    newQuery[name][label] = flavorList
-        return newQuery
+        if isinstance(query, dict):
+            newQuery = query.copy()
+            names = query
+            for name in query:
+                labels = set(x[1].trailingLabel() for x in
+                             self.extraSource.trovesByName(name))
+                #asserts there is only one flavorList
+                flavorList, = set(x and tuple(x) for x in query[name].values())
+                for label in labels:
+                    if label not in query[name]:
+                        newQuery[name][label] = flavorList
+            map = None
+        else:
+            map = {}
+            newQuery = list(query)
+            labelDict = {}
+            names = [(x[0], x[1][0], x[1][2]) for x in enumerate(query)]
+            for idx, name, flavor in names:
+                labels = set(x[1].trailingLabel() for x in
+                             self.extraSource.trovesByName(name))
+                for label in labels:
+                    newQuery.append((name, label, flavor))
+                    map[len(newQuery)] = idx
+        return newQuery, map
+
+    def _compressResults(self, results, map):
+        if map is None:
+            return results
+        results, altFlavors = results
+        finalResults = []
+        for idx, result  in enumerate(results):
+            if idx in map:
+                if result:
+                    finalResults[map[idx]].extend(result)
+                    altFlavors[map[idx]] = []
+                else:
+                    altFlavors[map[idx]].extend(altFlavors)
+            else:
+                finalResults.append(result)
+        return finalResults, altFlavors
 
     def getTroveLatestByLabel(self, query, *args, **kw):
+        map = None
         if self.expandLabelQueries:
-            query = self._addLabelsToQuery(query)
-        return self._call('getTroveLatestByLabel', query, *args, **kw)
+            query, map = self._addLabelsToQuery(query)
+        results = self._call('getTroveLatestByLabel', query, *args, **kw)
+        return self._compressResults(results, map)
 
     def getTroveLeavesByLabel(self, query, *args, **kw):
+        map = None
         if self.expandLabelQueries:
-            query = self._addLabelsToQuery(query)
-        return self._call('getTroveLeavesByLabel', query, *args, **kw)
+            query, map = self._addLabelsToQuery(query)
+        results = self._call('getTroveLeavesByLabel', query, *args, **kw)
+        return self._compressResults(results, map)
 
     def getTroveVersionsByLabel(self, query, *args, **kw):
+        map = None
         if self.expandLabelQueries:
-            query = self._addLabelsToQuery(query)
-        return self._call('getTroveVersionsByLabel', query, *args, **kw)
+            query, map = self._addLabelsToQuery(query)
+        results = self._call('getTroveVersionsByLabel', query, *args, **kw)
+        return self._compressResults(results, map)
 
     def getTroveLeavesByBranch(self, query, *args, **kw):
         return self._call('getTroveLeavesByBranch', query, *args, **kw)
