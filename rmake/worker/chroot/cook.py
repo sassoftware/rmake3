@@ -241,8 +241,6 @@ def _cookTrove(cfg, repos, name, version, flavorList, targetLabel,
             buildBranch = version.branch().parentBranch()
             buildLabel = buildBranch.label()
             revision = versions.Revision('1-1')
-            binaryBranch = version.parentVersion().getBinaryVersion().branch()
-
             binaryBranch = buildBranch.createVersion(revision)\
                                             .getBinaryVersion().branch()
     else:
