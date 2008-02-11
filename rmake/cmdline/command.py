@@ -296,25 +296,23 @@ class BuildCommand(rMakeCommand):
         if 'prep' in argSet:
             client.buildConfig.prepOnly = argSet.pop('prep')
 
-    def _build(self, client, job, argSet):
-        savePath = argSet.pop('to-file', False)
-
         macros = argSet.pop('macro', [])
         for macro in macros:
             client.buildConfig.configLine('macros ' + macro)
 
-
-        monitorJob = not argSet.pop('no-watch', False)
         if 'no-clean' in argSet:
             client.buildConfig.cleanAfterCook = False
             del argSet['no-clean']
-        if 'prep' in argSet:
-            client.buildConfig.prepOnly = argSet.pop('prep', False)
+
+
+    def _build(self, client, job, argSet):
+        savePath = argSet.pop('to-file', False)
 
         quiet = argSet.pop('quiet', False)
         commit  = argSet.pop('commit', False)
         message  = argSet.pop('message', None)
         infoOnly  = argSet.pop('info', False)
+        monitorJob = not argSet.pop('no-watch', False)
 
         if infoOnly:
             client.displayJob(job, quiet=quiet)
