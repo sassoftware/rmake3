@@ -427,7 +427,8 @@ def _getPathList(repos, cfg, recipePath, relative=False):
     if recipe.isPackageRecipe(recipeClass):
         recipeObj = recipeClass(cfg, None, srcdirs, macros, lightInstance=True)
     elif recipe.isGroupRecipe(recipeClass):
-        recipeObj = recipeClass(repos, cfg, buildLabel, None, None,
+        recipeObj = recipeClass(repos, cfg, buildLabel, None, None, 
+                                srcdirs=srcdirs,
                                 extraMacros=macros)
     else:
         # no included files for the rest of the recipe types
