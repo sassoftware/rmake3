@@ -350,5 +350,5 @@ class Daemon(options.MainHandler):
             self.logger.error(err)
             return 1
         except KeyboardInterrupt:
-            pass
+            return 1
         return rc
