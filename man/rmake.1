@@ -138,6 +138,16 @@ See reuseRoots config option for more information. (--no-reuse turns off this
 functionality if it's turned on from the config file).
 .RE
 .TP
+.B rebuild \fI[troveSpec]+\fP
+Rebuilds the packages specified.  This will rebuild the packages specified if they would need to rebuilt if a job were being restarted that included them.  (The source component changed, the packages to be installed in the chroot changed, or the loaded superclasses changed).
+.RS 4
+.TP
+.B \-\-ignore-rebuild-deps
+Do not rebuild packages if only superclasses or chroot packages changed.  Given a list of packages to rebuild, this will only rebuild those that have source component changes.
+.B \-\-ignore-external-rebuild-deps
+Do not rebuild packages if only superclasses changed, or if the chroot packages changed and the changes were only to packages not in the build.  For example, if you run 'rmake rebuild gtk glib', and gtk has a build dependency on glib, then gtk would only get rebuilt if glib were rebuilt or its source had changed, but not if bash (a build requirement that is not being built) had changed.
+.RE
+.TP
 .B restart \fI<jobId>\fP \fI[troveSpec]*\fP
 Restarts the job specified.  This will find the same sources as if you had specified the same "rmake build" command as you did for job \fI<jobId>\fP.  If those sources are the same as the one found when building job \fI<jobId>\fP, and the same prerequisites would be installed into a root to build that source, the that source will be marked as already built.
 

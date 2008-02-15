@@ -34,7 +34,8 @@ BUILD_RECURSE_GROUPS_SOURCE = 2 # find and recurce the source version of the
 
 def getBuildJob(buildConfig, conaryclient, troveSpecList,
                 message=None, recurseGroups=BUILD_RECURSE_GROUPS_NONE, 
-                configDict=None, oldTroveDict=None, updateSpecs=None):
+                configDict=None, oldTroveDict=None, updateSpecs=None,
+                rebuild=False):
     trovesByContext = {}
 
     for troveSpec in list(troveSpecList):
@@ -99,6 +100,13 @@ def getBuildJob(buildConfig, conaryclient, troveSpecList,
                                                  oldTroveDict[contextStr],
                                                  troveList,
                                                  updateSpecs)
+        if rebuild:
+            prebuiltBinaries = _findLatestBinariesForTroves(conaryclient,
+                                                            troveList)
+            if not job.getMainConfig().prebuiltBinaries:
+                job.getMainConfig().prebuiltBinaries = prebuiltBinaries
+            else:
+                job.getMainConfig().prebuiltBinaries.extend(prebuiltBinaries)
         if mainConfig.prepOnly:
             buildType = buildtrove.TROVE_BUILD_TYPE_PREP
         else:
@@ -113,6 +121,7 @@ def getBuildJob(buildConfig, conaryclient, troveSpecList,
             job.addTrove(name, version, flavor, contextStr, bt)
             job.setTroveConfig(bt, cfg)
     return job
+
 
 def getTrovesToBuild(cfg, conaryclient, troveSpecList, message=None, 
                      recurseGroups=BUILD_RECURSE_GROUPS_NONE, matchSpecs=None, 
@@ -828,4 +837,13 @@ def displayBuildInfo(job, verbose=False, quiet=False):
                                     contextStr)
 
 
+def _findLatestBinariesForTroves(conaryclient, troveList):
+    # The only possible built binaries are those with exactly the same
+    # branch.
+    repos = conaryclient.getRepos()
+    troveSpecs = [(x[0].split(':')[0], str(x[1].trailingLabel()), None) 
+                  for x in troveList ]
+    results = repos.findTroves(None, troveSpecs, None, allowMissing=True)
+    binaryTroveList = list(itertools.chain(*results.itervalues()))
+    return binaryTroveList
 

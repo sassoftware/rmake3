@@ -185,7 +185,7 @@ def _getJobIdOrUUId(val):
 class BuildCommand(rMakeCommand):
     '''Builds the specified packages or recipes.  '''
 
-    commands = ['build', 'buildgroup']
+    commands = ['build']
     commandGroup = CG_BUILD
     paramHelp = '<troveSpec>[{context}] [<troveSpec>][{context}]*'
     help = 'Build packages or recipes'
@@ -216,7 +216,15 @@ class BuildCommand(rMakeCommand):
             'reuse':    ('reuse old chroot if possible instead of removing'
                          ' and recreating'),
             'info'    : ('Gather and display all the information necessary to perform the build'),
-            'recurse':  ('recurse groups, building all included sources')}
+            'recurse':  ('recurse groups, building all included sources'),
+            'ignore-rebuild-deps': ('Do not rebuild packages if the only'
+                                    ' change to them is the packages to be'
+                                    ' installed in their chroot.'),
+            'ignore-external-rebuild-deps': ('Do not rebuild packages unless'
+                                             ' their source has changed or'
+                                             ' another package in the job will'
+                                             ' be installed in this package\'s'
+                                             ' chroot')}
 
     def addParameters(self, argDef):
         self.addBuildParameters(argDef)
@@ -253,6 +261,7 @@ class BuildCommand(rMakeCommand):
                                                      appendExtra=True)
         if command == 'buildgroup':
             log.warning('"buildgroup" is deprecated and will be removed in a future release - use "build --recurse" instead')
+        rebuild = (command == 'rebuild')
         flavorSpec = argSet.pop('flavor', None)
         if flavorSpec:
             flavor = deps.parseFlavor(flavorSpec)
@@ -286,7 +295,8 @@ class BuildCommand(rMakeCommand):
         job = client.createBuildJob(troveSpecs, limitToHosts=hosts,
                                     limitToLabels=labels,
                                     recurseGroups=recurseGroups,
-                                    matchSpecs=matchSpecs)
+                                    matchSpecs=matchSpecs,
+                                    rebuild=rebuild)
         return self._build(client, job, argSet)
 
     def _prep(self, client, argSet):
@@ -295,6 +305,12 @@ class BuildCommand(rMakeCommand):
             del argSet['no-clean']
         if 'prep' in argSet:
             client.buildConfig.prepOnly = argSet.pop('prep')
+        if 'ignore-rebuild-deps' in argSet:
+            client.buildConfig.ignoreAllRebuildDeps = True
+            argSet.pop('ignore-rebuild-deps')
+        if 'ignore-external-rebuild-deps' in argSet:
+            client.buildConfig.ignoreExternalRebuildDeps = True
+            argSet.pop('ignore-external-rebuild-deps')
 
         macros = argSet.pop('macro', [])
         for macro in macros:
@@ -336,6 +352,21 @@ class BuildCommand(rMakeCommand):
         return 0
 register(BuildCommand)
 
+class RebuildCommand(BuildCommand):
+    '''\
+        Rebuilds packages whose source or dependencies have changed.
+    '''
+    commands = ['rebuild']
+    commandGroup = CG_BUILD
+    paramHelp = '<troveSpec>[{context}] [<troveSpec>][{context}]*'
+    help = 'Rebuild packages or recipes if they\'ve changed'
+
+    def addParameters(self, argDef):
+        BuildCommand.addParameters(self, argDef)
+        argDef['ignore-rebuild-deps'] = NO_PARAM
+        argDef['ignore-external-rebuild-deps'] = NO_PARAM
+register(RebuildCommand)
+
 class LoadJobCommand(BuildCommand):
     '''Loads a job from a file that was created with --to-file'''
 
@@ -358,14 +389,13 @@ class LoadJobCommand(BuildCommand):
         return self._build(client, job, argSet)
 register(LoadJobCommand)
 
-
 class RestartCommand(BuildCommand):
-    '''Rebuilds the specified job'''
+    '''Restarts the specified job'''
 
     commands = ['restart']
     commandGroup = CG_BUILD
     paramHelp = '<jobId> [<troveSpec>]*'
-    help = 'Rebuild an earlier job'
+    help = 'Restart an earlier job'
 
     def addParameters(self, argDef):
         self.addBuildParameters(argDef)
@@ -376,6 +406,8 @@ class RestartCommand(BuildCommand):
         argDef['no-update'] = NO_PARAM
         argDef['clear-build-list'] = NO_PARAM
         argDef['clear-prebuilt-list'] = NO_PARAM
+        argDef['ignore-rebuild-deps'] = NO_PARAM
+        argDef['ignore-external-rebuild-deps'] = NO_PARAM
 
     def runCommand(self, client, cfg, argSet, args):
         if self.verbose:

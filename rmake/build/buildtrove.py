@@ -624,7 +624,7 @@ class BuildTrove(_FreezableBuildTrove):
         self.pid = 0
         self.setBuiltTroves(troveList)
         self._setState(TROVE_STATE_BUILT, '', troveList)
-        if prebuilt:
+        if prebuilt and self.preBuiltLog:
             self.logPath = self.preBuiltLog
 
     def trovePrepared(self):

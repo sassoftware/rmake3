@@ -416,6 +416,7 @@ class DependencyHandler(object):
         self._seenCycles = []
         self._allowFastResolution = True
         self._possibleDuplicates = {}
+        self._prebuiltBinaries = set()
 
         statusLog.subscribe(statusLog.TROVE_BUILT, self.troveBuilt)
         statusLog.subscribe(statusLog.TROVE_PREPARED, self.trovePrepared)
@@ -594,19 +595,30 @@ class DependencyHandler(object):
             self.prioritize(depTrv)
         return found
 
+    def trovePrebuilt(self, buildTrove, cycleTroves=None):
+        self._prebuiltBinaries.update(buildTrove.getPrebuiltBinaries())
+        buildTrove.troveBuilt(buildTrove.getPrebuiltBinaries(),
+                              prebuilt=True)
+
+        if cycleTroves:
+            for cycleTrove in cycleTroves:
+                self._cycleChecked.pop(cycleTrove, False)
+
     def _getResolveJob(self, buildTrove, inCycle=False, cycleTroves=None):
-        if (buildTrove.isPrebuilt() and buildTrove.allowFastRebuild()
-            and self._allowFastResolution):
-            buildReqs = buildTrove.getPrebuiltRequirements()
-            buildReqs = [ (x[0], (None, None), (x[1], x[2]), False)
-                           for x in buildReqs ]
-            newDeps = self._addResolutionDeps(buildTrove, buildReqs, [],
-                                              inCycle)
-            if newDeps:
+        if buildTrove.isPrebuilt():
+            if buildTrove.getConfig().ignoreAllRebuildDeps:
+                self.trovePrebuilt(buildTrove, cycleTroves)
                 return
-            buildTrove.troveBuilt(buildTrove.getPrebuiltBinaries(),
-                                  prebuilt=True)
-            return
+            elif buildTrove.allowFastRebuild() and self._allowFastResolution:
+                buildReqs = buildTrove.getPrebuiltRequirements()
+                buildReqs = [ (x[0], (None, None), (x[1], x[2]), False)
+                               for x in buildReqs ]
+                newDeps = self._addResolutionDeps(buildTrove, buildReqs, [],
+                                                  inCycle)
+                if newDeps:
+                    return
+                self.trovePrebuilt(buildTrove, cycleTroves)
+                return
         self._resolving[buildTrove] = cycleTroves
         if buildTrove.hasTargetArch():
             builtTroves = self.depState.getNonCrossCompiledBinaries()
@@ -838,26 +850,31 @@ class DependencyHandler(object):
                 return
             elif (trv.getPrebuiltRequirements() is not None
                   and not trv.isGroupRecipe()):
+                # groups always get recooked, we may check them later
+                # to see if anything in them has changed
 
-                preBuiltReqs = set(
+                preBuiltReqComps = set(
                     [ x for x in trv.getPrebuiltRequirements() if ':' in x[0]])
                 # only compare components, since packages are not necessarily
                 # stored in the build reqs for the trove.
-                buildReqTups = set([ (x[0], x[2][0], x[2][1])
-                                    for x in buildReqs if ':' in x[0] ])
-                if buildReqTups == preBuiltReqs:
-                    # groups always get recooked, we may check them later
-                    # to see if anything in them has changed
+                buildReqTups = set((x[0], x[2][0], x[2][1])
+                                    for x in buildReqs if ':' in x[0])
+                buildReqComps = set(x for x in buildReqTups if ':' in x[0])
+                if trv.getConfig().ignoreExternalRebuildDeps:
+                    found = False
+                    binaries = set(self.depState.getAllBinaries())
+                    binaries.difference_update(self._prebuiltBinaries)
+                    if not set(binaries).intersection(buildReqTups):
+                        self.trovePrebuilt(trv, cycleTroves)
+                        return
+                if buildReqComps == preBuiltReqComps:
                     self.depState.depGraph.deleteEdges(trv)
                     self._allowFastResolution = oldFastResolve
-                    trv.troveBuilt(trv.getPrebuiltBinaries(), prebuilt=True)
-                    if cycleTroves:
-                        for cycleTrove in cycleTroves:
-                            self._cycleChecked.pop(cycleTrove, False)
+                    self.trovePrebuilt(trv, cycleTroves)
                     return
                 else:
-                    self._logDifferenceInPrebuiltReqs(trv, buildReqTups,
-                                                      preBuiltReqs)
+                    self._logDifferenceInPrebuiltReqs(trv, buildReqComps,
+                                                      preBuiltReqComps)
 
             if cycleTroves:
                 for cycleTrove in cycleTroves:

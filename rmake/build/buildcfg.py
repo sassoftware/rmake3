@@ -142,13 +142,18 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
     usePlugins           = (CfgBool, True)
     jobContext           = CfgList(CfgInt)
     recursedGroupTroves  = CfgList(CfgTroveTuple)
+    prebuiltBinaries     = CfgList(CfgTroveTuple)
+    ignoreExternalRebuildDeps = CfgBool, False
+    ignoreAllRebuildDeps = CfgBool, False
 
     # Here are options that are not visible from the command-line
     # and should not be displayed.  They are job-specific.  However,
     # they must be stored with the job, parsed with the job, etc.
 
     _hiddenOptions = [ 'buildTroveSpecs', 'resolveTroveTups', 'jobContext',
-                       'recurseGroups', 'recursedGroupTroves' ]
+                       'recurseGroups', 'recursedGroupTroves',
+                       'prebuiltBinaries', 'ignoreExternalRebuildDeps',
+                       'ignoreAllRebuildDeps' ]
 
     _strictOptions = [ 'buildFlavor', 'buildLabel', 'cleanAfterCook','flavor',
                        'installLabelPath', 'repositoryMap', 'root',

@@ -221,19 +221,21 @@ class rMakeHelper(object):
 
     def createBuildJob(self, troveSpecList, limitToHosts=None,
                        limitToLabels=None, recurseGroups=False,
-                       buildConfig=None, matchSpecs=None):
+                       buildConfig=None, matchSpecs=None, rebuild=False):
         # added to limit api for createBuildJob to the bits that should
         # be passed in from the front end.
         return self._createBuildJob(troveSpecList, limitToHosts=limitToHosts,
                                     limitToLabels=limitToLabels,
                                     recurseGroups=recurseGroups,
                                     buildConfig=buildConfig,
-                                    matchSpecs=matchSpecs)
+                                    matchSpecs=matchSpecs,
+                                    rebuild=rebuild)
 
     def _createBuildJob(self, troveSpecList, limitToHosts=None,
                         limitToLabels=None, recurseGroups=False,
                         buildConfig=None, configDict=None, matchSpecs=None,
-                        oldTroveDict=None, updateSpecs=None):
+                        oldTroveDict=None, updateSpecs=None,
+                        rebuild=False):
         if not isinstance(troveSpecList, (list, tuple)):
             troveSpecList = [troveSpecList]
         if configDict:
@@ -259,7 +261,8 @@ class rMakeHelper(object):
                                    recurseGroups=recurseGroups,
                                    configDict=configDict,
                                    updateSpecs=updateSpecs,
-                                   oldTroveDict=oldTroveDict)
+                                   oldTroveDict=oldTroveDict,
+                                   rebuild=rebuild)
         return job
 
     def loadJobFromFile(self, loadPath):
