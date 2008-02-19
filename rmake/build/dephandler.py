@@ -609,6 +609,12 @@ class DependencyHandler(object):
             if buildTrove.getConfig().ignoreAllRebuildDeps:
                 self.trovePrebuilt(buildTrove, cycleTroves)
                 return
+            elif (buildTrove.getConfig().ignoreExternalRebuildDeps
+                  and not (set(self.depState.getAllBinaries()) - self._prebuiltBinaries)):
+                # if nothing's been changed in this build job there's no 
+                # way this one could be part of a build
+                self.trovePrebuilt(buildTrove, cycleTroves)
+                return
             elif buildTrove.allowFastRebuild() and self._allowFastResolution:
                 buildReqs = buildTrove.getPrebuiltRequirements()
                 buildReqs = [ (x[0], (None, None), (x[1], x[2]), False)
