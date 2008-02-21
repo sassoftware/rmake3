@@ -3,6 +3,7 @@ Changes in @NEW@:
      * Added the rebuild command and the --ignore-rebuild-deps and
        --ignore-external-rebuild-deps flags.  See the man page for more
        information. (RMK-783)
+
   o Bug Fixes:
      * Make sure group recipe source files (group scripts) are handled
        correctly when building .recipe files. (RMK-785)
