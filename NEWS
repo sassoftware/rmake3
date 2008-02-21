@@ -6,6 +6,10 @@ Changes in @NEW@:
   o Bug Fixes:
      * Make sure group recipe source files (group scripts) are handled
        correctly when building .recipe files. (RMK-785)
+     * A change in the signed key handling in conary 2.0.7 caused the
+       installation of signed packages whos keys are not in already in
+       /etc/conary/pubring.gpg to fail in rmake.  Signed updates now work
+       in rmake with conary 2.0.7. (RMK-702)
 
 Changes in 1.0.15:
   o Bug Fixes:

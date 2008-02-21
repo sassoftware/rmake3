@@ -16,7 +16,7 @@ from conary import conarycfg
 from conary import conaryclient
 from conary import callbacks
 from conary.deps import deps
-from conary.lib import util, log
+from conary.lib import util, log, openpgpkey
 
 #rmake
 from rmake import errors
@@ -94,6 +94,10 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
 
         def _install(jobList):
             self.cfg.flavor = []
+            openpgpkey.getKeyCache().setPublicPath(
+                                     self.cfg.root + '/root/.gnupg/pubring.gpg')
+            openpgpkey.getKeyCache().setPrivatePath(
+                                self.cfg.root + '/root/.gnupg/secring.gpg')
             client = conaryclient.ConaryClient(self.cfg)
             client.setUpdateCallback(self.callback)
             if self.csCache:
@@ -243,7 +247,6 @@ class rMakeChroot(ConaryBasedChroot):
         self.createConaryRc()
 
     def createConaryRc(self):
-        conaryCfg = conarycfg.ConaryConfiguration(False)
         conaryrc = None
         try:
             if self.canChroot(): # then we will be chrooting into this dir
