@@ -349,7 +349,7 @@ def _cookTrove(cfg, repos, name, version, flavorList, targetLabel,
         m = macros.Macros()
         m._override('buildlabel', str(buildLabel))
         m._override('buildbranch', str(buildBranch))
-        m._override('binarybranch', binaryBranch)
+        m._override('binarybranch', str(binaryBranch))
         built = cook.cookObject(repos, cfg, recipeClasses, version,
                                 prep=False,
                                 macros=m,
