@@ -98,6 +98,7 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
                                      self.cfg.root + '/root/.gnupg/pubring.gpg')
             openpgpkey.getKeyCache().setPrivatePath(
                                 self.cfg.root + '/root/.gnupg/secring.gpg')
+            self.cfg.pubRing = [self.cfg.root + '/root/.gnupg/pubring.gpg']
             client = conaryclient.ConaryClient(self.cfg)
             client.setUpdateCallback(self.callback)
             if self.csCache:
