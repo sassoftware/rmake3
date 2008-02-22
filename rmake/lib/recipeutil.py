@@ -177,7 +177,8 @@ def getRecipeObj(repos, name, version, flavor, recipeFile,
         recipeObj.sourceVersion = version
         recipeObj.setup()
     elif recipe.isRedirectRecipe(recipeClass):
-        recipeObj = recipeClass(repos, cfg, buildLabel, flavor)
+        binaryBranch = version.getBinaryVersion().branch()
+        recipeObj = recipeClass(repos, cfg, binaryBranch, flavor)
         recipeObj.sourceVersion = version
         recipeObj.setup()
     elif recipe.isFileSetRecipe(recipeClass):
