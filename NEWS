@@ -1,6 +1,8 @@
-Changes in @NEW@:
+Changes in 1.0.17:
   o Bug Fixes:
      * Checkouts of redirects can now be built in rmake. (RMK-754)
+     * Fixed an incompatibility between rmake 1.0.16 and conary 2.0.8
+       related to signed updates (RMK-702)
 
 Changes in 1.0.16:
   o Client changes:
