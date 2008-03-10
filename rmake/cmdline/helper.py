@@ -27,16 +27,17 @@ from conary.lib import log
 from conary.lib import options
 from conary.repository import trovesource
 
+from rmake import compat
 from rmake import errors
+from rmake import plugins
 from rmake.build import buildcfg
 from rmake.build import buildjob
 from rmake.cmdline import buildcmd
+from rmake.cmdline import cmdutil
 from rmake.cmdline import commit
 from rmake.cmdline import monitor
-from rmake.cmdline import cmdutil
+from rmake.cmdline import query
 from rmake.server import client
-from rmake import compat
-from rmake import plugins
 
 class rMakeHelper(object):
     """
@@ -70,16 +71,17 @@ class rMakeHelper(object):
     BUILD_RECURSE_GROUPS_SOURCE = buildcmd.BUILD_RECURSE_GROUPS_SOURCE
 
     def __init__(self, uri=None, rmakeConfig=None, buildConfig=None, root='/',
-                 guiPassword=False, plugins=None):
+                 guiPassword=False, plugins=None, configureClient=True):
         if rmakeConfig:
             log.warning('rmakeConfig parameter is now deprecated')
         if not buildConfig:
             buildConfig = buildcfg.BuildConfiguration(True, root)
 
-        if uri is None:
-            uri = buildConfig.getServerUri()
+        if configureClient:
+            if uri is None:
+                uri = buildConfig.getServerUri()
 
-        self.client = client.rMakeClient(uri)
+            self.client = client.rMakeClient(uri)
 
         if guiPassword:
             try:
@@ -596,3 +598,24 @@ class rMakeHelper(object):
             self.displayJob(job, quiet=quiet)
         else:
             return self.buildJob(job, quiet=quiet)
+
+    def displayJobInfo(self, jobId, proxy, out=sys.stdout):
+        """
+        Display the info and logs for a given job.
+        """
+        query.displayJobInfo(client=proxy,
+                             jobId=jobId,
+                             troveSpecs=[],
+                             displayTroves=False,
+                             displayDetails=False,
+                             showLogs=True,
+                             showBuildLogs=True,
+                             showFullVersions=False,
+                             showFullFlavors=False,
+                             showLabels=False,
+                             showTracebacks=False,
+                             showConfig=False,
+                             jobLimit=20,
+                             activeOnly=False,
+                             out=out)
+

@@ -8,6 +8,7 @@ from conary.lib.sha1helper import md5FromString
 from conary import dbstore
 
 from rmake import errors
+from rmake.build import buildcfg
 from rmake.build.subscriber import _JobDbLogger
 from rmake.db import authcache
 from rmake.db import schema
@@ -333,6 +334,20 @@ class Database(DBInterface):
 
     def getTroveLogs(self, jobId, troveTuple, mark = 0):
         return self.jobStore.getTroveLogs(jobId, troveTuple, mark=mark)
+
+    def getTroveBuildLog(self, jobId, troveTuple, mark):
+        jobId = self.convertToJobId(jobId)
+        trove = self.getTrove(jobId, *troveTuple)
+        if not self.hasTroveBuildLog(trove):
+            return not trove.isFinished(), '', 0
+        f = self.openTroveBuildLog(trove)
+        if mark < 0:
+            f.seek(0, 2)
+            end = f.tell()
+            f.seek(max(end + mark, 0))
+        else:
+            f.seek(mark)
+        return not trove.isFinished(), f.read(), f.tell()
 
     def addNode(self, name, host, slots, buildFlavors, chrootPaths):
         self.nodeStore.addNode(name, host, slots, buildFlavors)
