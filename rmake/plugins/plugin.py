@@ -15,6 +15,7 @@ from rmake.lib.pluginlib import Plugin
 TYPE_CLIENT = 0
 TYPE_SERVER = 1
 TYPE_SUBSCRIBER = 2
+TYPE_LIBRARY = 3
 
 class ClientPlugin(Plugin):
 
@@ -94,3 +95,14 @@ class SubscriberPlugin(Plugin):
             Should return a child of the StatusSubscirber class.
         """
         pass
+
+
+class LibraryPlugin(Plugin):
+
+    types = [TYPE_LIBRARY]
+    protocol = None
+
+    def library_init(self):
+        """
+            Called when using rmake as a library.
+        """

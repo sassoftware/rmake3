@@ -31,8 +31,13 @@ from rmake.plugins import plugin
 
 oldMonitorJob = monitor.monitorJob
 
-class MonitorPlugin(plugin.ClientPlugin):
+class MonitorPlugin(plugin.ClientPlugin, plugin.LibraryPlugin):
+    types = [plugin.TYPE_CLIENT, plugin.TYPE_LIBRARY]
     def client_preInit(self, main, argv):
+        if sys.stdout.isatty() and sys.stdin.isatty():
+            monitor.monitorJob = monitorJob
+
+    def library_preInit(self):
         if sys.stdout.isatty() and sys.stdin.isatty():
             monitor.monitorJob = monitorJob
 

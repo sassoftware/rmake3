@@ -161,9 +161,21 @@ class Builder(object):
 
         self.initialized = True
         self.job.log('Build started - loading troves')
+        for troveTup in self.job.getMainConfig().primaryTroves:
+            job.getTrove(*troveTup).setPrimaryTrove()
         buildTroves = recipeutil.getSourceTrovesFromJob(self.job,
                                                         self.serverCfg,
                                                         self.repos)
+        troveDict = {}
+        finalBuildTroves = []
+        for buildTrove in sorted(self.job.iterTroves()):
+            troveTup = buildTrove.getNameVersionFlavor()
+            if troveTup not in troveDict:
+                troveDict[troveTup] = buildTrove
+                finalBuildTroves.append(buildTrove)
+            else:
+                buildTrove.troveDuplicate([])
+        buildTroves = finalBuildTroves
         self._matchTrovesToJobContext(buildTroves, self.jobContext)
         self._matchPrebuiltTroves(buildTroves,
                          self.job.getMainConfig().prebuiltBinaries)
@@ -283,14 +295,20 @@ class Builder(object):
         if not prebuiltTroveList:
             return
         trovesByNV = {}
+        trovesByLabel = {}
         for trove in buildTroves:
             trovesByNV.setdefault((trove.getName(),
                                    trove.getVersion()), []).append(trove)
+            trovesByLabel.setdefault((trove.getName(),
+                                      trove.getLabel()), []).append(trove)
 
         needed = {}
         for n,v,f in prebuiltTroveList:
             matchingTroves = trovesByNV.get((n + ':source',
-                                             v.getSourceVersion()), False)
+                                                v.getSourceVersion()), False)
+            if not matchingTroves:
+                matchingTroves = trovesByLabel.get((n + ':source',
+                                                    v.trailingLabel()), False)
             if matchingTroves:
                 strongF = f.toStrongFlavor()
                 maxScore = -999
@@ -323,17 +341,15 @@ class Builder(object):
 
         for troveTup, buildTrove in needed.iteritems():
             oldTrove = troveDict[troveTup]
-            self._matchPrebuiltTrove(oldTrove, buildTrove, allBinaries[oldTrove.getNameVersionFlavor()])
+            self._matchPrebuiltTrove(oldTrove, buildTrove,
+                                     allBinaries[oldTrove.getNameVersionFlavor()])
  
     def _matchPrebuiltTrove(self, oldTrove, toBuild, binaries,
                             oldBuildTrove=None, oldCfg=None):
         newCfg = toBuild.getConfig()
         buildReqs = oldTrove.getBuildRequirements()
         loadedReqs = oldTrove.getLoadedTroves()
-        if newCfg.ignoreAllRebuildDeps or newCfg.ignoreExternalRebuildDeps:
-            pass
-        elif (set(loadedReqs) != set(toBuild.getLoadedTroves())):
-            return
+        superClassesMatch = (set(loadedReqs) == set(toBuild.getLoadedTroves()))
         if not oldBuildTrove:
             fastRebuild = False
         else:
@@ -349,7 +365,7 @@ class Builder(object):
         toBuild.trovePrebuilt(buildReqs, binaries,
                               oldTrove.getBuildTime(),
                               fastRebuild,
-                              logPath)
+                              logPath, superClassesMatch=superClassesMatch)
 
 
     def _checkBuildSanity(self, buildTroves):

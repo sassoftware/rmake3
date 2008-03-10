@@ -128,7 +128,9 @@ class _AbstractBuildTrove:
         self.preBuiltTime = 0
         self.preBuildFast = 0
         self.preBuiltLog = ''
+        self.isPrimary = False
         self.context = context
+        self.cfg = None
         if flavorList is None:
             self.flavorList = [flavor]
 
@@ -147,6 +149,9 @@ class _AbstractBuildTrove:
     def getVersion(self):
         return self.version
 
+    def getLabel(self):
+        return self.version.trailingLabel()
+
     def getFlavor(self):
         return self.flavor
 
@@ -161,6 +166,12 @@ class _AbstractBuildTrove:
 
     def getLoadedTroves(self):
         return self.loadedTroves
+
+    def setPrimaryTrove(self):
+        self.isPrimary = True
+
+    def isPrimaryTrove(self):
+        return self.isPrimary
 
     def setLoadedTroves(self, loadedTroves):
         self.loadedTroves = loadedTroves
@@ -233,6 +244,7 @@ class _AbstractBuildTrove:
 
     def isBuilt(self):
         return self.state == TROVE_STATE_BUILT
+
 
     def isFinished(self):
         return (self.isFailed() or self.isBuilt()
@@ -502,7 +514,7 @@ class BuildTrove(_FreezableBuildTrove):
                        'Resolving build requirements', host, pid)
 
     def trovePrebuilt(self, buildReqs, binaryTroves, preBuiltTime=0,
-                      fastRebuild=False, logPath=''):
+                      fastRebuild=False, logPath='', superClassesMatch=True):
         self.finish = time.time()
         self.pid = 0
         self._setState(TROVE_STATE_PREBUILT, '', buildReqs, binaryTroves)
@@ -513,6 +525,16 @@ class BuildTrove(_FreezableBuildTrove):
         self.preBuiltTime = preBuiltTime
         self.fastRebuild = fastRebuild
         self.preBuiltLog = logPath
+        self.superClassesMatch = superClassesMatch
+
+    def prebuiltIsSourceMatch(self):
+        if self.preBuiltBinaries[0][1].getSourceVersion() == self.version:
+            return True
+        if not self.version.hasParentVersion():
+            return False
+        parentVersion = self.version.getParentVersion()
+        return self.preBuiltBinaries[0][1].getSourceVersion() == parentVersion
+
 
     def allowFastRebuild(self):
         return self.fastRebuild

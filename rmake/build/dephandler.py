@@ -196,6 +196,8 @@ class DependencyBasedBuildState(AbstractBuildState):
 
         for trove in sourceTroves:
             try:
+                if trove.isPrimaryTrove():
+                    self.hasPrimaryTroves = True
                 trove.addBuildRequirements(trove.cfg.defaultBuildReqs)
                 if trove.isPrepOnly():
                     continue
@@ -417,6 +419,7 @@ class DependencyHandler(object):
         self._allowFastResolution = True
         self._possibleDuplicates = {}
         self._prebuiltBinaries = set()
+        self._hasPrimaryTroves = False
 
         statusLog.subscribe(statusLog.TROVE_BUILT, self.troveBuilt)
         statusLog.subscribe(statusLog.TROVE_PREPARED, self.trovePrepared)
@@ -604,14 +607,25 @@ class DependencyHandler(object):
             for cycleTrove in cycleTroves:
                 self._cycleChecked.pop(cycleTrove, False)
 
+    def _buildHasOccurred(self):
+        return set(self.depState.getAllBinaries()) - self._prebuiltBinaries
+
     def _getResolveJob(self, buildTrove, inCycle=False, cycleTroves=None):
         if buildTrove.isPrebuilt():
-            if buildTrove.getConfig().ignoreAllRebuildDeps:
+            if (self._hasPrimaryTroves
+                and not buildTrove.isPrimary()
+                and self._buildHasOccurred()):
+                self.trovePrebuilt(buildTrove, cycleTroves)
+                return
+            elif not buildTrove.prebuiltIsSourceMatch():
+                # this should fall out and get a new resolve job.
+                pass
+            elif buildTrove.getConfig().ignoreAllRebuildDeps:
                 self.trovePrebuilt(buildTrove, cycleTroves)
                 return
             elif (buildTrove.getConfig().ignoreExternalRebuildDeps
-                  and not (set(self.depState.getAllBinaries()) - self._prebuiltBinaries)):
-                # if nothing's been changed in this build job there's no 
+                  and not self.buildHasOccurred()):
+                # if nothing's been changed in this build job there's no
                 # way this one could be part of a build
                 self.trovePrebuilt(buildTrove, cycleTroves)
                 return
@@ -866,7 +880,7 @@ class DependencyHandler(object):
                 buildReqTups = set((x[0], x[2][0], x[2][1])
                                     for x in buildReqs if ':' in x[0])
                 buildReqComps = set(x for x in buildReqTups if ':' in x[0])
-                if trv.getConfig().ignoreExternalRebuildDeps:
+                if trv.getConfig().ignoreExternalRebuildDeps or self._hasPrimaryTroves:
                     found = False
                     binaries = set(self.depState.getAllBinaries())
                     binaries.difference_update(self._prebuiltBinaries)

@@ -14,6 +14,7 @@ class PluginManager(pluginlib.PluginManager):
                                          pluginPrefix='rmake_plugins',
                                          supportedTypes=[TYPE_CLIENT,
                                                          TYPE_SERVER,
+                                                         TYPE_LIBRARY,
                                                          TYPE_SUBSCRIBER])
 
     def loadPlugins(self):
@@ -23,6 +24,9 @@ class PluginManager(pluginlib.PluginManager):
 
     def callClientHook(self, hookName, *args, **kw):
         self.callHook(TYPE_CLIENT, hookName, *args, **kw)
+
+    def callLibraryHook(self, hookName, *args, **kw):
+        self.callHook(TYPE_LIBRARY, hookName, *args, **kw)
 
     def callServerHook(self, hookName, *args, **kw):
         self.callHook(TYPE_SERVER, hookName, *args, **kw)

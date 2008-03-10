@@ -127,6 +127,19 @@ class _AbstractBuildJob(trovesource.SearchableTroveSource):
         buildTrove.setPublisher(self.getPublisher())
         self.troves[name, version, flavor, context] = buildTrove
         self.troveContexts.setdefault((name, version, flavor), []).append(context)
+        if buildTrove.getConfig():
+            self.setTroveConfig(buildTrove, buildTrove.getConfig())
+
+    def removeTrove(self, name, version, flavor, context=''):
+        del self.troves[name,version,flavor,context]
+        l = self.troveContexts[name,version,flavor]
+        l.remove(context)
+        if not l:
+            del self.troveContexts[name, version, flavor]
+
+    def addBuildTrove(self, buildTrove):
+        self.addTrove(buildTrove=buildTrove,
+                      *buildTrove.getNameVersionFlavor(withContext=True))
 
     def setBuildTroves(self, buildTroves):
         self.troves = {}

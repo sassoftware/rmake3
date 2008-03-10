@@ -20,6 +20,7 @@ from conary.lib.cfgtypes import (CfgBool, CfgPath, CfgList, CfgDict, CfgString,
                                  CfgInt, CfgType, CfgQuotedLineList, 
                                  CfgPathList)
 
+from rmake.cmdline import cmdutil
 from rmake.lib import apiutils, daemon, logger
 from rmake import compat, errors, subscribers
 
@@ -46,6 +47,15 @@ class CfgTroveTuple(CfgType):
 
     def format(self, val, displayOptions=None):
         return '%s=%s[%s]' % val
+
+class CfgTroveTupleWithContext(CfgType):
+    def parseString(self, val):
+        (name, version, flavor, context) = cmdutil.parseTroveSpec(val)
+        return (name, versions.VersionFromString(version), flavor, context)
+
+    def format(self, val, displayOptions=None):
+        return '%s=%s[%s]{%s}' % val
+
 
 class CfgSubscriberDict(CfgDict):
     def parseValueString(self, key, value):
@@ -142,9 +152,10 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
     usePlugins           = (CfgBool, True)
     jobContext           = CfgList(CfgInt)
     recursedGroupTroves  = CfgList(CfgTroveTuple)
-    prebuiltBinaries     = CfgList(CfgTroveTuple)
-    ignoreExternalRebuildDeps = CfgBool, False
-    ignoreAllRebuildDeps = CfgBool, False
+    prebuiltBinaries               = CfgList(CfgTroveTuple)
+    ignoreExternalRebuildDeps      = (CfgBool, False)
+    ignoreAllRebuildDeps           = (CfgBool, False)
+    primaryTroves = CfgList(CfgTroveTupleWithContext)
 
     # Here are options that are not visible from the command-line
     # and should not be displayed.  They are job-specific.  However,
@@ -153,7 +164,7 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
     _hiddenOptions = [ 'buildTroveSpecs', 'resolveTroveTups', 'jobContext',
                        'recurseGroups', 'recursedGroupTroves',
                        'prebuiltBinaries', 'ignoreExternalRebuildDeps',
-                       'ignoreAllRebuildDeps' ]
+                       'ignoreAllRebuildDeps', 'primaryTroves' ]
 
     _strictOptions = [ 'buildFlavor', 'buildLabel', 'cleanAfterCook','flavor',
                        'installLabelPath', 'repositoryMap', 'root',
