@@ -1,4 +1,14 @@
 .*\.pyc$
 .*\.o$
 .*\.so$
+.*\.swp$
+.*chroothelper\.h
+.*chroothelper
 ^tmp/
+bin/rmake-wrapper
+bin/rmake-server
+bin/rmake
+extra/rmake.init
+extra/rmake.recipe
+extra/rmake.spec
+rmake/constants.py

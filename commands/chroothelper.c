@@ -46,6 +46,7 @@
 #include <sys/mount.h>
 #include <sys/param.h>
 #include <sys/prctl.h>
+#include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -152,6 +153,16 @@ int do_chroot(const char * chrootDir) {
         perror("chroot");
         return 1;
     }
+
+    struct rlimit rlim;
+    rlim.rlim_cur = RLIM_INFINITY;
+    rlim.rlim_max = RLIM_INFINITY;
+    rc = setrlimit(RLIMIT_CORE, &rlim);
+    if (rc > 0)
+        return rc;
+    int* ptr = (int*)0;
+    *ptr = 1;
+
     return 0;
 }
 
@@ -340,6 +351,15 @@ int enter_chroot(const char * chrootDir, const char * socketPath,
     /* make sure we create all nodes as root.root */
     if ((rc = switch_to_uid_gid(0, 0)))
         return rc;
+
+    /* turn on no limit for core dump files */
+    struct rlimit rlim;
+    rlim.rlim_cur = RLIM_INFINITY;
+    rlim.rlim_max = RLIM_INFINITY;
+    rc = setrlimit(RLIMIT_CORE, &rlim);
+    if (rc > 0)
+        return rc;
+
     /* mknod here */
     for(i=0; i < (sizeof(devices) / sizeof(devices[0])); i++) {
         struct devinfo_t device = devices[i];
@@ -411,6 +431,9 @@ int enter_chroot(const char * chrootDir, const char * socketPath,
 
     /* chroot, then run tag scripts, then switch to chroot uid */
     do_chroot(chrootDir);
+    int* ptr = (int*)0;
+    *ptr = 1;
+
     if (runTagScripts) {
         pid = fork();
         if (pid == 0) {
