@@ -101,7 +101,8 @@ def displayJobInfo(client, jobId=None, troveSpecs=[], displayTroves=False,
                    displayDetails=False, showLogs=False, showBuildLogs=False,
                    showFullVersions=False, showFullFlavors=False,
                    showLabels=False, showTracebacks=False,
-                   showConfig=False, activeOnly=False, jobLimit=None):
+                   showConfig=False, activeOnly=False, jobLimit=None,
+                   out=sys.stdout):
     if troveSpecs:
         displayTroves = True
 
@@ -131,7 +132,7 @@ def displayJobInfo(client, jobId=None, troveSpecs=[], displayTroves=False,
                                jobLimit=jobLimit, activeOnly=activeOnly)
     for job, troveTupList in jobList:
         dcfg.flavorsByName = getFlavorSpecs(job)
-        displayOneJob(dcfg, job, troveTupList)
+        displayOneJob(dcfg, job, troveTupList, out)
 
 def getOldTime(t):
     diff = int(time.time() - t)
@@ -156,7 +157,7 @@ def getOldTime(t):
             return 'just now'
         return '%s minutes ago' % (diff / 60)
 
-def displayOneJob(dcfg, job, troveTupList):
+def displayOneJob(dcfg, job, troveTupList, out=sys.stdout):
     if dcfg.displayJobs:
         if dcfg.showConfig:
             configs = job.getConfigDict()
@@ -166,8 +167,8 @@ def displayOneJob(dcfg, job, troveTupList):
                 contexts = set(x.context for x in buildTroveList)
                 for ctx in sorted(contexts):
                     if ctx:
-                        sys.stdout.write('\n\n[%s]\n' % ctx)
-                    configs[ctx].display(sys.stdout)
+                        out.write('\n\n[%s]\n' % ctx)
+                    configs[ctx].display(out)
                 return
             mainConfig = configs.pop('')
             mainConfig.setDisplayOptions(showContexts=True)
@@ -182,10 +183,10 @@ def displayOneJob(dcfg, job, troveTupList):
                         # set isDefault to False, so we do this instead.
                         ncfg.__dict__[k] = None
                 mainConfig._addSection(ctxName, ncfg)
-            mainConfig.display(sys.stdout)
+            mainConfig.display(out)
             return
         elif dcfg.displayJobDetail:
-            displayJobDetail(dcfg, job)
+            displayJobDetail(dcfg, job, out)
         else:
             times = []
             if job.finish:
@@ -194,7 +195,7 @@ def displayOneJob(dcfg, job, troveTupList):
                 timeStr = getOldTime(job.start)
             else:
                 timeStr = ''
-            print '%-5s %-25s %s' % (job.jobId, job.getStateName(), timeStr)
+            out.write('%-5s %-25s %s' % (job.jobId, job.getStateName(), timeStr))
 
             if not troveTupList:
                 troveList = sorted(job.iterTroveList())
@@ -202,17 +203,17 @@ def displayOneJob(dcfg, job, troveTupList):
                 troveListLen = len(troveList)
                 if troveListLen > 3:
                     troveStr += '...'
-                print '%5s (%s troves) %s' % (' ', troveListLen, troveStr)
+                out.write('%5s (%s troves) %s' % (' ', troveListLen, troveStr))
 
         if dcfg.showLogs:
             client = dcfg.getClient()
             for (timeStamp, message, args) in client.client.getJobLogs(job.jobId):
-                print '[%s] %s' % (timeStamp, message)
+                out.write('[%s] %s\n' % (timeStamp, message))
 
     if dcfg.displayTroves:
-        printTroves(dcfg, job, troveTupList)
+        printTroves(dcfg, job, troveTupList, out)
 
-def displayJobDetail(dcfg, job):
+def displayJobDetail(dcfg, job, out=sys.stdout):
     total   = len(list(job.iterTroves()))
     unbuilt  = len(list(job.iterUnbuiltTroves()))
     preparing = len(list(job.iterPreparingTroves()))
@@ -221,8 +222,8 @@ def displayJobDetail(dcfg, job):
     built    = len(list(job.iterBuiltTroves()))
     failed   = len(list(job.iterFailedTroves()))
 
-    print '%-4s   State:    %-20s' % (job.jobId, job.getStateName())
-    print '       Status:   %-20s' % job.status
+    out.write('%-4s   State:    %-20s' % (job.jobId, job.getStateName()))
+    out.write('       Status:   %-20s' % job.status)
     if job.start:
         startTime = time.strftime('%x %X', time.localtime(job.start))
         if job.finish:
@@ -231,20 +232,20 @@ def displayJobDetail(dcfg, job):
             totalTime = getTimeDifference(time.time() - job.start)
         else:
             totalTime = 'Never finished'
-        print '       Started:  %-20s Build Time: %s' % (startTime, totalTime)
-    print '       To Build: %-20s Building: %s' % (unbuilt, building + waiting + preparing)
-    print '       Built:    %-20s Failed:   %s' % (built, failed)
-    print
+        out.write('       Started:  %-20s Build Time: %s' % (startTime, totalTime))
+    out.write('       To Build: %-20s Building: %s' % (unbuilt, building + waiting + preparing))
+    out.write('       Built:    %-20s Failed:   %s' % (built, failed))
+    out.write("")
 
-def printTroves(dcfg, job, troveTupList):
+def printTroves(dcfg, job, troveTupList, out=sys.stdout):
     if troveTupList or dcfg.displayTroveDetail:
         if troveTupList is None:
             troveTupList = job.iterTroveList(True)
         for troveTup in sorted(troveTupList):
-            printOneTrove(dcfg, job, job.getTrove(*troveTup))
+            printOneTrove(dcfg, job, job.getTrove(*troveTup), out=out)
     else:
-        displayTrovesByState(job)
-    print
+        displayTrovesByState(job, out=out)
+    out.write("\n")
 
 def getTroveSpec(dcfg, item):
     if len(item) == 3:
@@ -292,10 +293,7 @@ def getFlavorSpecs(job):
                  archFlags.union(diffs[flavor])
     return flavorsByName
 
-def displayTrovesByState(job, indent='     ', out=None):
-    if out is None:
-        out = sys.stdout
-
+def displayTrovesByState(job, indent='     ', out=sys.stdout):
     flavorsByName = getFlavorSpecs(job)
 
     for state in (buildtrove.TROVE_STATE_WAITING,
@@ -320,8 +318,8 @@ def displayTrovesByState(job, indent='     ', out=None):
         out.write(textwrap.fill(txt, initial_indent=indent, subsequent_indent=indent, width=max(cols - len(indent), 20)))
         out.write('\n\n')
 
-def printOneTrove(dcfg, job, trove, indent='       '):
-    displayTroveDetail(dcfg, job, trove, indent)
+def printOneTrove(dcfg, job, trove, indent='       ', out=sys.stdout):
+    displayTroveDetail(dcfg, job, trove, indent, out)
     if dcfg.showLogs:
         client = dcfg.getClient()
         mark = 0
@@ -333,27 +331,25 @@ def printOneTrove(dcfg, job, trove, indent='       '):
                 break
             mark += len(logs)
             for (timeStamp, message, args) in logs:
-                print '[%s] %s' % (timeStamp, message)
+                out.write('[%s] %s' % (timeStamp, message))
 
     if dcfg.showBuildLogs:
-        showBuildLog(dcfg, job, trove)
+        showBuildLog(dcfg, job, trove, out)
 
-def showBuildLog(dcfg, job, trove):
+def showBuildLog(dcfg, job, trove, out=sys.stdout):
     client = dcfg.getClient()
 
     mark = 0
     moreData, data, mark = client.client.getTroveBuildLog(job.jobId,
                                         trove.getNameVersionFlavor(True), mark)
     if not moreData and not data:
-        print 'No build log.'
+        out.write('No build log.')
         return
 
-    print
-    print data,
+    out.write("")
+    out.write(data,)
 
-def displayTroveDetail(dcfg, job, trove, indent='     ', out=None):
-    if not out:
-        out = sys.stdout
+def displayTroveDetail(dcfg, job, trove, indent='     ', out=sys.stdout):
     def write(line=''):
         out.write(line + '\n')
 
