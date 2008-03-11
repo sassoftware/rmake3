@@ -624,7 +624,7 @@ class DependencyHandler(object):
                 self.trovePrebuilt(buildTrove, cycleTroves)
                 return
             elif (buildTrove.getConfig().ignoreExternalRebuildDeps
-                  and not self.buildHasOccurred()):
+                  and not self._buildHasOccurred()):
                 # if nothing's been changed in this build job there's no
                 # way this one could be part of a build
                 self.trovePrebuilt(buildTrove, cycleTroves)
