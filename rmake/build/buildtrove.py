@@ -152,6 +152,9 @@ class _AbstractBuildTrove:
     def getLabel(self):
         return self.version.trailingLabel()
 
+    def getHost(self):
+        return self.version.trailingLabel().getHost()
+
     def getFlavor(self):
         return self.flavor
 
@@ -514,7 +517,8 @@ class BuildTrove(_FreezableBuildTrove):
                        'Resolving build requirements', host, pid)
 
     def trovePrebuilt(self, buildReqs, binaryTroves, preBuiltTime=0,
-                      fastRebuild=False, logPath='', superClassesMatch=True):
+                      fastRebuild=False, logPath='', superClassesMatch=True,
+                      sourceMatches=True):
         self.finish = time.time()
         self.pid = 0
         self._setState(TROVE_STATE_PREBUILT, '', buildReqs, binaryTroves)
@@ -526,15 +530,10 @@ class BuildTrove(_FreezableBuildTrove):
         self.fastRebuild = fastRebuild
         self.preBuiltLog = logPath
         self.superClassesMatch = superClassesMatch
+        self.prebuiltSourceMatches = sourceMatches
 
     def prebuiltIsSourceMatch(self):
-        if self.preBuiltBinaries[0][1].getSourceVersion() == self.version:
-            return True
-        if not self.version.hasParentVersion():
-            return False
-        parentVersion = self.version.getParentVersion()
-        return self.preBuiltBinaries[0][1].getSourceVersion() == parentVersion
-
+        return self.prebuiltSourceMatches
 
     def allowFastRebuild(self):
         return self.fastRebuild

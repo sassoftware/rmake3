@@ -13,6 +13,7 @@ import time
 import traceback
 
 from conary import conaryclient
+from conary.deps import deps
 from conary.lib import util
 from conary.repository import changeset
 
@@ -162,7 +163,7 @@ class Builder(object):
         self.initialized = True
         self.job.log('Build started - loading troves')
         for troveTup in self.job.getMainConfig().primaryTroves:
-            job.getTrove(*troveTup).setPrimaryTrove()
+            self.job.getTrove(*troveTup).setPrimaryTrove()
         buildTroves = recipeutil.getSourceTrovesFromJob(self.job,
                                                         self.serverCfg,
                                                         self.repos)
@@ -296,11 +297,19 @@ class Builder(object):
             return
         trovesByNV = {}
         trovesByLabel = {}
+        needsSourceMatch = []
         for trove in buildTroves:
             trovesByNV.setdefault((trove.getName(),
                                    trove.getVersion()), []).append(trove)
-            trovesByLabel.setdefault((trove.getName(),
-                                      trove.getLabel()), []).append(trove)
+            if (trove.getHost() == self.serverCfg.reposName
+                and trove.getVersion().branch().hasParentBranch()):
+                trovesByLabel.setdefault((trove.getName(),
+                          trove.getVersion().branch().parentBranch().label()),
+                          []).append(trove)
+                needsSourceMatch.append(trove)
+            else:
+                trovesByLabel.setdefault((trove.getName(),
+                                          trove.getLabel()), []).append(trove)
 
         needed = {}
         for n,v,f in prebuiltTroveList:
@@ -324,6 +333,8 @@ class Builder(object):
         allBinaries = {}
         troveDict = {}
         for neededTup, matchingTrove in needed.iteritems():
+                
+                
             otherPackages = [ (x, neededTup[1], neededTup[2])
                                for x in matchingTrove.getDerivedPackages() 
                             ]
@@ -341,11 +352,28 @@ class Builder(object):
 
         for troveTup, buildTrove in needed.iteritems():
             oldTrove = troveDict[troveTup]
+            if buildTrove in needsSourceMatch:
+                sourceVersion = oldTrove.getVersion().getSourceVersion()
+                if buildTrove.getVersion().hasParentVersion():
+                    sourceMatches = (buildTrove.getVersion().parentVersion()
+                                     == sourceVersion)
+                else:
+                    sourceTrv = self.repos.getTrove(
+                                   troveTup[0].split(':')[0] + ':source',
+                                   sourceVersion, deps.Flavor())
+                    clonedFromVer = sourceTrv.troveInfo.clonedFrom()
+                    sourceMatches = (clonedFromVer == buildTrove.getVersion())
+            else:
+                sourceMatches = (troveTup[1].getSourceVersion()
+                                 == buildTrove.getVersion())
+
             self._matchPrebuiltTrove(oldTrove, buildTrove,
-                                     allBinaries[oldTrove.getNameVersionFlavor()])
+                                 allBinaries[oldTrove.getNameVersionFlavor()],
+                                 sourceMatches=sourceMatches)
  
     def _matchPrebuiltTrove(self, oldTrove, toBuild, binaries,
-                            oldBuildTrove=None, oldCfg=None):
+                            oldBuildTrove=None, oldCfg=None,
+                            sourceMatches=True):
         newCfg = toBuild.getConfig()
         buildReqs = oldTrove.getBuildRequirements()
         loadedReqs = oldTrove.getLoadedTroves()
@@ -365,7 +393,8 @@ class Builder(object):
         toBuild.trovePrebuilt(buildReqs, binaries,
                               oldTrove.getBuildTime(),
                               fastRebuild,
-                              logPath, superClassesMatch=superClassesMatch)
+                              logPath, superClassesMatch=superClassesMatch,
+                              sourceMatches=sourceMatches)
 
 
     def _checkBuildSanity(self, buildTroves):

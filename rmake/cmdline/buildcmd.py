@@ -102,7 +102,8 @@ def getBuildJob(buildConfig, conaryclient, troveSpecList,
                                                  updateSpecs)
         if rebuild:
             prebuiltBinaries = _findLatestBinariesForTroves(conaryclient,
-                                                            troveList)
+                                                        mainConfig.reposName,
+                                                        troveList)
             if not job.getMainConfig().prebuiltBinaries:
                 job.getMainConfig().prebuiltBinaries = prebuiltBinaries
             else:
@@ -837,12 +838,21 @@ def displayBuildInfo(job, verbose=False, quiet=False):
                                     contextStr)
 
 
-def _findLatestBinariesForTroves(conaryclient, troveList):
+def _findLatestBinariesForTroves(conaryclient, reposName, troveList):
     # The only possible built binaries are those with exactly the same
     # branch.
     repos = conaryclient.getRepos()
-    troveSpecs = [(x[0].split(':')[0], str(x[1].trailingLabel()), None) 
-                  for x in troveList ]
+    troveSpecs = []
+    for troveTup in troveList:
+        if (troveTup[1].trailingLabel().getHost() == reposName
+            and troveTup[1].branch().hasParentBranch()):
+            troveSpecs.append((troveTup[0].split(':')[0],
+                              str(troveTup[1].branch().parentBranch().label()),
+                              None))
+        else:
+            troveSpecs.append((troveTup[0].split(':')[0],
+                              str(troveTup[1].trailingLabel()),
+                              None))
     results = repos.findTroves(None, troveSpecs, None, allowMissing=True)
     binaryTroveList = list(itertools.chain(*results.itervalues()))
     return binaryTroveList

@@ -868,33 +868,43 @@ class DependencyHandler(object):
             if newDeps:
                 trv.troveResolvedButDelayed(newDeps)
                 return
-            elif (trv.getPrebuiltRequirements() is not None
-                  and not trv.isGroupRecipe()):
-                # groups always get recooked, we may check them later
-                # to see if anything in them has changed
-
-                preBuiltReqComps = set(
-                    [ x for x in trv.getPrebuiltRequirements() if ':' in x[0]])
-                # only compare components, since packages are not necessarily
-                # stored in the build reqs for the trove.
-                buildReqTups = set((x[0], x[2][0], x[2][1])
-                                    for x in buildReqs if ':' in x[0])
-                buildReqComps = set(x for x in buildReqTups if ':' in x[0])
-                if trv.getConfig().ignoreExternalRebuildDeps or self._hasPrimaryTroves:
-                    found = False
-                    binaries = set(self.depState.getAllBinaries())
-                    binaries.difference_update(self._prebuiltBinaries)
-                    if not set(binaries).intersection(buildReqTups):
-                        self.trovePrebuilt(trv, cycleTroves)
-                        return
-                if buildReqComps == preBuiltReqComps:
-                    self.depState.depGraph.deleteEdges(trv)
-                    self._allowFastResolution = oldFastResolve
-                    self.trovePrebuilt(trv, cycleTroves)
-                    return
+            elif trv.getPrebuiltRequirements() is not None:
+                if trv.isGroupRecipe():
+                    # groups always get recooked, we may check them later
+                    # to see if anything in them has changed
+                    pass
                 else:
-                    self._logDifferenceInPrebuiltReqs(trv, buildReqComps,
-                                                      preBuiltReqComps)
+                    preBuiltReqComps = set(
+                    [ x for x in trv.getPrebuiltRequirements() if ':' in x[0]])
+                    # only compare components, since packages are not
+                    # necessarily stored in the build reqs for the trove.
+                    buildReqTups = set((x[0], x[2][0], x[2][1])
+                                        for x in buildReqs if ':' in x[0])
+                    buildReqComps = set(x for x in buildReqTups if ':' in x[0])
+
+                    ignoreExternalRebuildDeps = trv.getConfig().ignoreExternalRebuildDeps
+                    if trv.isPrimaryTrove():
+                        if not trv.prebuiltIsSourceMatch():
+                            ignoreExternalRebuildDeps = False
+                    elif self._hasPrimaryTroves:
+                        ignoreExternalRebuildDeps = True
+
+                    if ignoreExternalRebuildDeps:
+                        binaries = set(self.depState.getAllBinaries())
+                        binaries.difference_update(self._prebuiltBinaries)
+                        if not set(binaries).intersection(buildReqTups):
+                            self.trovePrebuilt(trv, cycleTroves)
+                            return
+                    if trv.prebuiltIsSourceMatch():
+                        if buildReqComps == preBuiltReqComps:
+                            self.depState.depGraph.deleteEdges(trv)
+                            self._allowFastResolution = oldFastResolve
+                            self.trovePrebuilt(trv, cycleTroves)
+                            return
+                        else:
+                            self._logDifferenceInPrebuiltReqs(trv,
+                                                              buildReqComps,
+                                                              preBuiltReqComps)
 
             if cycleTroves:
                 for cycleTrove in cycleTroves:
