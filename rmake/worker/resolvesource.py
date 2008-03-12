@@ -19,17 +19,14 @@ class TroveSourceMesh(trovesource.SearchableTroveSource):
         self.repos = repos
         trovesource.SearchableTroveSource.__init__(self)
         self.searchAsRepository()
-        if self.mainSource:
-            self._allowNoLabel = self.mainSource._allowNoLabel
-            self._bestFlavor = self.mainSource._bestFlavor
-            self._getLeavesOnly = self.mainSource._getLeavesOnly
-            self._flavorCheck = self.mainSource._flavorCheck
-        else:
-            self._allowNoLabel = self.repos._allowNoLabel
-            self._bestFlavor = self.repos._bestFlavor
-            self._getLeavesOnly = self.repos._getLeavesOnly
-            self._flavorCheck = self.repos._flavorCheck
-
+        for source in self.mainSource, self.repos, self.extraSource:
+            if not source:
+                continue
+            self._allowNoLabel = source._allowNoLabel
+            self._bestFlavor = source._bestFlavor
+            self._getLeavesOnly = source._getLeavesOnly
+            self._flavorCheck = source._flavorCheck
+            break
         self.sources = [ self.extraSource]
         if self.mainSource:
             self.sources.append(self.mainSource)
@@ -322,9 +319,9 @@ class DepHandlerSource(TroveSourceMesh):
                     source.searchWithFlavor()
                     source.setFlavorPreferenceList(flavorPrefs)
                     stack.addSource(source)
-                if not useInstallLabelPath:
-                    repos = None
                 self.resolveTroveSource = stack
+            if not useInstallLabelPath:
+                repos = None
         if not stack.sources:
             stack = None
         TroveSourceMesh.__init__(self, builtTroveSource, stack, repos)

@@ -114,7 +114,7 @@ class DependencyResolver(object):
             rMakeHost = builtTroves[0].getVersion().trailingLabel().getHost()
             builtTroveSource = recipeutil.RemoveHostSource(builtTroveSource,
                                                            rMakeHost)
-        if cfg.resolveTroveTups:
+        if cfg.resolveTrovesOnly:
             searchSource, resolveSource = self.getSourcesWithResolveTroves(cfg,
                                                     cfg.resolveTroveTups,
                                                     builtTroveSource)
