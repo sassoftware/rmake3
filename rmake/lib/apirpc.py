@@ -372,8 +372,9 @@ def _thawReturn(api, val, version):
         val = r.__thaw__(val)
     return val
 
-class ApiError(Exception):
+class ApiError(errors.RmakeError):
     pass
+apiutils.register(ApiError)
 
 class NoSuchMethodError(ApiError):
     def __init__(self, method):
