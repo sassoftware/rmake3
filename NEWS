@@ -1,3 +1,9 @@
+Changes in 1.0.18:
+  o Bug Fixes:
+     * Initially, rmake was not compatible with having recipe superclasses
+       on the filesystem.  That incompatibility has been removed, although
+       currently rmake simply ignores all filesystem superclasses. (RMK-834)
+
 Changes in 1.0.17:
   o Bug Fixes:
      * Checkouts of redirects can now be built in rmake. (RMK-754)
