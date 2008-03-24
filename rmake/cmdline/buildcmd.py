@@ -427,7 +427,7 @@ def _getPathList(repos, cfg, recipePath, relative=False):
                                                                 recipePath)
 
     log.info("Getting relevant path information from %s..." % recipeClass.name)
-    recipeDir = os.path.dirname(recipeClass.filename)
+    recipeDir = os.path.dirname(recipePath)
     srcdirs = [ recipeDir ]
     recipeObj = None
     buildLabel = sourceVersion.trailingLabel()
