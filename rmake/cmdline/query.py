@@ -195,7 +195,7 @@ def displayOneJob(dcfg, job, troveTupList, out=sys.stdout):
                 timeStr = getOldTime(job.start)
             else:
                 timeStr = ''
-            out.write('%-5s %-25s %s' % (job.jobId, job.getStateName(), timeStr))
+            out.write('%-5s %-25s %s\n' % (job.jobId, job.getStateName(), timeStr))
 
             if not troveTupList:
                 troveList = sorted(job.iterTroveList())
@@ -203,7 +203,7 @@ def displayOneJob(dcfg, job, troveTupList, out=sys.stdout):
                 troveListLen = len(troveList)
                 if troveListLen > 3:
                     troveStr += '...'
-                out.write('%5s (%s troves) %s' % (' ', troveListLen, troveStr))
+                out.write('%5s (%s troves) %s\n' % (' ', troveListLen, troveStr))
 
         if dcfg.showLogs:
             client = dcfg.getClient()
@@ -214,6 +214,8 @@ def displayOneJob(dcfg, job, troveTupList, out=sys.stdout):
         printTroves(dcfg, job, troveTupList, out)
 
 def displayJobDetail(dcfg, job, out=sys.stdout):
+    def write(txt=''):
+        return out.write(txt + '\n')
     total   = len(list(job.iterTroves()))
     unbuilt  = len(list(job.iterUnbuiltTroves()))
     preparing = len(list(job.iterPreparingTroves()))
@@ -222,8 +224,8 @@ def displayJobDetail(dcfg, job, out=sys.stdout):
     built    = len(list(job.iterBuiltTroves()))
     failed   = len(list(job.iterFailedTroves()))
 
-    out.write('%-4s   State:    %-20s' % (job.jobId, job.getStateName()))
-    out.write('       Status:   %-20s' % job.status)
+    write('%-4s   State:    %-20s' % (job.jobId, job.getStateName()))
+    write('       Status:   %-20s' % job.status)
     if job.start:
         startTime = time.strftime('%x %X', time.localtime(job.start))
         if job.finish:
@@ -232,10 +234,10 @@ def displayJobDetail(dcfg, job, out=sys.stdout):
             totalTime = getTimeDifference(time.time() - job.start)
         else:
             totalTime = 'Never finished'
-        out.write('       Started:  %-20s Build Time: %s' % (startTime, totalTime))
-    out.write('       To Build: %-20s Building: %s' % (unbuilt, building + waiting + preparing))
-    out.write('       Built:    %-20s Failed:   %s' % (built, failed))
-    out.write("")
+        write('       Started:  %-20s Build Time: %s' % (startTime, totalTime))
+    write('       To Build: %-20s Building: %s' % (unbuilt, building + waiting + preparing))
+    write('       Built:    %-20s Failed:   %s' % (built, failed))
+    write()
 
 def printTroves(dcfg, job, troveTupList, out=sys.stdout):
     if troveTupList or dcfg.displayTroveDetail:
@@ -331,7 +333,7 @@ def printOneTrove(dcfg, job, trove, indent='       ', out=sys.stdout):
                 break
             mark += len(logs)
             for (timeStamp, message, args) in logs:
-                out.write('[%s] %s' % (timeStamp, message))
+                out.write('[%s] %s\n' % (timeStamp, message))
 
     if dcfg.showBuildLogs:
         showBuildLog(dcfg, job, trove, out)
