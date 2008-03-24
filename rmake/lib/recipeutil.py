@@ -132,6 +132,7 @@ def getRecipeObj(repos, name, version, flavor, recipeFile,
     else:
         cfg.installLabelPath = installLabelPath
     cfg.buildFlavor = flavor
+    cfg.defaultBasePackages = []
     name = name.split(':')[0]
     use.LocalFlags._clear()
     assert(flavorutil.getArch(flavor))
