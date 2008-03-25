@@ -441,15 +441,16 @@ def _getPathList(repos, cfg, recipePath, relative=False):
                                 extraMacros=macros)
     else:
         # no included files for the rest of the recipe types
-        return recipeClass, [recipePath]
-
-    try:
-        if hasattr(recipeObj, 'loadPolicy'):
-            recipeObj.loadPolicy()
-        cook._callSetup(cfg, recipeObj)
-    except (conaryerrors.ConaryError, conaryerrors.CvcError), msg:
-        raise errors.RmakeError("could not initialize recipe: %s" % (msg))
-    pathList = recipeObj.fetchLocalSources() + [recipePath ]
+        pathList = [recipePath]
+        recipeObj = None
+    if recipeObj:
+        try:
+            if hasattr(recipeObj, 'loadPolicy'):
+                recipeObj.loadPolicy()
+            cook._callSetup(cfg, recipeObj)
+        except (conaryerrors.ConaryError, conaryerrors.CvcError), msg:
+            raise errors.RmakeError("could not initialize recipe: %s" % (msg))
+        pathList = recipeObj.fetchLocalSources() + [recipePath ]
     if relative:
         finalPathList = []
         for path in pathList:
