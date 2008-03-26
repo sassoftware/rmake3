@@ -109,12 +109,20 @@ class Tee(object):
         if self.pid:
             os.close(inFile)
             return outFile
-
+        for fd in range(3,256):
+            if fd in (inFile, out1, out2):
+                continue
+            try:
+                os.close(fd)
+            except OSError, e:
+                pass
         try:
-            os.close(outFile)
             BUFFER = 64 * 1024
             while True:
-                ready = select.select([inFile], [], [])[0]
+                try:
+                    ready = select.select([inFile], [], [])[0]
+                except select.error, e:
+                    continue
                 rv = os.read(inFile, BUFFER)
                 if not rv:
                     break

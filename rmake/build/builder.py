@@ -386,6 +386,7 @@ class Builder(object):
         pid = self.worker._fork('BuildLogger for %s' % trove)
         if not pid:
             try:
+                r.closeOtherFds()
                 r._installSignalHandlers()
                 r.serve_forever()
             finally:

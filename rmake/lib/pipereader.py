@@ -9,6 +9,7 @@ import marshal
 import os
 import select
 import struct
+import time
 
 def getStructSize(char):
     # NOTE:  This could change depending on architecture - so you can't
@@ -89,12 +90,16 @@ class PipeReader(object):
         if ready:
             return self.handle_read()
 
-    def readUntilClosed(self):
+    def readUntilClosed(self, timeout=None):
+        start = time.time()
         while self.fd is not None:
             data = self.handleReadIfReady()
             if data is not None:
+                start = time.time()
                 yield data
-
+            if timeout and (time.time() - start > timeout):
+                self.close()
+                break
 
 class PipeWriter(object):
     def __init__(self, fd):

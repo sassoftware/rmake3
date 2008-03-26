@@ -20,6 +20,14 @@ class BuildLogRecorder(asyncore.dispatcher, server.Server):
     def _exit(self, rc=0):
         return os._exit(rc)
 
+    def closeOtherFds(self):
+        for fd in range(3,256):
+            if fd not in (self.logFd, self._fileno):
+                try:
+                    os.close(fd)
+                except OSError, e:
+                    pass
+
     def attach(self, trove, map=None):
         asyncore.dispatcher.__init__(self, None, map)
         self.trove = trove
