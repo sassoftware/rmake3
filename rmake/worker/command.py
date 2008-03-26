@@ -95,7 +95,7 @@ class Command(server.Server):
     def flushInputBuffer(self):
         if not self.readPipe:
             return
-        for data in self.readPipe.readUntilClosed():
+        for data in self.readPipe.readUntilClosed(timeout=20):
             self._handleData(data)
 
     def handleWrite(self):
