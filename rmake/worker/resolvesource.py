@@ -358,10 +358,10 @@ class BuiltTroveSource(trovesource.SimpleTroveSource):
         self.searchWithFlavor()
 
     def close(self):
-        self.depDb.close()
+        self.depDb.db.close()
 
     def __del__(self):
-        self.depDb.close()
+        self.depDb.db.close()
 
     def addTrove(self, troveTuple, provides, requires):
         self._trovesByName.setdefault(troveTuple[0],set()).add(troveTuple)
