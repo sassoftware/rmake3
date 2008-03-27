@@ -104,6 +104,7 @@ def startRepository(cfg, fork = True, logger=None):
     # acceptable.
     compat.ConaryVersion().loadServerSchema(db)
     db.commit()
+    db.close()
 
     user, password = cfg.reposUser.find(cfg.reposName)
     addUser(serverCfg, user, password, write=True)

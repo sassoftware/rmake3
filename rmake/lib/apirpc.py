@@ -299,7 +299,7 @@ class XMLApiServer(ApiServer):
 
     def _close(self):
         ApiServer._close(self)
-        if self.server:
+        if getattr(self, 'server', None):
             self.server.server_close()
 
     def handleRequestIfReady(self, sleepTime=0.1):

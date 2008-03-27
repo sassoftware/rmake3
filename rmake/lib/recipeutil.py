@@ -442,6 +442,9 @@ class RemoveHostSource(trovesource.SearchableTroveSource):
         self._flavorCheck = troveSource._flavorCheck
         self._allowNoLabel = troveSource._allowNoLabel
 
+    def close(self):
+        return getattr(self.troveSource, 'close')()
+
     def resolveDependencies(self, label, *args, **kw):
         if self._allowNoLabel:
             return self.troveSource.resolveDependencies(label, *args, **kw)

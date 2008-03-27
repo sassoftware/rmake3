@@ -501,8 +501,9 @@ class rMakeServer(apirpc.XMLApiServer):
         apirpc.XMLApiServer._pidDied(self, pid, status, name)
 
         if pid == self._publisher._emitPid: # rudimentary locking for emits
-            self._publisher._emitPid = 0    # only allow one emitEvent process
-                                            # at a time.
+            self._publisher._pidDied(pid, status)  # only allow one
+                                                   # emitEvent process
+                                                   # at a time.
 
         if pid == self.proxyPid:
             if not self._halt:
@@ -567,7 +568,8 @@ class rMakeServer(apirpc.XMLApiServer):
 
     def _close(self):
         apirpc.XMLApiServer._close(self)
-        self.db.close()
+        if getattr(self, 'db', None):
+            self.db.close()
 
     def _setUpInternalUser(self):
         user = ''.join([chr(random.randint(ord('a'),

@@ -41,6 +41,9 @@ class TroveSourceMesh(trovesource.SearchableTroveSource):
             return getattr(self.repos, key)
         return getattr(self.mainSource, key)
 
+    def close(self):
+        pass
+
     def hasTroves(self, troveList):
         if self.repos:
             results = self.repos.hasTroves(troveList)
@@ -354,6 +357,12 @@ class BuiltTroveSource(trovesource.SimpleTroveSource):
                           trove.getRequires())
         self.searchWithFlavor()
 
+    def close(self):
+        self.depDb.close()
+
+    def __del__(self):
+        self.depDb.close()
+
     def addTrove(self, troveTuple, provides, requires):
         self._trovesByName.setdefault(troveTuple[0],set()).add(troveTuple)
 
@@ -570,6 +579,9 @@ class rMakeResolveSource(ResolutionMesh):
             source.setFlavorPreferences(flavorPreferences)
         ResolutionMesh.__init__(self, cfg, builtResolveSource, mainMethod)
         self.setFlavorPreferences(flavorPreferences)
+
+    def close(self):
+        self.builtTroveSource.close()
 
     def setLabelPath(self, labelPath):
         if labelPath:

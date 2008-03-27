@@ -256,15 +256,18 @@ class rMakeHelper(object):
             for matchSpec in matchSpecs:
                 buildConfig.addMatchRule(matchSpec)
         self.updateBuildConfig(buildConfig=buildConfig)
+        conaryClient = self.getConaryClient(buildConfig)
 
         job = buildcmd.getBuildJob(buildConfig,
-                                   self.getConaryClient(buildConfig),
+                                   conaryClient,
                                    troveSpecList,
                                    recurseGroups=recurseGroups,
                                    configDict=configDict,
                                    updateSpecs=updateSpecs,
                                    oldTroveDict=oldTroveDict,
                                    rebuild=rebuild)
+        conaryClient.close()
+        conaryClient.db.close()
         return job
 
     def loadJobFromFile(self, loadPath):
