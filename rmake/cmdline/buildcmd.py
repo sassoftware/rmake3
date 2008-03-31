@@ -762,14 +762,15 @@ def _findSourcesForSourceGroup(repos, reposName, cfg, groupsToFind,
                                            updateSpecs)
 
     cfg.recursedGroupTroves = groupTuples
-    for name, version, flavor in groupTuples:
+    troves = repos.getTroves([(x[0], x[1], deps.Flavor()) for x in groupTuples])
+    for (name, version, flavor), trv in itertools.izip(groupTuples, troves):
         localRepos = recipeutil.RemoveHostRepos(repos, reposName)
         if version.getHost() == reposName:
             realLabel = version.branch().parentBranch().label()
         else:
             realLabel = version.trailingLabel()
         (loader, recipeObj, relevantFlavor) = \
-                recipeutil.loadRecipe(repos, name, version, flavor,
+                recipeutil.loadRecipe(repos, name, version, flavor, trv,
                               defaultFlavor=cfg.buildFlavor,
                               installLabelPath=cfg.installLabelPath,
                               buildLabel=realLabel)
