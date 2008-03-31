@@ -9,7 +9,7 @@ import tempfile
 import traceback
 
 #conary
-from conary.build import cook,loadrecipe,recipe,use
+from conary.build import cook,loadrecipe,lookaside,recipe,use
 from conary import conarycfg
 from conary import conaryclient
 from conary.deps import deps
@@ -21,6 +21,7 @@ from conary.repository import trovesource
 from rmake import errors
 from rmake import failure
 from rmake.lib import flavorutil
+from rmake.lib import repocache
 from rmake.build import buildtrove
 
 
@@ -36,24 +37,10 @@ def getRecipes(repos, troveTups):
                 fileIds.append((fileId, fileVersion))
                 found = True
                 break
-        if not found:
-            raise RuntimeError, 'Could not find recipe for %s' % trove.getName()
-    recipes = repos.getFileContents(fileIds)
-    recipeList = []
-    for i, recipe in enumerate(recipes):
-        name = troves[i].getName().split(':')[0]
-        (fd, recipeFile) = tempfile.mkstemp(".recipe", 'temp-%s-' %name)
-        outF = os.fdopen(fd, "w")
-        inF = recipe.get()
-        util.copyfileobj(inF, outF)
-        outF.close()
-        inF.close()
-        del inF
-        del outF
-        recipeList.append(recipeFile)
-    return recipeList, troves
+    repos.getFileContents(fileIds) #caches files
+    return troves
 
-def loadRecipe(repos, name, version, flavor, recipeFile=None,
+def loadRecipe(repos, name, version, flavor, trv,
                defaultFlavor=None, loadInstalledSource=None,
                installLabelPath=None, buildLabel=None, groupRecipeSource=None,
                cfg=None):
@@ -68,7 +55,7 @@ def loadRecipe(repos, name, version, flavor, recipeFile=None,
         # may check some flags that may never be checked inside
         # the recipe
         recipeObj, loader = getRecipeObj(repos, name,
-                                       version, fullFlavor, recipeFile,
+                                       version, fullFlavor, trv,
                                        loadInstalledSource=loadInstalledSource,
                                        installLabelPath=installLabelPath,
                                        buildLabel=buildLabel,
@@ -115,7 +102,7 @@ def loadRecipe(repos, name, version, flavor, recipeFile=None,
     return loader, recipeObj, relevantFlavor
 
 
-def getRecipeObj(repos, name, version, flavor, recipeFile,
+def getRecipeObj(repos, name, version, flavor, trv,
                  loadInstalledSource=None, installLabelPath=None, 
                  loadRecipeSpecs=None, buildLabel = None,
                  groupRecipeSource=None, cfg=None):
@@ -142,58 +129,57 @@ def getRecipeObj(repos, name, version, flavor, recipeFile,
     ignoreInstalled = not loadInstalledSource
     macros = {'buildlabel' : buildLabel.asString(),
               'buildbranch' : version.branch().asString()}
-    if recipeFile:
-        loader = loadrecipe.RecipeLoader(recipeFile[0], cfg, repos,
+    cfg.lookaside = tempfile.mkdtemp()
+    try:
+        loader = RecipeLoaderFromSourceTrove(trv, repos, cfg,
                                          name + ':source', branch,
                                          ignoreInstalled=ignoreInstalled,
                                          db=loadInstalledSource,
                                          buildFlavor=flavor)
         recipeClass = loader.getRecipe()
-        recipeClass._trove = recipeFile[1]
-    else:
-        loader = loadrecipe.recipeLoaderFromSourceComponent(name + ':source',
-                                               cfg, repos, version.asString(),
-                                               labelPath=installLabelPath,
-                                               ignoreInstalled=ignoreInstalled,
-                                               db=loadInstalledSource,
-                                               buildFlavor=flavor)[0]
-        recipeClass = loader.getRecipe()
-    if recipe.isGroupRecipe(recipeClass):
-        recipeObj = recipeClass(repos, cfg, buildLabel, None, None,
-                            extraMacros=macros)
-        recipeObj.sourceVersion = version
-        recipeObj.setup()
-        if groupRecipeSource:
-            sourceComponents = recipeObj._findSources(groupRecipeSource)
-            recipeObj.delayedRequires = sourceComponents
-    elif recipe.isPackageRecipe(recipeClass):
-        recipeObj = recipeClass(cfg, None, None, macros, lightInstance=True)
-        recipeObj.sourceVersion = version
-        if not recipeObj.needsCrossFlags():
-            recipeObj.crossRequires = []
-        recipeObj.loadPolicy()
-        recipeObj.setup()
-    elif recipe.isInfoRecipe(recipeClass):
-        recipeObj = recipeClass(cfg, None, None, macros)
-        recipeObj.sourceVersion = version
-        recipeObj.setup()
-    elif recipe.isRedirectRecipe(recipeClass):
-        binaryBranch = version.getBinaryVersion().branch()
-        recipeObj = recipeClass(repos, cfg, binaryBranch, flavor)
-        recipeObj.sourceVersion = version
-        recipeObj.setup()
-    elif recipe.isFileSetRecipe(recipeClass):
-        recipeObj = recipeClass(repos, cfg, buildLabel, flavor, extraMacros=macros)
-        recipeObj.sourceVersion = version
-        recipeObj.setup()
-    else:
-        raise RuntimeError, 'Unknown class type %s for recipe %s' % (recipeClass, name)
+        recipeClass._trove = trv
+        if recipe.isGroupRecipe(recipeClass):
+            recipeObj = recipeClass(repos, cfg, buildLabel, None, None,
+                                extraMacros=macros)
+            recipeObj.sourceVersion = version
+            recipeObj.setup()
+            if groupRecipeSource:
+                sourceComponents = recipeObj._findSources(groupRecipeSource)
+                recipeObj.delayedRequires = sourceComponents
+        elif recipe.isPackageRecipe(recipeClass):
+            lcache = lookaside.RepositoryCache(repos)
+            recipeObj = recipeClass(cfg, lcache, [], macros, lightInstance=True)
+            recipeObj.sourceVersion = version
+            if not recipeObj.needsCrossFlags():
+                recipeObj.crossRequires = []
+            recipeObj.loadPolicy()
+            recipeObj.setup()
+        elif recipe.isInfoRecipe(recipeClass):
+            recipeObj = recipeClass(cfg, None, None, macros)
+            recipeObj.sourceVersion = version
+            recipeObj.setup()
+        elif recipe.isRedirectRecipe(recipeClass):
+            binaryBranch = version.getBinaryVersion().branch()
+            recipeObj = recipeClass(repos, cfg, binaryBranch, flavor)
+            recipeObj.sourceVersion = version
+            recipeObj.setup()
+        elif recipe.isFileSetRecipe(recipeClass):
+            recipeObj = recipeClass(repos, cfg, buildLabel, flavor, extraMacros=macros)
+            recipeObj.sourceVersion = version
+            recipeObj.setup()
+        else:
+            raise RuntimeError, 'Unknown class type %s for recipe %s' % (recipeClass, name)
+    finally:
+        util.rmtree(cfg.lookaside)
     return recipeObj, loader
 
-def loadRecipeClass(repos, name, version, flavor, recipeFile=None,
+def loadRecipeClass(repos, name, version, flavor, trv=None,
                     ignoreInstalled=True, root=None, 
                     loadInstalledSource=None, overrides=None,
                     buildLabel=None, cfg=None):
+    if trv is None:
+        trv = repos.getTrove(name,version,deps.parseFlavor(''), withFiles=True)
+
     if cfg is None:
         cfg = conarycfg.ConaryConfiguration(False)
     else:
@@ -213,24 +199,14 @@ def loadRecipeClass(repos, name, version, flavor, recipeFile=None,
     use.resetUsed()
     use.track(True)
 
-    if recipeFile:
-        loader = loadrecipe.RecipeLoader(recipeFile[0], cfg, repos,
-                                         name + ':source', branch,
-                                         ignoreInstalled=True,
-                                         db=loadInstalledSource,
-                                         overrides=overrides,
-                                         buildFlavor=flavor)
-        recipeClass = loader.getRecipe()
-        recipeClass._trove = recipeFile[1]
-    else:
-        loader = loadrecipe.recipeLoaderFromSourceComponent(name + ':source',
-                                               cfg, repos, version.asString(),
-                                               labelPath=[label],
-                                               ignoreInstalled=ignoreInstalled,
-                                               db=loadInstalledSource,
-                                               overrides=overrides,
-                                               buildFlavor=flavor)
-        recipeClass = loader[0].getRecipe()
+    loader = RecipeLoaderFromSourceTrove(trv, repos, cfg,
+                                     name + ':source', branch,
+                                     ignoreInstalled=ignoreInstalled,
+                                     db=loadInstalledSource,
+                                     overrides=overrides,
+                                     buildFlavor=flavor)
+    recipeClass = loader.getRecipe()
+    recipeClass._trove = trv
 
     use.track(False)
     localFlags = flavorutil.getLocalFlags()
@@ -264,117 +240,118 @@ def loadSourceTroves(job, repos, buildFlavor, troveList,
     if not total:
         total = len(troveList)
     job.log('Downloading %s recipes...' % len(troveList))
-    troveList = sorted(troveList, key=lambda x: x.getName())
-    recipes, troves = getRecipes(repos,
-                          [x.getNameVersionFlavor() for x in troveList])
-
+    troveList = list(sorted(troveList, key=lambda x: x.getName()))
+    troves = getRecipes(repos, [x.getNameVersionFlavor() for x in troveList])
     buildTroves = []
-    try:
-        for idx, (buildTrove, recipeFile, trove) in enumerate(itertools.izip(
-                                                           troveList, recipes,
-                                                           troves)):
-            n,v,f = buildTrove.getNameVersionFlavor()
-            job.log('Loading %s out of %s: %s' % (count + idx + 1, total, n))
-            relevantFlavor = None
-            if v.getHost() == internalHostName:
-                buildLabel = v.branch().parentBranch().label()
+
+    for idx, (buildTrove, trove) in enumerate(itertools.izip(troveList, troves)):
+        n,v,f = buildTrove.getNameVersionFlavor()
+        job.log('Loading %s out of %s: %s' % (count + idx + 1, total, n))
+        relevantFlavor = None
+        if v.getHost() == internalHostName:
+            buildLabel = v.branch().parentBranch().label()
+        else:
+            buildLabel = v.trailingLabel()
+        try:
+            (loader, recipeObj, relevantFlavor) = loadRecipe(repos,
+                                 n, v, f,
+                                 trove,
+                                 buildFlavor,
+                                 loadInstalledSource=loadInstalledSource,
+                                 installLabelPath=installLabelPath,
+                                 buildLabel=buildLabel,
+                                 groupRecipeSource=groupRecipeSource,
+                                 cfg=job.getTroveConfig(buildTrove))
+            recipeType = buildtrove.getRecipeType(recipeObj)
+            buildTrove.setFlavor(relevantFlavor)
+            buildTrove.setRecipeType(recipeType)
+            buildTrove.setLoadedSpecs(_getLoadedSpecs(recipeObj))
+            buildTrove.setLoadedTroves(recipeObj.getLoadedTroves())
+            buildTrove.setDerivedPackages(getattr(recipeObj, 'packages',
+                                                  [recipeObj.name]))
+            if 'delayedRequires' in recipeObj.__dict__:
+                buildTrove.setDelayedRequirements(recipeObj.delayedRequires)
+            buildTrove.setBuildRequirements(getattr(recipeObj, 'buildRequires', []))
+            buildTrove.setCrossRequirements(getattr(recipeObj, 'crossRequires', []))
+        except Exception, err:
+            if relevantFlavor is None:
+                relevantFlavor = f
+            buildTrove.setFlavor(relevantFlavor)
+            if isinstance(err, errors.RmakeError):
+                # we assume our internal errors have enough info
+                # to determine what the bug is.
+                fail = failure.LoadFailed(str(err))
             else:
-                buildLabel = v.trailingLabel()
-            try:
-                (loader, recipeObj, relevantFlavor) = loadRecipe(repos,
-                                     n, v, f,
-                                     (recipeFile, trove),
-                                     buildFlavor,
-                                     loadInstalledSource=loadInstalledSource,
-                                     installLabelPath=installLabelPath,
-                                     buildLabel=buildLabel,
-                                     groupRecipeSource=groupRecipeSource,
-                                     cfg=job.getTroveConfig(buildTrove))
-                recipeType = buildtrove.getRecipeType(recipeObj)
-                buildTrove.setFlavor(relevantFlavor)
-                buildTrove.setRecipeType(recipeType)
-                buildTrove.setLoadedSpecs(_getLoadedSpecs(recipeObj))
-                buildTrove.setLoadedTroves(recipeObj.getLoadedTroves())
-                buildTrove.setDerivedPackages(getattr(recipeObj, 'packages',
-                                                      [recipeObj.name]))
-                if 'delayedRequires' in recipeObj.__dict__:
-                    buildTrove.setDelayedRequirements(recipeObj.delayedRequires)
-                buildTrove.setBuildRequirements(getattr(recipeObj, 'buildRequires', []))
-                buildTrove.setCrossRequirements(getattr(recipeObj, 'crossRequires', []))
-            except Exception, err:
-                if relevantFlavor is None:
-                    relevantFlavor = f
-                buildTrove.setFlavor(relevantFlavor)
-                if isinstance(err, errors.RmakeError):
-                    # we assume our internal errors have enough info
-                    # to determine what the bug is.
-                    fail = failure.LoadFailed(str(err))
-                else:
-                    fail = failure.LoadFailed(str(err), traceback.format_exc())
-                buildTrove.troveFailed(fail)
-            buildTroves.append(buildTrove)
-            os.remove(recipeFile)
-    finally:
-        for recipeFile in recipes:
-            if os.path.exists(recipeFile):
-                os.remove(recipeFile)
+                fail = failure.LoadFailed(str(err), traceback.format_exc())
+            buildTrove.troveFailed(fail)
+        buildTroves.append(buildTrove)
     return buildTroves
 
 def getSourceTrovesFromJob(job, serverCfg, repos):
     # called by builder.
-    troveList = sorted(job.iterTroveList())
+    if not isinstance(repos, repocache.CachingTroveSource):
+        util.mkdirChain(serverCfg.getCacheDir())
+        cacheDir = tempfile.mkdtemp(dir=serverCfg.getCacheDir(), prefix='tmpcache')
+        repos = repocache.CachingTroveSource(repos, cacheDir)
+    else:
+        cacheDir = None
+    try:
+        troveList = sorted(job.iterTroveList())
 
-    # create fake "packages" for all the troves we're building so that
-    # they can be found for loadInstalled.
-    buildTrovePackages = [ (x[0].split(':')[0], x[1], x[2]) for x in troveList ]
-    buildTroveSource = trovesource.SimpleTroveSource(buildTrovePackages)
-    buildTroveSource = RemoveHostSource(buildTroveSource,
-                                        serverCfg.reposName)
-    # don't search the internal repository explicitly for loadRecipe
-    # sources - they may be a part of some bogus build.
-    repos = RemoveHostRepos(repos, serverCfg.reposName)
+        # create fake "packages" for all the troves we're building so that
+        # they can be found for loadInstalled.
+        buildTrovePackages = [ (x[0].split(':')[0], x[1], x[2]) for x in troveList ]
+        buildTroveSource = trovesource.SimpleTroveSource(buildTrovePackages)
+        buildTroveSource = RemoveHostSource(buildTroveSource,
+                                            serverCfg.reposName)
+        # don't search the internal repository explicitly for loadRecipe
+        # sources - they may be a part of some bogus build.
+        repos = RemoveHostRepos(repos, serverCfg.reposName)
 
-    groupRecipeSource = trovesource.SimpleTroveSource(troveList)
-    groupRecipeSource = RemoveHostSource(groupRecipeSource,
-                                         serverCfg.reposName)
+        groupRecipeSource = trovesource.SimpleTroveSource(troveList)
+        groupRecipeSource = RemoveHostSource(groupRecipeSource,
+                                             serverCfg.reposName)
 
-    trovesByConfig = {}
-    for trove in job.iterTroves():
-        trovesByConfig.setdefault(trove.getContext(), []).append(trove)
+        trovesByConfig = {}
+        for trove in job.iterTroves():
+            trovesByConfig.setdefault(trove.getContext(), []).append(trove)
 
-    allTroves = []
-    total = len(list(job.iterTroves()))
-    count = 0
-    for context, troveList in trovesByConfig.items():
-        buildCfg = troveList[0].cfg
+        allTroves = []
+        total = len(list(job.iterTroves()))
+        count = 0
+        for context, troveList in trovesByConfig.items():
+            buildCfg = troveList[0].cfg
 
-        buildFlavor = buildCfg.buildFlavor
+            buildFlavor = buildCfg.buildFlavor
 
-        resolveTroveTups = buildCfg.resolveTroveTups
-        loadInstalledList = [ trovesource.TroveListTroveSource(repos, x)
-                                for x in resolveTroveTups ]
-        loadInstalledList.append(repos)
-        loadInstalledSource = trovesource.stack(buildTroveSource,
-                                                *loadInstalledList)
-        loadInstalledList = [ trovesource.TroveListTroveSource(repos, x)
-                                for x in resolveTroveTups ]
-        loadInstalledList.append(repos)
-        repos = trovesource.stack(*loadInstalledList)
+            resolveTroveTups = buildCfg.resolveTroveTups
+            loadInstalledList = [ trovesource.TroveListTroveSource(repos, x)
+                                    for x in resolveTroveTups ]
+            loadInstalledList.append(repos)
+            loadInstalledSource = trovesource.stack(buildTroveSource,
+                                                    *loadInstalledList)
+            loadInstalledList = [ trovesource.TroveListTroveSource(repos, x)
+                                    for x in resolveTroveTups ]
+            loadInstalledList.append(repos)
+            repos = trovesource.stack(*loadInstalledList)
 
-        if isinstance(repos, trovesource.TroveSourceStack):
-            for source in repos.iterSources():
-                source._getLeavesOnly = True
-                source.searchWithFlavor()
-                # keep allowNoLabel set.
-        cachedRepos = CachingSource(repos)
+            if isinstance(repos, trovesource.TroveSourceStack):
+                for source in repos.iterSources():
+                    source._getLeavesOnly = True
+                    source.searchWithFlavor()
+                    # keep allowNoLabel set.
+            cachedRepos = CachingSource(repos)
 
-        allTroves.extend(loadSourceTroves(job, cachedRepos, buildFlavor, 
-                         troveList, total=total, count=count,
-                         loadInstalledSource=loadInstalledSource,
-                         installLabelPath=buildCfg.installLabelPath,
-                         groupRecipeSource=groupRecipeSource, 
-                         internalHostName=serverCfg.reposName))
-        count = len(allTroves)
+            allTroves.extend(loadSourceTroves(job, cachedRepos, buildFlavor, 
+                             troveList, total=total, count=count,
+                             loadInstalledSource=loadInstalledSource,
+                             installLabelPath=buildCfg.installLabelPath,
+                             groupRecipeSource=groupRecipeSource, 
+                             internalHostName=serverCfg.reposName))
+            count = len(allTroves)
+    finally:
+        if cacheDir:
+            util.rmtree(cacheDir)
     return allTroves
 
 class RemoveHostRepos(object):
@@ -441,6 +418,9 @@ class RemoveHostSource(trovesource.SearchableTroveSource):
         self._getLeavesOnly = troveSource._getLeavesOnly
         self._flavorCheck = troveSource._flavorCheck
         self._allowNoLabel = troveSource._allowNoLabel
+
+    def iterTrovesByPath(self, *args, **kw):
+        return []
 
     def close(self):
         return getattr(self.troveSource, 'close')()
@@ -537,3 +517,67 @@ class RemoveHostSource(trovesource.SearchableTroveSource):
                      for x in results.items())
 
 
+if hasattr(loadrecipe, 'RecipeLoaderFromSourceTrove'):
+    RecipeLoaderFromSourceTrove = loadrecipe.RecipeLoaderFromSourceTrove
+else:
+    class RecipeLoaderFromSourceTrove(loadrecipe.RecipeLoader):
+
+        @staticmethod
+        def findFileByPath(sourceTrove, path):
+            for (pathId, filePath, fileId, fileVersion) in sourceTrove.iterFileList():
+                if filePath == path:
+                    return (fileId, fileVersion)
+
+            return None
+
+        def __init__(self, sourceTrove, repos, cfg, versionStr=None, 
+                     labelPath=None,
+                     ignoreInstalled=False, filterVersions=False,
+                     parentDir=None, defaultToLatest = False,
+                     buildFlavor = None, db = None, overrides = None,
+                     getFileFunction = None, branch = None):
+            self.recipes = {}
+
+            if getFileFunction is None:
+                getFileFunction = lambda repos, fileId, fileVersion, path: \
+                        repos.getFileContents([ (fileId, fileVersion) ])[0].get()
+
+            name = sourceTrove.getName().split(':')[0]
+
+            recipePath = name + '.recipe'
+            match = self.findFileByPath(sourceTrove, recipePath)
+
+            if not match:
+                # this is just missing the recipe; we need it
+                raise builderrors.RecipeFileError("version %s of %s does not "
+                                                  "contain %s" %
+                          (sourceTrove.getName(),
+                           sourceTrove.getVersion().asString(),
+                           filename))
+
+            (fd, recipeFile) = tempfile.mkstemp(".recipe", 'temp-%s-' %name, 
+                                                dir=cfg.tmpDir)
+            outF = os.fdopen(fd, "w")
+
+            inF = getFileFunction(repos, match[0], match[1], recipePath)
+
+            util.copyfileobj(inF, outF)
+
+            del inF
+            outF.close()
+            del outF
+
+            if branch is None:
+                branch = sourceTrove.getVersion().branch()
+
+            try:
+                loadrecipe.RecipeLoader.__init__(self, recipeFile, cfg, repos,
+                          sourceTrove.getName(),
+                          branch = branch,
+                          ignoreInstalled=ignoreInstalled,
+                          directory=parentDir, buildFlavor=buildFlavor,
+                          db=db, overrides=overrides)
+            finally:
+                os.unlink(recipeFile)
+
+            self.recipe._trove = sourceTrove.copy()
