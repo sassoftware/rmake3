@@ -428,7 +428,7 @@ def _getPathList(repos, cfg, recipePath, relative=False):
                                                                 recipePath)
 
     log.info("Getting relevant path information from %s..." % recipeClass.name)
-    recipeDir = os.path.dirname(recipeClass.filename)
+    recipeDir = os.path.dirname(recipePath)
     srcdirs = [ recipeDir ]
     recipeObj = None
     buildLabel = sourceVersion.trailingLabel()
@@ -442,15 +442,16 @@ def _getPathList(repos, cfg, recipePath, relative=False):
                                 extraMacros=macros)
     else:
         # no included files for the rest of the recipe types
-        return recipeClass, [recipePath]
-
-    try:
-        if hasattr(recipeObj, 'loadPolicy'):
-            recipeObj.loadPolicy()
-        cook._callSetup(cfg, recipeObj)
-    except (conaryerrors.ConaryError, conaryerrors.CvcError), msg:
-        raise errors.RmakeError("could not initialize recipe: %s" % (msg))
-    pathList = recipeObj.fetchLocalSources() + [recipePath ]
+        pathList = [recipePath]
+        recipeObj = None
+    if recipeObj:
+        try:
+            if hasattr(recipeObj, 'loadPolicy'):
+                recipeObj.loadPolicy()
+            cook._callSetup(cfg, recipeObj)
+        except (conaryerrors.ConaryError, conaryerrors.CvcError), msg:
+            raise errors.RmakeError("could not initialize recipe: %s" % (msg))
+        pathList = recipeObj.fetchLocalSources() + [recipePath ]
     if relative:
         finalPathList = []
         for path in pathList:
@@ -762,14 +763,15 @@ def _findSourcesForSourceGroup(repos, reposName, cfg, groupsToFind,
                                            updateSpecs)
 
     cfg.recursedGroupTroves = groupTuples
-    for name, version, flavor in groupTuples:
+    troves = repos.getTroves([(x[0], x[1], deps.Flavor()) for x in groupTuples])
+    for (name, version, flavor), trv in itertools.izip(groupTuples, troves):
         localRepos = recipeutil.RemoveHostRepos(repos, reposName)
         if version.getHost() == reposName:
             realLabel = version.branch().parentBranch().label()
         else:
             realLabel = version.trailingLabel()
         (loader, recipeObj, relevantFlavor) = \
-                recipeutil.loadRecipe(repos, name, version, flavor,
+                recipeutil.loadRecipe(repos, name, version, flavor, trv,
                               defaultFlavor=cfg.buildFlavor,
                               installLabelPath=cfg.installLabelPath,
                               buildLabel=realLabel)

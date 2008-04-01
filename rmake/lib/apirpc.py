@@ -299,7 +299,7 @@ class XMLApiServer(ApiServer):
 
     def _close(self):
         ApiServer._close(self)
-        if self.server:
+        if getattr(self, 'server', None):
             self.server.server_close()
 
     def handleRequestIfReady(self, sleepTime=0.1):
@@ -372,8 +372,9 @@ def _thawReturn(api, val, version):
         val = r.__thaw__(val)
     return val
 
-class ApiError(Exception):
+class ApiError(errors.RmakeError):
     pass
+apiutils.register(ApiError)
 
 class NoSuchMethodError(ApiError):
     def __init__(self, method):

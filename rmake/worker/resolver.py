@@ -209,6 +209,9 @@ class DependencyResolver(object):
             if success:
                 buildReqJobs = results
             else:
+                client.close()
+                searchSource.close()
+                resolveSource.close()
                 return resolveResult
         if crossReqs:
             searchSource, resolveSource = self.getSources(resolveJob,
@@ -221,7 +224,13 @@ class DependencyResolver(object):
             if success:
                 crossReqJobs = results
             else:
+                client.close()
+                searchSource.close()
+                resolveSource.close()
                 return resolveResult
+        client.close()
+        searchSource.close()
+        resolveSource.close()
         self.logger.debug('   took %s seconds' % (time.time() - start))
         self.logger.info('   Resolved troves:')
         if crossReqJobs:
@@ -293,9 +302,11 @@ class DependencyResolver(object):
         if cannotResolve or depList:
             self.logger.info('Missing: %s' % ((depList + cannotResolve),))
             resolveResult.troveMissingDependencies(isCross, depList + cannotResolve)
+            client.close()
             return False, resolveResult
 
         self._addPackages(searchSource, jobSet)
+        client.close()
         return True, jobSet
 
     def _addPackages(self, searchSource, jobSet):

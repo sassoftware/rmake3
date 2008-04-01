@@ -27,7 +27,8 @@ class Server(object):
         self._serving = False
 
     def _closeLog(self):
-        self._logger.close()
+        if hasattr(self, '_logger'):
+            self._logger.close()
 
     def _close(self):
         self._closeLog()
@@ -124,6 +125,7 @@ class Server(object):
 
     def _shutDown(self):
         self._killAllPids()
+        self._close()
         self._exit(0)
 
     def _shutDownAndExit(self):
