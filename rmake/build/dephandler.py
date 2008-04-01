@@ -276,6 +276,11 @@ class DependencyBasedBuildState(AbstractBuildState):
             return
         self.depGraph.addEdge(trove, provTrove, req)
 
+    def hasDependencyOn(self, trove, provTrove):
+        return (trove in self.depGraph and
+                provTrove in list(self.depGraph.getChildren(trove)))
+
+
     def hardDependencyOn(self, trove, provTrove, req):
         if trove == provTrove:
             return
@@ -568,6 +573,11 @@ class DependencyHandler(object):
                                                 None, isCross)):
                             self.depState.hardDependencyOn(trv, provTrove, 
                                           deps.parseDep('trove: %s' % name))
+                            if not self.depState.
+                                self.depState.dependsOn(trv, provTrove,
+                                                   (isCross, 
+                                                    (trv.getNameVersionFlavor(),
+                                            deps.parseDep('trove: %s' % name))))
                             found.add(provTrove)
                             break
                         if self.depState.areRelated(trv, provTrove):
