@@ -576,7 +576,7 @@ class DependencyHandler(object):
                                                 None, isCross)):
                             self.depState.hardDependencyOn(trv, provTrove, 
                                           deps.parseDep('trove: %s' % name))
-                            if not self.depState.
+                            if not self.depState.hasDependencyOn(trv,provTrove):
                                 self.depState.dependsOn(trv, provTrove,
                                                    (isCross, 
                                                     (trv.getNameVersionFlavor(),
