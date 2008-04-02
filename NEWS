@@ -1,3 +1,8 @@
+Changes in @NEW@:
+  o Client changes:
+     * rMake will now use user-specified conaryProxy, overriding the
+       use of rmake's internal proxy. (RMK-850)
+
 Changes in 1.0.18:
   o Bug Fixes:
      * Initially, rmake was not compatible with having recipe superclasses
