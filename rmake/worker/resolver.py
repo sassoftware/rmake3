@@ -114,7 +114,7 @@ class DependencyResolver(object):
             rMakeHost = builtTroves[0].getVersion().trailingLabel().getHost()
             builtTroveSource = recipeutil.RemoveHostSource(builtTroveSource,
                                                            rMakeHost)
-        if cfg.resolveTrovesOnly:
+        if cfg.resolveTroveTups:
             searchSource, resolveSource = self.getSourcesWithResolveTroves(cfg,
                                                     cfg.resolveTroveTups,
                                                     builtTroveSource)
@@ -144,10 +144,14 @@ class DependencyResolver(object):
             resolveTroves = [ resolveTrovesByTup[x]
                               for x in resolveTupList ]
             searchSourceTroves.append(resolveTroves)
+        if cfg.resolveTrovesOnly:
+            repos = None
+        else:
+            repos = self.repos
 
         searchSource = resolvesource.DepHandlerSource(builtTroveSource,
                            searchSourceTroves,
-                           self.repos,
+                           repos,
                            useInstallLabelPath=not cfg.resolveTrovesOnly,
                            expandLabelQueries=True)
         resolveSource = resolvesource.rMakeResolveSource(cfg,
