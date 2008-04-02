@@ -112,8 +112,8 @@ class _AbstractBuildJob(trovesource.SearchableTroveSource):
                 finalResults[troveSpec + (context,)] = l
                 for troveTup in troveList:
                     if context is None:
-                        for context in self.troveContexts[troveTup]:
-                            l.append(troveTup + (context,))
+                        for c in self.troveContexts[troveTup]:
+                            l.append(troveTup + (c,))
                     elif context in self.troveContexts[troveTup]:
                         l.append(troveTup + (context,))
         return finalResults
