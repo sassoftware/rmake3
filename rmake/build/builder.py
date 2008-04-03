@@ -385,7 +385,7 @@ class Builder(object):
               and newCfg.resolveTrovesOnly
               and oldCfg.resolveTroveTups == newCfg.resolveTroveTups
               and oldCfg.flavor == newCfg.flavor)
-        if oldBuildTrove:
+        if oldBuildTrove and oldBuildTrove.logPath:
             logPath = oldBuildTrove.logPath
         else:
             logPath = None
