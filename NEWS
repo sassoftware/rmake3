@@ -2,6 +2,9 @@ Changes in @NEW@:
   o Client changes:
      * rMake will now use user-specified conaryProxy, overriding the
        use of rmake's internal proxy. (RMK-850)
+  o Bug Fixes:
+     * Handle a case where restarting a job would override a package's logPath
+       even though the trove before it had no log. (RMK-827)
 
 Changes in 1.0.18:
   o Bug Fixes:
