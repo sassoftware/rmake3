@@ -139,7 +139,7 @@ def getRecipeObj(repos, name, version, flavor, trv,
         recipeClass = loader.getRecipe()
         recipeClass._trove = trv
         if recipe.isGroupRecipe(recipeClass):
-            recipeObj = recipeClass(repos, cfg, buildLabel, None, None,
+            recipeObj = recipeClass(repos, cfg, buildLabel, flavor, None,
                                 extraMacros=macros)
             recipeObj.sourceVersion = version
             recipeObj.setup()
