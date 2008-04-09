@@ -330,17 +330,14 @@ def getSourceTrovesFromJob(job, serverCfg, repos):
             loadInstalledList.append(repos)
             loadInstalledSource = trovesource.stack(buildTroveSource,
                                                     *loadInstalledList)
-            loadInstalledList = [ trovesource.TroveListTroveSource(repos, x)
-                                    for x in resolveTroveTups ]
-            loadInstalledList.append(repos)
-            repos = trovesource.stack(*loadInstalledList)
 
+            loadInstalledRepos = trovesource.stack(*loadInstalledList)
             if isinstance(repos, trovesource.TroveSourceStack):
-                for source in repos.iterSources():
+                for source in loadInstalledRepos.iterSources():
                     source._getLeavesOnly = True
                     source.searchWithFlavor()
                     # keep allowNoLabel set.
-            cachedRepos = CachingSource(repos)
+            cachedRepos = CachingSource(loadInstalledRepos)
 
             allTroves.extend(loadSourceTroves(job, cachedRepos, buildFlavor, 
                              troveList, total=total, count=count,
