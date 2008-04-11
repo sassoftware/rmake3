@@ -144,6 +144,7 @@ def getRecipeObj(repos, name, version, flavor, trv,
             recipeObj.sourceVersion = version
             recipeObj.setup()
             if groupRecipeSource:
+                recipeObj.troveSource = groupRecipeSource
                 sourceComponents = recipeObj._findSources(groupRecipeSource)
                 recipeObj.delayedRequires = sourceComponents
         elif recipe.isPackageRecipe(recipeClass):
