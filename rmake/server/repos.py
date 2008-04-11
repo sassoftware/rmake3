@@ -235,6 +235,9 @@ def addUser(cfg, name, password=None, write=False):
         netRepos.auth.userAuth.getUserIdByName(name)
     except UserNotFound: # yuck, we need a hasUser interface
         netRepos.auth.addUser(name, password)
+        if hasattr(netRepos.auth, 'addRole'):
+            netRepos.auth.addRole(name)
+            netRepos.auth.addRoleMember(name, name)
         netRepos.auth.addAcl(name, None, None, write, False)
     else:
         netRepos.auth.changePassword(name, password)
