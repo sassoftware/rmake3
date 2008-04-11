@@ -39,9 +39,9 @@ class ConaryVersion(object):
             self.minorVersion = 0
         else:
             self.minorVersion = self.conaryVersion[2]
-        self.isOneOne = self.majorVersion == (1,1)
-        self.isOneTwo = self.majorVersion == (1,2)
-        self.isTwoZero = self.majorVersion == (2,0)
+        self.isOneOne = self.majorVersion == [1,1]
+        self.isOneTwo = self.majorVersion == [1,2]
+        self.isTwoZero = self.majorVersion == [2,0]
 
     def checkRequiredVersion(self):
         oneZeroVersion = None
