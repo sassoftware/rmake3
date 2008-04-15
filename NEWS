@@ -1,4 +1,4 @@
-Changes in @NEW@:
+Changes in 1.0.19:
   o Client changes:
      * rMake will now use user-specified conaryProxy, overriding the
        use of rmake's internal proxy. (RMK-850)
