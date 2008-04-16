@@ -10,6 +10,7 @@ import traceback
 
 #conary
 from conary.build import cook,loadrecipe,lookaside,recipe,use
+from conary.build import errors as builderrors
 from conary import conarycfg
 from conary import conaryclient
 from conary.deps import deps
