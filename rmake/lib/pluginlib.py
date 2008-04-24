@@ -61,14 +61,11 @@ class PluginManager(object):
     """
 
     def __init__(self, pluginDirs=None, disabledPlugins=None,
-                 pluginPrefix='__plugins__', pluginClass=Plugin,
-                 supportedTypes=None):
+                 pluginPrefix='__plugins__', pluginClass=Plugin):
         if pluginDirs is None:
             pluginDirs = []
         if disabledPlugins is None:
             disabledPlugins = []
-        if supportedTypes is None:
-            supportedTypes = []
 
         self.pluginDirs = pluginDirs
         self.pluginPrefix = pluginPrefix
@@ -147,6 +144,7 @@ class PluginManager(object):
 
     def storePlugin(self, plugin):
         self.pluginsByName[plugin.name] = plugin
+        self.plugins.append(plugin)
         for type in plugin.types + ['all']:
             self.pluginsByType.setdefault(type, []).append(plugin)
 

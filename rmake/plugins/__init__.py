@@ -11,11 +11,7 @@ from rmake.plugins.plugin import *
 class PluginManager(pluginlib.PluginManager):
     def __init__(self, pluginDirs=None, disabledPlugins=None):
         pluginlib.PluginManager.__init__(self, pluginDirs, disabledPlugins,
-                                         pluginPrefix='rmake_plugins',
-                                         supportedTypes=[TYPE_CLIENT,
-                                                         TYPE_SERVER,
-                                                         TYPE_LIBRARY,
-                                                         TYPE_SUBSCRIBER])
+                                         pluginPrefix='rmake_plugins')
 
     def loadPlugins(self):
         pluginlib.PluginManager.loadPlugins(self)
