@@ -354,7 +354,7 @@ class Builder(object):
             oldTrove = troveDict[troveTup]
             if buildTrove in needsSourceMatch:
                 sourceVersion = oldTrove.getVersion().getSourceVersion()
-                if buildTrove.getVersion().hasParentVersion():
+                if buildTrove.getVersion().isUnmodifiedShadow():
                     sourceMatches = (buildTrove.getVersion().parentVersion()
                                      == sourceVersion)
                 else:

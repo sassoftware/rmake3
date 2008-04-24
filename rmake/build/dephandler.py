@@ -131,6 +131,7 @@ class DependencyBasedBuildState(AbstractBuildState):
         self.builtTroves = {}
         self.rejectedDeps = {}
         self.disallowed = set()
+        self.hasPrimaryTroves = False
 
         AbstractBuildState.__init__(self, sourceTroves)
 
@@ -424,7 +425,7 @@ class DependencyHandler(object):
         self._allowFastResolution = True
         self._possibleDuplicates = {}
         self._prebuiltBinaries = set()
-        self._hasPrimaryTroves = False
+        self._hasPrimaryTroves = self.depState.hasPrimaryTroves
 
         statusLog.subscribe(statusLog.TROVE_BUILT, self.troveBuilt)
         statusLog.subscribe(statusLog.TROVE_PREPARED, self.trovePrepared)
@@ -623,7 +624,7 @@ class DependencyHandler(object):
     def _getResolveJob(self, buildTrove, inCycle=False, cycleTroves=None):
         if buildTrove.isPrebuilt():
             if (self._hasPrimaryTroves
-                and not buildTrove.isPrimary()
+                and not buildTrove.isPrimaryTrove()
                 and self._buildHasOccurred()):
                 self.trovePrebuilt(buildTrove, cycleTroves)
                 return
