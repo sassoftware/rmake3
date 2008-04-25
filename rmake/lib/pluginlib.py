@@ -247,6 +247,10 @@ class PluginImporter(object):
 
     def find_module(self, fullname, path=None):
         if fullname == self.pluginPrefix:
+            if path:
+                # rbuild_plugins is not relative to anything else,
+                # so any path means we're not finding the right thing
+                return None
             return self
 
         if '.' not in fullname:
