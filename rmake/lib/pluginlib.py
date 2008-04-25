@@ -261,12 +261,13 @@ class PluginImporter(object):
 
     def load_module(self, modname):
         m = imp.new_module(modname)
-        m.__path__ = ['*plugin*']
+        m.__path__ = [self.pluginPrefix]
         sys.modules[modname] = m
         m.__name__ = modname
         m.__loader__ = self
         m.pluginMgr = self
         if modname == self.pluginPrefix:
+            m.__file__ = self.pluginDirs[0]
             return m
         assert(modname.startswith(self.pluginPrefix + '.'))
         modname = modname.split('.', 1)[1]
