@@ -1,4 +1,4 @@
-#!/usr/bin/python2.4
+#!/usr/bin/python
 #
 # Copyright (c) 2006-2007 rPath, Inc.  All rights reserved.
 #
@@ -368,7 +368,7 @@ class ChrootConfig(daemon.DaemonConfig):
     logDir     = '/tmp/log'
     lockDir    = '/tmp/run'
 
-    def __init__(self, readConfigFiles=False):
+    def __init__(self, readConfigFiles=False, ignoreErrors=False):
         daemon.DaemonConfig.__init__(self)
         self.lockDir = self.lockDir + '.%s' % os.getpid()
         self.logDir = self.logDir + '.%s' % os.getpid()

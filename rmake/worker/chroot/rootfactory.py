@@ -138,10 +138,10 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
     def _copyInConary(self):
         conaryDir = os.path.dirname(sys.modules['conary'].__file__)
         self.copyDir(conaryDir)
-        self.copyDir(conaryDir,
-                     '/usr/lib/python2.4/site-packages/conary')
-        self.copyDir(conaryDir,
-                     '/usr/lib64/python2.4/site-packages/conary')
+        #self.copyDir(conaryDir,
+        #             '/usr/lib/python2.4/site-packages/conary')
+        #self.copyDir(conaryDir,
+        #             '/usr/lib64/python2.4/site-packages/conary')
         self.copyDir(conaryDir,
                      '/usr/share/rmake/conary')
         if conaryDir.endswith('site-packages/conary'):

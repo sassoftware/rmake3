@@ -271,8 +271,11 @@ class DelayedResponse(ResponseModifier):
     pass
 
 class DelayableXMLRPCDispatcher(SimpleXMLRPCDispatcher):
-    def __init__(self, *args, **kw):
-        SimpleXMLRPCDispatcher.__init__(self, *args, **kw)
+    def __init__(self):
+        if sys.version[0:3] == '2.4':
+            SimpleXMLRPCDispatcher.__init__(self)
+        else:
+            SimpleXMLRPCDispatcher.__init__(self, False, None)
         self.authMethod = None
 
     def setAuthMethod(self, authMethod):

@@ -122,7 +122,11 @@ class UnixDomainXMLRPCServer(SimpleXMLRPCServer.SimpleXMLRPCDispatcher,
                  requestHandler=UnixDomainXMLRPCRequestHandler,
                  logRequests=1):
         self.logRequests = logRequests
-        SimpleXMLRPCServer.SimpleXMLRPCDispatcher.__init__(self)
+        if sys.version[0:3] == '2.4':
+            SimpleXMLRPCServer.SimpleXMLRPCDispatcher.__init__(self)
+        else:
+            SimpleXMLRPCServer.SimpleXMLRPCDispatcher.__init__(self, False,
+                                                               None)
         umask = os.umask(0)
         SocketServer.UnixStreamServer.__init__(self, path, requestHandler)
         os.umask(umask)
