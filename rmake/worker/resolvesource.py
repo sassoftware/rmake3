@@ -169,8 +169,8 @@ class TroveSourceMesh(trovesource.SearchableTroveSource):
                 labels = set(x[1].trailingLabel() for x in
                              self.extraSource.trovesByName(name))
                 for label in labels:
-                    newQuery.append((name, label, flavor))
                     map[len(newQuery)] = idx
+                    newQuery.append((name, label, flavor))
         return newQuery, map
 
     def _compressResults(self, results, map):
