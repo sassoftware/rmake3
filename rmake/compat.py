@@ -127,6 +127,11 @@ class ConaryVersion(object):
         # support added in 1.0.30 and 1.1.3
         return self.checkVersion(30, 3)
 
+    def getObjectsToCook(self, loaders, recipeClasses):
+        if hasattr(loaders[0], 'getLoadedTroves'):
+            return loaders
+        return recipeClasses
+
     def checkVersion(self, oneZeroVersion, oneOneVersion, oneTwoVersion=None,
                      twoZeroVersion=None):
         if self.majorVersion == [1,0]:

@@ -20,6 +20,7 @@ from conary.local import database
 from conary import versions
 from conary.deps.deps import ThawFlavor
 
+from rmake import compat
 from rmake.failure import BuildFailed, FailureReason
 from rmake.lib import flavorutil
 from rmake.lib import logfile
@@ -350,14 +351,15 @@ def _cookTrove(cfg, repos, name, version, flavorList, targetLabel,
         m._override('buildlabel', str(buildLabel))
         m._override('buildbranch', str(buildBranch))
         m._override('binarybranch', str(binaryBranch))
-        built = cook.cookObject(repos, cfg, recipeClasses, version,
+        toCook = compat.ConaryVersion().getObjectsToCook(loaders, recipeClasses)
+        built = cook.cookObject(repos, cfg, toCook, version,
                                 prep=False,
                                 macros=m,
                                 targetLabel=targetLabel,
                                 changeSetFile=csFile,
                                 alwaysBumpCount=False,
                                 ignoreDeps=False,
-                                logBuild=True,
+                                logBuild=False,
                                 crossCompile=crossCompile,
                                 requireCleanSources=True,
                                 groupOptions=groupOptions)

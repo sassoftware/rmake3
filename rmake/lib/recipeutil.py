@@ -191,7 +191,6 @@ def loadRecipeClass(repos, name, version, flavor, trv=None,
         cfg.root = root
     branch = version.branch()
     label = version.branch().label()
-    cfg.installLabelPath = [label]
     cfg.buildLabel = label
     cfg.buildFlavor = flavor
     name = name.split(':')[0]
@@ -216,7 +215,11 @@ def loadRecipeClass(repos, name, version, flavor, trv=None,
     use.LocalFlags._clear()
     return loader, recipeClass, localFlags, usedFlags
 
-def _getLoadedSpecs(recipeClass):
+def _getLoadedSpecs(loader, recipeObj):
+    loadedSpecsFn = getattr(loader, 'getLoadedSpecs', None)
+    if loadedSpecsFn:
+        return loader.getLoadedSpecs()
+    recipeClass = recipeObj.__class__
     loadedSpecs = getattr(recipeClass, '_loadedSpecs', {})
     if not loadedSpecs:
         return {}
@@ -267,8 +270,11 @@ def loadSourceTroves(job, repos, buildFlavor, troveList,
             recipeType = buildtrove.getRecipeType(recipeObj)
             buildTrove.setFlavor(relevantFlavor)
             buildTrove.setRecipeType(recipeType)
-            buildTrove.setLoadedSpecs(_getLoadedSpecs(recipeObj))
-            buildTrove.setLoadedTroves(recipeObj.getLoadedTroves())
+            buildTrove.setLoadedSpecs(_getLoadedSpecs(loader, recipeObj))
+            if hasattr(loader, 'getLoadedTroves'):
+                buildTrove.setLoadedTroves(loader.getLoadedTroves())
+            else:
+                buildTrove.setLoadedTroves(recipeObj.getLoadedTroves())
             buildTrove.setDerivedPackages(getattr(recipeObj, 'packages',
                                                   [recipeObj.name]))
             if 'delayedRequires' in recipeObj.__dict__:
