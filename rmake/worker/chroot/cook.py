@@ -359,7 +359,7 @@ def _cookTrove(cfg, repos, name, version, flavorList, targetLabel,
                                 changeSetFile=csFile,
                                 alwaysBumpCount=False,
                                 ignoreDeps=False,
-                                logBuild=False,
+                                logBuild=True,
                                 crossCompile=crossCompile,
                                 requireCleanSources=True,
                                 groupOptions=groupOptions)
