@@ -152,6 +152,7 @@ def getRecipeObj(repos, name, version, flavor, trv,
             lcache = lookaside.RepositoryCache(repos)
             recipeObj = recipeClass(cfg, lcache, [], macros, lightInstance=True)
             recipeObj.sourceVersion = version
+            recipeObj.populateLcache()
             if not recipeObj.needsCrossFlags():
                 recipeObj.crossRequires = []
             recipeObj.loadPolicy()
