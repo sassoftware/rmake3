@@ -38,6 +38,11 @@ class TroveSourceMesh(trovesource.SearchableTroveSource):
             return getattr(self.repos, key)
         return getattr(self.mainSource, key)
 
+    def getFileVersions(self, *args, **kw):
+        if self.repos:
+            return self.repos.getFileVersions(*args, **kw)
+        return self.mainSource.getFileVersions(*args, **kw)
+
     def close(self):
         pass
 
