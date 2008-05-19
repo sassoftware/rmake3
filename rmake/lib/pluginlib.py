@@ -128,9 +128,23 @@ class PluginManager(object):
         for dir in self.pluginDirs:
             if not os.path.isdir(dir):
                 continue
+            pluginFiles = {}
             for fileName in os.listdir(dir):
                 if not self.isValidPluginFileName(dir, fileName):
                     continue
+                if fileName.endswith('.pyc'):
+                    pluginFileName = fileName[:-1]
+                else:
+                    pluginFileName = fileName
+                if pluginFileName in pluginFiles:
+                    otherFileName = pluginFiles[pluginFileName]
+                    otherFileMtime = os.stat(dir + '/' + otherFileName).st_mtime
+                    thisFileMtime = os.stat(dir + '/' + fileName).st_mtime
+                    if otherFileMtime > thisFileMtime:
+                        continue
+                pluginFiles[pluginFileName] = fileName
+            pluginFiles = pluginFiles.values()
+            for fileName in pluginFiles:
                 plugin = self.loadPluginFromFileName(dir, fileName)
                 if plugin is not None:
                     self.storePlugin(plugin)
@@ -158,10 +172,6 @@ class PluginManager(object):
 
     def loadPluginFromFileName(self, dir, fileName):
         name = self.getPluginNameFromFile(fileName)
-        if name in self.pluginsByName:
-            self.loadFailed('/'.join((dir, fileName)),
-                        'Attempted to load two plugins with name %s' % name)
-            return None
         if name in self.disabledPlugins:
             return None
 
