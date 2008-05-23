@@ -233,9 +233,6 @@ class rMakeHelper(object):
                                     matchSpecs=matchSpecs,
                                     rebuild=rebuild)
 
-        for buildTrove in job2.iterTroves():
-            job1.addBuildTrove(buildTrove)
-
     def _createBuildJob(self, troveSpecList, limitToHosts=None,
                         limitToLabels=None, recurseGroups=False,
                         buildConfig=None, configDict=None, matchSpecs=None,
