@@ -157,6 +157,11 @@ class PluginManager(object):
             self.pluginsByType[type].remove(plugin)
 
     def storePlugin(self, plugin):
+        if plugin.name in self.pluginsByName:
+            oldPlugin = self.pluginsByName[plugin.name]
+            self.plugins.remove(oldPlugin)
+            for type in oldPlugin.types + ['all']:
+                self.pluginsByType.setdefault(type, []).remove(oldPlugin)
         self.pluginsByName[plugin.name] = plugin
         self.plugins.append(plugin)
         for type in plugin.types + ['all']:
