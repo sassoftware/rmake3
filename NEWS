@@ -1,4 +1,4 @@
-Changes in @NEW@:
+Changes in 1.0.20:
   o Bug Fixes:
      * Some conary factories require loading of some files associated with 
        the in order to load the recipe at all.  Such recipes would fail
