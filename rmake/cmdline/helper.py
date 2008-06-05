@@ -477,6 +477,7 @@ class rMakeHelper(object):
                     if (os.path.exists(name)
                         and name.endswith('.recipe')):
                         recipes.append(name)
+            recipes = list(set(recipes))
             if recipes:
                 commit.updateRecipes(self.getRepos(), self.buildConfig, recipes,
                                      sourceComponents)
