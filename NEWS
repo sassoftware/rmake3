@@ -1,3 +1,10 @@
+Changes in @NEW@: 
+  o Bug Fixes:
+     * In jobs with primary troves, extra troves that should only be
+       built if they had a dependency on primary troves would
+       be built if they had never been built.  This has been fixed - 
+       these troves are now marked as "built" with no built troves associated
+       with them. (RMK-875)
 Changes in 1.0.20:
   o Bug Fixes:
      * Some conary factories require loading of some files associated with 

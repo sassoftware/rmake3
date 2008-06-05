@@ -618,6 +618,9 @@ class DependencyHandler(object):
             for cycleTrove in cycleTroves:
                 self._cycleChecked.pop(cycleTrove, False)
 
+    def troveLeftUnbuilt(self, buildTrove):
+        buildTrove.troveBuilt([], prebuilt=True)
+
     def _buildHasOccurred(self):
         return set(self.depState.getAllBinaries()) - self._prebuiltBinaries
 
@@ -916,7 +919,14 @@ class DependencyHandler(object):
                             self._logDifferenceInPrebuiltReqs(trv,
                                                               buildReqComps,
                                                               preBuiltReqComps)
-
+            elif (self._hasPrimaryTroves and not trv.isPrimaryTrove()
+                  and not cycleTroves):
+                # if this package depends on something else in this
+                # job then it should be built, otherwise not.
+                buildReqTups = set((x[0], x[2][0], x[2][1]) for x in buildReqs)
+                if not set(self.depState.getAllBinaries()) & buildReqTups:
+                    self.troveLeftUnbuilt(trv)
+                    return
             if cycleTroves:
                 for cycleTrove in cycleTroves:
                     self._cycleChecked.pop(cycleTrove, False)
