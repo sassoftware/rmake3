@@ -892,7 +892,6 @@ class BuildImageCommand(BuildCommand):
     commandGroup = CG_BUILD
 
     def addParameters(self, argDef):
-        argDef['flavor'] = ONE_PARAM
         argDef['option'] = MULT_PARAM
         BuildCommand.addParameters(self, argDef)
 

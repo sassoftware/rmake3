@@ -16,6 +16,9 @@ repository, they are then cloned from this repository to your main repository
 upon committing them. For more information about the architecture of rMake,
 see the rMake developer documentation.
 
+\fBrMake\fR additionally provides a command-line interface for creating images 
+through \fBrBuilder\fR.
+
 \fBNote that rMake is now at a STABLE RELEASE; behavior is generally likely
 to remain the same or be expanded upon until the next major release of rMake.
 (Major versions are described by a bump in the first or second number, 1.0
@@ -302,6 +305,19 @@ configuration for that trove is displayed.
 .B stop \fI<jobId>\fP
 Stops the given job, failing any current builds.
 .RE
+.SS "Image Creation"
+The following \fBcommands\fP are used to create images through rMake.
+.TP 4
+.B buildimage \fI<productName>\fP \fI<troveSpec>\fP \fI<imageType>\fP
+Starts an image on the rbuilder pointed to the rbuilderUrl configuration item.
+The image will be associated with the product with the specified \fI<productName>\fP (sometimes described as the product's short name).  The troveSpec shoud be of a format matching those specified to other rMake commands.  See \fIrmake build\fP for a description.  The \fimageType\fP should be one of a set of strings that are valid imageTypes: among them are applianceIsoImage, liveIsoImage, tarballImage.  The full list can be found in the rbuilder api documentation.
+
+NOTE: stopping an rmake buildimage command will not stop the rbuilder creation of that image.
+.RS 4
+.TP 4
+.B \-\-option optionName=value
+Allows you to specify other parameters for the image creation, including image 
+free space.  The accepted options depend on the image type.  The full list of available options can be found in the rbuilder api documentation.
 .SS "Chroot Management"
 The following \fBcommands\fP are used to debug, archive, and remove chroots
 that were made as a part of building packages in rMake.
