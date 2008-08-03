@@ -12,6 +12,7 @@ from conary import trove
 
 from rmake import failure
 from rmake.build import publisher
+from rmake.build import trovesettings
 from rmake.lib import apiutils
 from rmake.lib.apiutils import freeze, thaw
 from rmake.lib import flavorutil
@@ -43,6 +44,7 @@ recipeTypes = {
 buildTypes = {
     'TROVE_BUILD_TYPE_NORMAL'        : 0,
     'TROVE_BUILD_TYPE_PREP'          : 1,
+    'TROVE_BUILD_TYPE_SPECIAL'       : 2,
 }
 
 
@@ -63,6 +65,10 @@ stateNames.update({
     TROVE_STATE_PREPARING : 'Creating Chroot',
     TROVE_STATE_WAITING   : 'Queued',
 })
+
+_troveClassesByType = {}
+def getClassForTroveType(troveType):
+    return _troveClassesByType[troveType]
 
 def _getStateName(state):
     return stateNames[state]
@@ -85,11 +91,21 @@ def getRecipeType(recipeClass):
 
 TROVE_STATE_LIST = sorted(troveStates.values())
 
+class _BuildTroveRegister(type):
+    def __init__(class_, *args, **kw):
+        type.__init__(class_, *args, **kw)
+        _troveClassesByType[class_.troveType] = class_
+        apiutils.register_freezable_classmap('BuildTrove', class_)
 
-class _AbstractBuildTrove:
+class _AbstractBuildTrove(object):
     """
         Base class for the trove object.
     """
+    __metaclass__ = _BuildTroveRegister
+
+    troveType = 'build'
+    settingsClass = trovesettings.TroveSettings
+
 
     def __init__(self, jobId, name, version, flavor,
                  state=TROVE_STATE_INIT, status='',
@@ -99,7 +115,6 @@ class _AbstractBuildTrove:
                  preBuiltRequirements=None, preBuiltBinaries=None,
                  context='', flavorList=None, 
                  buildType=TROVE_BUILD_TYPE_NORMAL):
-        assert(name.endswith(':source'))
         self.jobId = jobId
         self.name = name
         self.version = version
@@ -131,6 +146,7 @@ class _AbstractBuildTrove:
         self.isPrimary = False
         self.context = context
         self.cfg = None
+        self.settings = self.settingsClass()
         if flavorList is None:
             self.flavorList = [flavor]
 
@@ -139,9 +155,10 @@ class _AbstractBuildTrove:
             context = '{%s}' % self.getContext()
         else:
             context = ''
-        return "<BuildTrove('%s=%s[%s]%s')>" % (self.getName(),
-                                          self.getVersion().trailingLabel(),
-                                          self.getFlavor(), context)
+        return "<%s('%s=%s[%s]%s')>" % (self.__class__.__name__.split('.')[-1],
+                                        self.getName(),
+                                        self.getVersion().trailingLabel(),
+                                        self.getFlavor(), context)
 
     def getName(self):
         return self.name
@@ -206,7 +223,6 @@ class _AbstractBuildTrove:
     def setRecipeType(self, recipeType):
         self.recipeType = recipeType
 
-
     def setConfig(self, configObj):
         self.cfg = configObj
 
@@ -255,6 +271,9 @@ class _AbstractBuildTrove:
 
     def isPrepOnly(self):
         return self.buildType == TROVE_BUILD_TYPE_PREP
+
+    def isSpecial(self):
+        return self.buildType == TROVE_BUILD_TYPE_SPECIAL
 
     def isPrepared(self):
         return self.state == TROVE_STATE_PREPARED
@@ -422,6 +441,7 @@ class _FreezableBuildTrove(_AbstractBuildTrove):
                  'loadedSpecsList'   : 'LoadSpecsList',
                  'flavorList'        : 'flavorList',
                  'buildType'         : 'int',
+                 'settings'          : 'TroveSettings',
                  }
 
     def __freeze__(self):
@@ -715,8 +735,6 @@ class BuildTrove(_FreezableBuildTrove):
             self.status = status
         if self._publisher:
             self._publisher.troveStateUpdated(self, state, oldState, *args)
-
-apiutils.register(apiutils.api_freezable(BuildTrove))
 
 class LoadSpecs(object):
 

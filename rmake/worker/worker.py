@@ -15,6 +15,7 @@ from rmake.lib import server
 from rmake import errors
 from rmake import failure
 from rmake.worker import command
+from rmake.worker import imagecommand
 from rmake.worker.chroot import rootmanager
 
 class Worker(server.Server):
@@ -27,7 +28,8 @@ class Worker(server.Server):
     commandClasses = { 'build'    : command.BuildCommand,
                        'resolve'  : command.ResolveCommand,
                        'stop'     : command.StopCommand,
-                       'session'  : command.SessionCommand }
+                       'session'  : command.SessionCommand,
+                       'image'    : imagecommand.ImageCommand }
 
     def __init__(self, serverCfg, logger, slots=1):
         """
@@ -67,6 +69,17 @@ class Worker(server.Server):
                           jobId, eventHandler, buildCfg, chrootFactory,
                           trove, builtTroves, targetLabel, logData,
                           logPath)
+
+    def actOnTrove(self, commandClassName, buildCfg, jobId, trove, 
+                   eventHandler, logData=None, logPath=None, commandId=None):
+        if logPath is None:
+            logPath = trove.logPath
+        if not commandId:
+            commandId = self.idgen.getActionCommandId(commandClassName, trove)
+        self.queueCommand(self.commandClasses[commandClassName],
+                          self.cfg, commandId,
+                          jobId, eventHandler, buildCfg,
+                          trove, logData, logPath)
 
     def resolve(self, resolveJob, eventHandler, logData, commandId=None):
         if not commandId:
@@ -315,6 +328,11 @@ class CommandIdGen(object):
 
     def getSessionCommandId(self, chrootPath):
         str = 'SESSION-%s' % (chrootPath)
+        return self._getCommandId(str)
+
+    def getActionCommandId(self, commandClassName, trove):
+        str = '%s-%s-%s' % (commandClassName.upper(),
+                            trove.jobId, trove.getName())
         return self._getCommandId(str)
 
     def _getCommandId(self, str):

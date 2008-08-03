@@ -32,6 +32,7 @@ from rmake import errors
 from rmake import plugins
 from rmake.build import buildcfg
 from rmake.build import buildjob
+from rmake.build import imagetrove
 from rmake.cmdline import buildcmd
 from rmake.cmdline import cmdutil
 from rmake.cmdline import commit
@@ -623,3 +624,20 @@ class rMakeHelper(object):
                              activeOnly=False,
                              out=out)
 
+    def createImageJob(self, projectName, troveSpec, imageType, imageOptions):
+        repos = self.getRepos()
+        troveSpec = cmdline.parseTroveSpec(troveSpec)
+        cfg = self.buildConfig
+        cfg.initializeFlavors()
+        troveTups = repos.findTrove(cfg.buildLabel, troveSpec, cfg.buildFlavor)
+        imageTroves = []
+        job = buildjob.BuildJob()
+        for name, version, flavor in troveTups:
+            imageTrove = imagetrove.ImageTrove(None, name, version, flavor)
+            imageTrove.setImageType(imageType)
+            imageTrove.setImageOptions(imageOptions)
+            imageTrove.setProductName(projectName)
+            job.addTrove(name, version, flavor, '', imageTrove)
+            imageTroves.append(imageTrove)
+        job.setMainConfig(cfg)
+        return job

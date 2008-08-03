@@ -169,7 +169,10 @@ class Builder(object):
                                                         self.repos)
         troveDict = {}
         finalBuildTroves = []
-        for buildTrove in sorted(self.job.iterTroves()):
+        for buildTrove in sorted(buildTroves):
+            if buildTrove.isSpecial():
+                finalBuildTroves.append(buildTrove)
+                continue
             troveTup = buildTrove.getNameVersionFlavor()
             if troveTup not in troveDict:
                 troveDict[troveTup] = buildTrove
@@ -177,17 +180,20 @@ class Builder(object):
             else:
                 buildTrove.troveDuplicate([])
         buildTroves = finalBuildTroves
-        self._matchTrovesToJobContext(buildTroves, self.jobContext)
-        self._matchPrebuiltTroves(buildTroves,
-                         self.job.getMainConfig().prebuiltBinaries)
         self.job.setBuildTroves(buildTroves)
+        regularTroves = [ x for x in buildTroves if not x.isSpecial() ]
+        self._matchTrovesToJobContext(regularTroves, self.jobContext)
+        self._matchPrebuiltTroves(regularTroves,
+                                  self.job.getMainConfig().prebuiltBinaries)
 
         logDir = self.serverCfg.getBuildLogDir(self.job.jobId)
         util.mkdirChain(logDir)
+        specialTroves = [ x for x in buildTroves if x.isSpecial() ]
         self.dh = dephandler.DependencyHandler(
                                            self.job.getPublisher(),
                                            self.logger,
-                                           buildTroves,
+                                           regularTroves,
+                                           specialTroves,
                                            logDir)
         if not self._checkBuildSanity(buildTroves):
             return False
@@ -209,6 +215,8 @@ class Builder(object):
                 elif self.dh.hasBuildableTroves():
                     trv, (buildReqs, crossReqs) = self.dh.popBuildableTrove()
                     self.buildTrove(trv, buildReqs, crossReqs)
+                elif self.dh.hasSpecialTroves():
+                    self.actOnTrove(self.dh.popSpecialTrove())
                 elif not self.resolveIfReady():
                     time.sleep(0.1)
             if self.dh.jobPassed():
@@ -226,6 +234,13 @@ class Builder(object):
                 msg.append('   * %s: %s\n' % (trove.getName(), err))
             self.job.jobFailed(''.join(msg))
         return False
+
+    def actOnTrove(self, trove):
+        logData = self.startTroveLogger(trove)
+        trove.disown()
+        self.worker.actOnTrove(trove.getCommand(),
+                               trove.cfg, trove.jobId,
+                               trove, self.eventHandler, logData)
 
     def buildTrove(self, troveToBuild, buildReqs, crossReqs):
         targetLabel = troveToBuild.cfg.getTargetLabel(troveToBuild.getVersion())

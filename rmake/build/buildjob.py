@@ -156,6 +156,15 @@ class _AbstractBuildJob(trovesource.SearchableTroveSource):
         else:
             return self.troveContexts.iterkeys()
 
+    def iterLoadableTroveList(self):
+        return (x[0] for x in self.troves.iteritems() if not x[1].isSpecial())
+
+    def iterLoadableTroves(self):
+        return (x for x in self.troves.itervalues() if not x.isSpecial())
+
+    def getSpecialTroves(self):
+        return [ x for x in self.troves.itervalues() if x.isSpecial() ]
+
     def getTrove(self, name, version, flavor, context=''):
         return self.troves[name, version, flavor, context]
 

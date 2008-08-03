@@ -28,6 +28,7 @@ from rmake import plugins
 from rmake.build import builder
 from rmake.build import buildcfg
 from rmake.build import buildjob
+from rmake.build import imagetrove
 from rmake.build import subscriber
 from rmake.server import auth
 from rmake.server import publish

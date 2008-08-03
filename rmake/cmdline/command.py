@@ -887,6 +887,30 @@ class ContextCommand(cvc.ContextCommand, rMakeCommand):
                                              repos=client.getRepos())
 register(ContextCommand)
 
+class BuildImageCommand(BuildCommand):
+    commands = ['buildimage']
+    commandGroup = CG_BUILD
+
+    def addParameters(self, argDef):
+        argDef['flavor'] = ONE_PARAM
+        argDef['option'] = MULT_PARAM
+        BuildCommand.addParameters(self, argDef)
+
+    def runCommand(self, client, cfg, argSet, args):
+        (command, project,
+         troveSpec, imageType) = self.requireParameters(args, ['project',
+                                                               'troveSpec',
+                                                               'imageType'])
+        options = {}
+        for option in argSet.pop('option', []):
+            key, value = option.split('=', 1)
+            options[key] = value
+        job = client.createImageJob(project, troveSpec, imageType, options)
+        return self._build(client, job, argSet)
+
+register(BuildImageCommand)
+
+
 def addCommands(main):
     for command in _commands:
         main._registerCommand(command)

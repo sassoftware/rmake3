@@ -378,9 +378,15 @@ class DisplayState(xmlrpc.BasicXMLRPCStatusSubscriber):
 
     def _jobStateUpdated(self, jobId, state, status):
         self.jobState = state
+        if self._isBuilding():
+            self.updateTrovesForJob(jobId)
 
     def _jobTrovesSet(self, jobId, troveList):
         self.updateTrovesForJob(jobId)
+
+    def _isBuilding(self):
+        return self.jobState in (buildjob.JOB_STATE_BUILD, 
+                                 buildjob.JOB_STATE_STARTED)
 
     def _isFinished(self):
         return self.jobState in (

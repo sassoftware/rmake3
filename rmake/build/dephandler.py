@@ -120,7 +120,7 @@ class DependencyBasedBuildState(AbstractBuildState):
         are buildable and also, there dependency relationships.
     """
 
-    def __init__(self, sourceTroves, logger):
+    def __init__(self, sourceTroves, specialTroves, logger):
         self.logger = logger
         self.trovesByPackage = {}
         self.buildReqTroves = {}
@@ -133,7 +133,8 @@ class DependencyBasedBuildState(AbstractBuildState):
         self.disallowed = set()
         self.hasPrimaryTroves = False
 
-        AbstractBuildState.__init__(self, sourceTroves)
+        AbstractBuildState.__init__(self, sourceTroves + specialTroves)
+        self.addSourceTrovesToGraph(sourceTroves)
 
 
     def _addReq(self, trove, buildReq, isCross=False):
@@ -185,8 +186,7 @@ class DependencyBasedBuildState(AbstractBuildState):
             return True
         return False
 
-    def addTroves(self, sourceTroves):
-        AbstractBuildState.addTroves(self, sourceTroves)
+    def addSourceTrovesToGraph(self, sourceTroves):
         sourceTroves = [ x for x in sourceTroves if not x.isFailed() ]
         [ self.depGraph.addNode(trove) for trove in sourceTroves ]
         for trove in sourceTroves:
@@ -406,16 +406,20 @@ class DependencyBasedBuildState(AbstractBuildState):
         return self.trovesByPackage.get(pkg, [])
 
     def moreToDo(self):
-        return not self.depGraph.isEmpty()
+        return not self.jobFinished()
 
 class DependencyHandler(object):
     """
         Updates what troves are buildable based on dependency information.
     """
-    def __init__(self, statusLog, logger, buildTroves, logDir=None):
-        self.depState = DependencyBasedBuildState(buildTroves, logger)
+    def __init__(self, statusLog, logger, buildTroves, specialTroves,
+                 logDir=None):
+        self.depState = DependencyBasedBuildState(buildTroves, specialTroves,
+                                                  logger)
         self.logger = logger
         self.logDir = logDir
+        self.specialTroves = specialTroves
+        self.inactiveSpecial = list(specialTroves)
         self.graphCount = 0
         self._resolving = {}
         self.priorities = []
@@ -442,6 +446,12 @@ class DependencyHandler(object):
 
     def hasBuildableTroves(self):
         return self.depState.hasBuildableTroves()
+
+    def hasSpecialTroves(self):
+        return bool(self.inactiveSpecial)
+
+    def popSpecialTrove(self):
+        return self.inactiveSpecial.pop()
 
     def getBuildReqTroves(self, trove):
         return self.depState.getBuildReqTroves(trove)

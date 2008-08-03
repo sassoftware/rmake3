@@ -1,4 +1,6 @@
 Changes in @NEW@: 
+  o Client Changes:
+     * Added buildImage command. (RMK-885)
   o Bug Fixes:
      * In jobs with primary troves, extra troves that should only be
        built if they had a dependency on primary troves would

@@ -305,7 +305,8 @@ def getSourceTrovesFromJob(job, serverCfg, repos):
     else:
         cacheDir = None
     try:
-        troveList = sorted(job.iterTroveList())
+        allTroves = []
+        troveList = sorted(x[0:3] for x in job.iterLoadableTroveList())
 
         # create fake "packages" for all the troves we're building so that
         # they can be found for loadInstalled.
@@ -322,11 +323,10 @@ def getSourceTrovesFromJob(job, serverCfg, repos):
                                              serverCfg.reposName)
 
         trovesByConfig = {}
-        for trove in job.iterTroves():
+        for trove in job.iterLoadableTroves():
             trovesByConfig.setdefault(trove.getContext(), []).append(trove)
 
-        allTroves = []
-        total = len(list(job.iterTroves()))
+        total = len(list(job.iterLoadableTroves()))
         count = 0
         for context, troveList in trovesByConfig.items():
             buildCfg = troveList[0].cfg
@@ -352,13 +352,13 @@ def getSourceTrovesFromJob(job, serverCfg, repos):
                              troveList, total=total, count=count,
                              loadInstalledSource=loadInstalledSource,
                              installLabelPath=buildCfg.installLabelPath,
-                             groupRecipeSource=groupRecipeSource, 
+                             groupRecipeSource=groupRecipeSource,
                              internalHostName=serverCfg.reposName))
             count = len(allTroves)
     finally:
         if cacheDir:
             util.rmtree(cacheDir)
-    return allTroves
+    return allTroves + job.getSpecialTroves()
 
 class RemoveHostRepos(object):
     def __init__(self, troveSource, host):

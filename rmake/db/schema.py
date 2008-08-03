@@ -59,6 +59,30 @@ def createJobConfig(db):
         db.commit()
         db.loadSchema()
 
+def createTroveSettings(db):
+    cu = db.cursor()
+    commit = False
+    if "TroveSettings" not in db.tables:
+        cu.execute("""
+        CREATE TABLE TroveSettings (
+            jobId      INTEGER NOT NULL,
+            troveId     INTEGER NOT NULL,
+            key         STRING NOT NULL,
+            ord         INTEGER NOT NULL,
+            value       STRING NOT NULL
+        )""")
+        db.tables["TroveSettings"] = []
+    if db.createIndex("TroveSettings", "TroveSettingsIdx", "jobId",
+                      unique = False):
+        commit = True
+    if db.createIndex("TroveSettings", "TroveSettingsIdx2", "troveId",
+                      unique = False):
+        commit = True
+    if commit:
+        db.commit()
+        db.loadSchema()
+
+
 def createSubscriber(db):
     cu = db.cursor()
     commit = False
@@ -125,6 +149,7 @@ def createBuildTroves(db):
             jobId          INTEGER NOT NULL,
             pid            INTEGER NOT NULL DEFAULT 0,
             troveName      STRING NOT NULL,
+            troveType      STRING NOT NULL,
             version        STRING NOT NULL,
             flavor         STRING NOT NULL,
             context        STRING NOT NULL DEFAULT '',
@@ -370,6 +395,7 @@ class SchemaManager(AbstractSchemaManager):
         db = self.db
         createJobs(db)
         createJobConfig(db)
+        createTroveSettings(db)
         createBuildTroves(db)
         createBinaryTroves(db)
         createStateLogs(db)

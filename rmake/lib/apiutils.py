@@ -422,6 +422,26 @@ def api_freezable(itemType):
 
     return _api_freezable
 
+def register_freezable_classmap(itemName, itemClass):
+    if itemName not in apitypes:
+        class _api_freezable:
+
+            name = itemName
+
+            typeMap = {}
+
+            @staticmethod
+            def __freeze__(item):
+                return (item.__class__.__name__, item.__freeze__())
+
+            @classmethod
+            def __thaw__(class_, item):
+                return class_.typeMap[item[0]].__thaw__(item[1])
+        apitypes[itemName] = _api_freezable
+
+    freezeClass = apitypes[itemName]
+    freezeClass.typeMap[itemClass.__name__] = itemClass
+
 def _thawException(val):
     return RuntimeError('Exception from server:\n%s: %s\n%s' % tuple(val))
 

@@ -392,6 +392,7 @@ def displayTroveDetail(dcfg, job, trove, indent='     ', out=sys.stdout):
         for (n,v,f) in sorted(trove.iterBuiltTroves()):
             if ':' in n: continue
             write("%s    %s" % (indent, getTroveSpec(dcfg, (n, v, f))))
+    trove.settings.display(out=out)
 
 def listChroots(client, cfg, allChroots=False):
     chrootsByHost =  {}

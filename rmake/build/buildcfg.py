@@ -115,6 +115,8 @@ class RmakeBuildContext(cfg.ConfigSection):
 
     copyInConary         = (CfgBool, False)
     copyInConfig         = (CfgBool, True)
+    rbuilderUrl          = (cfgtypes.CfgString, 'https://localhost/')
+    rmakeUser            = (CfgUser, None)
     defaultBuildReqs     = (CfgList(CfgString),
                             ['bash:runtime',
                              'coreutils:runtime', 'filesystem',
@@ -140,7 +142,57 @@ class RmakeBuildContext(cfg.ConfigSection):
             if info[0] not in self:
                 self.addConfigOption(*info)
 
-class BuildConfiguration(conarycfg.ConaryConfiguration):
+class FreezableConfigMixin(object):
+
+    def __freeze__(self):
+        """
+            Support the freeze mechanism to allow a build config to be 
+            sent via xmlrpc.  Basically converts to a set of strings
+            that can be read in on the other side.
+        """
+        configOptions = dict(prettyPrint=False, expandPaths=True)
+        d = {}
+        for name, cfgItem in self._options.iteritems():
+            val = self[name]
+            # _Path objects may change even when there at the default.
+            if (val == cfgItem.default and not isinstance(val, cfgtypes._Path)
+                and not (isinstance(val, list)
+                         and val and isinstance(val[0], cfgtypes._Path))):
+                continue
+            if val is None:
+                continue
+            else:
+                d[name] = list(cfgItem.valueType.toStrings(val, configOptions))
+        return d
+
+    @classmethod
+    def __thaw__(class_, d):
+        """ 
+            Support the thaw mechanism to allow a build config to be 
+            read from xmlrpc.  Converts back from a set of strings.
+        """
+
+        obj = class_()
+        for name, cfgItem in obj._options.iteritems():
+            if name in d:
+                lines = d[name]
+                if not lines and obj[name] is None:
+                    obj[name] = lines
+
+                for line in d.get(name, []):
+                    value = obj._options[name].parseString(obj[name], line)
+                    if name in obj: # it could be a hidden attribute,
+                                    # in which case we can't use setitem.
+                                    # but if we can we want to trigger the 
+                                    # default handling...
+                        obj[name] = value
+                    else:
+                        setattr(obj, name, value)
+        return obj
+
+
+
+class BuildConfiguration(conarycfg.ConaryConfiguration, FreezableConfigMixin):
 
     buildTroveSpecs      = CfgList(CfgTroveSpec)
     resolveTroveTups     = CfgList(CfgQuotedLineList(CfgTroveTuple))
@@ -370,57 +422,11 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
         conarycfg.ConaryConfiguration._writeKey(self, out, cfgItem,
                                                 self[cfgItem.name], options)
 
-    def __freeze__(self):
-        """ 
-            Support the freeze mechanism to allow a build config to be 
-            sent via xmlrpc.  Basically converts to a set of strings
-            that can be read in on the other side.
-        """
-        configOptions = dict(prettyPrint=False, expandPaths=True)
-        d = {}
-        for name, cfgItem in self._options.iteritems():
-            val = self[name]
-            # _Path objects may change even when there at the default.
-            if (val == cfgItem.default and not isinstance(val, cfgtypes._Path)
-                and not (isinstance(val, list)
-                         and val and isinstance(val[0], cfgtypes._Path))):
-                continue
-            if val is None:
-                continue
-            else:
-                d[name] = list(cfgItem.valueType.toStrings(val, configOptions))
-        return d
-
-    @classmethod
-    def __thaw__(class_, d):
-        """ 
-            Support the thaw mechanism to allow a build config to be 
-            read from xmlrpc.  Converts back from a set of strings.
-        """
-
-        obj = class_(False)
-        for name, cfgItem in obj._options.iteritems():
-            if name in d:
-                lines = d[name]
-                if not lines and obj[name] is None:
-                    obj[name] = lines
-
-                for line in d.get(name, []):
-                    value = obj._options[name].parseString(obj[name], line)
-                    if name in obj: # it could be a hidden attribute,
-                                    # in which case we can't use setitem.
-                                    # but if we can we want to trigger the 
-                                    # default handling...
-                        obj[name] = value
-                    else:
-                        setattr(obj, name, value)
-        return obj
-
 
 apiutils.register(apiutils.api_freezable(BuildConfiguration),
                   'BuildConfiguration')
 
-class SanitizedBuildConfiguration:
+class SanitizedBuildConfiguration(object):
 
     @staticmethod
     def __freeze__(cfg):
