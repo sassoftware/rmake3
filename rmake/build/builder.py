@@ -428,10 +428,14 @@ class Builder(object):
             self.job.jobFailed(failure.FailureReason("Job failed sanity check: %s: %s" % (err, troveNames)))
             return False
 
-        isGroup = [ x for x in buildTroves if x.isGroupRecipe() ]
-        if isGroup and len(buildTroves) > 1:
-            self.job.log("WARNING: Combining group troves with other troves"
-                         " is EXPERIMENTAL - use at your own risk")
+        groupSourceCount = len(set(x.getName() for x in buildTroves
+            if x.isGroupRecipe()))
+        packageSourceCount = len(set(x.getName() for x in buildTroves
+            if not x.isGroupRecipe()))
+        if (groupSourceCount and packageSourceCount) or groupSourceCount > 1:
+            self.job.log("WARNING: Combining group troves with other troves "
+                "is NOT SUPPORTED and will be removed in a future "
+                "version of rMake.")
             time.sleep(3)
         return True
 
