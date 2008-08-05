@@ -16,6 +16,12 @@ class RbuilderClient(object):
         else:
             self.server = xmlrpclib.ServerProxy(rbuilderUrl)
 
+    def getBuild(self, buildId):
+        error, result = self.server.getBuild(buildId)
+        if error:
+            raise RuntimError(*productId)
+        return result
+
     def newBuildWithOptions(self, productName, groupName, groupVersion,
                             groupFlavor, buildType, options):
         error, productId = self.server.getProjectIdByHostname(productName)
@@ -34,4 +40,16 @@ class RbuilderClient(object):
         error, result = self.server.startImageJob(buildId)
         if error:
             raise RuntimeError(*result)
+
+
+    def getBuildFilenames(self, buildId):
+        error, result = self.server.getBuildFilenames(self, buildId)
+        if error:
+            raise RuntimeError(*result)
+        urls = []
+        for fileDict in result:
+            for urlId, urlType, url in fileDict['urls']:
+                urls.append(url)
+        return urls
+            
 

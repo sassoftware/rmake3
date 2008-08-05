@@ -36,8 +36,15 @@ class ImageCommand(command.TroveCommand):
             trove.setImageBuildId(buildId)
             self.client.startImage(buildId)
             trove.troveBuilding()
-            self.watchImage(buildId)
-            trove.troveBuilt([])
+            curStatus, message = self.watchImage(buildId)
+            if curStatus == 300:
+                time.sleep(2)
+                #urls = self.client.getBuildFilenames(buildId)
+                #trove.log('Images built: %s' % '\n'.join(urls))
+                #trove.setImageUrls(urls)
+                trove.troveBuilt([])
+            else:
+                trove.troveFailed(message)
             return
         except Exception, err:
             # sends off messages to all listeners that this trove failed.
@@ -58,3 +65,4 @@ class ImageCommand(command.TroveCommand):
                 if curStatus['status'] > 200:
                     break
             time.sleep(2)
+        return curStatus['status'], curStatus['message']

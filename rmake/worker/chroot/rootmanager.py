@@ -385,8 +385,9 @@ class rMakeChrootServer(object):
     def _startChrootServer(self):
         socketPath = self.socketPath[len(self.getRoot()):]
         if self.chroot.canChroot():
-            prog = self.chroot.chrootHelperPath
-            args = [prog, self.getRoot(), socketPath]
+            prog = '/usr/bin/python'
+            args = [prog, self.chroot.chrootHelperPath, self.getRoot(),
+                    socketPath]
             if self.targetArch:
                 args.extend(['--arch', self.targetArch])
             if self.useTmpfs:

@@ -171,7 +171,6 @@ class FreezableConfigMixin(object):
             Support the thaw mechanism to allow a build config to be 
             read from xmlrpc.  Converts back from a set of strings.
         """
-
         obj = class_()
         for name, cfgItem in obj._options.iteritems():
             if name in d:

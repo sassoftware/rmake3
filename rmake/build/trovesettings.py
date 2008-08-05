@@ -11,3 +11,7 @@ class _TroveSettingsRegister(type):
 
 class TroveSettings(cfg.ConfigFile, buildcfg.FreezableConfigMixin):
     __metaclass__ = _TroveSettingsRegister
+
+    def __init__(self):
+        cfg.ConfigFile.__init__(self)
+        buildcfg.FreezableConfigMixin.__init__(self)

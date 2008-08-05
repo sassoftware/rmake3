@@ -624,20 +624,27 @@ class rMakeHelper(object):
                              activeOnly=False,
                              out=out)
 
-    def createImageJob(self, projectName, troveSpec, imageType, imageOptions):
-        repos = self.getRepos()
-        troveSpec = cmdline.parseTroveSpec(troveSpec)
+    def createImageJob(self, productName, imageList):
+        allTroveSpecs = {}
+        for troveSpec, imageType, imageOptions in imageList:
+            if isinstance(troveSpec, str):
+                troveSpec = cmdline.parseTroveSpec(troveSpec)
+            allTroveSpecs.setdefault(troveSpec, []).append((imageType, 
+                                                            imageOptions))
         cfg = self.buildConfig
         cfg.initializeFlavors()
-        troveTups = repos.findTrove(cfg.buildLabel, troveSpec, cfg.buildFlavor)
-        imageTroves = []
+        repos = self.getRepos()
+        results = repos.findTroves(cfg.buildLabel, allTroveSpecs, 
+                                   cfg.buildFlavor)
         job = buildjob.BuildJob()
-        for name, version, flavor in troveTups:
-            imageTrove = imagetrove.ImageTrove(None, name, version, flavor)
-            imageTrove.setImageType(imageType)
-            imageTrove.setImageOptions(imageOptions)
-            imageTrove.setProductName(projectName)
-            job.addTrove(name, version, flavor, '', imageTrove)
-            imageTroves.append(imageTrove)
+        for troveSpec, troveTupList in results.iteritems():
+            for imageType, imageOptions in allTroveSpecs[troveSpec]:
+                for name, version, flavor in troveTupList:
+                    imageTrove = imagetrove.ImageTrove(None, 
+                                                       name, version, flavor)
+                    imageTrove.setImageType(imageType)
+                    imageTrove.setImageOptions(imageOptions)
+                    imageTrove.setProductName(productName)
+                    job.addTrove(name, version, flavor, '', imageTrove)
         job.setMainConfig(cfg)
         return job

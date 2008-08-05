@@ -896,15 +896,15 @@ class BuildImageCommand(BuildCommand):
         BuildCommand.addParameters(self, argDef)
 
     def runCommand(self, client, cfg, argSet, args):
-        (command, project,
-         troveSpec, imageType) = self.requireParameters(args, ['project',
+        (command, product,
+         troveSpec, imageType) = self.requireParameters(args, ['product',
                                                                'troveSpec',
                                                                'imageType'])
         options = {}
         for option in argSet.pop('option', []):
             key, value = option.split('=', 1)
             options[key] = value
-        job = client.createImageJob(project, troveSpec, imageType, options)
+        job = client.createImageJob(product, [(troveSpec, imageType, options)])
         return self._build(client, job, argSet)
 
 register(BuildImageCommand)

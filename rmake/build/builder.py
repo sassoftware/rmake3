@@ -178,7 +178,7 @@ class Builder(object):
                 troveDict[troveTup] = buildTrove
                 finalBuildTroves.append(buildTrove)
             else:
-                buildTrove.troveDuplicate([])
+                continue
         buildTroves = finalBuildTroves
         self.job.setBuildTroves(buildTroves)
         regularTroves = [ x for x in buildTroves if not x.isSpecial() ]

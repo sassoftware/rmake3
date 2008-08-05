@@ -1,10 +1,10 @@
-from conary.lib.cfgtypes import CfgString, CfgDict, CfgInt
+from conary.lib.cfgtypes import CfgString, CfgDict, CfgInt, CfgList
 
 from rmake.build import buildtrove
 from rmake.build import trovesettings
 
 class ImageTroveSettings(trovesettings.TroveSettings):
-    url = CfgString
+    urls = CfgList(CfgString)
     imageType = CfgString
     imageOptions = CfgDict(CfgString)
     imageBuildId = CfgInt
@@ -41,6 +41,12 @@ class ImageTrove(buildtrove.BuildTrove):
 
     def setImageOptions(self, imageOptions):
         self.settings['imageOptions'] = imageOptions
+
+    def setImageUrls(self, urls):
+        self.settings['urls'] = urls
+
+    def getImageUrls(self):
+        return self.settings['url']
 
     def getCommand(self):
         return 'image'

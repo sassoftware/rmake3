@@ -2,6 +2,7 @@
 .*\.o$
 .*\.so$
 .*\.swp$
+.orig$
 .*chroothelper\.h
 .*chroothelper
 ^tmp/

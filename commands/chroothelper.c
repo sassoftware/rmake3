@@ -445,8 +445,9 @@ int enter_chroot(const char * chrootDir, const char * socketPath,
         fprintf(stderr, "ERROR: can not assume %s privileges\n", CHROOT_USER);
         return -1;
     }
-    rc = snprintf(command, PATH_MAX, 
-                  "%s start -n --socket %s", CHROOT_SERVER_PATH, socketPath);
+    rc = snprintf(command, PATH_MAX,
+                  "%s %s start -n --socket %s", "/usr/bin/python",
+                  CHROOT_SERVER_PATH, socketPath);
     if (rc >= PATH_MAX) {
         fprintf(stderr, "ERROR: command too long\n");
         return 1;
