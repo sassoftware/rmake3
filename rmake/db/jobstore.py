@@ -247,84 +247,85 @@ class JobStore(object):
                           flavor STR,
                           context STR
                       )''', start_transaction=False)
+        try:
 
-        for jobId, troveName, version, flavor, context in troveList:
-            cu.execute('''INSERT INTO tTroveInfo VALUES (?, ?, ?, ?, ?)''',
-                       (jobId, troveName, version.freeze(), flavor.freeze(),
-                       context), start_transaction=False)
+            for jobId, troveName, version, flavor, context in troveList:
+                cu.execute('''INSERT INTO tTroveInfo VALUES (?, ?, ?, ?, ?)''',
+                           (jobId, troveName, version.freeze(), flavor.freeze(),
+                           context), start_transaction=False)
 
-        results = cu.execute(
-        """
-            SELECT BuildTroves.troveId, jobId, pid, troveName, version,
-                flavor, context, state, status, failureReason, failureData,
-                start, finish, logPath, recipeType,
-                Chroots.nodeName, Chroots.path, troveType
-                FROM tTroveInfo
-                JOIN BuildTroves USING(jobId, troveName, version, flavor, context)
-                LEFT JOIN Chroots USING(chrootId)
-        """)
+            results = cu.execute(
+            """
+                SELECT BuildTroves.troveId, jobId, pid, troveName, version,
+                    flavor, context, state, status, failureReason, failureData,
+                    start, finish, logPath, recipeType,
+                    Chroots.nodeName, Chroots.path, troveType
+                    FROM tTroveInfo
+                    JOIN BuildTroves USING(jobId, troveName, version, flavor, context)
+                    LEFT JOIN Chroots USING(chrootId)
+            """)
 
-        trovesById = {}
-        trovesByNVF = {}
-        # FIXME From here on out it's mostly duplication from getJobs code
-        for (troveId, jobId, pid, troveName, version, flavor, context, state, 
-             status, failureReason, failureData, start, finish, logPath, 
-             recipeType, chrootHost, chrootPath, troveType) \
-             in results:
-            if chrootPath is None:
-                chrootPath = chrootHost = ''
-            version = versions.ThawVersion(version)
-            flavor = ThawFlavor(flavor)
-            failureReason = thaw('FailureReason',
-                                 (failureReason, failureData))
+            trovesById = {}
+            trovesByNVF = {}
+            # FIXME From here on out it's mostly duplication from getJobs code
+            for (troveId, jobId, pid, troveName, version, flavor, context, state, 
+                 status, failureReason, failureData, start, finish, logPath, 
+                 recipeType, chrootHost, chrootPath, troveType) \
+                 in results:
+                if chrootPath is None:
+                    chrootPath = chrootHost = ''
+                version = versions.ThawVersion(version)
+                flavor = ThawFlavor(flavor)
+                failureReason = thaw('FailureReason',
+                                     (failureReason, failureData))
 
-            troveClass = buildtrove.getClassForTroveType(troveType)
-            buildTrove = troveClass(jobId, troveName, version,
-                                    flavor, context=context, pid=pid,
-                                    state=state, start=float(start),
-                                    finish=float(finish),
-                                    logPath=logPath, status=status,
-                                    failureReason=failureReason,
-                                    recipeType=recipeType,
-                                    chrootPath=chrootPath,
-                                    chrootHost=chrootHost)
-            trovesById[troveId] = buildTrove
-            trovesByNVF[(jobId, troveName, version, 
-                         flavor, context)] = buildTrove
+                troveClass = buildtrove.getClassForTroveType(troveType)
+                buildTrove = troveClass(jobId, troveName, version,
+                                        flavor, context=context, pid=pid,
+                                        state=state, start=float(start),
+                                        finish=float(finish),
+                                        logPath=logPath, status=status,
+                                        failureReason=failureReason,
+                                        recipeType=recipeType,
+                                        chrootPath=chrootPath,
+                                        chrootHost=chrootHost)
+                trovesById[troveId] = buildTrove
+                trovesByNVF[(jobId, troveName, version, 
+                             flavor, context)] = buildTrove
 
-        results = cu.execute(
-        """
-            SELECT troveId, BinaryTroves.troveName, BinaryTroves.version, 
-                   BinaryTroves.flavor
-                FROM tTroveInfo
-                JOIN BuildTroves USING(jobId, troveName, version, flavor)
-                JOIN BinaryTroves USING(troveId)
-        """)
+            results = cu.execute(
+            """
+                SELECT troveId, BinaryTroves.troveName, BinaryTroves.version, 
+                       BinaryTroves.flavor
+                    FROM tTroveInfo
+                    JOIN BuildTroves USING(jobId, troveName, version, flavor, context)
+                    JOIN BinaryTroves USING(troveId)
+            """)
 
-        builtTroves = {}
-        for troveId, troveName, version, flavor in results:
-            builtTroves.setdefault(troveId, []).append((
-                    troveName, ThawVersion(version), ThawFlavor(flavor)))
-        for troveId, binTroves in builtTroves.iteritems():
-            trovesById[troveId].setBuiltTroves(binTroves)
+            builtTroves = {}
+            for troveId, troveName, version, flavor in results:
+                builtTroves.setdefault(troveId, []).append((
+                        troveName, ThawVersion(version), ThawFlavor(flavor)))
+            for troveId, binTroves in builtTroves.iteritems():
+                trovesById[troveId].setBuiltTroves(binTroves)
 
-        cu.execute("""SELECT troveId, key, value
-                      FROM tTroveInfo
-                      JOIN BuildTroves USING(jobId, troveName, version, flavor)
-                      JOIN TroveSettings USING(troveId)
-                      ORDER by key, ord""")
-        troveSettings = {}
-        for troveId, key, value in cu:
-            d = troveSettings.setdefault(troveId, {})
-            d.setdefault(key, []).append(value)
-        for troveId, settings in troveSettings.items():
-            settingsClass = settings.pop('_class')[0]
-            trovesById[troveId].settings = thaw('TroveSettings',
-                                            (settingsClass, settings))
+            cu.execute("""SELECT troveId, key, value
+                          FROM tTroveInfo
+                          JOIN BuildTroves USING(jobId, troveName, version, flavor,context)
+                          JOIN TroveSettings USING(troveId)
+                          ORDER by key, ord""")
+            troveSettings = {}
+            for troveId, key, value in cu:
+                d = troveSettings.setdefault(troveId, {})
+                d.setdefault(key, []).append(value)
+            for troveId, settings in troveSettings.items():
+                settingsClass = settings.pop('_class')[0]
+                trovesById[troveId].settings = thaw('TroveSettings',
+                                                (settingsClass, settings))
+            return [trovesByNVF[x] for x in troveList]
+        finally:
+            cu.execute("DROP TABLE tTroveInfo", start_transaction = False)
 
-
-        cu.execute("DROP TABLE tTroveInfo", start_transaction = False)
-        return [trovesByNVF[x] for x in troveList]
 
 
     # return all the log messages since last mark
