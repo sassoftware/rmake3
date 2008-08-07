@@ -7,11 +7,16 @@ Changes in 1.0.21:
        be built if they had never been built.  This has been fixed - 
        these troves are now marked as "built" with no built troves associated
        with them. (RMK-875)
+     * Don't emit a warning when building multiple flavors of the same
+       group. (RMK-886)
+
+
 Changes in 1.0.20:
   o Bug Fixes:
      * Some conary factories require loading of some files associated with 
        them in order to load the recipe at all.  Such recipes would fail
        before this fix. (RDST-225)
+
 Changes in 1.0.19:
   o Client changes:
      * rMake will now use user-specified conaryProxy, overriding the
