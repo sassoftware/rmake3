@@ -1,4 +1,4 @@
-Changes in @NEW@: 
+Changes in 1.0.21:
   o Client Changes:
      * Added buildImage command. (RMK-885)
   o Bug Fixes:
