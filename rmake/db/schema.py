@@ -8,7 +8,7 @@ from rmake import errors
 
 # NOTE: this schema is sqlite-specific
 
-SCHEMA_VERSION = 10
+SCHEMA_VERSION = 11
 
 def createJobs(db):
     cu = db.cursor()
@@ -149,7 +149,7 @@ def createBuildTroves(db):
             jobId          INTEGER NOT NULL,
             pid            INTEGER NOT NULL DEFAULT 0,
             troveName      STRING NOT NULL,
-            troveType      STRING NOT NULL,
+            troveType      STRING NOT NULL DEFAULT 'build',
             version        STRING NOT NULL,
             flavor         STRING NOT NULL,
             context        STRING NOT NULL DEFAULT '',
@@ -471,6 +471,14 @@ class Migrator(AbstractMigrator):
                         "STRING NOT NULL DEFAULT ''")
         return 10
 
+    def migrateFrom10(self):
+        sql, = self.db.cursor().execute('select sql from sqlite_master'
+                                        ' where tbl_name="BuildTroves"').next()
+        if 'troveType' in sql:
+            return 11
+        self._addColumn("BuildTroves", "troveType",
+                        "troveType      STRING NOT NULL DEFAULT 'build'")
+        return 11
 
 class PluginSchemaManager(AbstractSchemaManager):
     """
