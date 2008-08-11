@@ -476,6 +476,7 @@ class Migrator(AbstractMigrator):
                                         ' where tbl_name="BuildTroves"').next()
         if 'troveType' in sql:
             return 11
+        createTroveSettings(self.db)
         self._addColumn("BuildTroves", "troveType",
                         "troveType      STRING NOT NULL DEFAULT 'build'")
         return 11
