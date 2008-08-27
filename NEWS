@@ -1,10 +1,17 @@
+Changes in @NEW@:
+  o Bug Fixes:
+     * The rmake.1 man page no longer gives wrong instructions for
+       accessing archived chroots.
+
 Changes in 1.0.23:
   o Bug Fixes:
      * A bug introduced in the chroot creation process in rmake 1.0.21
        has been fixed. (RMK-890)
+
 Changes in 1.0.22:
   o Bug Fixes:
      * A missing schema migration has been added. (RMK-889)
+
 Changes in 1.0.21:
   o Client Changes:
      * Added buildImage command. (RMK-885)
