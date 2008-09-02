@@ -1,20 +1,20 @@
+import os
 import urlparse
 import xmlrpclib
-from M2Crypto import m2xmlrpclib
+
 
 class RbuilderClient(object):
     def __init__(self, rbuilderUrl, user, pw):
         scheme, netloc, path, query, fragment = urlparse.urlsplit(rbuilderUrl)
-        path = 'xmlrpc-private'
-        netloc = netloc.split('@', 1)[-1]
-        netloc = '%s:%s@' % (user, pw) + netloc
-        rbuilderUrl =  urlparse.urlunsplit(
-                                (scheme, netloc, path, query, fragment))
 
-        if scheme == 'https':
-            self.server = m2xmlrpclib.ServerProxy(rbuilderUrl)
-        else:
-            self.server = xmlrpclib.ServerProxy(rbuilderUrl)
+        path = os.path.join(path, 'xmlrpc-private')
+        netloc = netloc.rsplit('@', 1)[-1]
+        netloc = '%s:%s@' % (user, pw) + netloc
+
+        # The query and fragment are not useful to XMLRPC, so null
+        # those out.
+        rbuilderUrl = urlparse.urlunsplit((scheme, netloc, path, '', ''))
+        self.server = xmlrpclib.ServerProxy(rbuilderUrl)
 
     def getBuild(self, buildId):
         error, result = self.server.getBuild(buildId)

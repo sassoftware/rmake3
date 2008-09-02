@@ -2,6 +2,8 @@ Changes in @NEW@:
   o Bug Fixes:
      * The rmake.1 man page no longer gives wrong instructions for
        accessing archived chroots.
+     * Image builds utilizing rBuilder Online now use the proper URI
+       for XMLRPC operations. (RMK-897)
 
 Changes in 1.0.23:
   o Bug Fixes:
