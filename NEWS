@@ -4,6 +4,7 @@ Changes in @NEW@:
        accessing archived chroots.
      * Image builds utilizing rBuilder Online now use the proper URI
        for XMLRPC operations. (RMK-897)
+     * Groups are no longer marked as pre-built. (RMK-903)
 
 Changes in 1.0.23:
   o Bug Fixes:

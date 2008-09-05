@@ -13,6 +13,7 @@ import time
 import traceback
 
 from conary import conaryclient
+from conary import trove
 from conary.deps import deps
 from conary.lib import util
 from conary.repository import changeset
@@ -313,21 +314,23 @@ class Builder(object):
         trovesByNV = {}
         trovesByLabel = {}
         needsSourceMatch = []
-        for trove in buildTroves:
-            trovesByNV.setdefault((trove.getName(),
-                                   trove.getVersion()), []).append(trove)
-            if (trove.getHost() == self.serverCfg.reposName
-                and trove.getVersion().branch().hasParentBranch()):
-                trovesByLabel.setdefault((trove.getName(),
-                          trove.getVersion().branch().parentBranch().label()),
-                          []).append(trove)
-                needsSourceMatch.append(trove)
+        for trv in buildTroves:
+            trovesByNV.setdefault((trv.getName(),
+                                   trv.getVersion()), []).append(trv)
+            if (trv.getHost() == self.serverCfg.reposName
+                and trv.getVersion().branch().hasParentBranch()):
+                trovesByLabel.setdefault((trv.getName(),
+                          trv.getVersion().branch().parentBranch().label()),
+                          []).append(trv)
+                needsSourceMatch.append(trv)
             else:
-                trovesByLabel.setdefault((trove.getName(),
-                                          trove.getLabel()), []).append(trove)
+                trovesByLabel.setdefault((trv.getName(),
+                                          trv.getLabel()), []).append(trv)
 
         needed = {}
         for n,v,f in prebuiltTroveList:
+            if trove.troveIsGroup(n):
+                continue
             matchingTroves = trovesByNV.get((n + ':source',
                                                 v.getSourceVersion()), False)
             if not matchingTroves:
@@ -348,8 +351,6 @@ class Builder(object):
         allBinaries = {}
         troveDict = {}
         for neededTup, matchingTrove in needed.iteritems():
-                
-                
             otherPackages = [ (x, neededTup[1], neededTup[2])
                                for x in matchingTrove.getDerivedPackages() 
                             ]
