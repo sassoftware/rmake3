@@ -5,6 +5,8 @@ Changes in @NEW@:
      * Image builds utilizing rBuilder Online now use the proper URI
        for XMLRPC operations. (RMK-897)
      * Groups are no longer marked as pre-built. (RMK-903)
+     * rMake will now properly handle cooking recipes not in the
+       current working directory. (RMK-906)
 
 Changes in 1.0.23:
   o Bug Fixes:

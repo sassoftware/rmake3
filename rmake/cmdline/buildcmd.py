@@ -402,12 +402,14 @@ def _getLocalCook(conaryclient, cfg, recipePath, message):
     oldKey = cfg.signatureKey
     oldMap = cfg.signatureKeyMap
     oldInteractive = cfg.interactive
+    oldWorkDir = os.getcwd()
     try:
         cfg.signatureKey = None
         cfg.signatureKeyMap = {}
         cfg.interactive = False
 
         if os.access(recipeDir + '/CONARY', os.R_OK):
+            os.chdir(recipeDir)
             stateFile = state.ConaryStateFromFile(recipeDir + '/CONARY')
             if stateFile.hasSourceState():
                 stateFile = stateFile.getSourceState()
@@ -422,6 +424,7 @@ def _getLocalCook(conaryclient, cfg, recipePath, message):
         cfg.signatureKey = oldKey
         cfg.signatureKeyMap = oldMap
         cfg.interactive = oldInteractive
+        os.chdir(oldWorkDir)
 
 def _getPathList(repos, cfg, recipePath, relative=False):
     loader, recipeClass, sourceVersion = cook.getRecipeInfoFromPath(repos, cfg,
