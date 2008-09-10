@@ -9,6 +9,7 @@ class ImageTroveSettings(trovesettings.TroveSettings):
     imageOptions = CfgDict(CfgString)
     imageBuildId = CfgInt
     productName = CfgString
+    buildName = CfgString
 
 class ImageTrove(buildtrove.BuildTrove):
     troveType = 'image'
@@ -23,6 +24,12 @@ class ImageTrove(buildtrove.BuildTrove):
 
     def getProductName(self):
         return self.settings['productName']
+
+    def setBuildName(self, buildName):
+        self.settings['buildName'] = buildName
+
+    def getBuildName(self):
+        return self.settings['buildName']
 
     def setImageBuildId(self, buildId):
         self.settings['imageBuildId'] = buildId

@@ -7,6 +7,15 @@ Changes in @NEW@:
      * Groups are no longer marked as pre-built. (RMK-903)
      * rMake will now properly handle cooking recipes not in the
        current working directory. (RMK-906)
+     * rMake will now correctly build multiple images in rBuilder
+       that share a common name, version, flavor. (RMK-907)
+
+  o API Changes:
+     * The imageList argument to rmakeClient.createImageJob() have been
+       extended from the 3-tuple (troveSpec, imageType, imageOptions)
+       to the 4-tuple (troveSpec, imageType, imageOptions, buildName)
+       which can later be extended with additional information if
+       necessary. (RMK-907)
 
 Changes in 1.0.23:
   o Bug Fixes:

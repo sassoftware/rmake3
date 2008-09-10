@@ -626,25 +626,53 @@ class rMakeHelper(object):
 
     def createImageJob(self, productName, imageList):
         allTroveSpecs = {}
-        for troveSpec, imageType, imageOptions in imageList:
+        finalImageList = []
+        for image in imageList:
+            image = list(image)
+            if len(image) < 4:
+                image.append('')
+            # Make it easy to append more parameters extensibly later
+            image = image[0:4]
+            finalImageList.append(image)
+
+        for troveSpec, imageType, imageOptions, buildName in finalImageList:
             if isinstance(troveSpec, str):
                 troveSpec = cmdline.parseTroveSpec(troveSpec)
             allTroveSpecs.setdefault(troveSpec, []).append((imageType, 
+                                                            buildName,
                                                             imageOptions))
         cfg = self.buildConfig
         cfg.initializeFlavors()
         repos = self.getRepos()
         results = repos.findTroves(cfg.buildLabel, allTroveSpecs, 
                                    cfg.buildFlavor)
+
+        def getContextName(buildName):
+            return buildName.replace(' ', '_')
+
+        contextCache = set()
+
+        i = 1
         job = buildjob.BuildJob()
         for troveSpec, troveTupList in results.iteritems():
-            for imageType, imageOptions in allTroveSpecs[troveSpec]:
+            for imageType, buildName, imageOptions in allTroveSpecs[troveSpec]:
                 for name, version, flavor in troveTupList:
+                    context = getContextName(buildName)
+                    while not context or context in contextCache:
+                        if buildName:
+                            context = '%s_(%d)' %(context, i)
+                        else:
+                            context = 'Image_%d' %i
+                        i += 1
+                    contextCache.add(context)
                     imageTrove = imagetrove.ImageTrove(None, 
-                                                       name, version, flavor)
+                                                       name, version, flavor,
+                                                       context=context)
                     imageTrove.setImageType(imageType)
                     imageTrove.setImageOptions(imageOptions)
                     imageTrove.setProductName(productName)
-                    job.addTrove(name, version, flavor, '', imageTrove)
+                    imageTrove.setBuildName(buildName)
+                    job.setTroveConfig(imageTrove, cfg)
+                    job.addTrove(name, version, flavor, context, imageTrove)
         job.setMainConfig(cfg)
         return job
