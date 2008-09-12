@@ -148,7 +148,12 @@ def getRecipeObj(repos, name, version, flavor, trv,
                 recipeObj.troveSource = groupRecipeSource
                 sourceComponents = recipeObj._findSources(groupRecipeSource)
                 recipeObj.delayedRequires = sourceComponents
-        elif recipe.isPackageRecipe(recipeClass):
+        elif recipe.isPackageRecipe(recipeClass) or recipe.isFactoryRecipe(recipeClass):
+            if recipe.isFactoryRecipe(recipeClass):
+                #Load the FactoryRecipe
+                factoryClass = recipeClass
+                loaded = cook.loadFactoryRecipe(factoryClass, cfg, repos, flavor)
+                recipeClass = loaded.getRecipe()
             lcache = lookaside.RepositoryCache(repos)
             recipeObj = recipeClass(cfg, lcache, [], macros, lightInstance=True)
             recipeObj.sourceVersion = version
