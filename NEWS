@@ -1,7 +1,4 @@
 Changes in @NEW@:
-  o New Features:
-     * rMake can now build Factory classes into the repository (RMK-901)
-
   o Bug Fixes:
      * The rmake.1 man page no longer gives wrong instructions for
        accessing archived chroots.
