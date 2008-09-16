@@ -19,6 +19,7 @@ from conary.deps.deps import Flavor
 from conary.repository import trovesource
 
 #rmake
+from rmake import compat
 from rmake import errors
 from rmake import failure
 from rmake.lib import flavorutil
@@ -148,7 +149,14 @@ def getRecipeObj(repos, name, version, flavor, trv,
                 recipeObj.troveSource = groupRecipeSource
                 sourceComponents = recipeObj._findSources(groupRecipeSource)
                 recipeObj.delayedRequires = sourceComponents
-        elif recipe.isPackageRecipe(recipeClass):
+        elif recipe.isPackageRecipe(recipeClass) or recipe.isFactoryRecipe(recipeClass):
+            if recipe.isFactoryRecipe(recipeClass):
+                #This requires a specific capability in conary
+                compat.ConaryVersion().requireFactoryRecipeGeneration()
+                #Load the FactoryRecipe
+                factoryClass = recipeClass
+                loaded = cook.loadFactoryRecipe(factoryClass, cfg, repos, flavor)
+                recipeClass = loaded.getRecipe()
             lcache = lookaside.RepositoryCache(repos)
             recipeObj = recipeClass(cfg, lcache, [], macros, lightInstance=True)
             recipeObj.sourceVersion = version

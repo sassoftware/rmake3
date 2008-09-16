@@ -97,6 +97,13 @@ class ConaryVersion(object):
     def requireFindGroupSources(self):
         return self.requireVersion(False, 21, None, 'building group sources')
 
+    def requireFactoryRecipeGeneration(self):
+        '''
+        Checks to see if the FactoryRecipe generator exists, added pre conary
+        2.0.26
+        '''
+        return self.checkVersion(False, False, 26, 'building factories')
+
     def ConaryStateFromFile(self, path, repos=None, parseSource=True):
         if self.stateFileVersion() == 0: 
             return state.ConaryStateFromFile(path)
