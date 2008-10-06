@@ -117,14 +117,15 @@ class RmakeBuildContext(cfg.ConfigSection):
     copyInConfig         = (CfgBool, True)
     rbuilderUrl          = (cfgtypes.CfgString, 'https://localhost/')
     rmakeUser            = (CfgUser, None)
-    defaultBuildReqs     = (CfgList(CfgString),
-                            ['bash:runtime',
-                             'coreutils:runtime', 'filesystem',
-                             'conary:runtime',
-                             'conary-build:runtime', 'dev:runtime',
-                             'grep:runtime', 'sed:runtime',
-                             'findutils:runtime', 'gawk:runtime',
-                             'info-rmake:user', 'info-rmake-chroot:user'])
+    if not compat.ConaryVersion().supportsDefaultBuildReqs():
+        defaultBuildReqs     = (CfgList(CfgString), [ 'bash:runtime',
+            'coreutils:runtime', 'filesystem', 'conary:runtime',
+            'conary-build:runtime', 'dev:runtime', 'grep:runtime',
+            'sed:runtime', 'findutils:runtime', 'gawk:runtime',
+            'info-rmake:user', 'info-rmake-chroot:user', ])
+    else:
+        defaultBuildReqs     = (CfgList(CfgString),
+                            ['info-rmake:user', 'info-rmake-chroot:user',])
     resolveTroves        = (CfgList(CfgQuotedLineList(CfgTroveSpec)),
                             [[('group-dist', None, None)]])
     matchTroveRule       = (CfgList(CfgString), [])

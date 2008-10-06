@@ -139,6 +139,10 @@ class ConaryVersion(object):
             return loaders
         return recipeClasses
 
+    def supportsDefaultBuildReqs(self):
+        # Support added in 2.0.28
+        return self.checkVersion(None, None, None, 28)
+
     def checkVersion(self, oneZeroVersion, oneOneVersion, oneTwoVersion=None,
                      twoZeroVersion=None):
         if self.majorVersion == [1,0]:
