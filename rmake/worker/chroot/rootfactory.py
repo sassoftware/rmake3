@@ -16,7 +16,7 @@ from conary import conarycfg
 from conary import conaryclient
 from conary import callbacks
 from conary.deps import deps
-from conary.lib import util, log, openpgpkey
+from conary.lib import util, log, openpgpkey, sha1helper
 
 #rmake
 from rmake import errors
@@ -32,7 +32,7 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
         after itself as much as possible.
     """
     def __init__(self, jobList, crossJobList, logger, cfg, csCache=None,
-                 targetFlavor=None, oldRoot=None):
+                 chrootCache=None, targetFlavor=None, oldRoot=None):
         rootfactory.BasicChroot.__init__(self)
         self.cfg = cfg
         self.jobList = jobList
@@ -40,6 +40,7 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
         self.callback = None
         self.logger = logger
         self.csCache = csCache
+        self.chrootCache = chrootCache
         self.oldRoot = oldRoot
         if targetFlavor is not None:
             cfg.initializeFlavors()
@@ -92,6 +93,22 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
             # should only be true in debugging situations
             return
 
+        client = conaryclient.ConaryClient(self.cfg)
+        repos = client.getRepos()
+        if self.chrootCache and hasattr(repos, 'getChangeSetFingerprints'):
+            fingerprints = client.repos.getChangeSetFingerprints(
+                sorted(self.jobList + self.crossJobList),
+                recurse=False, withFiles=True, withFileContents=True,
+                excludeAutoSource=True, mirrorMode=False)
+            chrootFingerprint = sha1helper.sha1String(''.join(fingerprints))
+            if self.chrootCache.hasChroot(chrootFingerprint):
+                self.logger.info('restoring cached chroot with '
+                                 'fingerprint %s' %chrootFingerprint)
+                self.chrootCache.restore(chrootFingerprint, self.cfg.root)
+                self.logger.info('chroot fingerprint %s '
+                                 'restore done' %chrootFingerprint)
+                return
+
         def _install(jobList):
             self.cfg.flavor = []
             openpgpkey.getKeyCache().setPublicPath(
@@ -126,14 +143,19 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
         if self.jobList:
             _install(self.jobList)
 
-        if not self.crossJobList:
-            return
-        oldRoot = self.cfg.root
-        try:
-            self.cfg.root += self.sysroot
-            _install(self.crossJobList)
-        finally:
-            self.cfg.root = oldRoot
+        if self.crossJobList:
+            oldRoot = self.cfg.root
+            try:
+                self.cfg.root += self.sysroot
+                _install(self.crossJobList)
+            finally:
+                self.cfg.root = oldRoot
+
+        if self.chrootCache:
+            self.logger.info('caching chroot with fingerprint '
+                             '%s' %chrootFingerprint)
+            self.chrootCache.store(chrootFingerprint, self.cfg.root)
+            self.logger.info('caching chroot %s done' %chrootFingerprint)
 
     def _copyInConary(self):
         conaryDir = os.path.dirname(sys.modules['conary'].__file__)
@@ -163,14 +185,15 @@ class rMakeChroot(ConaryBasedChroot):
 
     def __init__(self, buildTrove, chrootHelperPath, cfg, serverCfg,
                  jobList, crossJobList, logger, uid=None, gid=None, 
-                 csCache=None, copyInConary=True, oldRoot=None):
+                 csCache=None, chrootCache=None, copyInConary=True,
+                 oldRoot=None):
         """ 
             uid/gid:  the uid/gid which special files in the chroot should be 
                       owned by
         """
         ConaryBasedChroot.__init__(self, jobList, crossJobList, logger, cfg,
-                                   csCache, buildTrove.getFlavor(),
-                                   oldRoot=None)
+                                   csCache, chrootCache,
+                                   buildTrove.getFlavor(), oldRoot=None)
         self.jobId = buildTrove.jobId
         self.buildTrove = buildTrove
         self.chrootHelperPath = chrootHelperPath

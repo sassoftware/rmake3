@@ -20,6 +20,8 @@ Changes in @NEW@:
   o Build Changes:
      * Recipes are now loaded in the worker as a command instead of
        in-line in the builder.  (RMK-923)
+     * rMake can now optionally cache chroots for quicker builds when
+       the same chroot environment is required. (RMK-202)
 
   o Client Changes:
      * The defaultBuildReqs setting has been cleared except for the rmake and

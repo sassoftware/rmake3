@@ -167,6 +167,7 @@ class ChrootManager(object):
             self.csCache = repocache.RepositoryCache(cacheDir)
         else:
             self.csCache = None
+        self.chrootCache = serverCfg.getChrootCache()
         if logger is None:
             logger = logger_.Logger()
         self.logger = logger
@@ -216,6 +217,7 @@ class ChrootManager(object):
                              cfg, self.serverCfg, buildReqList, crossReqList,
                              self.logger,
                              csCache=self.csCache,
+                             chrootCache=self.chrootCache,
                              copyInConary=copyInConary)
         buildLogPath = self.serverCfg.getBuildLogPath(buildTrove.jobId)
         chrootServer = rMakeChrootServer(chroot, targetArch, 

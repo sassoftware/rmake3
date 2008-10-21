@@ -17,12 +17,23 @@ import urllib
 
 from conary.lib import log, cfg, util
 from conary.lib.cfgtypes import CfgPath, CfgList, CfgString, CfgInt, CfgType
-from conary.lib.cfgtypes import CfgBool, CfgPathList, CfgDict
+from conary.lib.cfgtypes import CfgBool, CfgPathList, CfgDict, ParseError
 from conary.conarycfg import CfgLabel, CfgUserInfo
 
 from rmake import constants
 from rmake import errors
-from rmake.lib import daemon
+from rmake.lib import daemon, chrootcache
+
+class CfgChrootCache(cfg.CfgType):
+    def parseString(self, str):
+        s = str.split()
+        if len(s) != 2:
+            raise ParseError("chroot cache type and path expected")
+        return tuple(s)
+
+    def format(self, val, displayOptions = None):
+        return "%s %s" % val
+
 
 class rMakeBuilderConfiguration(daemon.DaemonConfig):
     buildDir          = (CfgPath, '/var/rmake')
@@ -34,6 +45,7 @@ class rMakeBuilderConfiguration(daemon.DaemonConfig):
     usePlugins        = (CfgBool, True)
     usePlugin         = CfgDict(CfgBool)
     chrootLimit       = (CfgInt, 4)
+    chrootCache       = CfgChrootCache
     verbose           = False
 
     def getAuthUrl(self):
@@ -65,6 +77,21 @@ class rMakeBuilderConfiguration(daemon.DaemonConfig):
     def getChrootHelper(self):
         return self.helperDir + '/chroothelper'
 
+    def getChrootCache(self):
+        if not self.chrootCache:
+            return None
+        elif self.chrootCache[0] == 'local':
+            return chrootcache.LocalChrootCache(self.chrootCache[1])
+        else:
+            raise errors.RmakeError('unknown chroot cache type of "%s" specified' %self.chrootCache[0])
+
+    def _getChrootCacheDir(self):
+        if not self.chrootCache:
+            return None
+        elif self.chrootCache[0] == 'local':
+            return self.chrootCache[1]
+        return None
+
     def _checkDir(self, name, path, requiredOwner=None,
                    requiredMode=None):
         if not os.path.exists(path):
@@ -92,6 +119,10 @@ class rMakeBuilderConfiguration(daemon.DaemonConfig):
             self._checkDir('chroot archive dir (subdirectory of buildDir)',
                             self.getChrootArchiveDir(),
                             rmakeUser, 0700)
+            chrootCacheDir = self._getChrootCacheDir()
+            if chrootCacheDir:
+                self._checkDir('chroot cache dir (subdirectory of buildDir)',
+                               chrootCacheDir, rmakeUser, 0700)
 
 class rMakeConfiguration(rMakeBuilderConfiguration):
     logDir            = (CfgPath, '/var/log/rmake')
