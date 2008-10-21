@@ -247,16 +247,18 @@ def loadSourceTroves(job, repos, buildFlavor, troveList,
                      groupRecipeSource=None, internalHostName=None, 
                      total=0, count=0):
     """
-       Load the source troves associated set of (name, version, flavor) tuples
-       and return a list of source trove tuples with relevant information about
-       their packages and build requirements.
+    Load the source troves associated with a set of build troves
+    C{troveList}. Returns a mapping of C{(name, version, flavor,
+    context)} to L{LoadTroveResult<rmake.build.buildtrove.LoadTroveResult>}
+    indicating information loaded from the source such as packages
+    and build requirements.
     """
     if not total:
         total = len(troveList)
     job.log('Downloading %s recipes...' % len(troveList))
     troveList = list(sorted(troveList, key=lambda x: x.getName()))
     troves = getRecipes(repos, [x.getNameVersionFlavor() for x in troveList])
-    buildTroves = []
+    resultSet = {}
 
     for idx, (buildTrove, trove) in enumerate(itertools.izip(troveList, troves)):
         n,v,f = buildTrove.getNameVersionFlavor()
@@ -276,24 +278,24 @@ def loadSourceTroves(job, repos, buildFlavor, troveList,
                                  buildLabel=buildLabel,
                                  groupRecipeSource=groupRecipeSource,
                                  cfg=job.getTroveConfig(buildTrove))
-            recipeType = buildtrove.getRecipeType(recipeObj)
-            buildTrove.setFlavor(relevantFlavor)
-            buildTrove.setRecipeType(recipeType)
-            buildTrove.setLoadedSpecs(_getLoadedSpecs(loader, recipeObj))
+            result = buildtrove.LoadTroveResult()
+            result.flavor = relevantFlavor
+            result.recipeType = buildtrove.getRecipeType(recipeObj)
+            result.loadedSpecsList = [ _getLoadedSpecs(loader, recipeObj) ]
             if hasattr(loader, 'getLoadedTroves'):
-                buildTrove.setLoadedTroves(loader.getLoadedTroves())
+                result.loadedTroves = loader.getLoadedTroves()
             else:
-                buildTrove.setLoadedTroves(recipeObj.getLoadedTroves())
-            buildTrove.setDerivedPackages(getattr(recipeObj, 'packages',
-                                                  [recipeObj.name]))
+                result.loadedTroves = recipeObj.getLoadedTroves()
+            result.packages = set(getattr(recipeObj,
+                'packages', [recipeObj.name]))
             if 'delayedRequires' in recipeObj.__dict__:
-                buildTrove.setDelayedRequirements(recipeObj.delayedRequires)
-            buildTrove.setBuildRequirements(getattr(recipeObj, 'buildRequires', []))
-            buildTrove.setCrossRequirements(getattr(recipeObj, 'crossRequires', []))
+                result.delayedRequirements = recipeObj.delayedRequires
+            result.buildRequirements = set(
+                getattr(recipeObj, 'buildRequires', []))
+            result.crossRequirements = set(
+                getattr(recipeObj, 'crossRequires', []))
+            resultSet[buildTrove.getNameVersionFlavor(True)] = result
         except Exception, err:
-            if relevantFlavor is None:
-                relevantFlavor = f
-            buildTrove.setFlavor(relevantFlavor)
             if isinstance(err, errors.RmakeError):
                 # we assume our internal errors have enough info
                 # to determine what the bug is.
@@ -301,72 +303,82 @@ def loadSourceTroves(job, repos, buildFlavor, troveList,
             else:
                 fail = failure.LoadFailed(str(err), traceback.format_exc())
             buildTrove.troveFailed(fail)
-        buildTroves.append(buildTrove)
-    return buildTroves
+    return resultSet
 
-def getSourceTrovesFromJob(job, serverCfg, repos):
-    # called by builder.
-    if not isinstance(repos, repocache.CachingTroveSource):
-        util.mkdirChain(serverCfg.getCacheDir())
-        cacheDir = tempfile.mkdtemp(dir=serverCfg.getCacheDir(), prefix='tmpcache')
-        repos = repocache.CachingTroveSource(repos, cacheDir)
-    else:
+def getSourceTrovesFromJob(job, troveList=None, repos=None, reposName=None):
+    if repos:
         cacheDir = None
+    else:
+        cacheDir = tempfile.mkdtemp(prefix='rmake-trovecache-')
+        try:
+            client = conaryclient.ConaryClient(job.getMainConfig())
+            repos = repocache.CachingTroveSource(client.getRepos(), cacheDir)
+        except:
+            util.rmtree(cacheDir)
+            raise
+
     try:
-        allTroves = []
-        troveList = sorted(x[0:3] for x in job.iterLoadableTroveList())
+        if troveList is None:
+            troveList = list(job.iterLoadableTroves())
+        if not troveList:
+            return {}
+        if reposName is None:
+            reposName = job.getMainConfig().reposName
+
+        resultSet = {}
+        tupList = sorted(x.getNameVersionFlavor() for x in troveList)
 
         # create fake "packages" for all the troves we're building so that
         # they can be found for loadInstalled.
-        buildTrovePackages = [ (x[0].split(':')[0], x[1], x[2]) for x in troveList ]
-        buildTroveSource = trovesource.SimpleTroveSource(buildTrovePackages)
-        buildTroveSource = RemoveHostSource(buildTroveSource,
-                                            serverCfg.reposName)
+        buildTrovePackages = [ (x[0].split(':')[0], x[1], x[2])
+            for x in tupList ]
+        buildTroveSource = RemoveHostSource(trovesource.SimpleTroveSource(
+            buildTrovePackages), reposName)
+
         # don't search the internal repository explicitly for loadRecipe
         # sources - they may be a part of some bogus build.
-        repos = RemoveHostRepos(repos, serverCfg.reposName)
+        repos = RemoveHostRepos(repos, reposName)
 
-        groupRecipeSource = trovesource.SimpleTroveSource(troveList)
-        groupRecipeSource = RemoveHostSource(groupRecipeSource,
-                                             serverCfg.reposName)
+        groupRecipeSource = RemoveHostSource(trovesource.SimpleTroveSource(
+            tupList), reposName)
 
         trovesByConfig = {}
-        for trove in job.iterLoadableTroves():
+        for trove in troveList:
             trovesByConfig.setdefault(trove.getContext(), []).append(trove)
 
-        total = len(list(job.iterLoadableTroves()))
+        total = len(troveList)
         count = 0
-        for context, troveList in trovesByConfig.items():
-            buildCfg = troveList[0].cfg
+        for context, contextTroves in trovesByConfig.items():
+            buildCfg = contextTroves[0].cfg
 
-            buildFlavor = buildCfg.buildFlavor
-
-            resolveTroveTups = buildCfg.resolveTroveTups
             loadInstalledList = [ trovesource.TroveListTroveSource(repos, x)
-                                    for x in resolveTroveTups ]
+                for x in buildCfg.resolveTroveTups ]
             loadInstalledList.append(repos)
             loadInstalledSource = trovesource.stack(buildTroveSource,
                                                     *loadInstalledList)
 
             loadInstalledRepos = trovesource.stack(*loadInstalledList)
-            if isinstance(repos, trovesource.TroveSourceStack):
+            if isinstance(loadInstalledRepos, trovesource.TroveSourceStack):
                 for source in loadInstalledRepos.iterSources():
                     source._getLeavesOnly = True
                     source.searchWithFlavor()
                     # keep allowNoLabel set.
+            else:
+                loadInstalledRepos._getLeavesOnly = True
+                loadInstalledRepos.searchWithFlavor()
             cachedRepos = CachingSource(loadInstalledRepos)
 
-            allTroves.extend(loadSourceTroves(job, cachedRepos, buildFlavor, 
-                             troveList, total=total, count=count,
-                             loadInstalledSource=loadInstalledSource,
-                             installLabelPath=buildCfg.installLabelPath,
-                             groupRecipeSource=groupRecipeSource,
-                             internalHostName=serverCfg.reposName))
-            count = len(allTroves)
+            resultSet.update(loadSourceTroves(job, cachedRepos,
+                buildCfg.buildFlavor, contextTroves, total=total, count=count,
+                loadInstalledSource=loadInstalledSource,
+                installLabelPath=buildCfg.installLabelPath,
+                groupRecipeSource=groupRecipeSource,
+                internalHostName=reposName))
+            count = len(resultSet)
     finally:
         if cacheDir:
             util.rmtree(cacheDir)
-    return allTroves + job.getSpecialTroves()
+    return resultSet
 
 class RemoveHostRepos(object):
     def __init__(self, troveSource, host):

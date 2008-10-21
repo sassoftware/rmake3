@@ -6,7 +6,6 @@ import os
 import shutil
 import socket
 import sys
-import tempfile
 import time
 import traceback
 
@@ -24,6 +23,7 @@ from rmake.worker import resolver
 from rmake.lib import logfile
 from rmake.lib import logger
 from rmake.lib import repocache
+from rmake.lib import recipeutil
 from rmake.lib import server
 
 from rmake.lib.apiutils import thaw, freeze
@@ -51,6 +51,7 @@ class Command(server.Server):
         self._errorMessage = ''
         self._output = [] # default location for information read in 
                           # from the readPipe.
+        self.failureReason = None
         self.readPipe = None
         self.writePipe = None
 
@@ -216,14 +217,21 @@ class Command(server.Server):
     def commandErrored(self, msg, tb=''):
         self.setError(msg, tb)
 
-class TroveCommand(Command):
 
-    def __init__(self, serverCfg, commandId, jobId, eventHandler, trove):
-        Command.__init__(self, serverCfg, commandId, jobId)
+class AttachedCommand(Command):
+
+    def __init__(self, serverCfg, commandId, jobId, eventHandler,
+      job=None, trove=None):
+        assert job or trove
+        super(AttachedCommand, self).__init__(serverCfg, commandId, jobId)
         self.eventHandler = eventHandler
+        self.job = job
         self.trove = trove
-        self.readPipe = None
-        self.failureReason = None
+        if trove:
+            self.parent = trove
+        else:
+            self.parent = job
+        self.publisher = None
 
     def _handleData(self, (jobId, eventList)):
         self.eventHandler._receiveEvents(*thaw('EventList', eventList))
@@ -231,22 +239,28 @@ class TroveCommand(Command):
     def getTrove(self):
         return self.trove
 
+    def setFailure(self, failure):
+        if self.trove:
+            self.trove.troveFailed(failure)
+        else:
+            self.job.jobFailed(failure)
+
     def runCommand(self):
         try:
-            trove = self.trove
-            trove.getPublisher().reset()
-            PipePublisher(self.writePipe).attach(trove)
-            self.runTroveCommand()
+            self.parent.getPublisher().reset()
+            self.publisher = PipePublisher(self.writePipe)
+            self.publisher.attach(self.parent)
+            self.runAttachedCommand()
         except SystemExit, err:
             self.writePipe.flush()
             raise
         except Exception, err:
             self.logger.error(traceback.format_exc())
-            self.writePipe.flush()
             # even if there's an exception in here, we don't really
             # want to retry the build.
             reason = failure.InternalError(str(err), traceback.format_exc())
-            trove.troveFailed(reason)
+            self.setFailure(reason)
+            self.writePipe.flush()
             self._shutDownAndExit()
 
     def handleRequestIfReady(self, sleep):
@@ -255,24 +269,25 @@ class TroveCommand(Command):
     def _serveLoopHook(self):
         try:
             self.writePipe.handleWriteIfReady()
-            self._troveServeLoopHook()
+            self._attachedServeLoopHook()
         except SystemExit, err:
             raise
         except Exception, err:
             self.logger.error(traceback.format_exc())
             reason = failure.InternalError(str(err), traceback.format_exc())
-            self.getTrove().troveFailed(reason)
+            self.setFailure(reason)
             self._shutDownAndExit()
 
-class BuildCommand(TroveCommand):
+
+class BuildCommand(AttachedCommand):
 
     name = 'build-command'
 
     def __init__(self, serverCfg, commandId, jobId, eventHandler, buildCfg,
                  chrootFactory, trove, builtTroves, targetLabel, logData=None,
                  logPath=None, uri=None):
-        TroveCommand.__init__(self, serverCfg, commandId, jobId, eventHandler,
-                              trove)
+        super(BuildCommand, self).__init__(serverCfg, commandId, jobId,
+            eventHandler, trove=trove)
         self.buildCfg = buildCfg
         self.chrootFactory = chrootFactory
         self.builtTroves = builtTroves
@@ -287,7 +302,7 @@ class BuildCommand(TroveCommand):
     def getChrootFactory(self):
         return self.chrootFactory
 
-    def runTroveCommand(self):
+    def runAttachedCommand(self):
         try:
             trove = self.trove
             trove.creatingChroot(self.cfg.getName(),
@@ -337,7 +352,7 @@ class BuildCommand(TroveCommand):
         trove.troveBuilding(pid)
         self.serve_forever()
 
-    def _troveServeLoopHook(self):
+    def _attachedServeLoopHook(self):
         if self.chroot.checkSubscription():
             self.getResults()
             self._halt = True
@@ -463,18 +478,18 @@ class SessionCommand(Command):
     def getHostInfo(self):
         return self.hostInfo
 
-class ResolveCommand(TroveCommand):
+class ResolveCommand(AttachedCommand):
 
     name = 'resolve-command'
 
     def __init__(self, cfg, commandId, jobId,  eventHandler, logData,
                  resolveJob):
-        TroveCommand.__init__(self, cfg, commandId, jobId, eventHandler,
-                              resolveJob.getTrove())
+        super(ResolveCommand, self).__init__(cfg, commandId, jobId,
+            eventHandler, trove=resolveJob.getTrove())
         self.logData = logData
         self.resolveJob = resolveJob
 
-    def runTroveCommand(self):
+    def runAttachedCommand(self):
         self.logger.debug('Resolving')
         self.trove.troveResolvingBuildReqs(self.cfg.getName(), os.getpid())
         client = conaryclient.ConaryClient(self.resolveJob.getConfig())
@@ -487,6 +502,36 @@ class ResolveCommand(TroveCommand):
         self.logger.debug('Resolve finished, sending back result')
         self.trove.troveResolved(resolveResult)
         self.logger.debug('Result sent')
+
+
+class LoadCommand(AttachedCommand):
+    """
+    Load all troves for a job.
+    """
+    name = 'load-command'
+
+    def __init__(self, cfg, commandId, jobId, eventHandler, job, troveList,
+      reposName):
+        super(LoadCommand, self).__init__(cfg, commandId, jobId,
+            eventHandler, job=job)
+        self.troveList = troveList
+        self.reposName = reposName
+
+    def runAttachedCommand(self):
+        repos = conaryclient.ConaryClient(self.job.getMainConfig()).getRepos()
+        if self.cfg.useCache:
+            repos = repocache.CachingTroveSource(repos, self.cfg.getCacheDir())
+
+        troves = []
+        for troveTup in self.troveList:
+            trove = self.job.getTrove(*troveTup)
+            self.publisher.attach(trove)
+            troves.append(trove)
+
+        result = recipeutil.getSourceTrovesFromJob(self.job, troves,
+            repos, self.reposName)
+        self.job.jobLoaded(result)
+
 
 class PipePublisher(subscriber._RmakePublisherProxy):
     """

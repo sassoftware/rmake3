@@ -27,6 +27,8 @@ jobStates = {
     'JOB_STATE_BUILT'       : 5,
     'JOB_STATE_COMMITTING'  : 6,
     'JOB_STATE_COMMITTED'   : 7,
+    'JOB_STATE_LOADING'     : 8,
+    'JOB_STATE_LOADED'      : 9,
     }
 
 
@@ -45,7 +47,7 @@ stateNames.update({
 })
 
 ACTIVE_STATES = [ JOB_STATE_BUILD, JOB_STATE_QUEUED, JOB_STATE_STARTED,
-                  JOB_STATE_BUILD ]
+                  JOB_STATE_BUILD, JOB_STATE_LOADING, JOB_STATE_LOADED ]
 
 def _getStateName(state):
     return stateNames[state]
@@ -198,13 +200,20 @@ class _AbstractBuildJob(trovesource.SearchableTroveSource):
                               JOB_STATE_COMMITTED)
 
     def isRunning(self):
-        return self.state in (JOB_STATE_STARTED, JOB_STATE_BUILD)
+        return self.state in (JOB_STATE_LOADING, JOB_STATE_LOADED,
+            JOB_STATE_STARTED, JOB_STATE_BUILD)
 
     def isCommitted(self):
         return self.state == JOB_STATE_COMMITTED
 
     def isCommitting(self):
         return self.state == JOB_STATE_COMMITTING
+
+    def isLoading(self):
+        return self.state == JOB_STATE_LOADING
+
+    def isLoaded(self):
+        return self.state == JOB_STATE_LOADED
 
     def trovesInProgress(self):
         for trove in self.iterTroves():
@@ -372,6 +381,22 @@ class BuildJob(_FreezableBuildJob):
     def __init__(self, *args, **kwargs):
         self._publisher = publisher.JobStatusPublisher()
         _FreezableBuildJob.__init__(self, *args, **kwargs)
+        self._amOwner = False
+
+    def amOwner(self):
+        """
+            Returns True if this process owns this job, otherwise
+            returns False.  Processes that don't own jobs are not allowed
+            to update other processes about the job's status (this avoids
+            message loops).
+        """
+        return self._amOwner
+
+    def own(self):
+        self._amOwner = True
+
+    def disown(self):
+        self._amOwner = False
 
     def getPublisher(self):
         return self._publisher
@@ -410,6 +435,17 @@ class BuildJob(_FreezableBuildJob):
         self.finish = time.time()
         self._setState(JOB_STATE_BUILT, message)
 
+    def jobLoading(self, message):
+        self._setState(JOB_STATE_LOADING, message)
+
+    def jobLoaded(self, loadResults):
+        for trove in self.iterLoadableTroves():
+            troveTup = trove.getNameVersionFlavor(True)
+            if troveTup in loadResults:
+                trove.troveLoaded(loadResults[troveTup])
+
+        self._setState(JOB_STATE_LOADED, '', loadResults)
+
     def jobFailed(self, failureReason=''):
         self.finish = time.time()
         if isinstance(failureReason, str):
@@ -417,7 +453,7 @@ class BuildJob(_FreezableBuildJob):
         self.failureReason = failureReason
         self.getPublisher().cork()
 
-        self._setState(JOB_STATE_FAILED, str(failureReason))
+        self._setState(JOB_STATE_FAILED, str(failureReason), failureReason)
         for trove in self.iterTroves():
             if trove.isStarted():
                 trove.troveFailed(failureReason)
@@ -446,10 +482,10 @@ class BuildJob(_FreezableBuildJob):
     def exceptionOccurred(self, err, tb):
         self.jobFailed(failure.InternalError(str(err), tb))
 
-    def _setState(self, state, status, *args):
+    def _setState(self, state, status='', *args):
         self.state = state
         self.status = status
-        self._publisher.jobStateUpdated(self, state, status, args)
+        self._publisher.jobStateUpdated(self, state, status, *args)
 
 apiutils.register(apiutils.api_freezable(BuildJob))
 

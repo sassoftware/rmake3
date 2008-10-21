@@ -96,6 +96,9 @@ class Logger(object):
     def debug(self, message, *args, **kw):
         self.logger.debug('debug: ' + str(message), *args, **kw)
 
+    def exception(self, message, *args, **kw):
+        self.logger.exception('fatal error: ' + str(message), *args, **kw)
+
     def enableConsole(self, level=logging.INFO):
         self.logger.addHandler(self.console)
         self.console.setLevel(level)

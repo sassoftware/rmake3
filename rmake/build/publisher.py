@@ -20,6 +20,7 @@ from rmake.lib.apiutils import thaw, freeze
 
 class JobStatusPublisher(publisher.Publisher):
     states = set(['TROVE_LOG_UPDATED',
+                  'TROVE_LOADED',
                   'TROVE_STATE_UPDATED',
                   'TROVE_PREPARING_CHROOT',
                   'TROVE_BUILDING',
@@ -33,13 +34,20 @@ class JobStatusPublisher(publisher.Publisher):
                   'JOB_LOG_UPDATED',
                   'JOB_STATE_UPDATED',
                   'JOB_TROVES_SET',
-                  'JOB_COMMITTED'])
+                  'JOB_COMMITTED',
+                  'JOB_LOADED',
+                  'JOB_FAILED',
+        ])
 
     # these methods are called by the job and trove objects.
     # The publisher then publishes the right signal(s).
 
     def jobStateUpdated(self, job, state, status, *args):
         self._emit(self.JOB_STATE_UPDATED, state, job, state, status)
+        if job.isFailed():
+            self._emit(self.JOB_FAILED, '', job, *args)
+        elif job.isLoaded():
+            self._emit(self.JOB_LOADED, '', job, *args)
 
     def jobLogUpdated(self, job, message):
         self._emit(self.JOB_LOG_UPDATED, '', job, job.state, message)

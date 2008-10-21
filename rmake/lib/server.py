@@ -270,3 +270,5 @@ class Server(object):
     def debug(self, *args, **kw):
         self._logger.debug(*args, **kw)
 
+    def exception(self, *args, **kw):
+        self._logger.exception(*args, **kw)

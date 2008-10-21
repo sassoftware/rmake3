@@ -28,14 +28,17 @@ class Publisher(object):
             return
         toEmit = self._toEmit
         self._toEmit = {}
-        for fn, (isDispatcher, eventList) in toEmit.iteritems():
-            if not isDispatcher:
-                for event, data in eventList:
-                    fn(*data)
-            else:
-                fn(constants.subscriberApiVersion, eventList)
-
-        self._corked = False
+        try:
+            for fn, (isDispatcher, eventList) in toEmit.iteritems():
+                if not isDispatcher:
+                    for event, data in eventList:
+                        fn(*data)
+                else:
+                    fn(constants.subscriberApiVersion, eventList)
+        finally:
+            # Make sure we're uncorked in case we have to send a
+            # failure message.
+            self._corked = 0
 
     def _emit(self, event, subevent, *args):
         data = ((event, subevent), args)
@@ -54,10 +57,17 @@ class Publisher(object):
 
         else:
             self.cork()
-            for fn in self.dispatchers.get(event, []):
-                fn(constants.subscriberApiVersion, [data])
-            for fn in self.listeners.get(event, []):
-                fn(*args)
+            try:
+                for fn in self.dispatchers.get(event, []):
+                    fn(constants.subscriberApiVersion, [data])
+                for fn in self.listeners.get(event, []):
+                    fn(*args)
+            except:
+                # Clear the backlog so that failure messages
+                # can get through.
+                self._toEmit = {}
+                self._corked = 0
+                raise
             self.uncork()
 
     def subscribe(self, stateList, fn, dispatcher=False):

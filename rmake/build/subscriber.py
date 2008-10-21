@@ -97,6 +97,7 @@ class _JobDbLogger(_InternalSubscriber):
     def jobCommitted(self, job, troveTupleMap):
         self.db.jobCommitted(job, troveTupleMap)
 
+
 class _RmakePublisherProxy(_InternalSubscriber):
     """
         Class that transmits events from internal build process -> 
@@ -110,10 +111,13 @@ class _RmakePublisherProxy(_InternalSubscriber):
         'JOB_LOG_UPDATED',
         'JOB_TROVES_SET',
         'JOB_COMMITTED',
+        'JOB_LOADED',
+        'JOB_FAILED',
         'TROVE_PREPARING_CHROOT',
         'TROVE_BUILDING',
         'TROVE_BUILT',
         'TROVE_FAILED',
+        'TROVE_LOADED',
         'TROVE_RESOLVING',
         'TROVE_DUPLICATE',
         'TROVE_RESOLVED',
@@ -202,6 +206,27 @@ class _EventListFreezer(object):
     @classmethod
     def thaw_JOB_COMMITTED(class_, apiVer, data):
         return [ data[0], thaw('troveContextTupleList', data[1]) ]
+
+    @classmethod
+    def thaw_JOB_LOADED(class_, apiVer, data):
+        return [ data[0], dict((thaw('troveContextTuple', trove),
+            thaw('LoadTroveResult', result))
+            for (trove, result) in data[1]) ]
+
+    @classmethod
+    def freeze_JOB_LOADED(class_, apiVer, data):
+        return [ data[0], [ (freeze('troveContextTuple', trove),
+            freeze('LoadTroveResult', result))
+            for (trove, result) in data[1].iteritems() ] ]
+
+    @classmethod
+    def freeze_JOB_FAILED(class_, apiVer, data):
+        return [ data[0], freeze('FailureReason', data[1]) ]
+
+    @classmethod
+    def thaw_JOB_FAILED(class_, apiVer, data):
+        return [ data[0], thaw('FailureReason', data[1]) ]
+
 
     @classmethod
     def freeze_TROVE_BUILT(class_, apiVer, data):

@@ -26,6 +26,7 @@ class Worker(server.Server):
     # Plugins may override the command class used to perform a particular
     # command by modifying this dict.
     commandClasses = { 'build'    : command.BuildCommand,
+                       'load'     : command.LoadCommand,
                        'resolve'  : command.ResolveCommand,
                        'stop'     : command.StopCommand,
                        'session'  : command.SessionCommand,
@@ -80,6 +81,13 @@ class Worker(server.Server):
                           self.cfg, commandId,
                           jobId, eventHandler, buildCfg,
                           trove, logData, logPath)
+
+    def loadTroves(self, job, troveList, eventHandler, reposName,
+      commandId=None):
+        if commandId is None:
+            commandId = self.idgen.getLoadCommandId(job)
+        self.queueCommand(self.commandClasses['load'], self.cfg,
+            commandId, job.jobId, eventHandler, job, troveList, reposName)
 
     def resolve(self, resolveJob, eventHandler, logData, commandId=None):
         if not commandId:
@@ -186,8 +194,6 @@ class Worker(server.Server):
         # back to the worker via pipes that are read here, and then
         # parsed by the worker-held instance of the command.
         ready = []
-        if not self.commands:
-            return
         try:
             ready = select.select(self.commands, [], [], sleep)[0]
         except select.error, err:
@@ -316,6 +322,10 @@ class CommandIdGen(object):
 
     def getBuildCommandId(self, buildTrove):
         str = 'BUILD-%s-%s' % (buildTrove.jobId, buildTrove.getName())
+        return self._getCommandId(str)
+
+    def getLoadCommandId(self, job):
+        str = 'LOAD-%s' % job.jobId
         return self._getCommandId(str)
 
     def getResolveCommandId(self, buildTrove):

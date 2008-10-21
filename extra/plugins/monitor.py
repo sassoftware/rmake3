@@ -318,8 +318,12 @@ class DisplayState(xmlrpc.BasicXMLRPCStatusSubscriber):
             self.updateTrovesForJob(jobId)
 
     def jobActive(self):
-        return self.jobState in (buildjob.JOB_STATE_BUILD,
-                                 buildjob.JOB_STATE_STARTED)
+        return self.jobState in (
+            buildjob.JOB_STATE_STARTED,
+            buildjob.JOB_STATE_LOADING,
+            buildjob.JOB_STATE_LOADED,
+            buildjob.JOB_STATE_BUILD,
+          )
 
     def getJobStateName(self):
         if self.jobState is None:

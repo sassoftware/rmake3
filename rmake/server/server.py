@@ -66,7 +66,8 @@ class rMakeServer(apirpc.XMLApiServer):
         self.db.queueJob(job)
         queuedIds = self.db.listJobIdsOnQueue()
         if len(queuedIds) > 1:
-            message = 'Job Queued - Builds ahead of you: %s' % len(queuedIds)
+            message = 'Job Queued - Builds ahead of you: %d' % (
+                len(queuedIds) - 1)
         else:
             message = 'Job Queued - You are next in line for processing'
         job.jobQueued(message)
@@ -80,6 +81,7 @@ class rMakeServer(apirpc.XMLApiServer):
         job = self.db.getJob(jobId, withTroves=True)
         self._stopJob(job)
         self._subscribeToJob(job)
+        job.own()
         job.jobStopped('User requested stop')
 
     @api(version=1)
@@ -271,6 +273,7 @@ class rMakeServer(apirpc.XMLApiServer):
         jobs = self.db.getJobs(jobIds)
         for job in jobs:
             self._subscribeToJob(job)
+            job.own()
             job.jobCommitting()
 
     @api(version=1)
@@ -280,6 +283,7 @@ class rMakeServer(apirpc.XMLApiServer):
         jobs = self.db.getJobs(jobIds)
         for job in jobs:
             self._subscribeToJob(job)
+            job.own()
             job.jobCommitFailed(message)
 
     @api(version=1)
@@ -295,6 +299,7 @@ class rMakeServer(apirpc.XMLApiServer):
         jobs = self.db.getJobs(jobIds, withTroves=True)
         for (jobId, troveMap), job in itertools.izip(finalMap, jobs):
             self._subscribeToJob(job)
+            job.own()
             job.jobCommitted(troveMap)
 
     @api(version=1)
@@ -354,10 +359,10 @@ class rMakeServer(apirpc.XMLApiServer):
                 self._subscribeToJobInternal(queuedJob)
                 if not idx:
                     queuedJob.jobQueued(
-                            'Job Queued - You are next in line for building')
+                        'Job Queued - You are next in line for processing')
                 else:
                     queuedJob.jobQueued(
-                      'Job Queued - Builds ahead of you: %s' % (idx + 1))
+                        'Job Queued - Builds ahead of you: %d' % idx)
 
             try:
                 self._startBuild(job)
@@ -379,6 +384,7 @@ class rMakeServer(apirpc.XMLApiServer):
                 break
             if job.isFailed():
                 continue
+            job.own()
             return job
 
     def _canBuild(self):
@@ -471,7 +477,8 @@ class rMakeServer(apirpc.XMLApiServer):
                 publisher = job.getPublisher()
                 job.jobFailed(reason)
             os._exit(0)
-        finally:
+        except:
+            self.exception('Error stopping current jobs')
             os._exit(1)
 
     def _failJob(self, jobId, reason):
@@ -488,9 +495,11 @@ class rMakeServer(apirpc.XMLApiServer):
             job = self.db.getJob(jobId)
             self._subscribeToJob(job)
             publisher = job.getPublisher()
+            job.own()
             job.jobFailed(reason)
             os._exit(0)
-        finally:
+        except:
+            self.exception('Error stopping job %s' % jobId)
             os._exit(1)
 
     def _pidDied(self, pid, status, name=None):

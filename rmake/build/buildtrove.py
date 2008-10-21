@@ -138,17 +138,21 @@ class _AbstractBuildTrove(object):
         self.chrootHost = chrootHost
         self.chrootPath = chrootPath
         self.recipeType = recipeType
+
         self.preBuiltRequirements = None
         self.preBuiltBinaries = preBuiltBinaries
         self.preBuiltTime = 0
         self.preBuildFast = 0
         self.preBuiltLog = ''
+
         self.isPrimary = False
         self.context = context
         self.cfg = None
         self.settings = self.settingsClass()
         if flavorList is None:
             self.flavorList = [flavor]
+        else:
+            self.flavorList = flavorList
 
     def __repr__(self):
         if self.getContext():
@@ -516,6 +520,16 @@ class BuildTrove(_FreezableBuildTrove):
         if self._publisher:
             self._publisher.troveLogUpdated(self, message)
 
+    def troveLoaded(self, results):
+        self.setFlavor(results.flavor)
+        self.setRecipeType(results.recipeType)
+        self.setLoadedSpecsList(results.loadedSpecsList)
+        self.setLoadedTroves(results.loadedTroves)
+        self.setDerivedPackages(results.packages)
+        self.setDelayedRequirements(results.delayedRequirements)
+        self.setBuildRequirements(results.buildRequirements)
+        self.setCrossRequirements(results.crossRequirements)
+
     def troveBuildable(self):
         """
             Set trove as buildable.
@@ -775,3 +789,45 @@ class LoadSpecsList(object):
     def __thaw__(frzLoadSpecsList):
         return [ apiutils.thaw('LoadSpecs', x) for x in frzLoadSpecsList ]
 apiutils.register(LoadSpecsList)
+
+
+class LoadTroveResult(object):
+    """
+    Container used to pass data from the recipe loader back to
+    the build trove.
+    """
+
+    attrTypes = {
+        'flavor'                : 'flavor',
+        'recipeType'            : 'int',
+        'loadedSpecsList'       : 'LoadSpecsList',
+        'loadedTroves'          : 'troveTupleList',
+        'packages'              : 'set',
+        'delayedRequirements'   : 'troveTupleList',
+        'buildRequirements'     : 'set',
+        'crossRequirements'     : 'set',
+      }
+
+    def __init__(self):
+        self.flavor = deps.Flavor()
+        self.recipeType = None
+        self.loadedSpecsList = []
+        self.loadedTroves = []
+        self.packages = set()
+        self.delayedRequirements = set()
+        self.buildRequirements = set()
+        self.crossRequirements = set()
+
+    def __freeze__(self):
+        blob = {}
+        for attr, attrType in self.attrTypes.items():
+            blob[attr] = freeze(attrType, getattr(self, attr))
+        return blob
+
+    @classmethod
+    def __thaw__(cls, blob):
+        new = cls()
+        for attr, value in blob.items():
+            setattr(new, attr, thaw(cls.attrTypes[attr], value))
+        return new
+apiutils.register(LoadTroveResult)

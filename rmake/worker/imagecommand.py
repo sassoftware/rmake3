@@ -9,14 +9,14 @@ from rmake import errors
 from rmake.worker import command
 from rmake.worker import rbuilderclient
 
-class ImageCommand(command.TroveCommand):
+class ImageCommand(command.AttachedCommand):
 
     name = 'image-command'
 
     def __init__(self, serverCfg, commandId, jobId, eventHandler, imageCfg,
                  trove,  logData=None, logPath=None):
-        command.TroveCommand.__init__(self, serverCfg, commandId,
-                                      jobId, eventHandler, trove)
+        super(ImageCommand, self).__init__(serverCfg, commandId, jobId,
+            eventHandler, trove=trove)
         self.imageCfg = imageCfg
         self.logData = logData
         self.logPath = logPath
@@ -24,7 +24,7 @@ class ImageCommand(command.TroveCommand):
                                                     self.imageCfg.rmakeUser[0],
                                                     self.imageCfg.rmakeUser[1])
 
-    def runTroveCommand(self):
+    def runAttachedCommand(self):
         trove = self.trove
         try:
             buildId = self.client.newBuildWithOptions(trove.getProductName(),

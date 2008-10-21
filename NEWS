@@ -17,6 +17,10 @@ Changes in @NEW@:
        which can later be extended with additional information if
        necessary. (RMK-907)
 
+  o Build Changes:
+     * Recipes are now loaded in the worker as a command instead of
+       in-line in the builder.  (RMK-923)
+
   o Client Changes:
      * The defaultBuildReqs setting has been cleared except for the rmake and
        rmake-chroot user troves to enable building against non-rPath Linux

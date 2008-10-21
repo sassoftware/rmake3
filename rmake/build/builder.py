@@ -70,6 +70,7 @@ class Builder(object):
         self.job = job
         self.jobId = job.jobId
         self.db = db
+        self.dh = None
         self.worker = worker.Worker(serverCfg, self.logger, serverCfg.slots)
         self.eventHandler = EventHandler(job, self.worker)
         if jobContext:
@@ -162,15 +163,28 @@ class Builder(object):
             buildCfg.reposName = self.serverCfg.reposName
 
         self.initialized = True
-        self.job.log('Build started - loading troves')
         for troveTup in self.job.getMainConfig().primaryTroves:
             self.job.getTrove(*troveTup).setPrimaryTrove()
-        buildTroves = recipeutil.getSourceTrovesFromJob(self.job,
-                                                        self.serverCfg,
-                                                        self.repos)
+
+        loadTroves = list(self.job.iterLoadableTroveList())
+        if loadTroves:
+            self.job.jobLoading("Loading %d troves" % len(loadTroves))
+            self.job.disown()
+            self.worker.loadTroves(self.job, loadTroves, self.eventHandler,
+                self.serverCfg.reposName)
+
+            while self.job.isLoading() and self.worker.hasActiveTroves():
+                self.worker.handleRequestIfReady()
+                self.worker._checkForResults()
+
+            if self.job.isFailed():
+                return False
+            elif not self.job.isLoaded():
+                self.job.jobFailed('Worker went away')
+
         troveDict = {}
         finalBuildTroves = []
-        for buildTrove in sorted(buildTroves):
+        for buildTrove in sorted(self.job.iterTroves()):
             if buildTrove.isSpecial():
                 finalBuildTroves.append(buildTrove)
                 continue
@@ -208,6 +222,7 @@ class Builder(object):
             if not self.initializeBuild():
                 return False
 
+        self.job.jobBuilding('Building troves')
         if self.dh.moreToDo():
             while self.dh.moreToDo():
                 self.worker.handleRequestIfReady()
@@ -229,7 +244,7 @@ class Builder(object):
                 msg.append('   * %s: %s\n' % (trove.getName(), err))
             self.job.jobFailed(''.join(msg))
         else:
-            msg = ['Did not find any buildable troves:']
+            msg = ['Did not find any buildable troves:\n']
             for trove in sorted(self.job.iterPrimaryFailureTroves()):
                 err = trove.getFailureReason().getShortError()
                 msg.append('   * %s: %s\n' % (trove.getName(), err))
@@ -476,7 +491,11 @@ class EventHandler(subscriber.StatusSubscriber):
                   'TROVE_LOG_UPDATED'      : 'troveLogUpdated',
                   'TROVE_BUILDING'         : 'troveBuilding',
                   'TROVE_DUPLICATE'        : 'troveDuplicate',
-                  'TROVE_STATE_UPDATED'    : 'troveStateUpdated' }
+                  'TROVE_STATE_UPDATED'    : 'troveStateUpdated',
+                  'JOB_LOADED'             : 'jobLoaded',
+                  'JOB_FAILED'             : 'jobFailed',
+                  'JOB_LOG_UPDATED'        : 'jobLogUpdated',
+      }
 
     def __init__(self, job, server):
         self.server = server
@@ -548,3 +567,14 @@ class EventHandler(subscriber.StatusSubscriber):
                          buildtrove.TROVE_STATE_BUILDING):
             t = self.job.getTrove(*troveTuple)
             t._setState(state, status)
+
+    def jobLoaded(self, jobId, loadResults):
+        self.job.jobLoaded(loadResults)
+        self.job.own()
+
+    def jobFailed(self, jobId, failureReason):
+        self.job.jobFailed(failureReason)
+        self.job.own()
+
+    def jobLogUpdated(self, jobId, state, status):
+        self.job.log(status)
