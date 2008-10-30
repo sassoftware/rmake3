@@ -9,6 +9,8 @@ Changes in @NEW@:
        current working directory. (RMK-906)
      * rMake will now correctly build multiple images in rBuilder
        that share a common name, version, flavor. (RMK-907)
+     * rMake will now correctly use the build name instead of
+       the product name when building images in rBuilder. (RMK-927)
 
   o API Changes:
      * The imageList argument to rmakeClient.createImageJob() have been

@@ -23,12 +23,15 @@ class RbuilderClient(object):
         return result
 
     def newBuildWithOptions(self, productName, groupName, groupVersion,
-                            groupFlavor, buildType, options):
+                            groupFlavor, buildType, buildName, options):
         error, productId = self.server.getProjectIdByHostname(productName)
         if error:
             raise RuntimeError(*productId)
 
-        error, buildId = self.server.newBuildWithOptions(productId, productName,
+        if not buildName:
+            buildName = productName
+
+        error, buildId = self.server.newBuildWithOptions(productId, buildName,
                                             groupName,groupVersion.freeze(),
                                             groupFlavor.freeze(),
                                             buildType, options)

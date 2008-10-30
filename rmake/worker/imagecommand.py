@@ -32,6 +32,7 @@ class ImageCommand(command.AttachedCommand):
                                                       trove.getVersion(),
                                                       trove.getFlavor(),
                                                       trove.getImageType(),
+                                                      trove.getBuildName(),
                                                       trove.getImageOptions())
             trove.setImageBuildId(buildId)
             self.client.startImage(buildId)
