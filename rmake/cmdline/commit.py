@@ -304,7 +304,15 @@ def updateRecipes(repos, cfg, recipeList, committedSources):
         if stateVersion != versions.NewVersion():
             log.info('Updating %s after commit' % recipeDir)
             if compat.ConaryVersion().updateSrcTakesMultipleVersions():
-                checkin.updateSrc(repos, [recipeDir])
+                try:
+                    # Added in CNY-3035
+                    checkin.nologUpdateSrc(repos, [recipeDir])
+                except checkin.builderrors.UpToDate:
+                    pass # Don't mention if the source is already up to date
+                except checkin.builderrors.CheckinError, e:
+                    e.logError()
+                except AttributeError:
+                    checkin.updateSrc(repos, [recipeDir])
             else:
                 curDir = os.getcwd()
                 try:

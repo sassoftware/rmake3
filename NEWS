@@ -29,6 +29,10 @@ Changes in @NEW@:
      * The defaultBuildReqs setting has been cleared except for the rmake and
        rmake-chroot user troves to enable building against non-rPath Linux
        Platforms.  (RMK-908)
+     * When updating the checkout after a trove built from that checkout has
+       been committed, rMake no longer produces output stating that the
+       checkout is already up to date when multiple flavors have been built.
+       (CNY-3035)
 
 Changes in 1.0.23:
   o Bug Fixes:
