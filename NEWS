@@ -1,24 +1,4 @@
 Changes in @NEW@:
-  o Bug Fixes:
-     * The rmake.1 man page no longer gives wrong instructions for
-       accessing archived chroots.
-     * Image builds utilizing rBuilder Online now use the proper URI
-       for XMLRPC operations. (RMK-897)
-     * Groups are no longer marked as pre-built. (RMK-903)
-     * rMake will now properly handle cooking recipes not in the
-       current working directory. (RMK-906)
-     * rMake will now correctly build multiple images in rBuilder
-       that share a common name, version, flavor. (RMK-907)
-     * rMake will now correctly use the build name instead of
-       the product name when building images in rBuilder. (RMK-927)
-
-  o API Changes:
-     * The imageList argument to rmakeClient.createImageJob() have been
-       extended from the 3-tuple (troveSpec, imageType, imageOptions)
-       to the 4-tuple (troveSpec, imageType, imageOptions, buildName)
-       which can later be extended with additional information if
-       necessary. (RMK-907)
-
   o Build Changes:
      * Recipes are now loaded in the worker as a command instead of
        in-line in the builder.  (RMK-923)
@@ -33,6 +13,27 @@ Changes in @NEW@:
        been committed, rMake no longer produces output stating that the
        checkout is already up to date when multiple flavors have been built.
        (CNY-3035)
+
+  o API Changes:
+     * The imageList argument to rmakeClient.createImageJob() have been
+       extended from the 3-tuple (troveSpec, imageType, imageOptions)
+       to the 4-tuple (troveSpec, imageType, imageOptions, buildName)
+       which can later be extended with additional information if
+       necessary. (RMK-907)
+
+  o Bug Fixes:
+     * The rmake.1 man page no longer gives wrong instructions for
+       accessing archived chroots.
+     * Image builds utilizing rBuilder Online now use the proper URI
+       for XMLRPC operations. (RMK-897)
+     * Groups are no longer marked as pre-built. (RMK-903)
+     * rMake will now properly handle cooking recipes not in the
+       current working directory. (RMK-906)
+     * rMake will now correctly build multiple images in rBuilder
+       that share a common name, version, flavor. (RMK-907)
+     * rMake will now correctly use the build name instead of
+       the product name when building images in rBuilder. (RMK-927)
+
 
 Changes in 1.0.23:
   o Bug Fixes:
