@@ -1,4 +1,4 @@
-Changes in @NEW@:
+Changes in 1.0.24:
   o Build Changes:
      * Recipes are now loaded in the worker as a command instead of
        in-line in the builder.  (RMK-923)
