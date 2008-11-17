@@ -195,19 +195,8 @@ class ChrootManager(object):
         if not setArch:
             targetArch = None
 
-        if (not cfg.strictMode and not buildTrove.isPrepOnly() and
-            (buildTrove.isRedirectRecipe() or buildTrove.isGroupRecipe()
-               or buildTrove.isFilesetRecipe())):
-            # we don't need to actually instantiate a root to cook
-            # these packages - if we're not worried about using the 
-            # "correct" conary, conary-policy, etc.
-            jobList = []
-            util.mkdirChain(self.baseDir)
-            os.chdir(self.baseDir)
-            chrootClass = rootfactory.FakeRmakeRoot
-        else:
-            chrootClass = rootfactory.FullRmakeChroot
-            util.mkdirChain(self.baseDir)
+        chrootClass = rootfactory.FullRmakeChroot
+        util.mkdirChain(self.baseDir)
         copyInConary = (not targetArch
                         and not cfg.strictMode
                         and cfg.copyInConary)

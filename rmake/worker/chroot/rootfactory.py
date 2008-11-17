@@ -347,18 +347,6 @@ class rMakeChroot(ConaryBasedChroot):
                 ' please remove the old root by hand.' % root)
         return not removeFailed
 
-class FakeRmakeRoot(rMakeChroot):
-    def canChroot(self):
-        return False
-
-    def checkSanity(self):
-        pass
-
-    def install(self):
-        pass
-
-    def useStandardRoot(self):
-        return False
 
 class ExistingChroot(rMakeChroot):
     def __init__(self, rootPath, logger, chrootHelperPath):

@@ -1,4 +1,10 @@
 Changes in @NEW@:
+ o Bug Fixes:
+     * A chroot is now created for all builds, even with strictMode set
+       to False. Previously, the fake chroot used in this scenario
+       caused group cooks to fail with Conary 2.0.29 and later.
+       (RMK-931)
+
 
 Changes in 1.0.24:
   o Build Changes:
