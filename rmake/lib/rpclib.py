@@ -151,7 +151,10 @@ class CertificateAuth(HttpAuth):
     def getCertificateUser(self):
         return self.certUser
 
-    getUser = getCertificateUser
+    def getUser(self):
+        if self.certUser:
+            return self.certUser
+        return HttpAuth.getUser(self)
 
 
 class QuietXMLRPCRequestHandler(SimpleXMLRPCRequestHandler):
