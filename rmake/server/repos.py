@@ -216,13 +216,12 @@ def pingServer(cfg, proxyUrl=None):
         raise errors.RmakeError('Could not contact repos at current hostname "%s", please fix resolution or reset hostname: %s' % (socket.gethostname(), err))
     for i in range(0,20000):
         try:
-            checked = repos.c[cfg.reposName].checkVersion()
+            repos.c[cfg.reposName].checkVersion()
         except Exception, err:
-            if i == 20000:
-                raise
             time.sleep(.1)
         else:
             return True
+    raise
 
 def killServer(*pids):
     for pid in pids:

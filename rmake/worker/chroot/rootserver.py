@@ -352,13 +352,11 @@ class ChrootClient(object):
             try:
                 return self.proxy.ping()
             except:
-                if timeSlept < seconds:
-                    if hook:
-                        hook()
-                    time.sleep(sleep)
-                    timeSlept += sleep
-                else:
-                    raise
+                if hook:
+                    hook()
+                time.sleep(sleep)
+                timeSlept += sleep
+        raise
 
 # ----- daemon
 
