@@ -133,6 +133,7 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
     reposUrl          = (CfgString, 'http://LOCAL:7777')
     reposName         = socket.gethostname()
     sslCertPath       = (CfgPath, '/srv/rmake/certs/rmake-server-cert.pem')
+    caCertPath        = CfgPath
     reposUser         = CfgUserInfo
 
     def __init__(self, readConfigFiles = False, ignoreErrors=False):
@@ -281,6 +282,9 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
     def getSslCertificatePath(self):
         return self.sslCertPath
 
+    def getCACertificatePath(self):
+        return self.caCertPath
+
     def getSslCertificateGenerator(self):
         return self.helperDir + '/gen-cert.sh'
 
@@ -336,7 +340,12 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
         try:
             util.mkdirChain(os.path.dirname(self.sslCertPath))
         except OSError, err:
-            log.error("Could not access sslCerti dir %s: %s" % os.path.dirname(self.sslCertPath), err)
+            log.error("Could not access sslCert dir %s: %s" % os.path.dirname(self.sslCertPath), err)
+
+        if self.caCertPath and not os.access(self.caCertPath, os.R_OK):
+            log.error("Could not access client CA certificate file: %s",
+                self.caCertPath)
+            return 1
 
         return self.makeCertificate()
 

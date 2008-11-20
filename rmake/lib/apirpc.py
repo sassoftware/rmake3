@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2006-2008 rPath, Inc.  All Rights Reserved.
 #
 """
 Along with apiutils, implements an API-validating and versioning scheme for 
@@ -31,7 +31,6 @@ import sys
 import time
 import traceback
 import urllib
-import xmlrpclib
 
 from conary.lib import coveragehook
 
@@ -40,6 +39,7 @@ from rmake import constants, errors
 from rmake.lib import apiutils
 from rmake.lib import localrpc
 from rmake.lib import rpclib
+from rmake.lib import rpcproxy
 from rmake.lib import server
 from rmake.lib.apiutils import api, api_parameters, api_return
 from rmake.lib import logger
@@ -47,94 +47,59 @@ from rmake.lib import logger
 # This version describes the current iteration of the API protocol.
 _API_VERSION = 1
 
-class ApiProxy(object):
+class ApiProxy(rpcproxy.BaseServerProxy):
     _apiMajorVersion = constants.apiMajorVersion
     _apiMinorVersion = constants.apiMinorVersion
 
-    def __init__(self, apiClass, requestFn, uri):
+    def __init__(self, apiClass):
+        rpcproxy.BaseServerProxy.__init__(self)
         self.apiClass = apiClass
-        self.uri = uri
-        self._requestFn = requestFn
         self._methods = {}
         self._addMethods(apiClass)
-
-    def __repr__(self):
-        return "<ApiProxy>"
-
-    def __str__(self):
-        return "<ApiProxy>"
 
     def _addMethods(self, apiClass):
         for name, methodApi in apiClass._listClassMethods():
             self._methods[name] = methodApi
 
-    def __getattr__(self, name):
-        """ Get a proxy for an individual method.  """
-        if name not in self._methods:
-            raise ApiError, 'cannot find method %s in api' % name
-        methodApi = self._methods[name]
-
-        return _ApiMethod(self._requestFn, name, self.uri,
-                          self._apiMajorVersion, self._apiMinorVersion,
-                          methodApi)
-
-class XMLApiProxy(ApiProxy, localrpc.ServerProxy):
-
-    def __init__(self, apiClass, uri):
-        localrpc.ServerProxy.__init__(self, uri)
-        ApiProxy.__init__(self, apiClass, self._ServerProxy__request, uri)
-
-
-class _ApiMethod(xmlrpclib._Method):
-    """ Api-aware method proxy for xmlrpc.  """
-
-    def __init__(self, request, name, loc, apiMajorVersion, apiMinorVersion,
-                 methodApi):
+    def _request(self, method, params):
         """
-            @param metaApiVersion: version of apirpc data.
-            @param clientVersion: client's version the whole server API
-            @param methodApi: client's description of this method's API
+        API-aware request processing
         """
-        xmlrpclib._Method.__init__(self, request, name)
-        self._apiMajorVersion = apiMajorVersion
-        self._apiMinorVersion = apiMinorVersion
-        self.__methodApi = methodApi
-        self.__loc = loc
+        if method not in self._methods:
+            raise ApiError, 'cannot find method %s in api' % method
+        methodApi = self._methods[method]
+        methodVersion = methodApi.version
 
-    def __call__(self, *args):
-        """ 
-            Calls the remote method with args.  Passes in extra first tuple
-            of API callData.
-        """
-        methodVersion = self.__methodApi.version
-
-        args = list(_freezeParams(self.__methodApi, args, methodVersion))
+        frozenParams = list(_freezeParams(methodApi, params, methodVersion))
         callData = dict(apiMajorVersion = self._apiMajorVersion,
                         apiMinorVersion = self._apiMinorVersion,
                         methodVersion = methodVersion)
 
+        args = (callData,) + tuple(frozenParams)
         try:
-            passed, rv = xmlrpclib._Method.__call__(self, callData, *args)
+            passed, rv = self._marshal_call(method, args)
         except socket.error, err:
-            if isinstance(self.__loc, str):
-                uri = self.__loc
-                type, host = urllib.splittype(uri)
-                host, rest = urllib.splithost(host)
-                user, host = urllib.splituser(host)
-                if user:
-                    user = '<user>:<password>@'
-                else:
-                    user = ''
-                uri = '%s://%s%s%s' % (type, user, host, rest)
+            if len(err.args) == 1:
+                # M2Crypto likes to raise weird socket.error instances
+                msg = err.args[0]
             else:
-                uri = self.__loc
+                msg = err.args[1]
             raise errors.OpenError(
-                'Error communicating to server at %s: %s' % (uri,
-                                                             err.args[1]))
+                "Error communicating to server at %s: %s" % (
+                self._address, msg))
+
         if passed:
-            return _thawReturn(self.__methodApi, rv, methodVersion)
+            return _thawReturn(methodApi, rv, methodVersion)
         else:
             raise apiutils.thaw(rv[0], rv[1])
+
+
+class XMLApiProxy(ApiProxy, rpcproxy.GenericServerProxy):
+    def __init__(self, apiClass, address, **options):
+        options.setdefault('ignoreCommonName', True)
+        ApiProxy.__init__(self, apiClass)
+        rpcproxy.GenericServerProxy.__init__(self, address, **options)
+
 
 class BaseRPCLogger(logger.Logger):
     def logRPCCall(self, callData, methodName, args):
@@ -254,7 +219,7 @@ class XMLApiServer(ApiServer):
     # the console before returning them across the wire
 
     def __init__(self, uri=None, logger=None, forkByDefault=False, 
-                 sslCertificate=None, localOnly=False):
+                 sslCertificate=None, caCertificate=None, localOnly=False):
         """ @param serverObj: The XMLRPCServer that will serve data to 
             the _dispatch method.  If None, caller is responsible for 
             giving information to be dispatched.
@@ -282,11 +247,14 @@ class XMLApiServer(ApiServer):
                     if host == 'localhost' and not localOnly:
                         host = ''
 
+                    useSSL = type == 'https'
                     serverObj = rpclib.DelayableXMLRPCServer((host, port),
-                                                         logRequests=False,
-                                                         ssl=type=='https',
-                                                         sslCert=sslCertificate)
-                    serverObj.setAuthMethod(rpclib.HttpAuth)
+                        logRequests=False, ssl=useSSL, sslCert=sslCertificate,
+                        caCert=caCertificate)
+                    if useSSL:
+                        serverObj.setAuthMethod(rpclib.CertificateAuth)
+                    else:
+                        serverObj.setAuthMethod(rpclib.HttpAuth)
             else:
                 serverObj = uri
         else:

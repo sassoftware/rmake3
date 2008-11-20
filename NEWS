@@ -1,4 +1,9 @@
 Changes in @NEW@:
+ o Server Changes:
+     * The rMake server can now authenticate clients using X509 client
+       certificates with a specially crafted altSubjectName extension,
+       in addition to a CA certificate.  (RMK-928)
+
  o Bug Fixes:
      * A chroot is now created for all builds, even with strictMode set
        to False. Previously, the fake chroot used in this scenario

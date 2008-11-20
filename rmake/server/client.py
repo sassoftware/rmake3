@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All rights reserved.
+# Copyright (c) 2006-2008 rPath, Inc.  All rights reserved.
 #
 import select
 import time
@@ -10,6 +10,7 @@ from conary.lib import util
 from rmake import subscribers
 from rmake.build import buildjob
 from rmake.build import buildtrove
+from rmake.errors import InsufficientPermission
 from rmake.lib import apirpc, rpclib, localrpc
 from rmake.lib.apiutils import thaw, freeze
 
@@ -19,13 +20,22 @@ class rMakeClient(object):
     """
         Client for communicating with rMake servers.
 
-        @param uri: location server you wish to communicate with or server
-        object.
-        @type uri: URI starting with http, https, or file, OR server instance.
+        This may be used as a "shim" client by passing an instance of
+        L{ShimAddress<rmake.lib.rpcproxy.ShimAddress>} for C{uri}. The
+        enclosed server should be a C{rMakeServer} instance.
+
+        @param uri: URI or address to server, or a (wrapped) server
+                    object.
+        @type  uri: URI or instance of L{rmake.lib.rpcproxy.Address}
+        @param clientCert: Path to a X509 certificate and RSA private key
+                           to make available when contacting a SSL-enabled
+                           rMake server.
+        @type clientCert: C{str}
     """
-    def __init__(self, uri):
+    def __init__(self, uri, clientCert=None):
         self.uri = uri
-        self.proxy = apirpc.XMLApiProxy(server.rMakeServer, uri)
+        self.proxy = apirpc.XMLApiProxy(server.rMakeServer, uri,
+            key_file=clientCert)
 
     def buildTroves(self, troveList, cfg):
         """
@@ -286,6 +296,8 @@ class rMakeClient(object):
         while timeSlept < seconds:
             try:
                 return self.proxy.ping()
+            except InsufficientPermission:
+                raise
             except:
                 if hook:
                     hook()

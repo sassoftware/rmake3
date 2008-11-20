@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2006-2008 rPath, Inc.  All Rights Reserved.
 #
 
 """
@@ -49,6 +49,9 @@ class AuthObject(object):
         self.headers = headers
 
     def getSocketUser(self):
+        return None
+
+    def getCertificateUser(self):
         return None
 
     def getUser(self):
@@ -119,6 +122,38 @@ class SocketAuth(HttpAuth):
         return 'SocketAuth(pid=%s, uid=%s, gid=%s)' % (self.pid, self.uid,
                                                        self.gid)
 
+
+class CertificateAuth(HttpAuth):
+    __slots__ = ['certFingerprint', 'certUser']
+
+    def __init__(self, request, client_address):
+        super(CertificateAuth, self).__init__(request, client_address)
+        self.certFingerprint = None
+        self.certUser = None
+
+    def setPeerCertificate(self, x509):
+        self.certFingerprint = None
+        self.certUser = None
+        for i in range(x509.get_ext_count()):
+            extension = x509.get_ext_at(i)
+            if extension.get_name() != 'subjectAltName':
+                continue
+            for entry in extension.get_value().split(','):
+                kind, value = entry.split(':', 1)
+                if kind != 'email':
+                    continue
+                if not value.endswith('@siteUserName.identifiers.rpath.internal'):
+                    continue
+                self.certFingerprint = x509.get_fingerprint('sha1')
+                self.certUser = value.rsplit('@', 1)[0]
+                break
+
+    def getCertificateUser(self):
+        return self.certUser
+
+    getUser = getCertificateUser
+
+
 class QuietXMLRPCRequestHandler(SimpleXMLRPCRequestHandler):
     def __init__(self, *args, **kw):
         self.verbose = False
@@ -133,6 +168,16 @@ class QuietXMLRPCRequestHandler(SimpleXMLRPCRequestHandler):
 
 
 class DelayableXMLRPCRequestHandler(QuietXMLRPCRequestHandler):
+    def setup(self):
+        QuietXMLRPCRequestHandler.setup(self)
+
+        auth = self.server.auth
+        isSSL = hasattr(self.connection, 'get_peer_cert')
+        if isinstance(auth, CertificateAuth) and isSSL:
+            x509 = self.connection.get_peer_cert()
+            if x509:
+                auth.setPeerCertificate(self.connection.get_peer_cert())
+
     def do_POST(self):
         # reads in from self.rfile.
         # gets response from self.server._marshaled_dispatch
@@ -310,8 +355,9 @@ class DelayableXMLRPCDispatcher(SimpleXMLRPCDispatcher):
 
 class DelayableXMLRPCServer(DelayableXMLRPCDispatcher, SimpleXMLRPCServer):
     def __init__(self, path, requestHandler=DelayableXMLRPCRequestHandler,
-                 logRequests=1, ssl=False, sslCert=None):
+                 logRequests=1, ssl=False, sslCert=None, caCert=None):
         self.sslCert = sslCert
+        self.caCert = caCert
         self.ssl = ssl
 
         SimpleXMLRPCServer.__init__(self, path, requestHandler, logRequests)
@@ -328,7 +374,15 @@ class DelayableXMLRPCServer(DelayableXMLRPCDispatcher, SimpleXMLRPCServer):
                 print "Please install m2crypto"
                 sys.exit(1)
             ctx = SSL.Context("sslv23")
+            if self.caCert:
+                # Request a client certificate, and check it against
+                # the trusted CA if the client has one.
+                ctx.set_verify(SSL.verify_peer, 5)
+                ctx.set_client_CA_list_from_file(self.caCert)
+                ctx.load_verify_locations(self.caCert)
+            # Server cert + key
             ctx.load_cert_chain(self.sslCert, self.sslCert)
+
             self.socket = SSL.Connection(ctx, self.socket)
 
     def getPort(self):

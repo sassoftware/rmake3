@@ -37,6 +37,7 @@ from rmake.lib.apiutils import api, api_parameters, api_return, freeze, thaw
 from rmake.lib.apiutils import api_nonforking
 from rmake.lib import apirpc
 from rmake.lib import logger
+from rmake.lib.rpcproxy import ShimAddress
 from rmake.worker import worker
 
 class ServerLogger(logger.ServerLogger):
@@ -462,6 +463,9 @@ class rMakeServer(apirpc.XMLApiServer):
                 os._exit(2)
 
     def _failCurrentJobs(self, jobs, reason):
+        if self.uri is None:
+            self.warning('Cannot fail current jobs without a URI')
+            return False
         from rmake.server.client import rMakeClient
         pid = self._fork('Fail current jobs')
         if pid:
@@ -587,11 +591,12 @@ class rMakeServer(apirpc.XMLApiServer):
         password = ''.join([chr(random.randint(ord('a'), 
                                 ord('z'))) for x in range(10)])
         if isinstance(self.uri, str):
-            type, url = urllib.splittype(self.uri)
-            host, rest = urllib.splithost(url)
-            olduser, host = urllib.splituser(host)
-            uri = '%s://%s:%s@%s%s' % (type, user, password, host, rest)
-            self.uri = uri
+            schema, url = urllib.splittype(self.uri)
+            if schema in ('http', 'https'):
+                host, rest = urllib.splithost(url)
+                olduser, host = urllib.splituser(host)
+                uri = '%s://%s:%s@%s%s' % (schema, user, password, host, rest)
+                self.uri = uri
 
         self.internalAuth = (user, password)
 
@@ -626,7 +631,8 @@ class rMakeServer(apirpc.XMLApiServer):
             self.proxyPid = proxyPid
             apirpc.XMLApiServer.__init__(self, uri, logger=serverLogger,
                                  forkByDefault = True,
-                                 sslCertificate=cfg.getSslCertificatePath())
+                                 sslCertificate=cfg.getSslCertificatePath(),
+                                 caCertificate=cfg.getCACertificatePath())
             self._setUpInternalUser()
             self.db = database.Database(cfg.getDbPath(),
                                         cfg.getDbContentsPath())
@@ -655,11 +661,11 @@ class rMakeServer(apirpc.XMLApiServer):
                 # testsuite path - external subscribers also go through
                 # internal interface when the server is not run as a separate
                 # process.
-                s = subscriber._RmakeServerPublisherProxy(self)
+                s = subscriber._RmakeServerPublisherProxy(ShimAddress(self))
             self._subscribers.append(s)
 
             self._internalSubscribers = [dbLogger]
-            s = subscriber._RmakeServerPublisherProxy(self)
+            s = subscriber._RmakeServerPublisherProxy(ShimAddress(self))
             self._internalSubscribers.append(s)
             self.plugins.callServerHook('server_postInit', self)
         except errors.uncatchableExceptions:

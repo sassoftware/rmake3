@@ -72,7 +72,8 @@ class rMakeHelper(object):
     BUILD_RECURSE_GROUPS_SOURCE = buildcmd.BUILD_RECURSE_GROUPS_SOURCE
 
     def __init__(self, uri=None, rmakeConfig=None, buildConfig=None, root='/',
-                 guiPassword=False, plugins=None, configureClient=True):
+                 guiPassword=False, plugins=None, configureClient=True,
+                 clientCert=None):
         if rmakeConfig:
             log.warning('rmakeConfig parameter is now deprecated')
         if not buildConfig:
@@ -81,8 +82,10 @@ class rMakeHelper(object):
         if configureClient:
             if uri is None:
                 uri = buildConfig.getServerUri()
+            if clientCert is None:
+                clientCert = buildConfig.clientCert
 
-            self.client = client.rMakeClient(uri)
+            self.client = client.rMakeClient(uri, clientCert)
 
         if guiPassword:
             try:

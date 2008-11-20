@@ -246,6 +246,8 @@ class BuildConfiguration(conarycfg.ConaryConfiguration, FreezableConfigMixin):
             self.strictMode = strictMode
         if not hasattr(self, 'rmakeUrl'):
             self.rmakeUrl = None
+        if not hasattr(self, 'clientCert'):
+            self.clientCert = None
 
         if readConfigFiles:
             if os.path.exists(root + '/etc/rmake/clientrc'):

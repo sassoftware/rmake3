@@ -22,8 +22,11 @@ BUFSIZE = 1024 * 2
 class UnixDomainHTTPConnection(httplib.HTTPConnection):
     def _set_hostport(self, path, port=None):
         # set the host, which in our case is a path to the unix domain socket
-        userinfo, rest = urllib.splituser(path)
-        self.path = rest
+        self.path = path
+
+        # Dummies for http code (used in request headers)
+        self.host = 'localhost.localdomain'
+        self.port = 80
 
     def connect(self):
         try:
