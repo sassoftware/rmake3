@@ -11,14 +11,13 @@ import base64
 import urlparse
 import xmlrpclib
 from httplib import HTTPConnection
-from M2Crypto import SSL
-from M2Crypto.httpslib import HTTPSConnection
 
 from rmake.lib.localrpc import UnixDomainHTTPConnection
 
 VERSION = 0.1
 
 
+# Address definitions
 ADDRESS_SCHEMAS = {}
 class _AddressRegistrar(type):
     def __init__(self, *args, **kw):
@@ -245,6 +244,7 @@ class ProtocolError(RuntimeError):
             self.address)
 
 
+# Transport definitions
 class Transport(object):
     def __init__(self, **kwargs):
         """
@@ -343,41 +343,6 @@ class HTTPTransport(Transport):
         conn.close()
 
 
-class ExtendedHTTPSConnection(HTTPSConnection):
-    def __init__(self, *args, **kwargs):
-        self.ignoreCommonName = kwargs.pop('ignoreCommonName', False)
-        HTTPSConnection.__init__(self, *args, **kwargs)
-
-    def connect(self):
-        self.sock = SSL.Connection(self.ssl_ctx)
-        if self.session:
-            self.sock.set_session(self.session)
-        if self.ignoreCommonName:
-            self.sock.clientPostConnectionCheck = None
-        self.sock.connect((self.host, self.port))
-
-
-class HTTPSTransport(HTTPTransport):
-    connectionClass = ExtendedHTTPSConnection
-
-    def __init__(self, ssl_ctx=None, key_file=None, cert_file=None,
-      ignoreCommonName=False, **kwargs):
-        super(HTTPSTransport, self).__init__(**kwargs)
-        if ssl_ctx:
-            self.ssl_ctx = ssl_ctx
-        else:
-            self.ssl_ctx = SSL.Context('sslv23')
-            if key_file:
-                if not cert_file:
-                    cert_file = key_file
-                self.ssl_ctx.load_cert(cert_file, key_file)
-        self.ignoreCommonName = ignoreCommonName
-
-    def make_connection(self, address):
-        return self.connectionClass(address.host, address.port,
-            ssl_context=self.ssl_ctx, ignoreCommonName=self.ignoreCommonName)
-
-
 class ShimTransport(Transport):
     def __init__(self, **kwargs):
         self._response = None
@@ -405,6 +370,52 @@ class UnixDomainHTTPTransport(HTTPTransport):
         return self.connectionClass(address.path)
 
 
+# SSL transport is available when M2Crypto is installed
+try:
+    from M2Crypto import SSL
+    from M2Crypto.httpslib import HTTPSConnection
+except ImportError:
+    class HTTPSTransport(object):
+        def __init__(self, **kwargs):
+            raise RuntimeError("HTTPS transport is not available because "
+                "M2Crypto is not installed")
+else:
+    class ExtendedHTTPSConnection(HTTPSConnection):
+        def __init__(self, *args, **kwargs):
+            self.ignoreCommonName = kwargs.pop('ignoreCommonName', False)
+            HTTPSConnection.__init__(self, *args, **kwargs)
+
+        def connect(self):
+            self.sock = SSL.Connection(self.ssl_ctx)
+            if self.session:
+                self.sock.set_session(self.session)
+            if self.ignoreCommonName:
+                self.sock.clientPostConnectionCheck = None
+            self.sock.connect((self.host, self.port))
+
+
+    class HTTPSTransport(HTTPTransport):
+        connectionClass = ExtendedHTTPSConnection
+
+        def __init__(self, ssl_ctx=None, key_file=None, cert_file=None,
+          ignoreCommonName=False, **kwargs):
+            super(HTTPSTransport, self).__init__(**kwargs)
+            if ssl_ctx:
+                self.ssl_ctx = ssl_ctx
+            else:
+                self.ssl_ctx = SSL.Context('sslv23')
+                if key_file:
+                    if not cert_file:
+                        cert_file = key_file
+                    self.ssl_ctx.load_cert(cert_file, key_file)
+            self.ignoreCommonName = ignoreCommonName
+
+        def make_connection(self, address):
+            return self.connectionClass(address.host, address.port,
+                ssl_context=self.ssl_ctx, ignoreCommonName=self.ignoreCommonName)
+
+
+# Generic server proxy machinery
 class Method(object):
     def __init__(self, send, name):
         self._send = send
@@ -416,6 +427,14 @@ class Method(object):
 
     def __call__(self, *args):
         return self._send(self._name, args)
+
+    def __getattr__(self, name):
+        # Allow calls like proxy.foo.bar(), passed as method "foo.bar"
+        fullName = self._name + '.' + name
+        if name.startswith('_'):
+            raise AttributeError(
+                "Cannot marshal private method %s" % fullName, name)
+        return type(self)(self._request, fullName)
 
 
 class BaseServerProxy(object):
@@ -447,6 +466,7 @@ class BaseServerProxy(object):
         return self._methodClass(self._request, name)
 
 
+# Server proxy with support for transports and addresses
 class GenericServerProxy(BaseServerProxy):
     _defaultTransports = {
         'http': HTTPTransport,
@@ -455,8 +475,7 @@ class GenericServerProxy(BaseServerProxy):
         'unix': UnixDomainHTTPTransport,
       }
 
-    def __init__(self, address=42, transport=None, encoding=None,
-      *args, **kwargs):
+    def __init__(self, address, transport=None, encoding=None, **kwargs):
         if isinstance(address, basestring):
             self._address = parseAddress(address)
         else:
@@ -465,15 +484,15 @@ class GenericServerProxy(BaseServerProxy):
             self._transport = transport
         elif address:
             self._transport = self._getDefaultTransport(self._address.schema,
-                args, kwargs)
+                kwargs)
         else:
             raise ValueError("No address and no transport given")
         self._encoding = encoding
 
-    def _getDefaultTransport(self, schema, args, kwargs):
+    def _getDefaultTransport(self, schema, kwargs):
         if schema in self._defaultTransports:
             transportFactory = self._defaultTransports[schema]
-            return transportFactory(*args, **kwargs)
+            return transportFactory(**kwargs)
         else:
             raise ValueError("No default transport available for schema %r"
                 % schema)
