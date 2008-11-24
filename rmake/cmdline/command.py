@@ -888,12 +888,20 @@ class ContextCommand(cvc.ContextCommand, rMakeCommand):
 register(ContextCommand)
 
 class BuildImageCommand(BuildCommand):
+    '''Builds the specified rbuilder image.'''
+    paramHelp = '<productName> <troveSpec> <imageType>'
+    docs = {
+        'option': ('options for the image build, e.g., swapSize=128', 'optionName=value'),
+    }
     commands = ['buildimage']
     commandGroup = CG_BUILD
 
     def addParameters(self, argDef):
         argDef['option'] = MULT_PARAM
-        BuildCommand.addParameters(self, argDef)
+        rMakeCommand.addParameters(self, argDef)
+
+    def addConfigOptions(self, cfgMap, argDef):
+        rMakeCommand.addConfigOptions(self, cfgMap, argDef)
 
     def runCommand(self, client, cfg, argSet, args):
         (command, product,
