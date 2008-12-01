@@ -6,9 +6,7 @@
 .*chroothelper\.h
 .*chroothelper
 ^tmp/
-bin/rmake-wrapper
-bin/rmake-server
-bin/rmake
+^bin/
 extra/rmake.init
 extra/rmake.recipe
 extra/rmake.spec

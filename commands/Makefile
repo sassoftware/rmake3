@@ -8,7 +8,8 @@ bin_files = \
 	rmake
 
 sbin_files = \
-	rmake-server
+	rmake-server \
+	gencert-rmake
 
 extra_dist = Makefile rmake-wrapper chroothelper.c chroothelper.h.in gen-cert.sh
 
