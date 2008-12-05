@@ -7,7 +7,7 @@ all: default-subdirs default-all
 
 SUBDIRS=messagebus multinode_client
 export DIR=
-DIR=
+DIR=.
 
 extra_files = \
 	Makefile		
