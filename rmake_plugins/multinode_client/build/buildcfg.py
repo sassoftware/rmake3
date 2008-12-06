@@ -9,7 +9,7 @@ from rmake.build import buildcfg
 from rmake.lib import apiutils
 
 class BuildContext(object):
-    rmakeUrl  = (cfgtypes.CfgString, 'https://localhost:9999')
+    rmakeUrl  = (cfgtypes.CfgString, 'unix:///var/lib/rmake/socket')
     rmakeUser = (buildcfg.CfgUser, None)
     clientCert = (cfgtypes.CfgPath, None)
 
@@ -18,11 +18,14 @@ def getServerUri(self):
     type, rest = urllib.splittype(url)
     host, path = urllib.splithost(rest)
     user, host = urllib.splituser(host)
-    if self.rmakeUser:
-        url = '%s://%s:%s@%s%s' % (type, self.rmakeUser[0], self.rmakeUser[1],
-                                   host, path)
-    else:
-        url = '%s://%s%s' % (type, host, path)
+    host, port = urllib.splitport(host)
+    if not port:
+        port = 9999
+    user = ''
+    if self.rmakeUser and type != 'unix':
+        user = '%s:%s@'  % (self.rmakeUser)
+
+    url = '%s://%s%s:%s%s' % (type, user, host, port, path)
     return url
 
 def updateConfig():
