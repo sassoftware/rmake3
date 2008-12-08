@@ -555,7 +555,7 @@ class rMakeServer(apirpc.XMLApiServer):
                                     ' already stopped' % job.jobId)
 
         if job.pid not in self._buildPids:
-            self.warning('job %s is not in active job list')
+            self.warning('job %s is not in active job list', job.jobId)
             return
         else:
             self._killPid(job.pid, killGroup=True,
