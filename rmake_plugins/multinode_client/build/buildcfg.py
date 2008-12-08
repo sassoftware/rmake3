@@ -16,16 +16,17 @@ class BuildContext(object):
 def getServerUri(self):
     url = self.rmakeUrl
     type, rest = urllib.splittype(url)
-    host, path = urllib.splithost(rest)
-    user, host = urllib.splituser(host)
-    host, port = urllib.splitport(host)
-    if not port:
-        port = 9999
-    user = ''
-    if self.rmakeUser and type != 'unix':
-        user = '%s:%s@'  % (self.rmakeUser)
+    if type != 'unix':
+        host, path = urllib.splithost(rest)
+        user, host = urllib.splituser(host)
+        host, port = urllib.splitport(host)
+        if not port:
+            port = 9999
+        user = ''
+        if self.rmakeUser:
+            user = '%s:%s@'  % (self.rmakeUser)
 
-    url = '%s://%s%s:%s%s' % (type, user, host, port, path)
+        url = '%s://%s%s:%s%s' % (type, user, host, port, path)
     return url
 
 def updateConfig():
