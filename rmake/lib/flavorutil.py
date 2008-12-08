@@ -111,12 +111,15 @@ def getArch(flavor):
         return 'x86'
     if 'ppc' in flags['Arch']:
         return 'ppc'
+    if 's390' in flags['Arch']:
+        return 's390'
     if 'mips' in flags['Arch']:
         return 'mips'
     return None
 
 setArchOk = {'x86_64'  : ['x86'],
              'sparc64' : ['sparc'],
+             's390x'   : ['s390'],
              'ppc64'   : ['ppc'] }
 
 

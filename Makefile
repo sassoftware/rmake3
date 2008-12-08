@@ -23,7 +23,8 @@ dist_files = $(extra_files)
 
 subdirs: default-subdirs
 
-install: install-subdirs
+install: install-subdirs 
+	make -C rmake_plugins install || exit 1
 
 clean: clean-subdirs default-clean
 

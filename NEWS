@@ -3,6 +3,14 @@ Changes in @NEW@:
      * The rMake server can now authenticate clients using X509 client
        certificates with a specially crafted altSubjectName extension,
        in addition to a CA certificate.  (RMK-928)
+ 
+ o API Changes:
+     * rMake now is distributed with the client code necessary to 
+       communicate to a multinode rmake installation. (RMK-944)
+
+ o New Features:
+     * rMake now supports building for s390 on s390x (António
+       Meireles). (RMK-945)
 
  o Bug Fixes:
      * A chroot is now created for all builds, even with strictMode set
