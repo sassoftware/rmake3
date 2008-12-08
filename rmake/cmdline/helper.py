@@ -552,7 +552,7 @@ class rMakeHelper(object):
         return self.client.listChroots()
 
     def watch(self, jobId, showTroveLogs = False, showBuildLogs = False,
-              commit = False, message = None):
+              commit = False, message = None, exitOnFinish = None):
         """
             Displays information about a currently running job.  Always displays
             high-level information like "Job building", "Job stopped".  Displays
@@ -567,11 +567,14 @@ class rMakeHelper(object):
             commit requested).
             @rtype: bool
         """
+        if not exitOnFinish:
+            exitOnFinish = commit
+
         try:
             jobMonitor = monitor.monitorJob(self.client, jobId,
                                             showTroveDetails = showTroveLogs,
                                             showBuildLogs = showBuildLogs,
-                                            exitOnFinish=commit)
+                                            exitOnFinish=exitOnFinish)
         except Exception, err:
             if commit:
                 print "Poll interrupted, not committing"
@@ -582,6 +585,7 @@ class rMakeHelper(object):
                                   message=message)
         return not self.client.getJob(jobId, withTroves=False).isFailed()
     poll = watch # backwards compatibility
+
 
     def buildTroves(self, *args, **kw):
         """

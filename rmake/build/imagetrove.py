@@ -57,3 +57,4 @@ class ImageTrove(buildtrove.BuildTrove):
 
     def getCommand(self):
         return 'image'
+

@@ -548,9 +548,9 @@ class EventHandler(subscriber.StatusSubscriber):
         t = self.job.getTrove(*troveTuple)
         t.creatingChroot(chrootHost, chrootPath)
 
-    def troveBuilding(self, (jobId, troveTuple), pid):
+    def troveBuilding(self, (jobId, troveTuple), pid, settings):
         t = self.job.getTrove(*troveTuple)
-        t.troveBuilding(pid)
+        t.troveBuilding(pid, settings)
 
     def troveDuplicate(self, (jobId, troveTuple), troveList):
         t = self.job.getTrove(*troveTuple)

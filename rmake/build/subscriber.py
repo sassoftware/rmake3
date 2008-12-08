@@ -73,7 +73,9 @@ class _JobDbLogger(_InternalSubscriber):
     def troveFailed(self, trove, failureReason):
         self.db.troveFailed(trove)
 
-    def troveBuilding(self, trove, pid):
+    def troveBuilding(self, trove, pid, settings=[]):
+        for setting in settings:
+            trove.settings[setting[0]] = setting[1]
         self.db.troveBuilding(trove)
 
     def troveResolving(self, trove, hostName, pid):

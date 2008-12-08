@@ -36,7 +36,7 @@ class ImageCommand(command.AttachedCommand):
                                                       trove.getImageOptions())
             trove.setImageBuildId(buildId)
             self.client.startImage(buildId)
-            trove.troveBuilding()
+            trove.troveBuilding(0, trove.settings.items())
             curStatus, message = self.watchImage(buildId)
             if curStatus == 300:
                 time.sleep(2)

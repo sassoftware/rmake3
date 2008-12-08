@@ -644,7 +644,7 @@ class BuildTrove(_FreezableBuildTrove):
         self.path = ''
         self.troveFailed(f)
 
-    def troveBuilding(self, pid=0):
+    def troveBuilding(self, pid=0, settings=[]):
         """
             Set state to BUILDING.
 
@@ -656,7 +656,7 @@ class BuildTrove(_FreezableBuildTrove):
         self.pid = pid
         self.finish = 0
         self.start = time.time()
-        self._setState(TROVE_STATE_BUILDING, '', pid)
+        self._setState(TROVE_STATE_BUILDING, '', pid, settings)
 
     def troveAlreadyCommitted(self, troveList):
         self.setBuiltTroves(troveList)

@@ -501,7 +501,7 @@ class DependencyHandler(object):
             else:
                 depState.troveFailed(trove)
 
-    def troveBuilding(self, trove, pid=0):
+    def troveBuilding(self, trove, pid=0, settings=[]):
         self._seenCycles = [ x for x in self._seenCycles if trove not in x ]
 
     def popBuildableTrove(self):

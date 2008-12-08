@@ -29,7 +29,7 @@ def getCpuInfo():
 #    open('/proc/stat') # http://www.linuxhowtos.org/System/procstat.htm
 
 def getMountInfo():
-    txt = os.popen('/bin/df -TP').read()
+    txt = os.popen('/bin/df -TP -x fuse.gvfs-fuse-daemon').read()
     lines = txt.split('\n')[1:-1]
     mounts = {}
     for cols in (x.split(None, 6) for x in lines if x):
