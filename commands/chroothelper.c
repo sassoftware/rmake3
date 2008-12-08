@@ -645,6 +645,9 @@ int main(int argc, char **argv)
 #if defined(__powerpc__) || defined(__powerpc64__)
 	    (strcmp(archname, "ppc") == 0) ||
 #endif
+#if defined(__s390__) || defined(__s390x__)
+           (strcmp(archname, "s390") == 0) ||
+#endif
 #if defined(__sparc64__) || defined(__sparc__)
 	    (strcmp(archname, "sparc") == 0) ||
 #endif
