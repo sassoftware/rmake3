@@ -17,6 +17,8 @@ Changes in @NEW@:
        to False. Previously, the fake chroot used in this scenario
        caused group cooks to fail with Conary 2.0.29 and later.
        (RMK-931)
+     * rMake now correctly saves the trove settings in the database during the
+       building event of a build. (RMK-933)
 
 
 Changes in 1.0.24:
