@@ -1,7 +1,6 @@
 from rmake.server import client
 from rmake.lib.apiutils import thaw
 
-from rmake_plugins.multinode_client.server import server
 from rmake_plugins.multinode_client import messages
 from rmake_plugins.multinode_client import nodeclient
 from rmake_plugins.multinode_client import nodetypes
@@ -10,9 +9,9 @@ class MultinodeClientExtension(object):
 
     def attach(self, client):
         self.proxy = client.proxy
-        self.proxy._addMethods(server.ServerExtension)
         client.listNodes = self.listNodes
         client.getMessageBusInfo = self.getMessageBusInfo
+        self.standaloneListenToEvents = client.listenToEvents
         client.listenToEvents = self.listenToEvents
 
     def listNodes(self):
@@ -29,17 +28,23 @@ class MultinodeClientExtension(object):
             Returns data about the mesage bus for clients to connect
         """
         rv =  self.proxy.getMessageBusInfo()
+        if not rv:
+            return None
         return MessageBusInfo(**rv)
 
     def listenToEvents(self, uri, jobId, listener,
-                       showTroveDetails=False, exitOnFinish=None, 
+                       showTroveDetails=False,
                        serve=True):
         info = self.getMessageBusInfo()
-        receiver = EventReceiver(jobId, info.host, info.port, listener)
-        receiver.connect()
-        if serve:
-            receiver.serve_forever()
-        return receiver
+        if not info:
+            return self.standaloneListenToEvents(uri, jobId, listener=listener,
+                                             showTroveDetails=showTroveDetails)
+        else:
+            receiver = EventReceiver(jobId, info.host, info.port, listener)
+            receiver.connect()
+            if serve:
+                receiver.serve_forever()
+            return receiver
 
 class EventReceiver(nodeclient.NodeClient):
     sessionClass = 'CLI'

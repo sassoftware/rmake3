@@ -322,6 +322,19 @@ class rMakeServer(apirpc.XMLApiServer):
         # currently we assume that this apiVer is extraneous, just
         # a part of the protocol for EventLists.
         self._publisher.addEvent(jobId, eventList)
+
+    @api(version=1)
+    @api_parameters(1)
+    @api_return(1, None)
+    def listNodes(self, callData):
+        return []
+
+    @api(version=1)
+    @api_parameters(1)
+    @api_return(1, None)
+    def getMessageBusInfo(self, callData):
+        return ''
+
     # --- internal functions
 
     def getBuilder(self, job):
