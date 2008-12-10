@@ -20,6 +20,14 @@ pluginfiles-install:
 		cp -a $$f $(DESTDIR)/$(plugindir)/$(DIR)/$$f; \
 	done
 
+pluginfiles-install-noparent:
+	mkdir -p $(DESTDIR)$(plugindir)
+	for f in $(plugin_files); do \
+		mkdir -p `dirname $(DESTDIR)/$(plugindir)/$$f`; \
+		cp -a $$f $(DESTDIR)/$(plugindir)/$$f; \
+	done
+
+
 default-dist: dist-subdirs
 	for f in $(dist_files); do \
 		mkdir -p $(DISTDIR)/$(DIR)/`dirname $$f`; \

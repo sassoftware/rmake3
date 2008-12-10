@@ -7,7 +7,7 @@ all: default-subdirs default-all
 export TOPDIR = $(shell pwd)
 export DISTDIR = $(TOPDIR)/rmake-$(VERSION)
 
-SUBDIRS=rmake commands extra man
+SUBDIRS=rmake commands extra man rmake_plugins
 
 extra_files = \
 	Make.rules 		\

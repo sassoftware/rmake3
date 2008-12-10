@@ -20,7 +20,7 @@ dist: default-dist
 
 subdirs: default-subdirs
 
-install: install-subdirs-noparent pluginfiles-install
+install: install-subdirs-noparent pluginfiles-install-noparent
 
 clean: clean-subdirs default-clean
 
