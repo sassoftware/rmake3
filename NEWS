@@ -1,4 +1,4 @@
-Changes in @NEW@:
+Changes in 1.0.25:
  o Server Changes:
      * The rMake server can now authenticate clients using X509 client
        certificates with a specially crafted altSubjectName extension,
