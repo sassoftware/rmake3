@@ -12,7 +12,7 @@ DIR=.
 extra_files = \
 	Makefile		
 
-dist_files = $(extra_files)
+dist_files = $(extra_files) $(plugin_files)
 
 .PHONY: clean dist install subdirs
 
