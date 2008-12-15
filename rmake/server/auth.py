@@ -25,10 +25,13 @@ No user given - check to make sure you've set rmakeUser config variable to match
                 #        % (self.pwCheckUrl, urllib.quote(user),
                 #           urllib.quote(challenge), urllib.quote(ip))
                 # at some point we should start sending remote_ip
-                url = "%s/pwCheck?user=%s;password=%s" \
-                        % (self.pwCheckUrl, urllib.quote(user),
-                           urllib.quote(challenge))
-                f = urllib2.urlopen(url)
+                if self.pwCheckUrl.endswith('/'):
+                    url = self.pwCheckUrl + "pwCheck"
+                else:
+                    url = self.pwCheckUrl + "/pwCheck"
+                query = '%s?user=%s;password=%s' \
+                          % (url, urllib.quote(user), urllib.quote(challenge))
+                f = urllib2.urlopen(query)
                 xmlResponse = f.read()
                 p = netauth.PasswordCheckParser()
                 p.parse(xmlResponse)
