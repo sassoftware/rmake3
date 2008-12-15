@@ -385,10 +385,10 @@ class Envelope(object):
             if self._incPayload:
                 payloadSize = self._lead.msgPayloadSize()
                 toRead = payloadSize - self._payloadStream.tell()
-                assert(toRead > 0, toRead)
+                assert toRead > 0, toRead
 
                 data = streamReader(toRead)
-                assert(data, "Should have read something")
+                assert data, "Should have read something"
                 self._payloadStream.write(data)
 
                 self._incPayload = (len(data) < toRead)
