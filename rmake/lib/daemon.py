@@ -249,8 +249,9 @@ class Daemon(options.MainHandler):
                 self.info("Old %s pid seems to be invalid. killing." % self.name)
                 self.kill()
 
-        self.info("using Conary in %s",
-                  os.path.dirname(sys.modules['conary'].__file__))
+        conaryPath = os.path.dirname(sys.modules['conary'].__file__)
+        if '/site-packages/' not in conaryPath:
+            self.info("using Conary in %s" % conaryPath)
         if fork:
             pid = os.fork()
 

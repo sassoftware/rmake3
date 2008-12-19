@@ -2,6 +2,8 @@ Changes in @NEW@:
  o Bug Fixes:
     * When setting up multinode server, a trailing / in the rbuilder
       url will no longer cause your authorization to fail. (RMK-952)
+    * Only display conary we are using when it's not a standard site-packages
+      path (RMK-953)
 
 Changes in 1.0.25:
  o Server Changes:
