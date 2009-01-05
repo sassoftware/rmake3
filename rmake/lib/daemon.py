@@ -172,14 +172,22 @@ class Daemon(options.MainHandler):
         self.info("killing %s pid %d" % (self.name, pid))
         try:
             os.kill(pid, signal.SIGINT)
-            while True:
+            timeSlept = 0
+            killed = False
+            maxTime = 10
+            while timeSlept < maxTime:
                 # loop waiting for the process to die
                 pipeFD = os.popen("ps -p %d -o comm=" %pid)
                 procName = pipeFD.readline().strip()
                 pipeFD.close()
                 if not procName or procName.endswith('<defunct>'):
+                    killed = True
                     break
                 time.sleep(.5)
+                timeSlept += .5
+            if not killed:
+                self.error('Failed to kill %s (pid %s) after %s seconds' %  (self.name, pid, maxTime))
+                sys.exit(1)
         except OSError, e:
             if e.errno != errno.ESRCH:
                 raise
