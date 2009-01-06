@@ -1,5 +1,7 @@
 Changes in @NEW@:
  o Bug Fixes:
+    * The monitor plugin will no longer traceback when displaying build log
+      updates with blank lines.  (RMK-955)
     * When setting up multinode server, a trailing / in the rbuilder
       url will no longer cause your authorization to fail. (RMK-952)
     * Only display conary we are using when it's not a standard site-packages

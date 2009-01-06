@@ -205,9 +205,11 @@ class JobLogDisplay(_AbstractDisplay):
                                                                 mark)
         except:
             return
-        if data:
+        if data and data != '\n': 
             self.erasePrompt()
             if data[0] == '\n':
+                # we've already got a \n because we've cleared
+                # the prompt.
                 data = data[1:]
             self.out.write(data)
             if data[-1] != '\n':
