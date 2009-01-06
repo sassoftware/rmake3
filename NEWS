@@ -1,14 +1,16 @@
 Changes in @NEW@:
  o Bug Fixes:
     * The monitor plugin will no longer traceback when displaying build log
-      updates with blank lines.  (RMK-955)
-    * When setting up multinode server, a trailing / in the rbuilder
-      url will no longer cause your authorization to fail. (RMK-952)
-    * Only display conary we are using when it's not a standard site-packages
-      path (RMK-953)
-    * "stop" commands sent to daemons will now die if they cannot kill
-      their process after 10 seconds. (RMK-956)
-    * Trove load commands can now be stopped correctly. (RMK-958)
+      updates with blank lines. (RMK-955)
+    * When setting up multi-node server, a trailing / in the rBuilder
+      URL will no longer cause your authorization to fail. (RMK-952)
+    * rMake now displays the Conary it is using only when it is not
+      a standard site-packages path. (RMK-953)
+    * When rMake sends "stop" commands to daemons, the attempt to
+      kill the processes will last only 10 seconds, so that the
+      job does not hang. (RMK-956)
+    * Trove load commands can now be stopped correctly; previously,
+      they could cause nodes to hang. (RMK-958)
 
 Changes in 1.0.25:
  o Server Changes:
