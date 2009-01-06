@@ -108,7 +108,13 @@ class Worker(server.Server):
                           hook=self._serveLoopHook)
         self.runCommand(self.commandClasses['stop'], self.cfg, commandId,
                         targetCommand, killFn)
-        targetCommand.trove.troveFailed('Stop requested')
+        if targetCommand.trove:
+            targetCommand.trove.troveFailed('Stop requested')
+        elif targetCommand.job:
+            targetCommand.job.jobFailed('Stop requested')
+        else:
+            self.warning('Command %s has no job or trove assigned -- '
+                    'cannot fail job.', targetCommandId)
 
     def startSession(self, host, chrootPath, commandLine, superUser=False,
                      buildTrove=None):

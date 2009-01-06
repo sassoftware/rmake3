@@ -8,6 +8,7 @@ Changes in @NEW@:
       path (RMK-953)
     * "stop" commands sent to daemons will now die if they cannot kill
       their process after 10 seconds. (RMK-956)
+    * Trove load commands can now be stopped correctly. (RMK-958)
 
 Changes in 1.0.25:
  o Server Changes:
