@@ -1,4 +1,4 @@
-Changes in @NEW@:
+Changes in 1.0.26:
  o Bug Fixes:
     * The monitor plugin will no longer traceback when displaying build log
       updates with blank lines. (RMK-955)
