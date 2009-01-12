@@ -1,3 +1,8 @@
+Changes in @NEW@:
+ o Bug Fixes:
+    * The "autoLoadRecipes" config item has been added to the list of options
+      allowed to be configured when "strictMode" is set. (RMK-942)
+
 Changes in 1.0.26:
  o Bug Fixes:
     * The monitor plugin will no longer traceback when displaying build log

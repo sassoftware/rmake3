@@ -221,7 +221,8 @@ class BuildConfiguration(conarycfg.ConaryConfiguration, FreezableConfigMixin):
     _strictOptions = [ 'buildFlavor', 'buildLabel', 'cleanAfterCook','flavor',
                        'installLabelPath', 'repositoryMap', 'root',
                        'user', 'name', 'contact', 'signatureKey', 'dbPath',
-                       'proxy', 'conaryProxy', 'lookaside', 'entitlement' ]
+                       'proxy', 'conaryProxy', 'lookaside', 'entitlement',
+                       'autoLoadRecipes' ]
 
     _dirsToCopy = ['archDirs', 'mirrorDirs', 'siteConfigPath', 'useDirs', 
                    'componentDirs']
