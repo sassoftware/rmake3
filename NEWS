@@ -1,7 +1,13 @@
 Changes in @NEW@:
  o Bug Fixes:
     * The "autoLoadRecipes" config item has been added to the list of options
-      allowed to be configured when "strictMode" is set. (RMK-942)
+      allowed to be configured when "strictMode" is set. (RMK-942) 
+ o Protocol Changes:
+    * The rMake protocol is no automatically changes when the rMake version 
+      number changes.  Instead, we will change it when there are known
+      incompatible changes.  This will allow rmake to function better
+      in client/server models where the clients are updated more rapidly
+      than the server. (RMK-960)
 
 Changes in 1.0.26:
  o Bug Fixes:
