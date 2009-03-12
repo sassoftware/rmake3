@@ -22,12 +22,16 @@ dist_files = $(man_files) $(extra_dist)
 
 all: default-all
 
-install-mkdirs:
-	mkdir -p $(DESTDIR)$(mandir)/man1
+install-mkdirs: install-client-mkdirs
 	mkdir -p $(DESTDIR)$(mandir)/man8
 
-install: install-mkdirs
+install-client-mkdirs:
+	mkdir -p $(DESTDIR)$(mandir)/man1
+
+install-client: install-client-mkdirs
 	install -m 644 rmake.1 $(DESTDIR)$(mandir)/man1
+
+install: install-mkdirs install-client
 	install -m 644 rmake-server.8 $(DESTDIR)$(mandir)/man8
 
 dist: default-dist

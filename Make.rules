@@ -57,6 +57,11 @@ ifdef SUBDIRS
 	for d in $(SUBDIRS); do make -C $$d DIR=$(DIR)/$$d install || exit 1; done
 endif
 
+install-client-subdirs:
+ifdef SUBDIRS
+	for d in $(SUBDIRS); do make -C $$d DIR=$(DIR)/$$d install-client || exit 1; done
+endif
+
 install-subdirs-noparent:
 ifdef SUBDIRS
 	for d in $(SUBDIRS); do make -C $$d DIR=$$d install || exit 1; done

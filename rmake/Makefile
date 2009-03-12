@@ -21,6 +21,8 @@ constants.py: constants.py.in ../Makefile ../Make.defs Makefile
 	    -e s,@libexecdir@,$(libexecdir),g \
 	$< > $@
 
+install-client: install
+
 install: all install-subdirs pyfiles-install default-install
 	install constants.py $(DESTDIR)$(rmakedir)/constants.py
 	$(PYTHON) -c "import compileall; compileall.compile_dir('$(DESTDIR)$(rmakedir)', ddir='$(rmakedir)', quiet=1)"

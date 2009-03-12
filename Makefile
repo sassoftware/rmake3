@@ -26,6 +26,8 @@ subdirs: default-subdirs
 install: install-subdirs 
 	make -C rmake_plugins install || exit 1
 
+install-client: install-client-subdirs
+
 clean: clean-subdirs default-clean
 
 extra/rmake.recipe:

@@ -38,15 +38,19 @@ chroothelper: chroothelper.c chroothelper.h
 	gcc -Wall -O2 -g -o chroothelper chroothelper.c -lcap
 
 
-install-mkdirs:
-	mkdir -p $(DESTDIR)$(bindir)
+install-mkdirs: install-client-mkdirs
 	mkdir -p $(DESTDIR)$(sbindir)
 	mkdir -p $(DESTDIR)/$(libexecdir)
 
-install: install-mkdirs
+install-client-mkdirs:
+	mkdir -p $(DESTDIR)$(bindir)
+
+install-client: install-client-mkdirs
 	for f in $(bin_files); do \
 		install -m755 $$f $(DESTDIR)$(bindir)/$$f; \
 	done
+
+install: install-mkdirs install-client
 	for f in $(sbin_files); do \
 		install -m755 $$f $(DESTDIR)$(sbindir)/$$f; \
 	done

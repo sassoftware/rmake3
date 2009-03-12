@@ -21,6 +21,8 @@ install-mkdirs:
 install: install-mkdirs rmake.init
 	install -m755 rmake.init $(DESTDIR)/$(initdir)/rmake
 
+install-client:
+
 $(generated_files) : % : %.in $(TOPDIR)/Make.defs $(TOPDIR)/Makefile
 	sed -e 's^@rmakepath@^$(rmakepath)^g' \
 	    -e 's^@conarypath@^$(libdir)/python2.4/site-packages/conary^g'  \

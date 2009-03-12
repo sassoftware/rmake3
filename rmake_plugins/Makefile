@@ -22,6 +22,8 @@ subdirs: default-subdirs
 
 install: install-subdirs-noparent pluginfiles-install-noparent
 
+install-client: install
+
 clean: clean-subdirs default-clean
 
 include ../Make.rules
