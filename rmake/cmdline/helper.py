@@ -408,7 +408,7 @@ class rMakeHelper(object):
                 return False
             if not list(job.iterBuiltTroves()):
                 log.error('Job %s has no built troves to commit' % jobId)
-                return False
+                return True
             finalJobs.append(job)
 
         jobs = [ x for x in finalJobs if not x.isCommitted() ]

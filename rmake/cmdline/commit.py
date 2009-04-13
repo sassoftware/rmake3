@@ -175,7 +175,8 @@ def commitJobs(conaryclient, jobList, reposName, message=None,
         if sourceOnly:
             err = 'Could not find sources to commit'
         elif alreadyCommitted:
-            err = 'All built troves have already been committed'
+            log.warning('All built troves have already been committed')
+            return True, {}
         else:
             err = 'Can only commit built troves, none found'
         return False, err
