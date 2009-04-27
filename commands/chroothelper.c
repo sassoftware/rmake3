@@ -42,6 +42,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <linux/types.h>
 #include <sys/types.h>
 #include <sys/capability.h>
 #include <sys/mount.h>
