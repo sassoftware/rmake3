@@ -42,12 +42,12 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <sys/types.h>
 #include <sys/capability.h>
 #include <sys/mount.h>
 #include <sys/param.h>
 #include <sys/prctl.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 
 /* needed for personality setting */
