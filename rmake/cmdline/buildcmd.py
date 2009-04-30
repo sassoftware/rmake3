@@ -9,7 +9,7 @@ import os
 import shutil
 import tempfile
 
-from conary.build import cook, grouprecipe, recipe, use
+from conary.build import cook, lookaside, grouprecipe, recipe, use
 from conary.build.cook import signAbsoluteChangeset
 from conary.conaryclient import cmdline
 from conary.deps import deps
@@ -438,7 +438,9 @@ def _getPathList(repos, cfg, recipePath, relative=False):
     macros = {'buildlabel' : buildLabel.asString(),
               'buildbranch' : sourceVersion.branch().asString()}
     if recipe.isPackageRecipe(recipeClass):
-        recipeObj = recipeClass(cfg, None, srcdirs, macros, lightInstance=True)
+        recipeObj = recipeClass(cfg, lookaside.RepositoryCache(cfg.lookaside,
+                                                               None, cfg),
+                                srcdirs, macros, lightInstance=True)
     elif recipe.isGroupRecipe(recipeClass):
         recipeObj = recipeClass(repos, cfg, buildLabel, None, None, 
                                 srcdirs=srcdirs,

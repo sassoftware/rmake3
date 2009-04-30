@@ -157,7 +157,7 @@ def getRecipeObj(repos, name, version, flavor, trv,
                 factoryClass = recipeClass
                 loaded = cook.loadFactoryRecipe(factoryClass, cfg, repos, flavor)
                 recipeClass = loaded.getRecipe()
-            lcache = lookaside.RepositoryCache(repos)
+            lcache = lookaside.RepositoryCache(cfg.lookaside, repos, cfg)
             recipeObj = recipeClass(cfg, lcache, [], macros, lightInstance=True)
             recipeObj.sourceVersion = version
             recipeObj.populateLcache()
