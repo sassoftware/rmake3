@@ -438,8 +438,7 @@ def _getPathList(repos, cfg, recipePath, relative=False):
     macros = {'buildlabel' : buildLabel.asString(),
               'buildbranch' : sourceVersion.branch().asString()}
     if recipe.isPackageRecipe(recipeClass):
-        recipeObj = recipeClass(cfg, lookaside.RepositoryCache(cfg.lookaside,
-                                                               None, cfg),
+        recipeObj = recipeClass(cfg, None,
                                 srcdirs, macros, lightInstance=True)
     elif recipe.isGroupRecipe(recipeClass):
         recipeObj = recipeClass(repos, cfg, buildLabel, None, None, 
