@@ -1,6 +1,7 @@
 #!/usr/bin/python
 import optparse
 import os
+import random
 import sys
 import tempfile
 import time
@@ -12,7 +13,7 @@ E_VALUE = 65537
 
 
 def new_cert(keySize, subject, expiry, issuer=None, issuer_evp=None,
-  isCA=None, serial=1, extensions=None, e_value=E_VALUE):
+  isCA=None, serial=None, extensions=None, e_value=E_VALUE):
     """
     Generate a new X509 certificate and RSA key.
 
@@ -49,6 +50,9 @@ def new_cert(keySize, subject, expiry, issuer=None, issuer_evp=None,
     if issuer is None:
         issuer = subject
         issuer_evp = evp
+
+    if serial is None:
+        serial = random.randint(1, (2**15) - 1)
 
     x509 = X509.X509()
     x509.set_pubkey(evp)
