@@ -467,13 +467,25 @@ def _getPathList(repos, cfg, recipePath, relative=False):
     return recipeClass, finalPathList
 
 
+def _hasNullNearBeginning(fileName):
+    return '\0' in file(fileName).read(1024*1024)
+
 def _getConfigInfo(fileName):
+    # RMK-973: it is now quite important not to mark a file as config
+    # unless we can be quite confident that it can be handled as such
     fileMagic = magic.magic(fileName)
-    if (checkin.cfgRe.match(fileName) 
-        or (fileMagic and isinstance(fileMagic, magic.script))):
-        return True
+    if fileMagic:
+        if isinstance(fileMagic, (magic.script, magic.ltwrapper)):
+            return not _hasNullNearBeginning(fileName)
+        else:
+            # all other magic-recognized files are binary
+            return False
     else:
-        return False
+        if checkin.nonCfgRe.match(fileName):
+            return False
+        elif checkin.cfgRe.match(fileName):
+            return not _hasNullNearBeginning(fileName)
+    return False
 
 def _shadowAndCommit(conaryclient, cfg, recipeDir, stateFile, message):
     repos = conaryclient.getRepos()

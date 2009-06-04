@@ -2,6 +2,8 @@ Changes in @NEW@:
  o Bug Fixes:
     * Jobs are now properly marked as failed after an abrupt server
       restart. (RMK-976)
+    * New files are now much less likely to be marked as config files
+      when they are really binary files. (RMK-973)
 
 Changes in 1.0.27:
  o New Features:
@@ -14,9 +16,9 @@ Changes in 1.0.27:
       allowed to be configured when "strictMode" is set. (RMK-942) 
 
  o Protocol Changes:
-    * The rMake protocol is no automatically changes when the rMake version 
-      number changes.  Instead, we will change it when there are known
-      incompatible changes.  This will allow rmake to function better
+    * The rMake protocol no longer automatically changes when the rMake
+      version number changes.  Instead, we will change it when there are
+      known incompatible changes.  This will allow rmake to function better
       in client/server models where the clients are updated more rapidly
       than the server. (RMK-960)
 
