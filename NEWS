@@ -1,3 +1,8 @@
+Changes in @NEW@:
+ o Bug Fixes:
+    * Jobs are now properly marked as failed after an abrupt server
+      restart. (RMK-976)
+
 Changes in 1.0.27:
  o New Features:
     * A trove build is no longer considered to have "failed" if the

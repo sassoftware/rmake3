@@ -47,7 +47,7 @@ stateNames.update({
 })
 
 ACTIVE_STATES = [ JOB_STATE_BUILD, JOB_STATE_QUEUED, JOB_STATE_STARTED,
-                  JOB_STATE_BUILD, JOB_STATE_LOADING, JOB_STATE_LOADED ]
+                  JOB_STATE_LOADING, JOB_STATE_LOADED ]
 
 def _getStateName(state):
     return stateNames[state]
