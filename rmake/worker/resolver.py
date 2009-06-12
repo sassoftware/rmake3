@@ -295,11 +295,11 @@ class DependencyResolver(object):
         uJob = database.UpdateJob(None)
         uJob.setSearchSource(searchSource)
         jobSet = client._updateChangeSet(itemList, uJob, useAffinity=False)
-        (depList, suggMap, cannotResolve, splitJob, keepList) = \
+        (depList, suggMap, cannotResolve) = \
         client.resolver.resolveDependencies(uJob, jobSet,
                                             resolveDeps=True,
                                             useRepos=False, split=False,
-                                            resolveSource=resolveSource)
+                                            resolveSource=resolveSource)[0:3]
 
         jobSet.update((x[0], (None, None), (x[1], x[2]), False) 
                       for x in itertools.chain(*suggMap.itervalues()))

@@ -4,6 +4,10 @@ Changes in @NEW@:
       restart. (RMK-976)
     * New files are now much less likely to be marked as config files
       when they are really binary files. (RMK-973)
+    * The Conary client resolveDependencies() method return value is
+      now treated in a way that is compatible with older and newer
+      versions of Conary; without this change, rMake will not work
+      with Conary 2.0.44 and later.
 
 Changes in 1.0.27:
  o New Features:
