@@ -1,9 +1,11 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2006-2007, 2009 rPath, Inc.  All Rights Reserved.
 #
 import time
 
 from conary.lib import sha1helper
+from conary.dbstore.sqlerrors import DatabaseLocked, ColumnNotUnique
+
 
 CACHE_TIMEOUT = 15 * 60 # timeout after 15 mins
 
@@ -13,9 +15,27 @@ class AuthenticationCache(object):
 
     def cache(self, authItemList):
         sessionId =  self._makeSessionId(authItemList)
-        cu = self.db.cursor()
         timeStamp = time.time() + CACHE_TIMEOUT
-        cu.execute('INSERT INTO AuthCache VALUES (?, ?)', sessionId, timeStamp)
+        for x in range(3):
+            cu = self.db.transaction()
+            try:
+                cu.execute("DELETE FROM AuthCache WHERE sessionId = ?",
+                        sessionId)
+                cu.execute("INSERT INTO AuthCache VALUES (?, ?)", sessionId,
+                        timeStamp)
+            except (DatabaseLocked, ColumnNotUnique):
+                # Race condition -- someone inserted a conflicting value
+                # between our statements. Try again.
+                self.db.rollback()
+                continue
+            except:
+                self.db.rollback()
+                raise
+            else:
+                # Success
+                break
+        else:
+            raise
         self._deleteOld(cu)
         self.db.commit()
 
