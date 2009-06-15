@@ -16,8 +16,8 @@ class AuthenticationCache(object):
     def cache(self, authItemList):
         sessionId =  self._makeSessionId(authItemList)
         timeStamp = time.time() + CACHE_TIMEOUT
+        cu = self.db.cursor()
         for x in range(3):
-            cu = self.db.transaction()
             try:
                 cu.execute("DELETE FROM AuthCache WHERE sessionId = ?",
                         sessionId)
@@ -26,11 +26,7 @@ class AuthenticationCache(object):
             except (DatabaseLocked, ColumnNotUnique):
                 # Race condition -- someone inserted a conflicting value
                 # between our statements. Try again.
-                self.db.rollback()
                 continue
-            except:
-                self.db.rollback()
-                raise
             else:
                 # Success
                 break
