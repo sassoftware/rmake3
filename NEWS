@@ -10,6 +10,10 @@ Changes in @NEW@:
       with Conary 2.0.44 and later.
     * A race condition that could occur when two authenticated XMLRPC
       requests came in at the same time has been corrected.  (RMK-935)
+    * A race condition that could occur when two flavors with the
+      exact same build requirements (including flavors) are built
+      at the same time (normally part of the same build job) has
+      been resolved. (RMK-980)
 
 Changes in 1.0.27:
  o New Features:

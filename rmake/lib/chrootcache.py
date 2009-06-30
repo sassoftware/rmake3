@@ -7,6 +7,7 @@ Cache of chroots.
 
 import os
 import subprocess
+import tempfile
 
 from conary.lib import sha1helper, util
 sha1ToString = sha1helper.sha1ToString
@@ -70,9 +71,16 @@ class LocalChrootCache(ChrootCacheInterface):
 
     def store(self, chrootFingerprint, root):
         path = self._fingerPrintToPath(chrootFingerprint)
+        prefix = sha1ToString(chrootFingerprint) + '.'
         util.mkdirChain(self.cacheDir)
-        subprocess.call('tar cSpf - -C %s . | gzip -9 - > %s' %(root, path),
-                        shell=True)
+        fd, fn = tempfile.mkstemp('.tar.gz', prefix, self.cacheDir)
+        os.close(fd)
+        try:
+            subprocess.call('tar cSpf - -C %s . | gzip -9 - > %s' %(root, fn),
+                            shell=True)
+            os.rename(fn, path)
+        finally:
+            util.removeIfExists(fn)
 
     def restore(self, chrootFingerprint, root):
         path = self._fingerPrintToPath(chrootFingerprint)
