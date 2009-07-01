@@ -47,6 +47,12 @@ ccs: dist extra/rmake.recipe infoccs
 	cd extra;  $(MAKE) rmake.recipe
 	cvc cook extra/rmake.recipe
 
+version:
+	sed -i 's/@NEW@/$(VERSION)/g' NEWS
+
+show-version:
+	echo $(VERSION)
+
 dist:
 	if ! grep "^Changes in $(VERSION)" NEWS > /dev/null 2>&1; then \
 		echo "no NEWS entry"; \
