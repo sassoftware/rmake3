@@ -8,7 +8,7 @@ Changes in @NEW@:
       now treated in a way that is compatible with older and newer
       versions of Conary; without this change, rMake will not work
       with Conary 2.0.44 and later.
-    * A race condition that could occur when two authenticated XMLRPC
+    * A race condition that could occur when two authenticated XML-RPC
       requests came in at the same time has been corrected.  (RMK-935)
     * A race condition that could occur when two flavors with the
       exact same build requirements (including flavors) are built
