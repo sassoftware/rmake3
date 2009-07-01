@@ -1,4 +1,4 @@
-Changes in @NEW@:
+Changes in 1.0.29:
  o Bug Fixes:
     * Jobs are now properly marked as failed after an abrupt server
       restart. (RMK-976)
