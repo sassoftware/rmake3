@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 rPath, Inc.
+ * Copyright (c) 2006-2009 rPath, Inc.
  *
  * This program is distributed under the terms of the Common Public License,
  * version 1.0. A copy of this license should have been distributed with this
@@ -64,18 +64,15 @@ int opt_verbose = 0;
 
 struct passwd * get_user_entry(const char * userName) {
     struct passwd * pwent;
-    int errno;
 
-    errno = 0;
     pwent = getpwnam(userName);
-    if (errno != 0) {
-        perror("getpwnam");
-        return NULL;
-    }
-
     if (pwent == NULL) {
-        fprintf(stderr, "error: Could not find user '%s' in /etc/passwd\n", userName);
-        return NULL;
+        if (errno != 0) {
+            perror("error: getpwnam");
+        } else {
+            fprintf(stderr, "error: getpwnam: user '%s' not found\n",
+                    userName);
+        }
     }
 
     return pwent;
@@ -671,3 +668,5 @@ int main(int argc, char **argv)
     return enter_chroot(chrootDir, socketPath, opt_tmpfs, !opt_noChrootUser,
                         !opt_noTagScripts);
 }
+
+/* vim: set ts=4 sts=4 sw=4 expandtab : */
