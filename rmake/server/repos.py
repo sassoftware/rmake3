@@ -209,11 +209,6 @@ def pingServer(cfg, proxyUrl=None):
     else:
         proxy = None
     repos = conaryclient.ConaryClient(conaryCfg).getRepos()
-    # A little sanity checking never hurt anyone
-    try:
-        socket.gethostbyname(socket.gethostname())
-    except socket.error, err:
-        raise errors.RmakeError('Could not contact repos at current hostname "%s", please fix resolution or reset hostname: %s' % (socket.gethostname(), err))
     for i in range(0,20000):
         try:
             repos.c[cfg.reposName].checkVersion()
@@ -228,7 +223,7 @@ def killServer(*pids):
         os.kill(pid, signal.SIGTERM)
 
 def addUser(cfg, name, password=None, write=False):
-    baseUrl="http://%s:%s/" % (os.uname()[1], cfg.port)
+    baseUrl="http://127.0.0.1:%s/" % (cfg.port,)
     netRepos = NetworkRepositoryServer(cfg, baseUrl)
     try:
         netRepos.auth.userAuth.getUserIdByName(name)

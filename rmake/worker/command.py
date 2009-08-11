@@ -22,6 +22,7 @@ from rmake.worker import resolver
 
 from rmake.lib import logfile
 from rmake.lib import logger
+from rmake.lib import procutil
 from rmake.lib import repocache
 from rmake.lib import recipeutil
 from rmake.lib import server
@@ -463,7 +464,7 @@ class SessionCommand(Command):
         self.chroot = self.chrootFactory.start(
                                         lambda: self._fork('Chroot Server'))
         port = self.chroot.startSession(self.command)
-        self.writePipe.send((socket.gethostname(), port))
+        self.writePipe.send((procutil.getNetName(), port))
         self.writePipe.flush()
         self.serve_forever()
 

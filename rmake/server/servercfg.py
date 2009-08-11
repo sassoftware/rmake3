@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2006-2009 rPath, Inc.  All Rights Reserved.
 #
 """
 Local configuration for rMake.
@@ -22,7 +22,8 @@ from conary.conarycfg import CfgLabel, CfgUserInfo
 
 from rmake import constants
 from rmake import errors
-from rmake.lib import daemon, chrootcache
+from rmake.lib import daemon, chrootcache, procutil
+
 
 class CfgChrootCache(cfg.CfgType):
     def parseString(self, str):
@@ -46,6 +47,7 @@ class rMakeBuilderConfiguration(daemon.DaemonConfig):
     usePlugin         = CfgDict(CfgBool)
     chrootLimit       = (CfgInt, 4)
     chrootCache       = CfgChrootCache
+    hostName          = CfgString
     verbose           = False
 
     def getAuthUrl(self):
@@ -236,7 +238,9 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
         host, rest = urllib.splithost(host)
         host, port = urllib.splitport(host)
         if host in ('LOCAL', 'localhost', ''):
-            host = socket.gethostname()
+            if not self.hostName:
+                self.hostName = procutil.getNetName()
+            host = self.hostName
             if port:
                 host = '%s:%s' % (host, port)
             return '%s://%s%s' % (type, host, rest)

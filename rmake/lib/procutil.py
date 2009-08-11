@@ -1,5 +1,7 @@
 #!/usr/bin/python
 import os
+import subprocess
+
 
 def getUptime():
     # second number is amount of time system has been idle since reboot.
@@ -51,6 +53,43 @@ def getMemInfo():
     totalSwap = int(memDict["SwapTotal:"])
     freeSwap = int(memDict["SwapFree:"])
     return (freeMemory, totalMemory), (freeSwap, totalSwap)
+
+
+def getNetName():
+    """
+    Find a hostname or IP suitable for representing ourselves to clients.
+    """
+    # Find the interface with the default route
+    ipp = subprocess.Popen(['/sbin/ip', '-4', 'route',
+        'show', '0.0.0.0/0'], shell=False, stdout=subprocess.PIPE)
+    routes = ipp.communicate()[0].splitlines()
+    device = None
+    for line in routes:
+        words = line.split()
+        while words:
+            word = words.pop(0)
+            if word == 'dev':
+                device = words.pop(0)
+                break
+        else:
+            continue
+        break
+
+    if device:
+        # Use the first IP on the interface providing the default route.
+        ipp = subprocess.Popen(['/sbin/ip', '-4', 'addr',
+            'show', 'dev', device], shell=False, stdout=subprocess.PIPE)
+        addresses = ipp.communicate()[0].splitlines()
+        for line in addresses:
+            words = line.split()
+            if words[0] != 'inet':
+                continue
+            # Strip CIDR suffix
+            return words[1].split('/')[0]
+
+    # No default route or no IP, but at least local operations will work.
+    return 'localhost'
+
 
 class CPUInfo(object):
     def __init__(self, freq, model):

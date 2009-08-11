@@ -388,6 +388,10 @@ class DelayableXMLRPCServer(DelayableXMLRPCDispatcher, SimpleXMLRPCServer):
 
             self.socket = SSL.Connection(ctx, self.socket)
 
+            # Hack to work around SocketServer assumptions in python 2.6
+            if not hasattr(self.socket, 'gettimeout'):
+                self.socket.gettimeout = lambda: None
+
     def getPort(self):
         return self.port
 

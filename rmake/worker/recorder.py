@@ -7,11 +7,13 @@ import socket
 
 from conary.lib import util
 
+from rmake.lib import procutil
 from rmake.lib import server
 
 class BuildLogRecorder(asyncore.dispatcher, server.Server):
     def __init__(self, key=None):
         server.Server.__init__(self)
+        self.host = procutil.getNetName()
         self.port = None
         self.logPath = None
         self.logFd = None
@@ -41,7 +43,7 @@ class BuildLogRecorder(asyncore.dispatcher, server.Server):
         return self.port
 
     def getHost(self):
-        return socket.gethostname()
+        return self.host
 
     def getLogPath(self):
         return self.logPath
