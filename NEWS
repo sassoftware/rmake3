@@ -1,3 +1,8 @@
+Changes in @NEW@:
+ o New Features:
+    * The rMake server is now more tolerant of systems with no hostname
+      or a hostname that does not resolve externally. (RMK-988)
+
 Changes in 1.0.29:
  o Bug Fixes:
     * Jobs are now properly marked as failed after an abrupt server
