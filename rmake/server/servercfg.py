@@ -147,6 +147,8 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
         self.addAlias('user',  'reposUser')
         if readConfigFiles:
             self.readFiles()
+        if not self.hostName:
+            self.hostName = procutil.getNetName()
 
 
     def setServerName(self, serverName):
@@ -238,8 +240,6 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
         host, rest = urllib.splithost(host)
         host, port = urllib.splitport(host)
         if host in ('LOCAL', 'localhost', ''):
-            if not self.hostName:
-                self.hostName = procutil.getNetName()
             host = self.hostName
             if port:
                 host = '%s:%s' % (host, port)

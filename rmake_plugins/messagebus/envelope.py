@@ -462,5 +462,8 @@ class Envelope(object):
     def tell(self):
         return self._payloadStream.tell()
 
-    def truncate(self, size=-1):
-        return self._payloadStream.truncate(size)
+    def truncate(self, size=None):
+        if size:
+            self._payloadStream.truncate(size)
+        else:
+            self._payloadStream.truncate()

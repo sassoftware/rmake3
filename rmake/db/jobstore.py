@@ -322,7 +322,14 @@ class JobStore(object):
                 settingsClass = settings.pop('_class')[0]
                 trovesById[troveId].settings = thaw('TroveSettings',
                                                 (settingsClass, settings))
-            return [trovesByNVF[x] for x in troveList]
+
+            out = []
+            for tup in troveList:
+                if tup in trovesByNVF:
+                    out.append(trovesByNVF[tup])
+                else:
+                    raise KeyError(tup)
+            return out
         finally:
             cu.execute("DROP TABLE tTroveInfo", start_transaction = False)
 

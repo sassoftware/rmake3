@@ -446,7 +446,9 @@ def _thawException(val):
     return RuntimeError('Exception from server:\n%s: %s\n%s' % tuple(val))
 
 def _freezeException(err):
-    return str(err.__class__), str(err), traceback.format_exc()
+    etype = err.__class__
+    ename = etype.__module__ + '.' + etype.__name__
+    return ename, str(err), traceback.format_exc()
 registerMethods('Exception', _freezeException, _thawException)
 
 register(None, 'bool')

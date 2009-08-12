@@ -149,7 +149,7 @@ class Database(DBInterface):
         try:
             return self.jobStore.getTroves(troveList)
         except KeyError, err:
-            raise errors.TroveNotFound(*err.args)
+            raise errors.TroveNotFound(*err.args[0])
 
     def getConfig(self, jobId, context=''):
         try:
