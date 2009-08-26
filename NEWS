@@ -2,6 +2,11 @@ Changes in @NEW@:
  o New Features:
     * The rMake server is now more tolerant of systems with no hostname
       or a hostname that does not resolve externally. (RMK-988)
+    * Build jobs that contain both normal troves and redirect or
+      fileset troves silently drop the redirect/fileset troves
+      from the job, because such jobs are created through group
+      recursion and universally are not intended to actually build
+      the redirect/fileset troves. (RMK-991)
 
 Changes in 1.0.29:
  o Bug Fixes:

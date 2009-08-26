@@ -156,6 +156,9 @@ class Builder(object):
             os._exit(1)
 
     def initializeBuild(self):
+        def _isSolitaryTrove(trv):
+            return (trv.isRedirectRecipe() or trv.isFilesetRecipe())
+
         for buildCfg in self.job.iterConfigList():
             buildCfg.repositoryMap.update(
                                       self.serverCfg.getRepositoryMap())
@@ -194,6 +197,19 @@ class Builder(object):
                 finalBuildTroves.append(buildTrove)
             else:
                 continue
+
+        solitaryTroves = [ x for x in finalBuildTroves
+                           if _isSolitaryTrove(x) ]
+        normalTroves = [ x for x in finalBuildTroves
+                         if not _isSolitaryTrove(x) ]
+        if normalTroves:
+            # Cannot build redirect or fileset troves with other troves,
+            # and it was probably unintentional from recursing a group,
+            # so just remove them.  Other cases, such as mixing only
+            # different solitary troves, will error out later on sanity
+            # check, and that's OK.  (RMK-991)
+            finalBuildTroves = normalTroves
+            
         buildTroves = finalBuildTroves
         self.job.setBuildTroves(buildTroves)
         regularTroves = [ x for x in buildTroves if not x.isSpecial() ]
