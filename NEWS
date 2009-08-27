@@ -1,4 +1,4 @@
-Changes in @NEW@:
+Changes in 1.0.30:
  o New Features:
     * The rMake server is now more tolerant of systems with no hostname
       or a hostname that does not resolve externally. (RMK-988)
