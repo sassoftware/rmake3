@@ -47,7 +47,7 @@ class rMakeBuilderConfiguration(daemon.DaemonConfig):
     usePlugin         = CfgDict(CfgBool)
     chrootLimit       = (CfgInt, 4)
     chrootCache       = CfgChrootCache
-    hostName          = CfgString
+    hostName          = (CfgString, 'localhost')
     verbose           = False
 
     def getAuthUrl(self):
@@ -147,8 +147,6 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
         self.addAlias('user',  'reposUser')
         if readConfigFiles:
             self.readFiles()
-        if not self.hostName:
-            self.hostName = procutil.getNetName()
 
 
     def setServerName(self, serverName):
