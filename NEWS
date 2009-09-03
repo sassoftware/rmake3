@@ -2,7 +2,7 @@ Changes in 1.0.31:
  o Bug Fixes:
     * Single-node rMake servers will now contact their internal
       repository as "localhost".  This corrects a bug introduced in the
-      previous release wherein rMake attemped to use a remote conary
+      previous release wherein rMake attempted to use a remote conary
       proxy to contact the local repository.  (RMK-993)
 
 Changes in 1.0.30:
