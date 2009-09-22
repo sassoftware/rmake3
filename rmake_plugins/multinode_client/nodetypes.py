@@ -4,7 +4,16 @@ import types
 
 from rmake.lib.apiutils import thaw, freeze
 
+
+_nodeTypes = {}
+class _NodeTypeRegistrar(type):
+    def __init__(self, name, bases, dict):
+        type.__init__(self, name, bases, dict)
+        _nodeTypes[self.nodeType] = self
+
+
 class NodeType(object):
+    __metaclass__ = _NodeTypeRegistrar
     nodeType = 'UNKNOWN'
     def __init__(self):
         pass
@@ -18,17 +27,6 @@ class NodeType(object):
 
 class Client(NodeType):
     nodeType = 'CLIENT'
-
-_nodeTypes = {}
-def registerNodeTypes(moduleName):
-    global _nodeTypes
-    for item in sys.modules[moduleName].__dict__.values():
-        if inspect.isclass(item) and issubclass(item, NodeType):
-            _nodeTypes[item.nodeType] = item
-registerNodeTypes(__name__)
-
-def registerNodeType(class_):
-    _nodeTypes[class_.nodeType] = class_
 
 def thawNodeType(info):
     nodeType = info[0]
