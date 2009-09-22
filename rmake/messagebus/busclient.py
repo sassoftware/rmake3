@@ -16,11 +16,11 @@ import time
 
 from rmake import errors
 
-from rmake_plugins.messagebus import logger
-from rmake_plugins.messagebus import messages
-from rmake_plugins.messagebus import messageprocessor
-from rmake_plugins.messagebus import rpclib
-from rmake_plugins.messagebus.rpclib import SessionProxy
+from rmake.messagebus import logger
+from rmake.messagebus import messages
+from rmake.messagebus import messageprocessor
+from rmake.messagebus import rpclib
+from rmake.messagebus.rpclib import SessionProxy
 
 
 def BusClientFormatterFactory(instance):

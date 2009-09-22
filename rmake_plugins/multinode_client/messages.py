@@ -1,6 +1,6 @@
 
-from rmake_plugins.messagebus import messages
-from rmake_plugins.messagebus.messages import *
+from rmake.messagebus import messages
+from rmake.messagebus.messages import *
 
 from rmake_plugins.multinode_client import nodetypes
 

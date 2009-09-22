@@ -5,8 +5,8 @@ import StringIO
 import cPickle
 import xmlrpclib
 
-from rmake_plugins.messagebus import envelope
-from rmake_plugins.messagebus import messages
+from rmake.messagebus import envelope
+from rmake.messagebus import messages
 
 class MessageProcessor(object):
     def __init__(self):

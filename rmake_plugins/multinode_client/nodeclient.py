@@ -5,7 +5,7 @@ import socket
 
 from rmake.lib import apirpc
 
-from rmake_plugins.messagebus import busclient
+from rmake.messagebus import busclient
 
 from rmake_plugins.multinode_client import messages
 

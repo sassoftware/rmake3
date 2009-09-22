@@ -1,7 +1,7 @@
 #
 # Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
 #
-from rmake_plugins.messagebus import messages
+from rmake.messagebus import messages
 
 from rmake.lib import apirpc
 from rmake.lib import rpclib
