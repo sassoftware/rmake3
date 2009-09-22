@@ -2,7 +2,7 @@
 from rmake.messagebus import messages
 from rmake.messagebus.messages import *
 
-from rmake_plugins.multinode_client import nodetypes
+from rmake.multinode import nodetypes
 
 from rmake.lib.apiutils import thaw, freeze
 

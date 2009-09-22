@@ -1,9 +1,9 @@
 from rmake.server import client
 from rmake.lib.apiutils import thaw
 
-from rmake_plugins.multinode_client import messages
-from rmake_plugins.multinode_client import nodeclient
-from rmake_plugins.multinode_client import nodetypes
+from rmake.multinode import messages
+from rmake.multinode import nodeclient
+from rmake.multinode import nodetypes
 
 class MultinodeClientExtension(object):
 

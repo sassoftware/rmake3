@@ -6,8 +6,8 @@ import socket
 from rmake.lib import apirpc
 
 from rmake.messagebus import busclient
+from rmake.multinode import messages
 
-from rmake_plugins.multinode_client import messages
 
 class NodeClient(apirpc.ApiServer):
 
