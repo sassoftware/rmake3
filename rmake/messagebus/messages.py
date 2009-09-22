@@ -277,6 +277,13 @@ class Message(_Message):
     def direct(self, destination):
         self.headers.destination = destination
 
+
+class DummyMessage(Message):
+    "Container for unrecognized message types."
+    def __repr__(self):
+        return '<%s>(%s)' % (self.headers.messageType, self.getMessageId())
+
+
 class NodeStatus(Message):
     messageType = 'NODE_STATUS'
     def set(self, sessionId, status):
@@ -298,7 +305,7 @@ def thawMessage(headers, payloadStream, payloadSize):
     if messageType in _messageTypes:
         class_ = _messageTypes[messageType]
     else:
-        class_ = Message
+        class_ = DummyMessage
     m = class_()
     m.setHeaders(headers)
     m.setPayloadStream(payloadStream, payloadSize)
