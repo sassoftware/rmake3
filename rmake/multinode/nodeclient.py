@@ -60,7 +60,7 @@ class NodeClient(apirpc.ApiServer):
             self._halt = 1
 
     def disconnect(self):
-        self.bus.close()
+        self.bus.disconnect()
 
     def connect(self):
         self.bus.connect()
