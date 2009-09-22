@@ -45,5 +45,3 @@ class EventList(messages.Message):
     def loadPayloadFromDict(self, d):
         self._payload.__dict__.update(d)
         self.payload.eventList = thaw('EventList', self.payload.eventList)
-
-messages.registerMessageTypes(__name__)

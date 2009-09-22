@@ -1,10 +1,14 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2006-2009 rPath, Inc.
 #
+# All rights reserved.
+#
+
 import StringIO
 import sys
 import types
 import xmlrpclib
+
 
 class MessageHeaders(object):
     def __setattr__(self, key, value):
@@ -69,7 +73,16 @@ class PayloadWrapper(object):
             return object.__setattr__(self, key, value)
         return setattr(self._payload, key, value)
 
+
+_messageTypes = {}
+class MessageTypeRegistrar(type):
+    def __init__(self, name, bases, dict):
+        type.__init__(self, name, bases, dict)
+        _messageTypes[self.messageType] = self
+
+
 class _Message:
+    __metaclass__ = MessageTypeRegistrar
     messageType = 'UNKNOWN'
     def __init__(self, *args, **kw):
         self.headers = MessageHeaders()
@@ -279,16 +292,6 @@ class NodeStatus(Message):
     def isDisconnected(self):
         return self.headers.status == 'DISCONNECTED'
 
-_messageTypes = {}
-def registerMessageTypes(moduleName):
-    global _messageTypes
-    for item in sys.modules[moduleName].__dict__.values():
-        if isinstance(item, types.ClassType) and issubclass(item, _Message):
-            _messageTypes[item.messageType] = item
-registerMessageTypes(__name__)
-
-def registerMessageType(class_):
-    _messageTypes[class_.messageType] = class_
 
 def thawMessage(headers, payloadStream, payloadSize):
     messageType = headers['messageType']
