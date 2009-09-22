@@ -295,7 +295,10 @@ class NodeStatus(Message):
 
 def thawMessage(headers, payloadStream, payloadSize):
     messageType = headers['messageType']
-    class_ = _messageTypes[messageType]
+    if messageType in _messageTypes:
+        class_ = _messageTypes[messageType]
+    else:
+        class_ = Message
     m = class_()
     m.setHeaders(headers)
     m.setPayloadStream(payloadStream, payloadSize)

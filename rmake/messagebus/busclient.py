@@ -47,6 +47,10 @@ class MessageBusClientLogger(logger.MessageBusLogger):
         self.info('Connected (pid %s).' % os.getpid())
 
 
+class ConnectionClosed(Exception):
+    "Exception used internally to moderate connection flow in asyncore."
+
+
 class MessageBusClient(object):
 
     def __init__(self, host, port, dispatcher, sessionClass='',
@@ -288,10 +292,27 @@ class _SessionClient(asyncore.dispatcher):
         self.callback(m)
 
     def handle_close(self):
+        # asyncore will catch this and pass it to handle_error, bypassing any
+        # event handlers queued to run after the current one.
+        raise ConnectionClosed
+
+    def handle_error(self):
+        error = sys.exc_info()[1]
+        if isinstance(error, ConnectionClosed):
+            self.close()
+        else:
+            raise
+
+    def close(self):
         self.logger.error('Lost connection to message bus.')
-        self.del_channel()
+        self.accepting = False
         self.connected = False
-        self.socket = None
+        self.del_channel()
+        try:
+            self.socket.close()
+        except socket.error, error:
+            if error.args[0] not in (errno.ENOTCONN, errno.EBADF):
+                raise
         if self.connectionTimeout:
             self.connect()
 
