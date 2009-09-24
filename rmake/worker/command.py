@@ -318,15 +318,18 @@ class BuildCommand(AttachedCommand):
             return
 
         # this will grab the actual conary configuration used and write
-        # it out to disk at /etc/conaryrc.
+        # it out to disk at /etc/conaryrc and /etc/conary/macros.d/rmakeMacros
         self.chroot.storeConfig(self.buildCfg)
-        oldPath = '%s/tmp/conaryrc' % self.chrootFactory.root
-        if os.path.exists(oldPath):
-            newPath = '%s/etc/conaryrc' % self.chrootFactory.root
-            util.mkdirChain(os.path.dirname(newPath))
-            if os.path.exists(newPath):
-                os.remove(newPath)
-            shutil.copy(oldPath, newPath)
+        for oldPath, newPath in (
+            ('%s/tmp/conaryrc' % self.chrootFactory.root,
+             '%s/etc/conaryrc' % self.chrootFactory.root),
+            ('%s/tmp/rmakemacros' % self.chrootFactory.root,
+             '%s/etc/conary/macros.d/rmakeMacros' % self.chrootFactory.root)):
+            if os.path.exists(oldPath):
+                util.mkdirChain(os.path.dirname(newPath))
+                if os.path.exists(newPath):
+                    os.remove(newPath)
+                shutil.copy(oldPath, newPath)
 
         n,v = trove.getName(), trove.getVersion()
         self.chroot.checkoutPackage(self.buildCfg, n, v)

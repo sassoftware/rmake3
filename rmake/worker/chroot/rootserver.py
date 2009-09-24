@@ -45,6 +45,13 @@ class ChrootServer(apirpc.XMLApiServer):
                        '# building.\n')
         buildCfg.storeConaryCfg(conaryrc)
         conaryrc.close()
+        path = '%s/tmp/rmakemacros' % self.cfg.root
+        util.mkdirChain(os.path.dirname(path))
+        macrosrc = open(path, 'w')
+        macrosrc.write('# This file contains macros; some of which may not'
+                       ' be included in /etc/conaryrc\n'
+                       + buildCfg.getMacros())
+        macrosrc.close()
 
     def _updateConfig(self, buildCfg):
         buildCfg.root = self.cfg.root

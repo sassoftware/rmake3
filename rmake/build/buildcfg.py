@@ -412,11 +412,23 @@ class BuildConfiguration(conarycfg.ConaryConfiguration, FreezableConfigMixin):
             if self.isDefault(key):
                 continue
             if key in conaryCfg:
+                if key == 'macros':
+                    # multi-line macros break conary config files (RMK-996)
+                    continue
                 if key == 'context':
                     # we're not writing out contexts!
                     continue
                 conaryCfg[key] = value
         conaryCfg.store(out, includeDocs=False)
+
+    def getMacros(self):
+        # multi-line macros break conary config files, so provide
+        # any macros separately (RMK-996)
+        if 'macros' in self:
+            macros = sorted(x for x in self.macros.iteritems())
+            if macros:
+                return '\n'.join('%s = %r' % x for x in macros) + '\n'
+        return ''
 
     def _writeKey(self, out, cfgItem, value, options):
         if cfgItem.name in self._hiddenOptions:

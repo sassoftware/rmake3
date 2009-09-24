@@ -1,3 +1,8 @@
+Changes in @NEW@:
+ o New Features:
+    * Multi-line macros in build job configurations will no longer cause
+      invalid conaryrc files to be created inside chroots. (RMK-996)
+
 Changes in 1.0.31:
  o Bug Fixes:
     * Single-node rMake servers will now contact their internal
