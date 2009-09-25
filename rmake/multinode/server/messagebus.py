@@ -154,8 +154,7 @@ class MessageBus(apirpc.ApiServer):
         self._messageCount += 1
         m.direct(destination)
         m.stamp(messageId, 'messagebus', time.time())
-        for session in self._subscribers.iterSubscribers(
-                                            m.headers.destination, m):
+        for session in self._subscribers.iterSubscribers(m):
             if session.sessionId != m.headers.sessionId:
                 session.sendMessage(m)
 
@@ -202,15 +201,14 @@ class MessageBus(apirpc.ApiServer):
             elif isinstance(m, messages.Message):
                 # normal messages, sent around to all subscribers
                 sent = False
-                for session in self._subscribers.iterSubscribers(
-                                                    m.headers.destination, m):
+                for session in self._subscribers.iterSubscribers(m):
                     if session.sessionId != m.getSessionId():
                         sent = True
                         self._logger.info('Sent %r to %s' % (m, session))
                         session.sendMessage(m)
                 if not sent:
                     self._logger.info('Message %s %s dropped.',
-                            m.getMessageId(), m.messageType)
+                            m.getMessageId(), m.headers.messageType)
         except Exception, err:
             self._logger.error('Error handling message %s: %s\n%s' % (
                                m.getMessageId(), err, traceback.format_exc()))
@@ -353,9 +351,11 @@ class SubscriptionManager(object):
     def __init__(self):
         self._subscribers = {}
 
-    def iterSubscribers(self, channel, m):
-        lst = self._subscribers.get(channel, [])
+    def iterSubscribers(self, m):
+        lst = self._subscribers.get(m.headers.destination, [])
         for subscriber, pattern in lst:
+            if m.getTargetId() and m.getTargetId() != subscriber.sessionId:
+                continue
             found = True
             for key, value in pattern.iteritems():
                 if getattr(m.headers, key, None) != value:

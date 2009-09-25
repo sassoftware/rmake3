@@ -123,6 +123,9 @@ class _Message:
     def setDestination(self, destination):
         self.headers.destination = destination
 
+    def getTargetId(self):
+        return getattr(self.headers, 'targetId', None)
+
     def getTimestamp(self):
         return float(self.headers.timeStamp)
 
@@ -235,9 +238,6 @@ class MethodCall(_Message):
     def getParams(self):
         return self.payload.params
 
-    def getTargetId(self):
-        return self.headers.targetId
-
 class MethodResponse(_Message):
     messageType = 'RESPONSE'
 
@@ -258,9 +258,6 @@ class MethodResponse(_Message):
     def getReturnValue(self):
         return self.payload.returnValue
 
-    def getTargetId(self):
-        return self.headers.targetId
-
     def getResponseTo(self):
         return self.headers.responseTo
 
@@ -274,8 +271,10 @@ class MethodError(MethodResponse):
         return True
 
 class Message(_Message):
-    def direct(self, destination):
+    def direct(self, destination, targetId=None):
         self.headers.destination = destination
+        if targetId:
+            self.headers.targetId = targetId
 
 
 class DummyMessage(Message):

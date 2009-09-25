@@ -109,8 +109,8 @@ class MessageBusClient(object):
         self.messages = []
         return messages
 
-    def sendMessage(self, destination, m):
-        m.direct(destination)
+    def sendMessage(self, destination, m, targetId=None):
+        m.direct(destination, targetId)
         self.session.sendMessage(m)
 
     def sendSynchronousMessage(self, destination, m):
