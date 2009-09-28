@@ -1,19 +1,13 @@
-#
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
-#
-plugin_files = *.py
+python_files = $(wildcard *.py)
+dist_files = Makefile $(python_files)
 
-dist_files = Makefile $(plugin_files)
-
-SUBDIRS=
 
 all: default-subdirs default-all
 
-install: all install-subdirs pluginfiles-install default-install
+clean: clean-subdirs default-clean
+
+install: all pyfiles-install install-subdirs default-install
 
 dist: default-dist
 
-clean: clean-subdirs default-clean
-
 include ../../Make.rules
-include ../../Make.defs

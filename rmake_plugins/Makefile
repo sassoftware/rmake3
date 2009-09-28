@@ -5,7 +5,7 @@ plugin_files = *.py
 
 all: default-subdirs default-all
 
-SUBDIRS=messagebus multinode_client
+SUBDIRS = multinode_client
 export DIR=
 DIR=.
 
