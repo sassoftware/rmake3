@@ -186,14 +186,21 @@ def stopBuild(results, pid, inF, csFile):
     try:
         os.kill(-pid, signal.SIGTERM)
     except OSError, err:
-        if err.errno != errno.ENOENT:
+        if err.errno != errno.ESRCH:
             raise
-        else:
-            log.warning('cooking pid %s did not exit' % pid)
+        # Process is either dead or already reaped. Do waitpid() to make sure
+        # it gets reaped properly.
 
     timeSlept = 0
     while timeSlept < 10:
-        gotResult, status = os.waitpid(pid, os.WNOHANG)
+        try:
+            gotResult, status = os.waitpid(pid, os.WNOHANG)
+        except OSError, err:
+            if err.errno != errno.ECHILD:
+                raise
+            # Process died and someone else reaped it.
+            gotResult = True
+            break
         if gotResult:
             break
         else:
@@ -206,7 +213,7 @@ def stopBuild(results, pid, inF, csFile):
         try:
             os.kill(-pid, signal.SIGKILL)
         except OSError, err:
-            if err.errno != err.ESRCH:
+            if err.errno != errno.ESRCH:
                 raise
             else:
                 return
