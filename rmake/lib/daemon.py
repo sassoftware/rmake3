@@ -17,6 +17,7 @@ from conary.lib import options, util
 
 from rmake.lib import logfile
 from rmake.lib import logger
+from rmake.lib import pycap
 
 (NO_PARAM,  ONE_PARAM)  = (options.NO_PARAM, options.ONE_PARAM)
 (OPT_PARAM, MULT_PARAM) = (options.OPT_PARAM, options.MULT_PARAM)
@@ -98,6 +99,7 @@ class Daemon(options.MainHandler):
     commandList = _commands
     user   = None
     groups = None
+    capabilities = None
     loggerClass = logger.Logger
     useConaryOptions = False
 
@@ -232,8 +234,12 @@ class Daemon(options.MainHandler):
                     os.setgroups(groupIds)
                 else:
                     os.setgroups([])
+                if self.capabilities:
+                    pycap.set_keepcaps(True)
                 os.setgid(pwent.pw_gid)
                 os.setuid(pwent.pw_uid)
+            if self.capabilities:
+                pycap.cap_set_proc(self.capabilities)
         logPath = os.path.join(self.cfg.logDir, "%s.log" % self.name)
         try:
             self.logger.logToFile(logPath)

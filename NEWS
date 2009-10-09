@@ -2,6 +2,8 @@ Changes in @NEW@:
  o New Features:
     * Multi-line macros in build job configurations will no longer cause
       invalid conaryrc files to be created inside chroots. (RMK-996)
+    * The rMake server process now retains the capability to chroot
+      after dropping privileges. (RMK-999)
 
 Changes in 1.0.31:
  o Bug Fixes:

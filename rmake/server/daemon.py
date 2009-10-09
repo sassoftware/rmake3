@@ -64,6 +64,7 @@ class rMakeDaemon(daemon.Daemon):
     loggerClass = server.ServerLogger
     user = constants.rmakeUser
     groups = [constants.chrootUser]
+    capabilities = 'cap_sys_chroot+ep'
     commandList = list(daemon.Daemon.commandList) + [ResetCommand, HelpCommand]
 
     def getConfigFile(self, argv):
