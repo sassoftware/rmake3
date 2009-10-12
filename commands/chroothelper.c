@@ -46,6 +46,7 @@
 #include <sys/types.h>
 #include <sys/capability.h>
 #include <sys/mount.h>
+#include <sys/mman.h>
 #include <sys/param.h>
 #include <sys/prctl.h>
 #include <sys/stat.h>
@@ -153,6 +154,21 @@ int do_chroot(const char * chrootDir) {
     return 0;
 }
 
+
+/* umount_quiet: Unmount without whining about things that weren't mounted.
+ */
+int
+umount_quiet(const char *path) {
+    if (!umount(path))
+        return 0;
+
+    if (errno == ENOENT || errno == EINVAL)
+        /* Not a file, or not mounted */
+        return 0;
+
+    return -1;
+}
+
 /***********************************************************
  *
  * --clean/--unmount command
@@ -190,15 +206,16 @@ int unmountchroot(const char * chrootDir, int opt_clean) {
 
     /* we still need to be root to umount */
     for (i=0; i < (sizeof(mounts) / sizeof(mounts[0])); i++) {
-	if (opt_verbose)
-	    printf("umount %s\n", mounts[i].to);
-        if (-1 == umount(mounts[i].to)) {
+        if (opt_verbose) {
+            printf("umount %s\n", mounts[i].to);
+        }
+        if (umount_quiet(mounts[i].to)) {
             perror("umount");
         }
     }
     if (opt_verbose)
         printf("umount %s\n", "/tmp");
-    if (-1 == umount("/tmp")) {
+    if (umount_quiet("/tmp")) {
         perror("umount /tmp");
     }
 
@@ -300,6 +317,102 @@ int unmountchroot(const char * chrootDir, int opt_clean) {
 }
 
 
+/* set_chroot_caps: Set capabilities on files in the chroot.
+ */
+int
+set_chroot_caps(const char *chrootDir) {
+    char tempPath[PATH_MAX];
+    const char *caps = NULL, *ptr, *end, *next_path, *next_cap;
+    int caps_fd;
+    int rv = -1;
+    off_t size;
+    struct stat caps_st;
+    cap_t cap;
+
+    snprintf(tempPath, PATH_MAX, "%s%s", chrootDir, CHROOT_CAP_DEFINITION);
+    if ((caps_fd = open(tempPath, O_RDONLY)) < 0) {
+        if (errno == ENOENT) {
+            /* Caps file not found; no caps to apply. */
+            return 0;
+        }
+        perror("set_chroot_caps: open");
+        return -1;
+    }
+
+    if (fstat(caps_fd, &caps_st) < 0) {
+        perror("set_chroot_caps: fstat");
+        goto end;
+    }
+    size = caps_st.st_size;
+
+    if ((caps = mmap(NULL, size, PROT_READ, MAP_SHARED, caps_fd, 0))
+            == MAP_FAILED) {
+        perror("set_chroot_caps: mmap");
+        goto end;
+    }
+    ptr = caps;
+    end = caps + size;
+
+    /* The cap descriptor file consists of a number of lines like this:
+     *  path\0capability\0\n
+     */
+    rv = 0;
+    while (ptr < end) {
+        next_path = ptr;
+        ptr += strnlen(ptr, end - ptr) + 1;
+        if (ptr >= end) {
+            fprintf(stderr, "Premature EOF in caps file\n");
+            rv = -1;
+            break;
+        }
+
+        next_cap = ptr;
+        ptr += strnlen(ptr, end - ptr) + 1;
+        if (ptr >= end) {
+            fprintf(stderr, "Premature EOF in caps file\n");
+            rv = -1;
+            break;
+        }
+
+        if (*ptr++ != '\n') {
+            fprintf(stderr, "Expected newline in caps file\n");
+            rv = -1;
+            break;
+        }
+
+        if (next_path[0] != '/') {
+            fprintf(stderr, "Illegal path %s in caps file\n", next_path);
+            rv = -1;
+            continue;
+        }
+
+        if ((cap = cap_from_text(next_cap)) == NULL) {
+            fprintf(stderr, "Error parsing cap \"%s\": %s\n", next_cap,
+                    strerror(errno));
+            rv = -1;
+            continue;
+        }
+
+        snprintf(tempPath, PATH_MAX, "%s%s", chrootDir, next_path);
+        if (cap_set_file(tempPath, cap)) {
+            cap_free(cap);
+            fprintf(stderr, "Error setting cap \"%s\" on path %s: %s\n",
+                    next_cap, next_path, strerror(errno));
+            rv = -1;
+            continue;
+        }
+        cap_free(cap);
+        fprintf(stderr, "setting path %s caps to %s\n", tempPath, next_cap);
+    }
+
+end:
+    if (caps != NULL)
+        munmap((void *)caps, size);
+    close(caps_fd);
+    return rv;
+}
+
+
 /***********************************************************
  *
  * chroot helper main functionality
@@ -311,8 +424,8 @@ int unmountchroot(const char * chrootDir, int opt_clean) {
  *
  *********************************************************/
 
-int enter_chroot(const char * chrootDir, const char * socketPath,
-                 int useTmpfs, int useChrootUser, int runTagScripts) {
+int enter_chroot(const char * chrootDir, const char * socketPath, int useTmpfs,
+        int useChrootUser, int runTagScripts, int chrootCaps) {
     cap_t cap;
     int i;
     int rc;
@@ -364,7 +477,13 @@ int enter_chroot(const char * chrootDir, const char * socketPath,
     /* restore sane umask */
     umask(0002);
 
-
+    /* set capabilities on files as directed, if directed */
+    if (chrootCaps) {
+        if (set_chroot_caps(chrootDir)) {
+            fprintf(stderr, "ERROR: could not set chroot capabilities\n");
+            return -1;
+        }
+    }
 
     /* keep our capabilities as we transition back to our real uid */
     prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0);
@@ -554,6 +673,8 @@ int main(int argc, char **argv)
                                  (useful for debugging)
                                */
     int opt_noTagScripts = 0; /* set if we should not run tag scripts */
+    int opt_chroot_caps = 0; /* set if caps should be set from the chroot
+                                contents */
     char * archname = NULL;
     char * chrootDir = NULL;
     char * socketPath = NULL;
@@ -562,6 +683,7 @@ int main(int argc, char **argv)
 	{"tmpfs", no_argument, &opt_tmpfs, 1},
 	{"no-chroot-user", no_argument, &opt_noChrootUser, 1},
 	{"no-tag-scripts", no_argument, &opt_noTagScripts, 1},
+    {"chroot-caps", no_argument, &opt_chroot_caps, 1},
 	{"clean", no_argument, &opt_clean, 1},
 	{"unmount", no_argument, &opt_unmount, 1},
 	{"arch", required_argument, NULL, 'a'},
@@ -571,28 +693,27 @@ int main(int argc, char **argv)
     };
 
     while (1) {
-	rc = getopt_long(argc, argv, "a:chv", main_options, NULL);
-	if (rc == -1)
-	    break;
+        rc = getopt_long(argc, argv, "a:chv", main_options, NULL);
+        if (rc == -1)
+            break;
 
-	/* parse options */
-	switch(rc) {
-	    case 'a': /* set the a new architecture personality */
-		archname = strndup(optarg, 10);
-		break;
-	    case 'h': /* help/usage */
-		usage(argv[0]);
-		return 0;
-	    case 'v':
-		opt_verbose++;
-		break;
-	    case 0: /* other valid flag */
-		break;
-	    default:
-		fprintf (stderr, "?? getopt returned character code 0%o ??\n", rc);
-		usage(argv[0]);
-		return -1;
-	}
+        /* parse options */
+        switch(rc) {
+            case 'a': /* set the a new architecture personality */
+                archname = strndup(optarg, 10);
+                break;
+            case 'h': /* help/usage */
+                usage(argv[0]);
+                return 0;
+            case 'v':
+                opt_verbose++;
+                break;
+            case 0: /* other valid flag */
+                break;
+            default:
+                usage(argv[0]);
+                return -1;
+        }
     }
 
     /* grab the requested chroot dir */
@@ -666,7 +787,7 @@ int main(int argc, char **argv)
     }
     /* finally, start the work */
     return enter_chroot(chrootDir, socketPath, opt_tmpfs, !opt_noChrootUser,
-                        !opt_noTagScripts);
+            !opt_noTagScripts, opt_chroot_caps);
 }
 
 /* vim: set ts=4 sts=4 sw=4 expandtab : */

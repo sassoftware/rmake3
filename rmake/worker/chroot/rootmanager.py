@@ -8,6 +8,7 @@ import stat
 import sys
 import tempfile
 import time
+import traceback
 
 #conary
 from conary.lib import util
@@ -209,14 +210,11 @@ class ChrootManager(object):
                              chrootCache=self.chrootCache,
                              copyInConary=copyInConary)
         buildLogPath = self.serverCfg.getBuildLogPath(buildTrove.jobId)
-        chrootServer = rMakeChrootServer(chroot, targetArch, 
-                                         chrootQueue=self.queue,
-                                         useTmpfs=self.serverCfg.useTmpfs,
-                                         buildLogPath=buildLogPath,
-                                         reuseRoots=cfg.reuseRoots,
-                                         strictMode=cfg.strictMode,
-                                         logger=self.logger,
-                                         buildTrove=buildTrove)
+        chrootServer = rMakeChrootServer(chroot, targetArch,
+                chrootQueue=self.queue, useTmpfs=self.serverCfg.useTmpfs,
+                buildLogPath=buildLogPath, reuseRoots=cfg.reuseRoots,
+                strictMode=cfg.strictMode, logger=self.logger,
+                buildTrove=buildTrove, chrootCaps=self.serverCfg.chrootCaps)
 
         return chrootServer
 
@@ -240,13 +238,11 @@ class ChrootManager(object):
         chroot = rootfactory.ExistingChroot(chrootPath, self.logger,
                                             self.chrootHelperPath)
         chrootServer = rMakeChrootServer(chroot, targetArch=targetArch,
-                                         chrootQueue=self.queue,
-                                         useTmpfs=self.serverCfg.useTmpfs,
-                                         buildLogPath=None, reuseRoots=True,
-                                         useChrootUser=useChrootUser,
-                                         logger=self.logger,
-                                         runTagScripts=False,
-                                         root=chrootPath)
+                chrootQueue=self.queue, useTmpfs=self.serverCfg.useTmpfs,
+                buildLogPath=None, reuseRoots=True,
+                useChrootUser=useChrootUser, logger=self.logger,
+                runTagScripts=False, root=chrootPath,
+                chrootCaps=self.serverCfg.chrootCaps)
         return chrootServer
 
     def archiveChroot(self, chrootPath, newPath):
@@ -283,7 +279,7 @@ class rMakeChrootServer(object):
     def __init__(self, chroot, targetArch, buildLogPath, logger,
                  chrootQueue, useTmpfs=False, reuseRoots=False, 
                  strictMode=False, useChrootUser=True, runTagScripts=True, 
-                 root=None, buildTrove=None):
+                 root=None, buildTrove=None, chrootCaps=False):
         self.chroot = chroot
         self.targetArch = targetArch
         self.queue = chrootQueue
@@ -296,6 +292,7 @@ class rMakeChrootServer(object):
         self.runTagScripts = runTagScripts
         self.root = root
         self.buildTrove = buildTrove
+        self.chrootCaps = chrootCaps
         self.oldRoot = None
 
     def reserveRoot(self):
@@ -369,7 +366,12 @@ class rMakeChrootServer(object):
         else:
             self.socketPath = self.socketPath % os.getpid()
             try:
-                self._startChrootServer()
+                try:
+                    self._startChrootServer()
+                except:
+                    print >> sys.stderr, "Error starting chroot helper:"
+                    traceback.print_exc()
+                    sys.stderr.flush()
             finally:
                 os._exit(1)
 
@@ -386,6 +388,8 @@ class rMakeChrootServer(object):
                 args.append('--no-chroot-user')
             if not self.runTagScripts:
                 args.append('--no-tag-scripts')
+            if self.chrootCaps:
+                args.append('--chroot-caps')
             os.execv(prog, args)
         else:
             # testsuite and FakeRoot path

@@ -17,7 +17,6 @@ from conary.lib import options, util
 
 from rmake.lib import logfile
 from rmake.lib import logger
-from rmake.lib import pycap
 
 (NO_PARAM,  ONE_PARAM)  = (options.NO_PARAM, options.ONE_PARAM)
 (OPT_PARAM, MULT_PARAM) = (options.OPT_PARAM, options.MULT_PARAM)
@@ -224,6 +223,9 @@ class Daemon(options.MainHandler):
 
     def start(self, fork=True):
         if not os.getuid():
+            # libcap isn't available in the chroot, so delay importing
+            # until here.
+            from rmake.lib import pycap
             if self.user:
                 pwent = pwd.getpwnam(self.user)
                 if self.groups:

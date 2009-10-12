@@ -47,6 +47,9 @@ class rMakeBuilderConfiguration(daemon.DaemonConfig):
     usePlugin         = CfgDict(CfgBool)
     chrootLimit       = (CfgInt, 4)
     chrootCache       = CfgChrootCache
+    chrootCaps        = (CfgBool, False,
+            "Set capability masks as directed by chroot contents. "
+            "This has the potential to be unsafe.")
     hostName          = (CfgString, 'localhost')
     verbose           = False
 
