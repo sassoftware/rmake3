@@ -18,6 +18,7 @@
 #define CHROOT_GROUP "@chrootgroup@"
 #define RMAKE_PATH "@chrootrmake@"
 #define CHROOT_SERVER_PATH RMAKE_PATH "@chrootserver@"
+#define CHROOT_CAP_DEFINITION RMAKE_PATH "/file-capabilities"
 
 struct devinfo_t {
         char* path;
