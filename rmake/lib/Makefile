@@ -8,6 +8,7 @@ dist_files = Makefile $(python_files)
 all: default-all pycapmodule.so
 
 clean: default-clean
+	rm -f pycapmodule.so
 
 dist: default-dist
 

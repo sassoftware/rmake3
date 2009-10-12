@@ -38,7 +38,7 @@ pycap_set_keepcaps(PyObject *self, PyObject *args) {
 static PyObject *
 pycap_set_proc(PyObject *self, PyObject *args) {
     char *cap_str;
-    cap_t *cap;
+    cap_t cap;
 
     if (!PyArg_ParseTuple(args, "s", &cap_str)) {
         return NULL;
@@ -62,7 +62,7 @@ pycap_set_proc(PyObject *self, PyObject *args) {
 static PyObject *
 pycap_get_proc(PyObject *self, PyObject *noargs) {
     char *cap_str;
-    cap_t *cap;
+    cap_t cap;
     ssize_t cap_str_len;
 
     if ((cap = cap_get_proc()) == NULL) {
