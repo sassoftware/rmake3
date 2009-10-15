@@ -36,7 +36,6 @@ def getMountInfo():
     mounts = {}
     for cols in (x.split(None, 6) for x in lines if x):
         device, type, blocks, used, avail, capacity, mount = cols
-        blocks, used, avail = int(blocks), int(used), int(avail)
         if device == 'none':
             device = None
         mounts[mount] = Partition(device, type, blocks, used, avail)

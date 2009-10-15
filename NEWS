@@ -1,4 +1,7 @@
 Changes in @NEW@:
+ o Bug Fixes:
+    * Don't cast disk usage info to int, since it may exceed XML-RPC
+      limit (RMK-997)
  o New Features:
     * Multi-line macros in build job configurations will no longer cause
       invalid conaryrc files to be created inside chroots. (RMK-996)
