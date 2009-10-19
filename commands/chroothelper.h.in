@@ -31,6 +31,7 @@ struct devinfo_t {
 struct devinfo_t devices[] = {
     { "null", S_IFCHR, 0666, 1, 3 },
     { "zero", S_IFCHR, 0666, 1, 5 },
+    { "full", S_IFCHR, 0666, 1, 7 },
     { "urandom", S_IFCHR, 0444, 1, 9 },
     { "tty",     S_IFCHR, 0666, 5, 0 },
     { "console",     S_IFCHR, 0600, 5, 1 },

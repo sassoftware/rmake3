@@ -10,6 +10,7 @@ Changes in @NEW@:
     * When properly configured, rMake will grant capabilities to
       programs in the chroot as directed by a file within the chroot.
       (RMK-1004)
+    * The /dev/full device is now available in build chroots.
 
 Changes in 1.0.31:
  o Bug Fixes:
