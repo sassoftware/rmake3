@@ -149,7 +149,9 @@ def getRecipeObj(repos, name, version, flavor, trv,
                 recipeObj.troveSource = groupRecipeSource
                 sourceComponents = recipeObj._findSources(groupRecipeSource)
                 recipeObj.delayedRequires = sourceComponents
-        elif recipe.isPackageRecipe(recipeClass) or recipe.isFactoryRecipe(recipeClass):
+        elif (recipe.isPackageRecipe(recipeClass) or
+              recipe.isFactoryRecipe(recipeClass) or
+              recipe.isCapsuleRecipe(recipeClass)):
             if recipe.isFactoryRecipe(recipeClass):
                 #This requires a specific capability in conary
                 compat.ConaryVersion().requireFactoryRecipeGeneration()
