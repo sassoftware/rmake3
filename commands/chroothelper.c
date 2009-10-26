@@ -61,7 +61,9 @@
 #include "chroothelper.h"
 
 /* global option for verbose execution */
-int opt_verbose = 0;
+static int opt_verbose = 0;
+static char conary_interpreter[PATH_MAX];
+
 
 struct passwd * get_user_entry(const char * userName) {
     struct passwd * pwent;
@@ -413,6 +415,47 @@ end:
 }
 
 
+/* get_conary_interpreter: return the interpreter specified in the first line
+ * of /usr/bin/conary
+ *
+ * Returns a pointer to a static buffer.
+ */
+const char *
+get_conary_interpreter() {
+    char tempBuf[PATH_MAX], *ptr;
+    int fd, n;
+
+    if ((fd = open(CONARY_EXEC_PATH, O_RDONLY)) < 0) {
+        perror("open " CONARY_EXEC_PATH);
+        return NULL;
+    }
+
+    if ((n = read(fd, tempBuf, PATH_MAX - 1)) < 0) {
+        perror("read " CONARY_EXEC_PATH);
+        close(fd);
+        return NULL;
+    }
+    close(fd);
+
+    if (n < 3 || tempBuf[0] != '#' || tempBuf[1] != '!') {
+        fprintf(stderr, "ERROR: invalid interpreter line in "
+                CONARY_EXEC_PATH "\n");
+        return NULL;
+    }
+
+    tempBuf[n] = '\0';
+    if ((ptr = strchr(tempBuf, '\n')) == NULL) {
+        fprintf(stderr, "ERROR: invalid interpreter line in "
+                CONARY_EXEC_PATH "\n");
+        return NULL;
+    }
+    n = ptr - tempBuf - 2; /* sans shebang */
+
+    strncpy(conary_interpreter, tempBuf + 2, n);
+    return conary_interpreter;
+}
+
+
 /***********************************************************
  *
  * chroot helper main functionality
@@ -430,6 +473,7 @@ int enter_chroot(const char * chrootDir, const char * socketPath, int useTmpfs,
     int i;
     int rc;
     pid_t pid;
+    const char *interp;
     char tempPath[PATH_MAX];
     char command[PATH_MAX]; /* this may fail as our command could be longer
                              * than this, but it really shouldn't be 
@@ -463,15 +507,23 @@ int enter_chroot(const char * chrootDir, const char * socketPath, int useTmpfs,
             perror("snprintf");
             return 1;
         }
-	if (opt_verbose)
-	    printf("creating device %s\n", tempPath);
+        if (opt_verbose)
+            printf("creating device %s\n", tempPath);
 
-        if (-1 == mknod(tempPath, device.type | device.mode,
-                        makedev(device.major, device.minor))) {
-            if (errno != EEXIST) {
-                perror("mknod");
+        /* Some package managers (cough, RPM) make empty files when they can't
+         * create the actual device nodes.
+         */
+        if ( unlink(tempPath) ) {
+            if ( errno != ENOENT ) {
+                perror("unlink");
                 return 1;
             }
+        }
+
+        if (mknod(tempPath, device.type | device.mode,
+                    makedev(device.major, device.minor))) {
+            perror("mknod");
+            return 1;
         }
     }
     /* restore sane umask */
@@ -562,9 +614,14 @@ int enter_chroot(const char * chrootDir, const char * socketPath, int useTmpfs,
         fprintf(stderr, "ERROR: can not assume %s privileges\n", CHROOT_USER);
         return -1;
     }
-    rc = snprintf(command, PATH_MAX,
-                  "%s %s start -n --socket %s", "/usr/bin/python",
-                  CHROOT_SERVER_PATH, socketPath);
+    if ((interp = get_conary_interpreter()) == NULL) {
+        fprintf(stderr, "ERROR: cannot determine location of conary "
+                "interpreter\n");
+        return 1;
+    }
+    fprintf(stderr, "Using interpreter %s\n", interp);
+    rc = snprintf(command, PATH_MAX, "%s %s start -n --socket %s",
+            interp, CHROOT_SERVER_PATH, socketPath);
     if (rc >= PATH_MAX) {
         fprintf(stderr, "ERROR: command too long\n");
         return 1;

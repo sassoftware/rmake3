@@ -19,6 +19,7 @@
 #define RMAKE_PATH "@chrootrmake@"
 #define CHROOT_SERVER_PATH RMAKE_PATH "@chrootserver@"
 #define CHROOT_CAP_DEFINITION RMAKE_PATH "/file-capabilities"
+#define CONARY_EXEC_PATH "/usr/bin/conary"
 
 struct devinfo_t {
         char* path;
