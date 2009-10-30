@@ -59,6 +59,7 @@
 #define set_pers(pers) ((long)syscall(SYS_personality, pers))
 
 #include "chroothelper.h"
+#include "config.h"
 
 /* global option for verbose execution */
 static int opt_verbose = 0;
@@ -323,6 +324,12 @@ int unmountchroot(const char * chrootDir, int opt_clean) {
  */
 int
 set_chroot_caps(const char *chrootDir) {
+
+#ifndef _HAVE_CAP_SET_FILE
+    fprintf(stderr, "set_chroot_caps: cap_set_file unavaliable\n");
+    return -1;
+
+#else /* _HAVE_CAP_SET_FILE */
     char tempPath[PATH_MAX];
     const char *caps = NULL, *ptr, *end, *next_path, *next_cap;
     int caps_fd;
@@ -412,6 +419,8 @@ end:
         munmap((void *)caps, size);
     close(caps_fd);
     return rv;
+
+#endif /* _HAVE_CAP_SET_FILE */
 }
 
 

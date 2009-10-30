@@ -24,6 +24,13 @@ all: default-all chroothelper
 		ln -sf rmake-wrapper $(TOPDIR)/bin/$$f; \
 	done
 
+config.h:
+	if readelf -s /lib*/libcap.so | grep -q cap_set_file ; then \
+		echo '#define _HAVE_CAP_SET_FILE 1' > $@ ; \
+	else \
+		: > $@ ; \
+	fi
+
 chroothelper.h: chroothelper.h.in ../Make.defs
 	sed -e s,@version@,$(VERSION),g \
 	    -e s,@rmakeuser@,$(RMAKE_USER),g \
@@ -34,9 +41,8 @@ chroothelper.h: chroothelper.h.in ../Make.defs
 	    -e s,@chrootrmake@,$(CHROOT_RMAKE),g \
 	$< > $@
 
-chroothelper: chroothelper.c chroothelper.h
+chroothelper: chroothelper.c chroothelper.h config.h
 	gcc -Wall -O2 -g -o chroothelper chroothelper.c -lcap
-
 
 install-mkdirs: install-client-mkdirs
 	mkdir -p $(DESTDIR)$(sbindir)
@@ -63,8 +69,11 @@ install: install-mkdirs install-client
 dist: default-dist
 
 clean: default-clean
+	rm -f config.h
 	rm -f chroothelper chroothelper.h
 	rm -rf $(TOPDIR)/bin
 
 include $(TOPDIR)/Make.rules
 include $(TOPDIR)/Make.defs
+
+# vim: set sts=8 sw=8 noexpandtab :
