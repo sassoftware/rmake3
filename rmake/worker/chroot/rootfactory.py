@@ -27,8 +27,8 @@ from rmake.lib import flavorutil
 from rmake.lib import rootfactory
 
 def _addModeBits(path, bits):
-    s = os.stat(path)
-    if not (s.st_mode & bits == bits):
+    s = os.lstat(path)
+    if not stat.S_ISLNK(s.st_mode) and not (s.st_mode & bits == bits):
         os.chmod(path, stat.S_IMODE(s.st_mode) | bits)
 
 class ConaryBasedChroot(rootfactory.BasicChroot):
