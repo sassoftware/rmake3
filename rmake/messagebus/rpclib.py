@@ -45,7 +45,7 @@ class SessionProxy(apirpc.ApiProxy):
         self._client = client
         self._sessionId = sessionId
         session = client.getSession()
-        self._address = '[%s]:%d' % (session.host, session.port)
+        self._address = '[%s]:%s' % (session.host, session.port)
 
     def _marshal_call(self, methodName, params):
         if self._client.getSessionId() == self._sessionId:
