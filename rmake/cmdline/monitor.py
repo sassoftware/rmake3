@@ -97,16 +97,17 @@ class _AbstractDisplay(xmlrpc.BasicXMLRPCStatusSubscriber):
             self._setFinished()
 
 
-
 class SilentDisplay(_AbstractDisplay):
     pass
+
 
 class JobLogDisplay(_AbstractDisplay):
 
     def __init__(self, client, showBuildLogs=True, out=None,
                  exitOnFinish=None):
-        _AbstractDisplay.__init__(self, client, out, exitOnFinish=exitOnFinish)
-        self.showBuildLogs = showBuildLogs
+        _AbstractDisplay.__init__(self, client, out=out,
+            showBuildLogs=showBuildLogs,
+            exitOnFinish=exitOnFinish)
         self.buildingTroves = {}
 
     def _tailBuildLog(self, jobId, troveTuple):
