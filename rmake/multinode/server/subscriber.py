@@ -18,9 +18,8 @@ class rMakeServerNodeClient(nodeclient.NodeClient):
 
     def __init__(self, cfg, server):
         node = nodetypes.Server()
-        nodeclient.NodeClient.__init__(self, 'localhost',
-                                       cfg.messageBusPort,
-                                       cfg, server, node)
+        nodeclient.NodeClient.__init__(self, cfg.messageBusHost,
+                cfg.messageBusPort, cfg, server, node)
         self.connect()
 
     def emitEvents(self, jobId, eventList):

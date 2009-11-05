@@ -182,7 +182,7 @@ class _SessionClient(asyncore.dispatcher):
         self.set_socket(socket.socket())
         self.sessionId = None
         self.count = 1
-        self.host = host
+        self.host = host or 'localhost'
         self.port = port
         self.user = user
         self.password = password

@@ -40,8 +40,8 @@ class DispatcherServer(server.Server):
         and determines where the best location to build them is.
     """
     def __init__(self, cfg, db):
-        self.client = DispatcherNodeClient('localhost', cfg.messageBusPort,
-                                          cfg, self)
+        self.client = DispatcherNodeClient(cfg.messageBusHost,
+                cfg.messageBusPort, cfg, self)
         server.Server.__init__(self, self.client.getLogger())
         subscriberLog = logger.Logger('subscriber', cfg.getSubscriberLogPath())
 
