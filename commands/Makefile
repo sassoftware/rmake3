@@ -8,6 +8,7 @@ bin_files = \
 	rmake
 
 sbin_files = \
+	rmake-messagebus \
 	rmake-server \
 	gencert-rmake
 

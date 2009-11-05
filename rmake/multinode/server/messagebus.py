@@ -1,5 +1,7 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2006-2009 rPath, Inc.
+#
+# All rights reserved.
 #
 """
 Very basic message bus.
@@ -17,6 +19,7 @@ a of the message has value "b".
 """
 import asyncore
 import errno
+import optparse
 import os
 import signal
 import socket
@@ -28,6 +31,7 @@ import urllib
 from rmake import errors
 from rmake.lib import apirpc
 from rmake.lib.apiutils import api, api_parameters, api_return, freeze, thaw
+from rmake.lib.daemon import daemonize
 
 from rmake.messagebus import logger
 from rmake.messagebus import messageprocessor
@@ -47,7 +51,7 @@ class MessageBus(apirpc.ApiServer):
             port - port to listen to connections at.  If 0, will be an open
                    port assigned by operating system.
     """
-    def __init__(self, host, port, logPath, messagePath):
+    def __init__(self, host, port, logPath, messagePath=None):
         l = logger.MessageBusLogger('messagebus', logPath)
         apirpc.ApiServer.__init__(self, l)
         self._map = {}
@@ -55,7 +59,8 @@ class MessageBus(apirpc.ApiServer):
         self._messageCount = 0
         self._pendingSessions = []
         self._sessions = {}
-        self._logger.logMessagesToFile(messagePath)
+        if messagePath:
+            self._logger.logMessagesToFile(messagePath)
         self._logger.info('Message bus started, listening on port %s (pid %s)' % (port, os.getpid()))
         # instantiating this class stores this connection handler in self._map.
         # (ala asyncore)
@@ -466,3 +471,45 @@ class MessageBusRPCClient(object):
 
     def listQueueLengths(self):
         return self.proxy.listQueueLengths()
+
+
+def main(args):
+    parser = optparse.OptionParser()
+    parser.add_option('-b', '--bind', default='::',
+            help="Bind to this host")
+    parser.add_option('-p', '--port', default=50900)
+    parser.add_option('-P', '--pid-file')
+    parser.add_option('-l', '--log-file')
+    parser.add_option('-m', '--log-messages')
+    options, args = parser.parse_args(args)
+    if args:
+        parser.error("No arguments expected")
+    if not options.log_file:
+        parser.error("You must specify a log file")
+
+    bus = MessageBus(options.bind, int(options.port),
+            options.log_file, options.log_messages)
+
+    pidFile = None
+    if options.pid_file:
+        pidFile = open(options.pid_file, 'w')
+
+    if daemonize():
+        try:
+            try:
+                if pidFile:
+                    pidFile.write(str(os.getpid()))
+                    pidFile.close()
+                signal.signal(signal.SIGTERM, bus._signalHandler)
+                signal.signal(signal.SIGQUIT, bus._signalHandler)
+                bus.serve_forever()
+            except:
+                bus._logger.exception("Unhandled exception in message bus:")
+        finally:
+            os._exit(70)
+
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))

@@ -20,6 +20,8 @@ Changes in @NEW@:
       rather than always using /usr/bin/python.
     * rMake will now make all files installed in the chroot accessible
       to the build user (RMK-1006)
+    * Multinode rMake servers can now use an externally-managed message
+      bus.  (RMK-1011)
 
 Changes in 1.0.31:
  o Bug Fixes:

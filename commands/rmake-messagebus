@@ -1,0 +1,18 @@
+#!/usr/bin/python
+# Copyright (c) 2009 rPath, Inc.
+#
+# All rights reserved.
+#
+
+import os
+import sys
+
+if 'CONARY_PATH' in os.environ:
+    sys.path.insert(0, os.environ['CONARY_PATH'])
+if 'RMAKE_PATH' in os.environ:
+    sys.path.insert(0, os.environ['RMAKE_PATH'])
+
+from rmake.multinode.server.messagebus import main
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

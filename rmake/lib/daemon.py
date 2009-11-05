@@ -369,3 +369,19 @@ class Daemon(options.MainHandler):
         except KeyboardInterrupt:
             return 1
         return rc
+
+
+def daemonize():
+    if os.fork():
+        return False
+    if os.fork():
+        os._exit(0)
+
+    os.setsid()
+    sink = os.open(os.devnull, os.O_RDWR)
+    os.dup2(sink, 0)
+    os.dup2(sink, 1)
+    os.dup2(sink, 2)
+    os.close(sink)
+
+    return True
