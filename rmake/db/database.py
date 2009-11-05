@@ -75,10 +75,10 @@ class DBInterface(object):
 class Database(DBInterface):
 
     def __init__(self, path, contentsPath, clean = False):
-        self.dbpath = path
+        self.driver, self.dbpath = path
 
-        if os.path.exists(path) and clean:
-            os.unlink(path)
+        if os.path.exists(self.dbpath) and clean:
+            os.unlink(self.dbpath)
 
         db = self.open()
         DBInterface.__init__(self, db)
@@ -97,7 +97,7 @@ class Database(DBInterface):
             return schema.SchemaManager(self.db).loadSchema()
 
     def open(self):
-        return dbstore.connect(self.dbpath, driver = "sqlite", timeout=120000,
+        return dbstore.connect(self.dbpath, driver=self.driver, timeout=120000,
                                lockJournal=True)
 
     def subscribeToJob(self, job):

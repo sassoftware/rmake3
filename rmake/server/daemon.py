@@ -40,7 +40,7 @@ class ResetCommand(daemon.DaemonCommand):
                 print "Deleting subdirectories of %s" % dir
                 for subDir in os.listdir(dir):
                     shutil.rmtree(dir + '/' + subDir)
-        for path in (cfg.getDbPath(),):
+        for path in (cfg.getDbPath()[1],):
             if os.path.exists(path):
                 print "Deleting %s" % path
                 os.remove(path)

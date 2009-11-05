@@ -15,6 +15,7 @@ import sys
 import subprocess
 import urllib
 
+from conary import dbstore
 from conary.lib import log, cfg, util
 from conary.lib.cfgtypes import CfgPath, CfgList, CfgString, CfgInt, CfgType
 from conary.lib.cfgtypes import CfgBool, CfgPathList, CfgDict, ParseError
@@ -141,6 +142,8 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
     caCertPath        = CfgPath
     reposUser         = CfgUserInfo
 
+    dbPath            = dbstore.CfgDriver
+
     def __init__(self, readConfigFiles = False, ignoreErrors=False):
         daemon.DaemonConfig.__init__(self)
         self.setIgnoreErrors(ignoreErrors)
@@ -182,7 +185,10 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
         return os.path.normpath(rest)
 
     def getDbPath(self):
-        return self.serverDir + '/jobs.db'
+        if not self.dbPath:
+            return ('sqlite', self.serverDir + '/jobs.db')
+        else:
+            return self.dbPath
 
     def getDbContentsPath(self):
         return self.serverDir + '/jobcontents'
