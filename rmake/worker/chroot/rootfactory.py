@@ -10,6 +10,7 @@ import os
 import pwd
 import shutil
 import sys
+import stat
 
 #conary
 from conary import conarycfg
@@ -24,6 +25,11 @@ from rmake import compat
 from rmake import constants
 from rmake.lib import flavorutil
 from rmake.lib import rootfactory
+
+def _addModeBits(path, bits):
+    s = os.lstat(path)
+    if not stat.S_ISLNK(s.st_mode) and not (s.st_mode & bits == bits):
+        os.chmod(path, stat.S_IMODE(s.st_mode) | bits)
 
 class ConaryBasedChroot(rootfactory.BasicChroot):
     """ 
@@ -102,11 +108,12 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
                 excludeAutoSource=True, mirrorMode=False)
             chrootFingerprint = sha1helper.sha1String(''.join(fingerprints))
             if self.chrootCache.hasChroot(chrootFingerprint):
+                strFingerprint = sha1helper.sha1ToString(chrootFingerprint)
                 self.logger.info('restoring cached chroot with '
-                                 'fingerprint %s' %chrootFingerprint)
+                        'fingerprint %s', strFingerprint)
                 self.chrootCache.restore(chrootFingerprint, self.cfg.root)
                 self.logger.info('chroot fingerprint %s '
-                                 'restore done' %chrootFingerprint)
+                         'restore done', strFingerprint)
                 return
 
         def _install(jobList):
@@ -151,11 +158,20 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
             finally:
                 self.cfg.root = oldRoot
 
+        # directories must be traversable and files readable (RMK-1006)
+        for root, dirs, files in os.walk(self.cfg.root, topdown=True):
+            for directory in dirs:
+                _addModeBits(os.sep.join((root, directory)), 05)
+            for filename in files:
+                _addModeBits(os.sep.join((root, filename)), 04)
+
         if self.chrootCache:
-            self.logger.info('caching chroot with fingerprint '
-                             '%s' %chrootFingerprint)
+            strFingerprint = sha1helper.sha1ToString(chrootFingerprint)
+            self.logger.info('caching chroot with fingerprint %s',
+                    strFingerprint)
             self.chrootCache.store(chrootFingerprint, self.cfg.root)
-            self.logger.info('caching chroot %s done' %chrootFingerprint)
+            self.logger.info('caching chroot %s done',
+                    strFingerprint)
 
     def _copyInConary(self):
         conaryDir = os.path.dirname(sys.modules['conary'].__file__)

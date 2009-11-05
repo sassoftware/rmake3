@@ -59,13 +59,17 @@
 #define set_pers(pers) ((long)syscall(SYS_personality, pers))
 
 #include "chroothelper.h"
+#include "config.h"
 
 /* global option for verbose execution */
-int opt_verbose = 0;
+static int opt_verbose = 0;
+static char conary_interpreter[PATH_MAX];
+
 
 struct passwd * get_user_entry(const char * userName) {
     struct passwd * pwent;
 
+    errno = 0; /* required to trust errno after getpwnam() invocation */
     pwent = getpwnam(userName);
     if (pwent == NULL) {
         if (errno != 0) {
@@ -95,19 +99,6 @@ int switch_to_uid_gid(int uid, int gid) {
     return 0;
 }
 
-int switch_to_user(const char * userName) {
-    struct passwd * pwent;
-    pwent = get_user_entry(userName);
-
-    if (opt_verbose)
-	printf("switching uid/gid to %s\n", userName);
-
-    if (pwent == NULL){
-	fprintf(stderr, "ERROR: could not find pwent for %s\n", userName);
-        return 1;
-    }
-    return switch_to_uid_gid(pwent->pw_uid, pwent->pw_gid);
-}
 
 int mount_dir(const char * chrootDir, const char * fromDir,
               const char * toDir,     const char * mountType) {
@@ -187,6 +178,8 @@ int unmountchroot(const char * chrootDir, int opt_clean) {
     DIR * dir_h;
     struct dirent * dirent_h;
     struct passwd * chrootent;
+    uid_t chroot_uid;
+    gid_t chroot_gid;
 
     char * tmpDirs[] = { "/tmp", "/var/tmp" };
     if (opt_verbose)
@@ -195,8 +188,10 @@ int unmountchroot(const char * chrootDir, int opt_clean) {
     /* get chroot user uid/gid from outside the chroot */
     chrootent = get_user_entry(CHROOT_USER);
     if (chrootent == NULL) {
-      return 1;
+        return 1;
     }
+    chroot_uid = chrootent->pw_uid;
+    chroot_gid = chrootent->pw_gid;
 
     /*enter chroot */
     rc = do_chroot(chrootDir);
@@ -221,7 +216,7 @@ int unmountchroot(const char * chrootDir, int opt_clean) {
 
     /* We only want to remove files owned by chrootuid, everything
      * else we should be able to delete elsewhere */
-    rc = switch_to_uid_gid(chrootent->pw_uid, chrootent->pw_gid);
+    rc = switch_to_uid_gid(chroot_uid, chroot_gid);
     if (rc)
 	return rc;
     if (!opt_clean)
@@ -321,6 +316,12 @@ int unmountchroot(const char * chrootDir, int opt_clean) {
  */
 int
 set_chroot_caps(const char *chrootDir) {
+
+#ifndef _HAVE_CAP_SET_FILE
+    fprintf(stderr, "set_chroot_caps: cap_set_file unavaliable\n");
+    return -1;
+
+#else /* _HAVE_CAP_SET_FILE */
     char tempPath[PATH_MAX];
     const char *caps = NULL, *ptr, *end, *next_path, *next_cap;
     int caps_fd;
@@ -410,6 +411,49 @@ end:
         munmap((void *)caps, size);
     close(caps_fd);
     return rv;
+
+#endif /* _HAVE_CAP_SET_FILE */
+}
+
+
+/* get_conary_interpreter: return the interpreter specified in the first line
+ * of /usr/bin/conary
+ *
+ * Returns a pointer to a static buffer.
+ */
+const char *
+get_conary_interpreter() {
+    char tempBuf[PATH_MAX], *ptr;
+    int fd, n;
+
+    if ((fd = open(CONARY_EXEC_PATH, O_RDONLY)) < 0) {
+        perror("open " CONARY_EXEC_PATH);
+        return NULL;
+    }
+
+    if ((n = read(fd, tempBuf, PATH_MAX - 1)) < 0) {
+        perror("read " CONARY_EXEC_PATH);
+        close(fd);
+        return NULL;
+    }
+    close(fd);
+
+    if (n < 3 || tempBuf[0] != '#' || tempBuf[1] != '!') {
+        fprintf(stderr, "ERROR: invalid interpreter line in "
+                CONARY_EXEC_PATH "\n");
+        return NULL;
+    }
+
+    tempBuf[n] = '\0';
+    if ((ptr = strchr(tempBuf, '\n')) == NULL) {
+        fprintf(stderr, "ERROR: invalid interpreter line in "
+                CONARY_EXEC_PATH "\n");
+        return NULL;
+    }
+    n = ptr - tempBuf - 2; /* sans shebang */
+
+    strncpy(conary_interpreter, tempBuf + 2, n);
+    return conary_interpreter;
 }
 
 
@@ -430,6 +474,12 @@ int enter_chroot(const char * chrootDir, const char * socketPath, int useTmpfs,
     int i;
     int rc;
     pid_t pid;
+    const char *interp;
+    struct passwd * pwent;
+    uid_t chroot_uid;
+    gid_t chroot_gid;
+    uid_t chroot_super_uid;
+    gid_t chroot_super_gid;
     char tempPath[PATH_MAX];
     char command[PATH_MAX]; /* this may fail as our command could be longer
                              * than this, but it really shouldn't be 
@@ -445,6 +495,18 @@ int enter_chroot(const char * chrootDir, const char * socketPath, int useTmpfs,
         if ((rc = mount_dir(chrootDir, "/tmp", "/tmp", "tmpfs")))
             return rc;
     }
+
+
+    pwent = get_user_entry(RMAKE_USER);
+    if (pwent == NULL)
+        return -1;
+    chroot_super_uid = pwent->pw_uid;
+    chroot_super_gid = pwent->pw_gid;
+    pwent = get_user_entry(CHROOT_USER);
+    if (pwent == NULL)
+        return -1;
+    chroot_uid = pwent->pw_uid;
+    chroot_gid = pwent->pw_gid;
 
     /* we need to allow creation of 666 devices */
     umask(0);
@@ -463,15 +525,23 @@ int enter_chroot(const char * chrootDir, const char * socketPath, int useTmpfs,
             perror("snprintf");
             return 1;
         }
-	if (opt_verbose)
-	    printf("creating device %s\n", tempPath);
+        if (opt_verbose)
+            printf("creating device %s\n", tempPath);
 
-        if (-1 == mknod(tempPath, device.type | device.mode,
-                        makedev(device.major, device.minor))) {
-            if (errno != EEXIST) {
-                perror("mknod");
+        /* Some package managers (cough, RPM) make empty files when they can't
+         * create the actual device nodes.
+         */
+        if ( unlink(tempPath) ) {
+            if ( errno != ENOENT ) {
+                perror("unlink");
                 return 1;
             }
+        }
+
+        if (mknod(tempPath, device.type | device.mode,
+                    makedev(device.major, device.minor))) {
+            perror("mknod");
+            return 1;
         }
     }
     /* restore sane umask */
@@ -488,7 +558,7 @@ int enter_chroot(const char * chrootDir, const char * socketPath, int useTmpfs,
     /* keep our capabilities as we transition back to our real uid */
     prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0);
 
-    if (switch_to_user(RMAKE_USER)) {
+    if (switch_to_uid_gid(chroot_super_uid, chroot_super_gid)) {
 	fprintf(stderr, "ERROR: can not assume %s privileges\n", RMAKE_USER);
 	return -1;
     }
@@ -558,13 +628,18 @@ int enter_chroot(const char * chrootDir, const char * socketPath, int useTmpfs,
         }
     }
 
-    if (useChrootUser && switch_to_user(CHROOT_USER)) {
+    if (useChrootUser && switch_to_uid_gid(chroot_uid, chroot_gid)) {
         fprintf(stderr, "ERROR: can not assume %s privileges\n", CHROOT_USER);
         return -1;
     }
-    rc = snprintf(command, PATH_MAX,
-                  "%s %s start -n --socket %s", "/usr/bin/python",
-                  CHROOT_SERVER_PATH, socketPath);
+    if ((interp = get_conary_interpreter()) == NULL) {
+        fprintf(stderr, "ERROR: cannot determine location of conary "
+                "interpreter\n");
+        return 1;
+    }
+    fprintf(stderr, "Using interpreter %s\n", interp);
+    rc = snprintf(command, PATH_MAX, "%s %s start -n --socket %s",
+            interp, CHROOT_SERVER_PATH, socketPath);
     if (rc >= PATH_MAX) {
         fprintf(stderr, "ERROR: command too long\n");
         return 1;
@@ -584,17 +659,9 @@ int assert_correct_perms(const char * chrootDir) {
     struct stat statInfo;
     int copied;
 
-    errno = 0;
-    pwent = getpwnam(RMAKE_USER);
-    if (errno != 0) {
-        perror("getpwnam");
+    pwent = get_user_entry(RMAKE_USER);
+    if (pwent == NULL)
         return 1;
-    }
-
-    if (pwent == NULL) {
-        fprintf(stderr, "error: Could not find user '%s' in /etc/passwd\n", RMAKE_USER);
-        return 1;
-    }
     rmake_uid = pwent->pw_uid;
     rmake_gid = pwent->pw_gid;
 
@@ -609,7 +676,7 @@ int assert_correct_perms(const char * chrootDir) {
         printf("You are already root\n");
     }
     else if ((rmake_uid != getuid()) || (rmake_gid != getgid())) {
-        fprintf(stderr, "error: chroothelper can only be run by the rmake user\n");
+        fprintf(stderr, "error: chroothelper can be run only by the rmake user\n");
         return 1;
     }
 
@@ -790,4 +857,4 @@ int main(int argc, char **argv)
             !opt_noTagScripts, opt_chroot_caps);
 }
 
-/* vim: set ts=4 sts=4 sw=4 expandtab : */
+/* vim: set ts=8 sts=4 sw=4 expandtab : */

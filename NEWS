@@ -2,6 +2,10 @@ Changes in @NEW@:
  o Bug Fixes:
     * Don't cast disk usage info to int, since it may exceed XML-RPC
       limit (RMK-997)
+    * The chroot caching feature no longer records raw binary digests in
+      the server logfile.
+    * Cache all uid/gid lookups from external user database. (RMK-1010)
+
  o New Features:
     * Multi-line macros in build job configurations will no longer cause
       invalid conaryrc files to be created inside chroots. (RMK-996)
@@ -11,6 +15,11 @@ Changes in @NEW@:
       programs in the chroot as directed by a file within the chroot.
       (RMK-1004)
     * The /dev/full device is now available in build chroots.
+    * rMake will now utilize the conary interpreter specified in the
+      first line of the /usr/bin/conary that is installed in the chroot,
+      rather than always using /usr/bin/python.
+    * rMake will now make all files installed in the chroot accessible
+      to the build user (RMK-1006)
 
 Changes in 1.0.31:
  o Bug Fixes:
