@@ -31,7 +31,7 @@ import urllib
 from rmake import errors
 from rmake.lib import apirpc
 from rmake.lib.apiutils import api, api_parameters, api_return, freeze, thaw
-from rmake.lib.daemon import daemonize
+from rmake.lib.daemon import daemonize, setDebugHook
 
 from rmake.messagebus import logger
 from rmake.messagebus import messageprocessor
@@ -502,6 +502,7 @@ def main(args):
                     pidFile.close()
                 signal.signal(signal.SIGTERM, bus._signalHandler)
                 signal.signal(signal.SIGQUIT, bus._signalHandler)
+                setDebugHook()
                 bus.serve_forever()
             except:
                 bus._logger.exception("Unhandled exception in message bus:")

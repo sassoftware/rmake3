@@ -1,7 +1,10 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All rights reserved.
+# Copyright (c) 2006-2009 rPath, Inc.
+#
+# All rights reserved.
 #
 
+import epdb
 import errno
 import grp
 import os
@@ -385,3 +388,19 @@ def daemonize():
     os.close(sink)
 
     return True
+
+
+def debugHook(signum, sigtb):
+    port = 8080
+    try:
+        debugger = epdb.Epdb()
+        debugger._server = epdb.telnetserver.InvertedTelnetServer(('', port))
+        debugger._server.handle_request()
+        debugger._port = port
+        debugger.set_trace(skip=1)
+    except:
+        pass
+
+
+def setDebugHook():
+    signal.signal(signal.SIGUSR1, debugHook)
