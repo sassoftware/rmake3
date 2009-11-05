@@ -4,6 +4,7 @@ Changes in @NEW@:
       limit (RMK-997)
     * The chroot caching feature no longer records raw binary digests in
       the server logfile.
+    * Cache all uid/gid lookups from external user database. (RMK-1010)
 
  o New Features:
     * Multi-line macros in build job configurations will no longer cause
