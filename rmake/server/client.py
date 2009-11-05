@@ -261,7 +261,7 @@ class rMakeClient(object):
 
     def commitSucceeded(self, commitMap):
         """
-            Notify server that a job failed to commit due to reason in message.
+            Notify server that a job successfully committed.
 
             @param commitMap: jobId -> troveTuple -> binaries
             Mapping from jobId -> build trove -> list of binaries created by
