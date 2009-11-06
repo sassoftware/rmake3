@@ -18,7 +18,7 @@ class rMakeServerNodeClient(nodeclient.NodeClient):
 
     def __init__(self, cfg, server):
         node = nodetypes.Server()
-        nodeclient.NodeClient.__init__(self, cfg.messageBusHost,
+        nodeclient.NodeClient.__init__(self, cfg.getMessageBusHost(),
                 cfg.messageBusPort, cfg, server, node)
         self.connect()
 
