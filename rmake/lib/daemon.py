@@ -4,7 +4,6 @@
 # All rights reserved.
 #
 
-import epdb
 import errno
 import grp
 import os
@@ -393,6 +392,7 @@ def daemonize():
 def debugHook(signum, sigtb):
     port = 8080
     try:
+        import epdb
         debugger = epdb.Epdb()
         debugger._server = epdb.telnetserver.InvertedTelnetServer(('', port))
         debugger._server.handle_request()
