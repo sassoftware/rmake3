@@ -1,9 +1,9 @@
 Changes in @NEW@:
  o Bug Fixes:
     * Don't cast disk usage info to int, since it may exceed XML-RPC
-      limit (RMK-997)
+      limit. (RMK-997)
     * The chroot caching feature no longer records raw binary digests in
-      the server logfile.
+      the server logfile. (RMK-1005)
     * Cache all uid/gid lookups from external user database. (RMK-1010)
 
  o New Features:
