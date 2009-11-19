@@ -1,0 +1,160 @@
+.\" Copyright (c) 2007 rPath, Inc.
+.TH RMAKENODE 1 "17 Feb 2007" "rPath, Inc."
+.SH NAME
+rmake-node \- Helper node that communicates with the rMake server
+.SH SYNOPSIS
+.B /sbin/service rmake-node \fIcommand \fR[\fI<args>\fR]
+.SH DESCRIPTION
+An \fBrmake\fR node is a daemon that allows you to use a machine as a node in an rMake build cluster.  It almost never opens up a port (unless the "rmake chroot" command is used) but instead attempts to contact to a multinode-aware rMake
+server.
+
+For information on using rmake, see \fBrmake(1)\fR.
+For information on setting up the multinode rmake-server, see \fBrmake-multinode(8)\fR.
+For information on using rmake with the multinode plugin, see \fBrmake-multinode(1)\fR.
+
+\fBNote that although rMake is released software, it is under heavy development - API changes are likely.  However, whenever possible, such changes will be made backwards compatible.  Read the NEWS file for information on changes and updates.\fR
+
+.SH REFERENCE
+The rMake node daemon may be operated with the following commands:
+
+.SS "Server Management"
+Use the following commands to start, query, and stop the rmake node.
+.TP 4
+.B config
+Displays current configuration parameters for the rmake node. Configuration
+values are detailed in the FILES section of this manual page.
+.TP
+.B start
+Starts the node
+.TP
+.B \-\-no-daemon (\-n)
+Runs the node in the foreground instead of in daemon mode
+.TP
+.B stop, kill
+Stops the server
+.\"
+.\"
+.\"
+.SH FILES
+.\" do not put excess space in the file list
+.PD 0
+.SS /etc/rmake/noderc
+The rmake node configuration file
+
+Configuration values can also be specified via command line options, including
+the \fB\-\-config\fR option, which allows you to override one line in the
+config file, and the \-\-config-file option, which reads in an additional
+specified config file that overrides all other configuration files. The 
+\-\-skip-default-config option causes the server to not read
+/etc/rmake/serverrc for configuration.
+
+Note that you can always use \fIrmake-node config\fR to see the current value 
+of a configuration item.  This is the most surefire way to read what rmake will
+actually use as a configuration value for a given item.
+ 
+The rmake node configuration items can be strings, boolean values
+(\fBTrue\fP or \fBFalse\fP), or mappings (\f(BIto from\fP) and can include:
+
+.SS rMake-Node only configuration values
+.TP 4
+.B rmakeUrl
+URL of the rMake server that is running multinode-enabled rMake.  When
+setting up multiple nodes to communicate to the same rMake, this
+configuration item will have to be set on every node.
+
+Defaults to https://localhost:9999/.
+.TP
+.B name
+Name that this node should be displayed as when displaying the node in node listings.
+
+Defaults to the first part of the hostname value up to the first period.
+.TP
+.B hostname
+Hostname that network connections to this node should be sent to.
+
+Defaults to the fully qualified domain name.
+.TP
+.B loadThreshold
+The maximum load that this node should be at before new build jobs are not routed to this node.  The node will update the rMake dispatcher (see rmake-multinode(8)) with its current load every half a minute, allowing the dispatcher to spread build jobs evenly among the nodes where there is free processing power.
+
+Defaults to 2.
+.TP
+.B buildFlavors
+Flavors that this node will accept.
+
+Jobs will often have an architecture associated with them - for example, a package that is being built with tools that must run on an x86_64 system must run on an x86_64 system.
+
+The build flavors set for a node defines what types of architectures or other flavors the system can support.  A positive flavor (is:x86_64) states that that flavor can be built on this system.  A negative flavor (!xen) would state that packages with that flavor cannot be built on this system.  A missing use flavor has no affect on whether a trove can be built, however, a missing architecture does.  So a trove with flavor ssl,x86 could be built on a node whose buildFlavor wasis:x86, but not one whose flavor was "ssl".
+
+The default values for this configuration item are calculated automatically based on /proc and should be correct.
+
+.SS Shared Configuration fields
+.TP 4
+The following configuration fields are shared between the standalone rMake server (which acts as if it had a built-in rmake-node) and the multinode node.
+
+.TP 4
+.B buildDir
+Directory under which rmake builds.  For security reasons, this directory must 
+be owned by the rmake user, and its permissions must be set to 700.  It must
+also have the subdirectories "chroots" and "archive" owned by the rmake user
+with permissions 0700.
+.TP 4
+.B chrootHelperPath
+Path to chrootHelper, defaults to /usr/libexec/chroothelper
+.TP 4
+.B logDir
+Directory for rmake server log output; default is /var/log/rmake
+.B NOTE: log formats and paths are very likely to change in the future.
+Watch the NEWS file for updates.
+.TP 4
+.B lockDir
+Directory to create lockfile in; default is /var/lock/rmake
+.TP 4
+.B useTmpfs
+Causes rMake to mount a tmpfs filesystem at /tmp within the chroot, where
+all rMake builds take place. With this memory-based filesystem in place, rMake
+builds will generally be faster but require more memory and less disk space.
+.TP 4
+.B useCache
+Allows you to disable the rMake internal cache and always download from the 
+repository.  This may be helpful in the case where you have an external cache
+that can generate the required changesets just as quickly.
+.RE
+.SH
+.TP 4
+.I <logDir>/buildlogs
+Log files for individual builds
+.TP
+.I <buildDir>/archive
+Directory where all archived chroots are kept.
+It is reasonable to run tmpwatch on this directory.
+.TP
+.I <buildDir>/chroots
+Directory where all chroots are created.
+It is reasonable to run tmpwatch on this directory.
+.TP
+.I <buildDir>/cscache
+Location of cached changesets
+It is reasonable to run tmpwatch on this directory.
+.PD 0
+.TP 4
+.I /etc/sysconfig/rmake
+If this file exists, rmake will read it for CONARY_PATH and RMAKE_PATH values,
+to determine where to search for the conary and rmake libraries.
+.SH BUGS
+You can report rmake bugs at http://issues.rpath.com/
+.\"
+.\"
+.\"
+.SH "SEE ALSO"
+rmake-server(8)
+.br
+rmake(1)
+.br
+cvc(1)
+.br
+conary(1)
+.br
+http://www.rpath.com/
+.br
+http://wiki.rpath.com/

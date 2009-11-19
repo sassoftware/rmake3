@@ -1,0 +1,71 @@
+.\" Copyright (c) 2007 rPath, Inc.
+.TH RMAKEMULTINODE 1 "17 Feb 2007" "rPath, Inc."
+.SH NAME
+rmake-multinode \- Client changes for using multinode rmake.
+.SH SYNOPSIS
+.B New configuration values and changes to functionality for multinode rmake.
+.SH DESCRIPTION
+Multinode rMake is available via a plugin that is installed in
+/usr/share/rmake/plugins.  When multinode rMake is installed, it will be used
+by default.  You can turn it off by adding --no-plugins to the
+command line or either "usePlugins False" or "usePlugin multinode False" to
+your rmakerc configuration file.
+
+Using the rMake client with multinode rMake very similar to the commands when using standalone rMake.
+
+For information on using rmake in general, see \fBrmake(1)\fR.
+For information on setting up the rmake-server with the multinode plugin, see \fBrmake-multinode(1)\fR.
+
+.SH REFERENCE
+rMake multinode modifies or adds the following commands:
+.SS "Chroot Management"
+The following \fBcommands\fP are used to debug, archive, and remove chroots
+that were made as a part of building packages in rMake.
+.TP 4
+.B archive \fI<host>\fP:\fI<chrootName>\fP [\fI<newName>\fP]
+Archives the given chroot on the given host so that it will not be overwritten by a future build.
+.TP 4
+.B chroot \fI<host>\fP:\fI<chrootName>\fP
+Enters the given chroot on the given host as the rmake-chroot user and runs
+"sh", allowing you to execute commands in the chroot as the build process did.
+.TP 4
+.B clean \fI<host>\fP:\fI<chrootName>\fP
+Removes the given chroot, freeing the disk space it used.
+.TP 4
+.B list nodes
+Lists the nodes currently attached to the rMake server, along with what flavors they support and what they are currently doing (see rmake-node(8) for more information).
+
+The output of this command is likely to change.
+
+.SH FILES
+The rMake multinode client has the ability to communicate to remote rmake servers, which requires the addition of two configuration options.  All other options are the same See rmake(1) for more information.
+.TP
+.B rmakeUrl
+URL of the remote rMake.  Defaults to https://localhost:9999.  To
+communicate to a standalone rMake, you must change this to:
+
+unix:///var/lib/rmake/socket
+.TP
+.B rmakeUser
+Username and password to use to communicate to the remote rMake.  Defaults to anonymous anonymous.
+.SH BUGS
+You can report rmake bugs at http://issues.rpath.com/
+.\"
+.\"
+.\"
+.SH "SEE ALSO"
+rmake-multinode(8)
+.br
+rmake-server(8)
+.br
+rmake-node(8)
+.br
+rmake(1)
+.br
+cvc(1)
+.br
+conary(1)
+.br
+http://www.rpath.com/
+.br
+http://wiki.rpath.com/

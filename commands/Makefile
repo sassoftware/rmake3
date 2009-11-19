@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2006-2009 rPath, Inc.  All Rights Reserved.
 #
 
 TOPDIR=..
@@ -10,6 +10,7 @@ bin_files = \
 sbin_files = \
 	rmake-messagebus \
 	rmake-server \
+	rmake-node \
 	gencert-rmake
 
 extra_dist = Makefile rmake-wrapper chroothelper.c chroothelper.h.in gen-cert.sh
