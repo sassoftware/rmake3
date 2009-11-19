@@ -6,7 +6,7 @@ python_files = __init__.py errors.py compat.py failure.py
 
 dist_files = Makefile constants.py.in $(python_files)
 
-SUBDIRS = build cmdline db lib messagebus multinode server plugins subscribers worker
+SUBDIRS = build cmdline db lib messagebus multinode node server plugins subscribers worker
 
 all: default-subdirs default-all constants.py
 
