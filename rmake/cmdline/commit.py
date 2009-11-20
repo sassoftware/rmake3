@@ -199,6 +199,7 @@ def commitJobs(conaryclient, jobList, reposName, message=None,
                                         branchMap, trovesToClone,
                                         updateBuildInfo=updateBuildInfo,
                                         cloneSources=False,
+                                        trackClone=False,
                                         callback=callback, fullRecurse=False)
     if passed:
         oldTroves = []
