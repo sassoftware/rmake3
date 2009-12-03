@@ -3,7 +3,7 @@
 #
 
 python_files = *.py
-dist_files = Makefile $(python_files)
+dist_files = Makefile $(python_files) pycap.c pycompat.h
 
 all: default-all pycapmodule.so
 

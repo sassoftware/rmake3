@@ -62,17 +62,12 @@ dist:
 
 
 archive: $(dist_files)
-	rm -rf $(DISTDIR)
-	mkdir $(DISTDIR)
-	for d in $(SUBDIRS); do make -C $$d DIR=$$d dist || exit 1; done
-	for f in $(dist_files); do \
-		mkdir -p $(DISTDIR)/`dirname $$f`; \
-		cp -a $$f $(DISTDIR)/$$f; \
-	done; \
-	tar cjf $(DISTDIR).tar.bz2 `basename $(DISTDIR)`
+	hg archive -t tbz2 -r rmake-$(VERSION) rmake-$(VERSION).tar.bz2
 
 sanitycheck: archive
 	@echo "=== sanity building/testing rmake ==="; \
+	rm -rf $(DISTDIR); \
+	tar xjf rmake-$(VERSION).tar.bz2; \
 	cd $(DISTDIR); \
 	make > /dev/null || exit 1; \
 	./bin/rmake --version --skip-default-config > /dev/null || echo "RMAKE DOES NOT WORK" || exit 1; \
