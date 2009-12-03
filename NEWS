@@ -1,4 +1,4 @@
-Changes in @NEW@:
+Changes in 2.0.0:
  o New Features:
     * The "multi-node rmake" build cluster capability has been moved
       from an externally-provided plugin into rMake proper.
