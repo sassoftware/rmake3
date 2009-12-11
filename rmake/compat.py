@@ -66,10 +66,10 @@ class ConaryVersion(object):
             raise errors.RmakeError('rMake requires conary'
                                     ' version %s or greater' % versions)
 
-    def requireVersion(self, oneZeroVersion, oneOneVersion, twoZeroVersion,
-                       twoOneVersion, msg):
-        if not self.checkVersion(oneZeroVersion, oneOneVersion, twoZeroVersion,
-                                 twoOneVersion):
+    def requireVersion(self, oneZeroVersion, oneOneVersion, oneTwoVersion,
+                       twoZeroVersion, twoOneVersion, msg):
+        if not self.checkVersion(oneZeroVersion, oneOneVersion, oneTwoVersion,
+                                 twoZeroVersion, twoOneVersion):
             version = ''
             if oneZeroVersion:
                 version = '1.0.%s or ' % oneZeroVersion
@@ -86,7 +86,7 @@ class ConaryVersion(object):
         return self.checkVersion(False, False, 7)
 
     def signAfterPromote(self):
-        return self.checkVersion(True, True, True, False)
+        return self.checkVersion(True, True, True, False, False)
 
     def acceptsPartialBuildReqCloning(self):
         return self.checkVersion(False, 95)
@@ -101,14 +101,14 @@ class ConaryVersion(object):
         return self.checkVersion(False, 90)
 
     def requireFindGroupSources(self):
-        return self.requireVersion(False, 21, None, None, 'building group sources')
+        return self.requireVersion(False, 21, None, None, None, 'building group sources')
 
     def requireFactoryRecipeGeneration(self):
         '''
         Checks to see if the FactoryRecipe generator exists, added pre conary
         2.0.26
         '''
-        return self.checkVersion(False, False, 26, 'building factories')
+        return self.requireVersion(False, False, 26, 0, 0, 'building factories')
 
     def ConaryStateFromFile(self, path, repos=None, parseSource=True):
         if self.stateFileVersion() == 0: 
@@ -147,10 +147,10 @@ class ConaryVersion(object):
 
     def supportsDefaultBuildReqs(self):
         # Support added in 2.0.28
-        return self.checkVersion(None, None, None, 28)
+        return self.checkVersion(None, None, None, 28, 0)
 
     def checkVersion(self, oneZeroVersion, oneOneVersion, oneTwoVersion=None,
-                     twoZeroVersion=None):
+                     twoZeroVersion=None, twoOneVersion=None):
         if self.majorVersion == [1,0]:
             if isinstance(oneZeroVersion, bool):
                 return oneZeroVersion
@@ -172,6 +172,11 @@ class ConaryVersion(object):
             if twoZeroVersion is None:
                 return True
             return self.minorVersion >= twoZeroVersion
+        elif self.majorVersion == [2,1]:
+            if isinstance(twoOneVersion, bool): return twoOneVersion
+            if twoOneVersion is None:
+                return True
+            return self.minorVersion >= twoOneVersion
         # default to supporting everything - we're running something really new!
         return True
 
