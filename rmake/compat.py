@@ -51,7 +51,7 @@ class ConaryVersion(object):
         twoZeroVersion = 0
         twoOneVersion = 0
         if not self.checkVersion(oneZeroVersion, oneOneVersion,
-                                 oneTwoVersion, twoZeroVersion
+                                 oneTwoVersion, twoZeroVersion,
                                  twoOneVersion):
             versions = []
             if oneOneVersion:
