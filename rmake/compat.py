@@ -14,7 +14,7 @@ from rmake import errors
 testing = False
 
 class ConaryVersion(object):
-    maxKnownVersion = "2.0"
+    maxKnownVersion = "2.1"
     _warnedUser = False
 
     def __init__(self, conaryVersion=None):
@@ -42,6 +42,7 @@ class ConaryVersion(object):
         self.isOneOne = self.majorVersion == [1,1]
         self.isOneTwo = self.majorVersion == [1,2]
         self.isTwoZero = self.majorVersion == [2,0]
+        self.isTwoOne = self.majorVersion == [2,1]
 
     def checkRequiredVersion(self):
         oneZeroVersion = None

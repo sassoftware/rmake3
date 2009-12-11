@@ -1,3 +1,8 @@
+Changes in @NEW@:
+ o Bug Fixes:
+    * rMake has been modified to be aware of Conary versions 2.1.x
+      for compatibility with the latest releases of Conary.
+
 Changes in 2.0.0:
  o New Features:
     * The "multi-node rmake" build cluster capability has been moved
