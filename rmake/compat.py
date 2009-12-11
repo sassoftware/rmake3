@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2006-2009 rPath, Inc.  All Rights Reserved.
 #
 """
 Tracks compatibility with versions of integrated software for backwards 
@@ -49,8 +49,10 @@ class ConaryVersion(object):
         oneOneVersion = 19
         oneTwoVersion = 0
         twoZeroVersion = 0
+        twoOneVersion = 0
         if not self.checkVersion(oneZeroVersion, oneOneVersion,
-                                 oneTwoVersion, twoZeroVersion):
+                                 oneTwoVersion, twoZeroVersion
+                                 twoOneVersion):
             versions = []
             if oneOneVersion:
                 versions.append('1.1.%s' % oneOneVersion)
@@ -58,13 +60,16 @@ class ConaryVersion(object):
                 versions.append('1.2.%s' % oneTwoVersion)
             if twoZeroVersion:
                 versions.append('2.0.%s' % twoZeroVersion)
+            if twoOneVersion:
+                versions.append('2.1.%s' % twoZeroVersion)
             versions = ' or '.join(versions)
             raise errors.RmakeError('rMake requires conary'
                                     ' version %s or greater' % versions)
 
     def requireVersion(self, oneZeroVersion, oneOneVersion, twoZeroVersion,
-                       msg):
-        if not self.checkVersion(oneZeroVersion, oneOneVersion, twoZeroVersion):
+                       twoOneVersion, msg):
+        if not self.checkVersion(oneZeroVersion, oneOneVersion, twoZeroVersion,
+                                 twoOneVersion):
             version = ''
             if oneZeroVersion:
                 version = '1.0.%s or ' % oneZeroVersion
@@ -96,7 +101,7 @@ class ConaryVersion(object):
         return self.checkVersion(False, 90)
 
     def requireFindGroupSources(self):
-        return self.requireVersion(False, 21, None, 'building group sources')
+        return self.requireVersion(False, 21, None, None, 'building group sources')
 
     def requireFactoryRecipeGeneration(self):
         '''
