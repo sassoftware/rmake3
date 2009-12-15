@@ -1,7 +1,7 @@
 #
 # Copyright (c) 2006-2009 rPath, Inc.  All Rights Reserved.
 #
-VERSION=2.0.0
+VERSION=2.0.1
 
 # XVERSION can be overwritten by snapshot builds to force incompatible versions
 # NOTE: this affects the API version

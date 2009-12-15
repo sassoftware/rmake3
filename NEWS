@@ -1,4 +1,4 @@
-Changes in @NEW@:
+Changes in 2.0.1:
  o Bug Fixes:
     * rMake has been modified to be aware of Conary versions 2.1.x
       for compatibility with the latest releases of Conary.
