@@ -15,7 +15,7 @@ Changes in 2.0.0:
       programs in the chroot as directed by a file within the chroot.
       (RMK-1004)
     * The /dev/full device is now available in build chroots.
-    * rMake will now utilize the conary interpreter specified in the
+    * rMake will now utilize the python interpreter specified in the
       first line of the /usr/bin/conary that is installed in the chroot,
       rather than always using /usr/bin/python.
     * rMake will now make all files installed in the chroot accessible
