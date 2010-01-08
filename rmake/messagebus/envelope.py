@@ -158,21 +158,16 @@ class PHeader(object):
                 lines.append('%s: %s\n' % (key, item))
         return ''.join(lines)
 
-    def readLine(self, ln):
-        item = ln.split(None, 1)
-        if len(item) == 1:
-            key, value = item[0], ''
-        else:
-            key, value = item
-        if key[-1] != ':':
-            raise RuntimeError, 'bad header line %s' % ln
-        key = key[:-1]
+    def readLine(self, line):
+        if ':' not in line:
+            raise RuntimeError("Bad header line %r" % line)
+        key, value = line.split(': ', 1)
         self.append_header(key, value)
 
     def thawString(self, data):
-        self.frozenSize = len(data)
-        finished = self.thawFromStream(StringIO(data).read)
-        assert(finished)
+        for line in data.split('\n'):
+            if line:
+                self.readLine(line)
 
     def thawFromStream(self, streamReader):
         if self.frozenSize == 0:
