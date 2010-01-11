@@ -1,6 +1,16 @@
 #
-# Copyright (c) 2008 rPath, Inc.  All rights reserved.
+# Copyright (c) 2008-2010 rPath, Inc.
 #
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
+
 
 """
 A (hopefully) smarter and (definitely) more extensible XMLRPC proxy
@@ -434,7 +444,7 @@ class Method(object):
         if name.startswith('_'):
             raise AttributeError(
                 "Cannot marshal private method %s" % fullName, name)
-        return type(self)(self._request, fullName)
+        return type(self)(self._send, fullName)
 
 
 class BaseServerProxy(object):
