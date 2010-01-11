@@ -10,7 +10,7 @@
 ^commands/chroothelper$
 ^commands/chroothelper.h$
 ^commands/config.h$
-^extra/rmake.init$
+^extra/rmake(|-node).init$
 ^extra/rmake.recipe$
 ^extra/rmake.spec$
 ^rmake/constants.py$
