@@ -21,6 +21,7 @@ import asyncore
 import errno
 import optparse
 import os
+import resource
 import signal
 import socket
 import sys
@@ -397,15 +398,32 @@ class MessageBusListener(asyncore.dispatcher):
         Accepts connections for the message bus and converts them into
         Sessions which are managed by the message bus.
     """
+
+    fd_limit = 65536
+
     def __init__(self, messageBus, host, port, logger, map=None):
         self.messageBus = messageBus
         self.logger = logger
         asyncore.dispatcher.__init__(self, None, map)
+        self._set_rlimit()
         self.create_socket(socket.AF_INET6, socket.SOCK_STREAM)
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.bind( (host, port) )
         self.port = self.socket.getsockname()[1]
         self.listen(5)
+
+    def _set_rlimit(self):
+        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+        if soft > self.fd_limit:
+            return
+        if hard < self.fd_limit:
+            self.logger.warning("File descriptor hard limit (ulimit -Hn) is "
+                    "only %d -- consider raising it to at least %d"
+                    % (hard, self.fd_limit))
+            soft = hard
+        else:
+            soft = self.fd_limit
+        resource.setrlimit(resource.RLIMIT_NOFILE, (soft, hard))
 
     def getPort(self):
         return self.port
