@@ -132,7 +132,7 @@ class Partition(object):
 
 class MachineInformation(object):
     def __init__(self):
-        self.hostname = os.uname()[2]
+        self.hostname = os.uname()[1]
         self.cpus = getCpuInfo()
         self.update()
 
