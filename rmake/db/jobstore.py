@@ -341,7 +341,7 @@ class JobStore(object):
         ret = []
         cu.execute("""
         SELECT changed, message, args FROM StateLogs
-        WHERE jobId = ? AND troveId=0 ORDER BY logId LIMIT ? OFFSET ?
+        WHERE jobId = ? AND troveId IS NULL ORDER BY logId LIMIT ? OFFSET ?
         """, (jobId, 100, mark))
         return cu.fetchall()
 
@@ -378,8 +378,8 @@ class JobStore(object):
 
     def addJob(self, job):
         cu = self.db.cursor()
-        cu.execute("INSERT INTO Jobs (jobId, uuid, state, owner) "
-                   "VALUES (NULL, ?, ?, ?)",
+        cu.execute("INSERT INTO Jobs (uuid, state, owner) "
+                   "VALUES ( ?, ?, ? )",
                    job.uuid, job.state, job.owner)
         jobId = cu.lastrowid
         for trove in job.iterTroves():
@@ -556,8 +556,8 @@ class JobStore(object):
 
     def updateJobLog(self, job, message):
         cu = self.db.cursor()
-        cu.execute("INSERT INTO StateLogs (jobId, troveId, message, args)"
-                   " VALUES (?, 0, ?, ?)",
+        cu.execute("INSERT INTO StateLogs (jobId, message, args)"
+                   " VALUES (?, ?, ?)",
                    (job.jobId, message, ''))
         return True
 

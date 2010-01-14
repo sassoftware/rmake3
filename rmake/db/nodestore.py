@@ -117,9 +117,9 @@ class NodeStore(object):
     def getSlotCount(self):
         cu = self.db.cursor()
         totalSlots = cu.execute(
-                        """SELECT MAX(SUM(slots),1)
+                        """SELECT SUM(slots)
                            FROM Nodes WHERE active=1""").fetchone()[0]
-        return totalSlots
+        return max(totalSlots, 1)
 
 
     def getOrCreateChrootId(self, trove):

@@ -20,9 +20,9 @@ class AuthenticationCache(object):
         for x in range(3):
             try:
                 cu.execute("DELETE FROM AuthCache WHERE sessionId = ?",
-                        sessionId)
-                cu.execute("INSERT INTO AuthCache VALUES (?, ?)", sessionId,
-                        timeStamp)
+                        cu.binary(sessionId))
+                cu.execute("INSERT INTO AuthCache (sessionid, timestamp) "
+                        "VALUES (?, ?)", cu.binary(sessionId), timeStamp)
             except (DatabaseLocked, ColumnNotUnique):
                 # Race condition -- someone inserted a conflicting value
                 # between our statements. Try again.
@@ -52,10 +52,10 @@ class AuthenticationCache(object):
         self._deleteOld(cu)
         match = False
         result = cu.execute('SELECT timeStamp FROM AuthCache WHERE sessionId=?',
-                            sessionId)
+                cu.binary(sessionId))
         if result.fetchall():
             match = True
             cu.execute('UPDATE AuthCache SET timeStamp=? WHERE sessionId=?',
-                        time.time() + CACHE_TIMEOUT, sessionId)
+                    time.time() + CACHE_TIMEOUT, cu.binary(sessionId))
         self.db.commit()
         return match
