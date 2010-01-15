@@ -71,7 +71,7 @@ class JobStore(object):
         cu = self.db.cursor()
         cu.execute("""
         CREATE TEMPORARY TABLE tjobIdList(
-            jobId INT
+            jobId integer
         )""", start_transaction=False)
 
         try:
@@ -241,11 +241,11 @@ class JobStore(object):
     def getTroves(self, troveList):
         cu = self.db.cursor()
         cu.execute('''CREATE TEMPORARY TABLE tTroveInfo(
-                          jobId INT,
-                          troveName STR,
-                          version STR,
-                          flavor STR,
-                          context STR
+                          jobId integer,
+                          troveName text,
+                          version text,
+                          flavor text,
+                          context text
                       )''', start_transaction=False)
         try:
 

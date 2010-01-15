@@ -55,7 +55,7 @@ class NodeStore(object):
             cu.execute("""UPDATE BuildTroves set chrootId=0 WHERE troveId=?
                           AND chrootId=?""", troveId, chrootId)
         for path in newPaths:
-            self._createChrootId(cu, nodeName, path, 0)
+            self._createChrootId(cu, nodeName, path, None)
 
     def getNodes(self, names):
         cu = self.db.cursor()

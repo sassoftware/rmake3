@@ -268,8 +268,8 @@ def createChroots(db):
             chrootId      %(PRIMARYKEY)s,
             nodeName      TEXT,
             path          TEXT,
-            troveId       INTEGER NOT NULL
-                REFERENCES BuildTroves ON DELETE CASCADE,
+            troveId       INTEGER
+                REFERENCES BuildTroves ON DELETE SET NULL,
             active        INTEGER NOT NULL
         )""" % db.keywords)
         db.tables["Chroots"] = []
