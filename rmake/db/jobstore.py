@@ -456,6 +456,8 @@ class JobStore(object):
     def updateJob(self, job):
         cu = self.db.cursor()
         failureTup = freeze('FailureReason', job.getFailureReason())
+        if failureTup[0] == '':
+            failureTup = None, None
         cu.execute("""UPDATE Jobs set pid = ?, state = ?, status = ?, 
                                       start = ?, finish = ?, failureReason = ?, 
                                       failureData = ?
@@ -472,6 +474,8 @@ class JobStore(object):
             chrootId = 0
 
         failureTup = freeze('FailureReason', trove.getFailureReason())
+        if failureTup[0] == '':
+            failureTup = None, None
         kw = dict(pid=trove.pid, 
                   start=trove.start,
                   finish=trove.finish,
@@ -521,6 +525,8 @@ class JobStore(object):
             trove.logPath = self.db.logStore.getTrovePath(trove)
 
         failureTup = freeze('FailureReason', trove.getFailureReason())
+        if failureTup[0] == '':
+            failureTup = None, None
         kw = dict(jobId=trove.jobId,
                   troveName=trove.getName(),
                   version=trove.getVersion().freeze(),
