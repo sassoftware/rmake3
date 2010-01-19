@@ -1,6 +1,8 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2006-2007, 2009 rPath, Inc.  All Rights Reserved.
 #
+
+import sys
 from rmake.messagebus import messages
 
 from rmake.lib import apirpc
@@ -33,7 +35,10 @@ class MessageBusXMLRPCResponseHandler(rpclib.XMLRPCResponseHandler):
         self.server.sendMessage(message)
 
     def sendInternalError(self):
-        raise NotImplementedError
+        err = apirpc._freezeException(sys.exc_info()[1])
+        self.server.logger.exception("Unhandled exception in XMLRPC method:")
+        self.server.sendMessage(self.serializeResponse((False, err)))
+
 
 class SessionProxy(apirpc.ApiProxy):
     """

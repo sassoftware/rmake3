@@ -1,6 +1,17 @@
 #
-# Copyright (c) 2006-2008 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2006-2010 rPath, Inc.
 #
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
+
+
 """
 Along with apiutils, implements an API-validating and versioning scheme for 
 rpc calls.
@@ -61,10 +72,7 @@ class ApiProxy(rpcproxy.BaseServerProxy):
         for name, methodApi in apiClass._listClassMethods():
             self._methods[name] = methodApi
 
-    def _request(self, method, params):
-        """
-        API-aware request processing
-        """
+    def _pre_request(self, method, params):
         if method not in self._methods:
             raise ApiError, 'cannot find method %s in api' % method
         methodApi = self._methods[method]
@@ -76,6 +84,17 @@ class ApiProxy(rpcproxy.BaseServerProxy):
                         methodVersion = methodVersion)
 
         args = (callData,) + tuple(frozenParams)
+        return args, (methodApi, methodVersion)
+
+    def _post_request(self, passed, rv, apiInfo):
+        if passed:
+            methodApi, methodVersion = apiInfo
+            return _thawReturn(methodApi, rv, methodVersion)
+        else:
+            raise apiutils.thaw(rv[0], rv[1])
+
+    def _request(self, method, params):
+        args, apiInfo = self._pre_request(method, params)
         try:
             passed, rv = self._marshal_call(method, args)
         except socket.error, err:
@@ -87,11 +106,8 @@ class ApiProxy(rpcproxy.BaseServerProxy):
             raise errors.OpenError(
                 "Error communicating to server at %s: %s" % (
                 self._address, msg))
-
-        if passed:
-            return _thawReturn(methodApi, rv, methodVersion)
         else:
-            raise apiutils.thaw(rv[0], rv[1])
+            return self._post_request(passed, rv, apiInfo)
 
 
 class XMLApiProxy(ApiProxy, rpcproxy.GenericServerProxy):

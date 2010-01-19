@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2006 rPath, Inc.
+# Copyright (c) 2006-2009 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -15,6 +15,9 @@
 man_files = \
 	rmake.1	\
 	rmake-server.8 \
+	rmake-multinode.1 \
+	rmake-multinode.8 \
+	rmake-node.8
 
 extra_dist = Makefile
 
@@ -29,10 +32,10 @@ install-client-mkdirs:
 	mkdir -p $(DESTDIR)$(mandir)/man1
 
 install-client: install-client-mkdirs
-	install -m 644 rmake.1 $(DESTDIR)$(mandir)/man1
+	install -m 644 rmake.1 rmake-multinode.1 $(DESTDIR)$(mandir)/man1
 
 install: install-mkdirs install-client
-	install -m 644 rmake-server.8 $(DESTDIR)$(mandir)/man8
+	install -m 644 rmake-server.8 rmake-multinode.8 rmake-node.8 $(DESTDIR)$(mandir)/man8
 
 dist: default-dist
 

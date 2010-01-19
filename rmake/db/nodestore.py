@@ -55,7 +55,7 @@ class NodeStore(object):
             cu.execute("""UPDATE BuildTroves set chrootId=0 WHERE troveId=?
                           AND chrootId=?""", troveId, chrootId)
         for path in newPaths:
-            self._createChrootId(cu, nodeName, path, 0)
+            self._createChrootId(cu, nodeName, path, None)
 
     def getNodes(self, names):
         cu = self.db.cursor()
@@ -117,9 +117,9 @@ class NodeStore(object):
     def getSlotCount(self):
         cu = self.db.cursor()
         totalSlots = cu.execute(
-                        """SELECT MAX(SUM(slots),1)
+                        """SELECT SUM(slots)
                            FROM Nodes WHERE active=1""").fetchone()[0]
-        return totalSlots
+        return max(totalSlots, 1)
 
 
     def getOrCreateChrootId(self, trove):

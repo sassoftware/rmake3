@@ -1,12 +1,12 @@
-Changes in @NEW@:
+Changes in 2.0.1:
  o Bug Fixes:
-    * Don't cast disk usage info to int, since it may exceed XML-RPC
-      limit. (RMK-997)
-    * The chroot caching feature no longer records raw binary digests in
-      the server logfile. (RMK-1005)
-    * Cache all uid/gid lookups from external user database. (RMK-1010)
+    * rMake has been modified to be aware of Conary versions 2.1.x
+      for compatibility with the latest releases of Conary.
 
+Changes in 2.0.0:
  o New Features:
+    * The "multi-node rmake" build cluster capability has been moved
+      from an externally-provided plugin into rMake proper.
     * Multi-line macros in build job configurations will no longer cause
       invalid conaryrc files to be created inside chroots. (RMK-996)
     * The rMake server process now retains the capability to chroot
@@ -15,13 +15,20 @@ Changes in @NEW@:
       programs in the chroot as directed by a file within the chroot.
       (RMK-1004)
     * The /dev/full device is now available in build chroots.
-    * rMake will now utilize the conary interpreter specified in the
+    * rMake will now utilize the python interpreter specified in the
       first line of the /usr/bin/conary that is installed in the chroot,
       rather than always using /usr/bin/python.
     * rMake will now make all files installed in the chroot accessible
       to the build user (RMK-1006)
     * Multinode rMake servers can now use an externally-managed message
       bus.  (RMK-1011)
+
+ o Bug Fixes:
+    * Don't cast disk usage info to int, since it may exceed XML-RPC
+      limit. (RMK-997)
+    * The chroot caching feature no longer records raw binary digests in
+      the server logfile. (RMK-1005)
+    * Cache all uid/gid lookups from external user database. (RMK-1010)
 
 Changes in 1.0.31:
  o Bug Fixes:

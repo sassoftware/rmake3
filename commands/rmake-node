@@ -1,0 +1,14 @@
+#!/usr/bin/python
+# Copyright 2006-2009 rPath, Inc.  All Rights Reserved.
+import os
+import sys
+
+if 'CONARY_PATH' in os.environ:
+    sys.path.insert(0, os.environ['CONARY_PATH'])
+if 'RMAKE_PATH' in os.environ:
+    sys.path.insert(0, os.environ['RMAKE_PATH'])
+
+from rmake.node import daemon
+
+if __name__ == "__main__":
+    sys.exit(daemon.main(sys.argv))

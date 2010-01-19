@@ -591,7 +591,6 @@ class rMakeServer(apirpc.XMLApiServer):
         if close:
             self._close()
         else:
-            self.db.close()
             self.db.reopen()
         return pid
 

@@ -1,0 +1,107 @@
+#/bin/bash
+#
+# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+#
+# chkconfig: 345 81 19
+# description: Starts the rMake Daemon
+
+# Source function library.
+. /etc/init.d/functions
+
+if [ -e @sysconfdir@/rmake ] ; then
+    . @sysconfdir@/rmake
+fi
+
+config() {
+    cd /etc/rmake;
+    @sbindir@/rmake-node config
+    return $?
+}
+
+
+start() {
+    echo -n $"Starting rMake Worker Node:"
+    cd /etc/rmake;
+    @sbindir@/rmake-node start
+    RETVAL=$?
+    [ $RETVAL = 0 ] && touch /var/lock/subsys/rmake-node && success || failure
+    echo
+    return $RETVAL
+}
+
+startdebug() {
+    echo -n $"Starting rMake Worker Node (Debug mode):"
+    cd /etc/rmake;
+    @sbindir@/rmake-node start -n -d
+    RETVAL=$?
+    [ $RETVAL = 0 ] && success || failure
+    echo
+    return $RETVAL
+}
+
+
+
+stop() {
+    echo -n $"Shutting down rMake Worker Node: "
+    cd /etc/rmake;
+    @sbindir@/rmake-node stop
+    RETVAL=$?
+    [ $RETVAL = 0 ] && rm -f /var/lock/subsys/rmake-node && success || failure
+    echo
+    return $RETVAL
+}
+
+restart() {
+    stop
+    start
+}
+
+reset() {
+    status rmake-node > /dev/null
+    RUNNING=$?
+    if [ $RUNNING -eq 0 ] ; then
+        stop
+    fi
+    resetinternal || return $?
+    if [ $RUNNING -eq 0 ] ; then
+        start || return $?
+    fi
+}
+
+resetinternal() {
+    echo $"Flushing rMake node internal repository and database"
+    cd /etc/rmake;
+    @sbindir@/rmake-node reset
+    RETVAL=$?
+    echo
+    return $RETVAL
+}
+
+RETVAL=0
+
+# See how we were called.
+case "$1" in
+    config)
+        config
+        ;;
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    debug)
+        startdebug
+        ;;
+    status)
+        status rmake-node
+        ;;
+    restart|reload)
+        restart
+        ;;
+    *)
+        echo $"Usage: $0 {start|stop|debug|status|restart|reload|config}"
+        exit 1
+esac
+
+exit $?

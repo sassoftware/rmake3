@@ -42,7 +42,7 @@ class DBInterface(object):
             Commits after running a function
         """
         self._holdCommits = True
-        self.cursor().execute('BEGIN IMMEDIATE')
+        self.db.transaction()
         try:
             rv = fn(*args, **kw)
             self._holdCommits = False
@@ -66,10 +66,12 @@ class DBInterface(object):
         return self.db.inTransaction()
 
     def reopen(self):
+        if self.db:
+            self.db.close_fork()
         self.db = self.open()
 
     def close(self):
-        self.db.close()
+        self.db.close_fork()
         self.db = None
 
 class Database(DBInterface):

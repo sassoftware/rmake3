@@ -1,11 +1,11 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2006-2009 rPath, Inc.  All Rights Reserved.
 #
 plugin_files = *.py
 
 all: default-subdirs default-all
 
-SUBDIRS = multinode_client
+SUBDIRS = multinode_client multinode
 export DIR=
 DIR=.
 

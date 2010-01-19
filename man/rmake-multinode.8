@@ -1,0 +1,75 @@
+.\" Copyright (c) 2007 rPath, Inc.
+.TH RMAKEMULTINODE 8 "17 Feb 2007" "rPath, Inc."
+.SH NAME
+rmake-multinode \- Server changes made when using multinode rmake.
+.SH SYNOPSIS
+.B New configuration values and changes to functionality for multinode rmake.
+.SH DESCRIPTION
+Multinode rMake is used via a plugin that is installed in
+/usr/share/rmake/plugins.  When multinode rMake is installed, it will be used
+by default.  You can turn it off by adding --no-plugins to the
+command line or either "usePlugins False" or "usePlugin multinode False" to
+your configuration file.
+
+Multinode rMake involves several components that are not available in free rMake:  The \fBmessagebus\fR, which passes communication between different
+components of rMake, the dispatcher, which determines which nodes receives
+the commands sent by different jobs, and any number of worker nodes
+(see rmake-node(8)).
+
+For information on using rmake, see \fBrmake(1)\fR.
+For information on using rmake with the multinode plugin, see \fBrmake-multinode(1)\fR.
+
+.SH FILES
+Using the rMake server with multinode rMake is almost exactly the same,
+except that you need to set up rMake nodes (see rmake-node(8)).  The following 
+extra configuration values are also available for the server:
+
+.\" do not put excess space in the file list
+.PD 0
+.SS /etc/rmake/serverrc
+The rmake server configuration file has one extra configuration value not available in standalone rMake configuration.  Also, the following rMake configuration values are ignored (but allowed to allow the same rMake server to be used in multinode and standalone rMake without configuration changes):  buildDir, chrootHelperPath, slots, useCache, useTmpfs.
+
+.TP 4
+.B messageBusPort
+Port that the rMake server is running its message bus on.  This value must match whatever value has been set on the nodes that wish to communicate to this server.
+
+Defaults to 50900.
+.TP 4
+.B rmakeUrl
+Location at which to serve rMake.  Can be one of the following:
+unix://<path>  http://localhost:<port>/ or https://localhost:<port>/.  This
+URL must be used by clients and nodes that wish to connect to this server.
+
+Defaults to https://localhost:9999/
+.TP
+.SH
+.TP 4
+.I <logDir>/dispatcher.log
+Log file for the rMake dispatcher. 
+.TP
+.I <logDir>/messages/
+Messages sent to different components of the multinode system are sent here in debug mode.
+.TP
+.I <logDir>/messagebus.log
+Log for the messagebus, describing connections and communications sent by the messagebus.
+.SH BUGS
+You can report rmake bugs at http://issues.rpath.com/
+.\"
+.\"
+.\"
+.SH "SEE ALSO"
+rmake-multinode(1)
+.br
+rmake-server(8)
+.br
+rmake-node(8)
+.br
+rmake(1)
+.br
+cvc(1)
+.br
+conary(1)
+.br
+http://www.rpath.com/
+.br
+http://wiki.rpath.com/

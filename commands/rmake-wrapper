@@ -10,6 +10,7 @@ export PYTHONPATH=$importdir:$CONARY_PATH
 config=
 
 if [ "$bin" = "rmake-server" ]; then
+    # single-node local rmake server
     modes=$(stat -c '%a %u %g' $importdir/commands/chroothelper)
     if [ "$modes" != "4755 0 0" ]; then
         echo "run make test to make chroothelper setuid root"
@@ -22,5 +23,16 @@ if [ "$bin" = "rmake-server" ]; then
     declare -a config
     config=("--config=helperDir $importdir/commands"
             "--config=sslCertPath $certfile")
+
+elif [ "$bin" = "rmake-node" ]; then
+    # multi-node rmake worker
+    modes=$(stat -c '%a %u %g' $RMAKE_PATH/commands/chroothelper)
+    if [ "$modes" != "4755 0 0" ]; then
+        echo "run make test to make chroothelper setuid root"
+        exit 1;
+    else
+        config="helperDir $RMAKE_PATH/commands"
+    fi
 fi
+
 exec $importdir/commands/$bin "$@" ${config:+"${config[@]}"}
