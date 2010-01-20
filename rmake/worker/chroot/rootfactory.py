@@ -6,6 +6,8 @@
 
     Uses the chroothelper program to do final processing and chrooting.
 """
+
+import grp
 import os
 import pwd
 import shutil
@@ -285,6 +287,7 @@ class rMakeChroot(ConaryBasedChroot):
 
     def _postInstall(self):
         self.createConaryRc()
+        self.createRmakeUsers()
 
     def createConaryRc(self):
         conaryrc = None
@@ -303,6 +306,17 @@ class rMakeChroot(ConaryBasedChroot):
         except Exception, msg:
             self.logger.error("Error writing conaryrc: %s", msg)
         conaryrc.close()
+
+    def createRmakeUsers(self):
+        """Copy passwd/group entries for rmake and rmake-chroot into the chroot.
+        """
+        passwd = open(os.path.join(self.cfg.root, 'etc/passwd'), 'a')
+        group = open(os.path.join(self.cfg.root, 'etc/group'), 'a')
+        for name in (constants.rmakeUser, constants.chrootUser):
+            pwdata = pwd.getpwnam(name)
+            print >> passwd, ":".join(str(x) for x in pwdata)
+            grpdata = grp.getgrgid(pwdata.pw_gid)
+            print >> group, ":".join(str(x) for x in grpdata)
 
     def canChroot(self):
         return (pwd.getpwnam(constants.rmakeUser).pw_uid == os.getuid())
