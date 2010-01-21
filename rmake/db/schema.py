@@ -25,7 +25,7 @@ def createJobs(db):
             start          TEXT NOT NULL DEFAULT '0',
             finish         TEXT NOT NULL DEFAULT '0',
             failureReason  smallint,
-            failureData    bytea
+            failureData    %(BLOB)s
         )""" % db.keywords)
         db.tables["Jobs"] = []
         commit = True
@@ -160,7 +160,7 @@ def createBuildTroves(db):
             state          INTEGER NOT NULL,
             status         TEXT NOT NULL DEFAULT '',
             failureReason  smallint,
-            failureData    bytea,
+            failureData    %(BLOB)s,
             start          TEXT NOT NULL DEFAULT '0',
             finish         TEXT NOT NULL DEFAULT '0',
             logPath        TEXT NOT NULL DEFAULT '',
