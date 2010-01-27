@@ -166,7 +166,7 @@ class DispatcherServer(server.Server):
             a node disconnected.
         """
         if sessionId in self._nodes:
-            self.log('Worker node %s diconnected' % sessionId)
+            self.log('Worker node %s disconnected' % sessionId)
             self._nodes.remove(sessionId)
             self._assignQueuedCommands()
 
