@@ -1,3 +1,8 @@
+Changes in @NEW@:
+ o New Features:
+    * rMake server and worker node processes will now set their process
+      title to match their current task.
+
 Changes in 2.0.1:
  o Bug Fixes:
     * rMake has been modified to be aware of Conary versions 2.1.x

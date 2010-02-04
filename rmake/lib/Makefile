@@ -3,20 +3,25 @@
 #
 
 python_files = *.py
-dist_files = Makefile $(python_files) pycap.c pycompat.h
+dist_files = Makefile $(python_files) osutil.c pycap.c pycompat.h
+so_targets = osutil.so pycapmodule.so
+PY_CFLAGS = $(CFLAGS) -shared -rdynamic -I/usr/include/python$(PYVERSION) -g -Wall -fPIC
 
-all: default-all pycapmodule.so
+all: default-all $(so_targets)
 
 clean: default-clean
-	rm -f pycapmodule.so
+	rm -f $(so_targets)
 
 dist: default-dist
 
-install: all pyfiles-install pycapmodule.so
-	install -D -m0755 pycapmodule.so $(DESTDIR)$(sitedir)/$(DIR)/pycapmodule.so
+install: all pyfiles-install $(so_targets)
+	mkdir -p $(DESTDIR)$(sitedir)/$(DIR)
+	install -m0755 $(so_targets) $(DESTDIR)$(sitedir)/$(DIR)/
 
 
+osutil.so: osutil.c pycompat.h
+	gcc $(PY_CFLAGS) -o $@ $<
 pycapmodule.so: pycap.c pycompat.h
-	gcc -shared -rdynamic -I/usr/include/python$(PYVERSION) pycap.c -o pycapmodule.so -g -Wall -lcap -fPIC
+	gcc $(PY_CFLAGS) -lcap -o $@ $<
 
 include ../../Make.rules

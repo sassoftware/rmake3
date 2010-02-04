@@ -479,7 +479,8 @@ class Builder(object):
         logHost = r.getHost()
         logPort = r.getPort()
         trove.logPath = r.getLogPath()
-        pid = self.worker._fork('BuildLogger for %s' % trove)
+        pid = self.worker._fork('BuildLogger for %s{%s}' % (trove.getName(),
+            trove.getContext() or ''))
         if not pid:
             try:
                 r.closeOtherFds()
