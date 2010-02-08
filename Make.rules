@@ -40,7 +40,7 @@ default-install:
 default-all:
 
 default-clean: clean-subdirs
-	rm -f *~ .??*~ .#* *.pyo *.pyc $(generated_files) *.orig *.ccs
+	@rm -f *~ .??*~ .#* *.pyo *.pyc $(generated_files) *.orig *.ccs *.o *.so
 
 default-test:
 	$(TESTSUITE) *.py

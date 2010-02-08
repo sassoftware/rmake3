@@ -43,8 +43,8 @@
     Py_InitModule3(name, functions, docstr)
 # define PYMODULE_RETURN(value)     { if(value) ; return; }
 
-# define PYMODULE_DECLARE(name, fullname, doc, methods) \
-    PYMODULE_INIT(name) { Py_InitModule3(fullname, methods, doc); }
+# define PYMODULE_DECLARE(name, doc, methods) \
+    PYMODULE_INIT(name) { Py_InitModule3(#name, methods, doc); }
 
 #else
 /* Macros for python 3.x */
@@ -63,9 +63,9 @@
     PyModule_Create(moddef)
 # define PYMODULE_RETURN(value)     return value
 
-# define PYMODULE_DECLARE(name, fullname, doc, methods) \
+# define PYMODULE_DECLARE(name, doc, methods) \
     static PyModuleDef _module_def = { PyModuleDef_HEAD_INIT, \
-        fullname, doc, -1, methods }; \
+        #name, doc, -1, methods }; \
     PYMODULE_INIT(name) { return PyModule_Create(_module_def); }
 
 #endif
