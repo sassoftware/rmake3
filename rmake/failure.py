@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2006-2007, 2010 rPath, Inc.  All Rights Reserved.
 #
 """
     Failure reasons for rMake jobs.
@@ -9,6 +9,8 @@
     NOTE: to make a new failure reason available it must be added to the 
     list at the bottom of this page.
 """
+
+import cPickle
 from conary.conaryclient import cmdline
 from conary.deps import deps
 from conary import versions
@@ -58,14 +60,14 @@ class FailureReason(object):
         return str(self.data)
 
     def __freeze__(self):
-        return (self.tag, self._freezeData())
+        return (self.tag, cPickle.dumps(self.data))
 
-    def _freezeData(self):
-        return self.data
+    @staticmethod
+    def __thaw__(frozen):
+        tag, data = frozen
+        class_ = classByTag[int(tag)]
+        return class_(cPickle.loads(data))
 
-    @classmethod
-    def _thawData(class_, data):
-        return data
 
 class FailureWithException(FailureReason):
 
@@ -88,13 +90,6 @@ class FailureWithException(FailureReason):
 
     def getTraceback(self):
         return self.data[1]
-
-    def _freezeData(self):
-        return '\0'.join(self.data)
-
-    @classmethod
-    def _thawData(class_, data):
-        return data.split('\0')
 
     def __str__(self):
         return 'Error: %s' % self.data[0]
@@ -171,12 +166,6 @@ class MissingBuildreqs(FailureReason):
         data = ', '.join("%s=%s[%s]" % x for x in self.data)
         return 'Could not satisfy build requirements: %s' % data
 
-    def _freezeData(self):
-        return '\000'.join("%s=%s[%s]" % x for x in self.data)
-
-    @classmethod
-    def _thawData(class_, data):
-        return [cmdline.parseTroveSpec(x) for x in data.split('\000')]
 
 class MissingDependencies(FailureReason):
     tag = FAILURE_REASON_DEP
@@ -190,21 +179,6 @@ class MissingDependencies(FailureReason):
     def __str__(self):
         s = ['    %s=%s[%s] requires:\n\t%s' % (x[0] + ('\n\t'.join(str(x[1]).split('\n')),)) for x in self.data ]
         return 'Could not satisfy dependencies:\n%s' % '\n'.join(s)
-
-    def _freezeData(self):
-        return '\000'.join('%s=%s[%s]\001%s' % (x[0] + (x[1].freeze(),)) for x in self.data)
-
-    @classmethod
-    def _thawData(class_, data):
-        parsedData = []
-        lines = data.split('\000')
-        for line in lines:
-            troveSpec, flavor = line.split('\001')
-            troveSpec = cmdline.parseTroveSpec(troveSpec)
-            troveTup = troveSpec[0], versions.VersionFromString(troveSpec[1]), troveSpec[2]
-            dep = ThawFlavor(flavor)
-            parsedData.append((troveTup, dep))
-        return parsedData
 
 
 class Stopped(FailureReason):
@@ -235,11 +209,10 @@ def freezeFailureMethod(failure):
     return failure.__freeze__()
 
 def thawFailureMethod(frz):
-    if frz[0] == '' or frz[0] is None:
+    if not frz or not frz[0]:
         return None
-    tag = int(frz[0])
-    class_ = classByTag[tag]
-    return class_(class_._thawData(frz[1]))
+    return FailureReason.__thaw__(frz)
+
 
 apiutils.registerMethods('FailureReason',
                          freezeFailureMethod, thawFailureMethod)
