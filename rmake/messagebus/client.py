@@ -24,8 +24,8 @@ from twisted.application.service import Service
 from twisted.internet.defer import Deferred
 from twisted.internet.protocol import ReconnectingClientFactory
 from rmake.lib import apirpc
-from rmake.messagebus import messages
 from rmake.messagebus.protocol import BusProtocol, NotConnectedError
+from rmake.multinode import messages
 from zope.interface import Interface, implements
 
 log = logging.getLogger(__name__)
@@ -89,13 +89,16 @@ class BusClientFactory(ReconnectingClientFactory):
     """Twisted factory for messagebus clients."""
 
     protocol = BusClientProtocol
+
+    continueTrying = False # no retries until at least one success
     maxDelay = 15
+    maxRetries = 120 # 30 minutes
 
     subscriptions = ()
 
     def __init__(self, sessionClass='', user='', password='', service=None):
         self.connection = None
-        self.didConnect = False
+        self.stopping = False
         if service:
             self.service = IBusClientService(service)
         else:
@@ -105,12 +108,21 @@ class BusClientFactory(ReconnectingClientFactory):
         self.user = user
         self.password = password
 
+        self.eventHandlers = []
+
+    def clientConnectionFailed(self, connector, err):
+        if self.continueTrying:
+            self.connector = connector
+            self.retry()
+            if self.service and self.retries > self.maxRetries:
+                self.service.busFailed(err)
+        elif not self.stopping:
+            if self.service:
+                self.service.busFailed(err)
+    clientConnectionLost = clientConnectionFailed
+
     def busConnected(self, connection):
-        if self.didConnect:
-            log.info("Re-established connection to message bus")
-        else:
-            log.debug("Connected to message bus")
-            self.didConnect = True
+        log.debug("Connected to message bus")
         self.resetDelay()
         self.connection = connection
 
@@ -120,7 +132,7 @@ class BusClientFactory(ReconnectingClientFactory):
     def busLost(self):
         self.connection = None
         if self.service:
-            if self.continueTrying:
+            if not self.stopping:
                 self.service.busLost()
             else:
                 self.service.busDisconnected()
@@ -130,6 +142,7 @@ class BusClientFactory(ReconnectingClientFactory):
             self.service.messageReceived(message)
 
     def disconnect(self):
+        self.stopping = True
         self.stopTrying()
         if self.connection:
             self.connection.transport.loseConnection()
@@ -175,16 +188,19 @@ class IBusClientService(Interface):
 
     """Methods that a bus client is expected to implement."""
 
-    def busConnected():
+    def busConnected(self):
         """Called when the bus is first connected."""
 
-    def busLost():
+    def busLost(self):
         """Called if the connection to the bus is unexpectedly lost."""
 
-    def busDisconnected():
+    def busDisconnected(self):
         """Called when the bus connection is finished disconnecting."""
 
-    def messageReceived():
+    def busFailed(self, err):
+        """Called if a connection to the bus cannot be made."""
+
+    def messageReceived(self, msg):
         """Called when an unsolicited message arrives."""
 
 
@@ -217,6 +233,7 @@ class BusClientService(Service):
             self._connection.disconnect()
             self._connection = None
 
+    # Events
     def busConnected(self):
         pass
 
@@ -226,5 +243,15 @@ class BusClientService(Service):
     def busDisconnected(self):
         pass
 
-    def messageReceived(self, message):
+    def busFailed(self):
         pass
+
+    def messageReceived(self, message):
+        if isinstance(message, messages.EventList):
+            apiVer, eventList = message.getEventList()
+            for eventHandler in self.client.eventHandlers:
+                eventHandler._receiveEvents(apiVer, eventList)
+
+    # Commands
+    def subscribe(self, eventHandler):
+        self.client.eventHandlers.append(eventHandler)

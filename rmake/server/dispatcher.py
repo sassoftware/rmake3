@@ -1,4 +1,28 @@
+#
+# Copyright (c) 2010 rPath, Inc.
+#
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
+
+"""
+The dispatcher is responsible for moving a job through the build workflow.
+
+It creates commands, assigns them to nodes, and monitors the progress of the
+commands.  Status updates are routed back to clients and to the database.
+"""
+
+
+import logging
+import weakref
 from twisted.application.service import Service
+from rmake.lib.subscriber import StatusSubscriber
 from rmake.multinode import messages
 from rmake.messagebus.client import BusClientFactory, IBusClientService
 from zope.interface import implements
@@ -6,6 +30,8 @@ from zope.interface import implements
 # thawers
 import rmake.build.subscriber
 import rmake.worker.resolver
+
+log = logging.getLogger(__name__)
 
 
 class Dispatcher(Service):
@@ -24,6 +50,7 @@ class Dispatcher(Service):
                 '/commandstatus',
                 ]
         self.connection = None
+        self.subscriber = EventHandler(self)
 
     def startService(self):
         Service.startService(self)
@@ -55,32 +82,24 @@ class Dispatcher(Service):
             print 'Command %s: %s' % (message.getCommandId(),
                     message.headers.status)
         elif isinstance(message, messages.EventList):
-            events = self.parseEvents(message.getEventList())
-            for event in events:
-                print 'Job %s event: %s' % (message.getJobId(), event)
+            apiVer, eventList = message.getEventList()
+            if apiVer == 1:
+                self.subscriber._addEvent(message.getJobId(), eventList)
+            else:
+                log.error("Got event list with unknown API version %r", apiVer)
         else:
             print message
             print
 
-    @staticmethod
-    def parseEvents(eventList):
-        out = []
-        api, eventList = eventList
-        for (event, subEvent), params in eventList:
-            if event == 'JOB_STATE_UPDATED':
-                from rmake.build import buildjob
-                out.append('Job status changed: %s %s' % (
-                    buildjob.stateNames[subEvent], params[2]))
-            elif event == 'TROVE_STATE_UPDATED':
-                from rmake.build import buildtrove
-                nvfc = '%s{%s}' % (params[0][1][0], params[0][1][3])
-                out.append('Trove %s status changed: %s %s' % (
-                    nvfc, buildtrove.stateNames[subEvent], params[2]))
-            elif event == 'JOB_COMMITTED':
-                troves = params[1]
-                out.append('Job committed %d troves' % len(troves))
-            elif event in ('TROVE_LOG_UPDATED',):
-                pass
-            else:
-                out.append('Unknown event: %s %s' % (event, subEvent))
-        return out
+
+class EventHandler(StatusSubscriber):
+    """Process events and command results from workers."""
+
+    def __init__(self, disp):
+        StatusSubscriber.__init__(self, None, None)
+        self.disp = weakref.proxy(disp)
+
+    @StatusSubscriber.listen('TROVE_STATE_UPDATED')
+    def troveStateUpdated(self, (jobId, troveTuple), state, status):
+        print '%d %s{%s} changed state: %s %s' % (jobId, troveTuple[0],
+                troveTuple[2], buildtrove.stateNames[state], status)

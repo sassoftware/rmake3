@@ -1,13 +1,30 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2006-2007, 2010 rPath, Inc.  All Rights Reserved.
 #
 from rmake.lib import apiutils
 from rmake import constants
 from rmake import subscribers
 
-class Subscriber(object):
 
-    listeners = {}
+class  _SubscriberFactory(type):
+    """Process listen() decorators by adding events to cls.listeners."""
+    def __new__(metacls, names, bases, clsdict):
+        listeners = clsdict.setdefault('listeners', {})
+        for name, func in clsdict.items():
+            event = getattr(func, 'subscriber_event', None)
+            if not event:
+                continue
+            if event in listeners:
+                raise TypeError("Cannot subscribe method %s to %s: already "
+                        "subscribed." % (name, event))
+            listeners[event] = name
+        return type.__new__(metacls, names, bases, clsdict)
+
+
+class Subscriber(object):
+    __metaclass__ = _SubscriberFactory
+
+    listeners = None  # factory will replace with empty dict
 
     def __init__(self):
         self.events = {}
@@ -20,6 +37,20 @@ class Subscriber(object):
 
     def watchEvent(self, state, substates=set()):
         self.events.setdefault(state, set()).update(substates)
+
+    @staticmethod
+    def listen(event):
+        """Decorate a method to mark it as an event listener."""
+        def decorate(func):
+            func.subscriber_event = event
+            return func
+        return decorate
+
+    def attach(self, publisher):
+        """Subscribe all events to the given publisher."""
+        publisher.subscribe(self.listeners, self._receiveEvents,
+                dispatcher=True)
+
 
 class _AbstractStatusSubscriber(Subscriber):
 

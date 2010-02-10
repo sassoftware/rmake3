@@ -10,7 +10,7 @@
     list at the bottom of this page.
 """
 
-import cPickle
+import pickle
 from conary.conaryclient import cmdline
 from conary.deps import deps
 from conary import versions
@@ -60,13 +60,13 @@ class FailureReason(object):
         return str(self.data)
 
     def __freeze__(self):
-        return (self.tag, cPickle.dumps(self.data))
+        return (self.tag, pickle.dumps(self.data))
 
     @staticmethod
     def __thaw__(frozen):
         tag, data = frozen
         class_ = classByTag[int(tag)]
-        return class_(cPickle.loads(data))
+        return class_(pickle.loads(data))
 
 
 class FailureWithException(FailureReason):
