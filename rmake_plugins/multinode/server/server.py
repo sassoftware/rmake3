@@ -89,7 +89,7 @@ class Worker(object):
         self.chrootManager = rootmanager.ChrootManager(self.cfg, self.logger)
 
     def getAdminClient(self):
-        return admin.getAdminClient(self.cfg.messageBusHost,
+        return admin.getAdminClient(self.cfg.getMessageBusHost(),
                 self.cfg.messageBusPort)
 
     def deleteChroot(self, host, chrootPath):
