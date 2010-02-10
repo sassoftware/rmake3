@@ -156,3 +156,46 @@ class ServerLogger(Logger):
             params.append('='.join((param, value)))
         params = ', '.join(sorted(params))
         self.xmlrpcLogger.info(' ->  %s(%s)' % (methodname, params))
+
+
+FORMATS = {
+        'apache': ('[%(asctime)s] [%(levelname)s] (%(name)s) %(message)s',
+            '%a %b %d %T %Y'),
+        'console': ('%(levelname)s: %(message)s', None),
+        'file': ('%(asctime)s %(levelname)s %(name)s : %(message)s', None),
+        }
+
+
+def setupLogging(logPath=None, consoleLevel=logging.WARNING,
+        consoleFormat='console', fileLevel=logging.INFO, fileFormat='file',
+        logger=''):
+
+    logger = logging.getLogger(logger)
+    logger.handlers = []
+    logger.propagate = False
+    level = 100
+
+    # Console handler
+    if consoleLevel is not None:
+        if consoleFormat in FORMATS:
+            consoleFormat = FORMATS[consoleFormat]
+        consoleFormatter = logging.Formatter(*consoleFormat)
+        consoleHandler = logging.StreamHandler()
+        consoleHandler.setFormatter(consoleFormatter)
+        consoleHandler.setLevel(consoleLevel)
+        logger.addHandler(consoleHandler)
+        level = min(level, consoleLevel)
+
+    # File handler
+    if logPath and fileLevel is not None:
+        if fileFormat in FORMATS:
+            fileFormat = FORMATS[fileFormat]
+        logfileFormatter = logging.Formatter(*fileFormat)
+        logfileHandler = logging.FileHandler(logPath)
+        logfileHandler.setFormatter(logfileFormatter)
+        logfileHandler.setLevel(fileLevel)
+        logger.addHandler(logfileHandler)
+        level = min(level, fileLevel)
+
+    logger.setLevel(level)
+    return logger
