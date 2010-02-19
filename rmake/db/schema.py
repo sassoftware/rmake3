@@ -16,17 +16,17 @@ def createJobs(db):
     if "Jobs" not in db.tables:
         cu.execute("""
         CREATE TABLE Jobs (
-            jobId          INTEGER PRIMARY KEY AUTOINCREMENT,
+            jobId          %(PRIMARYKEY)s,
             pid            INTEGER NOT NULL DEFAULT 0,
             uuid           CHAR(32) NOT NULL DEFAULT '',
             state          INTEGER NOT NULL DEFAULT 0,
-            status         STRING NOT NULL DEFAULT 'JobID entry created',
-            owner          STRING NOT NULL DEFAULT '',
-            start          STRING NOT NULL DEFAULT '0',
-            finish         STRING NOT NULL DEFAULT '0',
-            failureReason  STRING NOT NULL DEFAULT '',
-            failureData    STRING NOT NULL DEFAULT ''
-        )""")
+            status         TEXT NOT NULL DEFAULT 'JobID entry created',
+            owner          TEXT NOT NULL DEFAULT '',
+            start          TEXT NOT NULL DEFAULT '0',
+            finish         TEXT NOT NULL DEFAULT '0',
+            failureReason  smallint,
+            failureData    %(BLOB)s
+        )""" % db.keywords)
         db.tables["Jobs"] = []
         commit = True
     if commit:
@@ -39,12 +39,13 @@ def createJobConfig(db):
     if "JobConfig" not in db.tables:
         cu.execute("""
         CREATE TABLE JobConfig (
-            jobId       INTEGER NOT NULL,
-            context     STRING NOT NULL DEFAULT "",
-            key         STRING NOT NULL,
+            jobId       INTEGER NOT NULL
+                REFERENCES Jobs ON DELETE CASCADE,
+            context     TEXT NOT NULL DEFAULT '',
+            key         TEXT NOT NULL,
             ord         INTEGER NOT NULL,
-            value       STRING NOT NULL
-        )""")
+            value       TEXT NOT NULL
+        )""" % db.keywords)
         db.tables["JobConfig"] = []
     if db.createIndex("JobConfig", "JobConfigIdx", "jobId",
                       unique = False):
@@ -65,12 +66,14 @@ def createTroveSettings(db):
     if "TroveSettings" not in db.tables:
         cu.execute("""
         CREATE TABLE TroveSettings (
-            jobId      INTEGER NOT NULL,
-            troveId     INTEGER NOT NULL,
-            key         STRING NOT NULL,
+            jobId      INTEGER NOT NULL
+                REFERENCES Jobs ON DELETE CASCADE,
+            troveId     INTEGER NOT NULL
+                REFERENCES BuildTroves ON DELETE CASCADE,
+            key         TEXT NOT NULL,
             ord         INTEGER NOT NULL,
-            value       STRING NOT NULL
-        )""")
+            value       TEXT NOT NULL
+        )""" % db.keywords)
         db.tables["TroveSettings"] = []
     if db.createIndex("TroveSettings", "TroveSettingsIdx", "jobId",
                       unique = False):
@@ -89,10 +92,10 @@ def createSubscriber(db):
     if "Subscriber" not in db.tables:
         cu.execute("""
          CREATE TABLE Subscriber(
-             subscriberId  INTEGER PRIMARY KEY AUTOINCREMENT,
-             jobId         INTEGER NOT NULL,
-             uri           STRING  NOT NULL
-         )""")
+             subscriberId  %(PRIMARYKEY)s,
+             jobId         INTEGER,
+             uri           TEXT  NOT NULL
+         )""" % db.keywords)
         db.tables["Subscriber"] = []
         commit = True
 
@@ -103,9 +106,9 @@ def createSubscriber(db):
         cu.execute("""
         CREATE TABLE SubscriberEvents (
             subscriberId  INTEGER NOT NULL,
-            event         STRING  NOT NULL,
-            subevent      STRING  NOT NULL
-        )""")
+            event         TEXT  NOT NULL,
+            subevent      TEXT  NOT NULL
+        )""" % db.keywords)
         db.tables["SubscriberEvents"] = []
         commit = True
 
@@ -122,9 +125,9 @@ def createSubscriber(db):
     if "SubscriberData" not in db.tables:
         cu.execute("""
         CREATE TABLE SubscriberData (
-            subscriberId  STRING  NOT NULL,
-            data          STRING  NOT NULL
-        )""")
+            subscriberId  integer  NOT NULL,
+            data          TEXT  NOT NULL
+        )""" % db.keywords)
         db.tables["SubscriberData"] = []
         commit = True
 
@@ -145,28 +148,29 @@ def createBuildTroves(db):
         # XXX: will normalize later
         cu.execute("""
         CREATE TABLE BuildTroves (
-            troveId        INTEGER PRIMARY KEY AUTOINCREMENT,
-            jobId          INTEGER NOT NULL,
+            troveId        %(PRIMARYKEY)s,
+            jobId          INTEGER NOT NULL
+                REFERENCES Jobs ON DELETE CASCADE,
             pid            INTEGER NOT NULL DEFAULT 0,
-            troveName      STRING NOT NULL,
-            troveType      STRING NOT NULL DEFAULT 'build',
-            version        STRING NOT NULL,
-            flavor         STRING NOT NULL,
-            context        STRING NOT NULL DEFAULT '',
+            troveName      TEXT NOT NULL,
+            troveType      TEXT NOT NULL DEFAULT 'build',
+            version        TEXT NOT NULL,
+            flavor         TEXT NOT NULL,
+            context        TEXT NOT NULL DEFAULT '',
             state          INTEGER NOT NULL,
-            status         STRING NOT NULL DEFAULT '',
-            failureReason  STRING NOT NULL DEFAULT '',
-            failureData    STRING NOT NULL DEFAULT '',
-            start          STRING NOT NULL DEFAULT '0',
-            finish         STRING NOT NULL DEFAULT '0',
-            logPath        STRING NOT NULL DEFAULT '',
+            status         TEXT NOT NULL DEFAULT '',
+            failureReason  smallint,
+            failureData    %(BLOB)s,
+            start          TEXT NOT NULL DEFAULT '0',
+            finish         TEXT NOT NULL DEFAULT '0',
+            logPath        TEXT NOT NULL DEFAULT '',
             recipeType     INTEGER NOT NULL DEFAULT 1,
             chrootId       INTEGER NOT NULL DEFAULT 0,
             buildType      INTEGER NOT NULL DEFAULT 0,
             CONSTRAINT BuildTroves_jobId_fk
                 FOREIGN KEY(jobId) REFERENCES Jobs(jobId)
                 ON DELETE CASCADE ON UPDATE RESTRICT
-        )""")
+        )""" % db.keywords)
         db.tables["BuildTroves"] = []
         commit = True
     if db.createIndex("BuildTroves", "BuildTrovesIdx",
@@ -199,13 +203,13 @@ def createBinaryTroves(db):
         cu.execute("""
         CREATE TABLE BinaryTroves (
             troveId     INTEGER NOT NULL,
-            troveName   STRING,
-            version     STRING,
-            flavor      STRING,
+            troveName   TEXT,
+            version     TEXT,
+            flavor      TEXT,
             CONSTRAINT BinaryTroves_jobId_fk
                 FOREIGN KEY(troveId) REFERENCES BuildTroves(troveId)
                 ON DELETE CASCADE ON UPDATE RESTRICT
-        )""")
+        )""" % db.keywords)
         db.tables["BinaryTroves"] = []
         commit = True
     if db.createIndex("BinaryTroves", "BinaryTrovesIdx",
@@ -219,18 +223,18 @@ def createStateLogs(db):
     cu = db.cursor()
     commit = False
     if "StateLogs" not in db.tables:
+        # NB: troveId NULL means logs are for a job
         cu.execute("""
         CREATE TABLE StateLogs (
-            logId    INTEGER PRIMARY KEY AUTOINCREMENT,
-            jobId    INTEGER NOT NULL,
-            troveId  INTEGER NOT NULL,
-            message  STRING NOT NULL,
-            args     STRING NOT NULL DEFAULT '',
-            changed  STRING NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            CONSTRAINT StateLogsJob_fk
-                FOREIGN KEY(jobId) REFERENCES Jobs(jobId)
-                ON DELETE CASCADE ON UPDATE RESTRICT
-        )""")
+            logId    %(PRIMARYKEY)s,
+            jobId    INTEGER NOT NULL
+                REFERENCES Jobs ON DELETE CASCADE,
+            troveId  INTEGER
+                REFERENCES BuildTroves ON DELETE CASCADE,
+            message  TEXT NOT NULL,
+            args     TEXT NOT NULL DEFAULT '',
+            changed  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )""" % db.keywords)
         db.tables["StateLogs"] = []
         commit = True
     if db.createIndex("StateLogs", "StateLogsJobTroveId", "jobId,troveId"):
@@ -247,7 +251,8 @@ def createJobQueue(db):
         cu.execute("""
         CREATE TABLE JobQueue (
             jobId       INTEGER
-        )""")
+                REFERENCES Jobs ON DELETE CASCADE
+        )""" % db.keywords)
         db.tables["JobQueue"] = []
         commit = True
     if commit:
@@ -260,12 +265,13 @@ def createChroots(db):
     if "Chroots" not in db.tables:
         cu.execute("""
         CREATE TABLE Chroots (
-            chrootId      INTEGER PRIMARY KEY AUTOINCREMENT,
-            nodeName      VARCHAR,
-            path          VARCHAR,
-            troveId       INTEGER NOT NULL,
+            chrootId      %(PRIMARYKEY)s,
+            nodeName      TEXT,
+            path          TEXT,
+            troveId       INTEGER
+                REFERENCES BuildTroves ON DELETE SET NULL,
             active        INTEGER NOT NULL
-        )""")
+        )""" % db.keywords)
         db.tables["Chroots"] = []
         commit = True
     if db.createIndex("Chroots", "ChrootdsIdx", "troveId"):
@@ -280,12 +286,12 @@ def createNodes(db):
     if "Nodes" not in db.tables:
         cu.execute("""
         CREATE TABLE Nodes (
-            nodeName     VARCHAR PRIMARY KEY NOT NULL,
-            host         VARCHAR NOT NULL,
+            nodeName     TEXT PRIMARY KEY NOT NULL,
+            host         TEXT NOT NULL,
             slots        INTEGER NOT NULL,
-            buildFlavors VARCHAR NOT NULL,
+            buildFlavors TEXT NOT NULL,
             active       INTEGER NOT NULL DEFAULT 0
-        )""")
+        )""" % db.keywords)
         db.tables["Nodes"] = []
         commit = True
     if commit:
@@ -298,9 +304,9 @@ def createAuthCache(db):
     if "AuthCache" not in db.tables:
         cu.execute("""
         CREATE TABLE AuthCache (
-            sessionId    VARCHAR PRIMARY KEY NOT NULL,
+            sessionId    %(BINARY20)s PRIMARY KEY NOT NULL,
             timeStamp    FLOAT NOT NULL
-        )""")
+        )""" % db.keywords)
         db.tables["AuthCache"] = []
         commit = True
     if commit:
@@ -313,9 +319,9 @@ def createPluginVersionTable(db):
     if "PluginVersion" not in db.tables:
         cu.execute("""
         CREATE TABLE PluginVersion (
-            plugin      VARCHAR NOT NULL UNIQUE,
+            plugin      TEXT NOT NULL UNIQUE,
             version     INTEGER
-        )""")
+        )""" % db.keywords)
         db.tables["PluginVersion"] = []
         commit = True
     if commit:
@@ -395,8 +401,8 @@ class SchemaManager(AbstractSchemaManager):
         db = self.db
         createJobs(db)
         createJobConfig(db)
-        createTroveSettings(db)
         createBuildTroves(db)
+        createTroveSettings(db)
         createBinaryTroves(db)
         createStateLogs(db)
         createSubscriber(db)
@@ -446,9 +452,9 @@ class Migrator(AbstractMigrator):
 
     def migrateFrom6(self):
         self._addColumn('BuildTroves', "context",
-                        "STRING NOT NULL DEFAULT ''")
+                        "TEXT NOT NULL DEFAULT ''")
         self._addColumn('JobConfig',  "context",
-                        "STRING NOT NULL DEFAULT ''")
+                        "TEXT NOT NULL DEFAULT ''")
         self._addColumn('BuildTroves', "buildType",
                         "INTEGER NOT NULL DEFAULT 0")
         self.cu.execute("DROP INDEX BuildTrovesIdx") # this idx is no longer
@@ -468,7 +474,7 @@ class Migrator(AbstractMigrator):
 
     def migrateFrom9(self):
         self._addColumn("Jobs", "owner",
-                        "STRING NOT NULL DEFAULT ''")
+                        "TEXT NOT NULL DEFAULT ''")
         return 10
 
     def migrateFrom10(self):
@@ -478,7 +484,7 @@ class Migrator(AbstractMigrator):
             return 11
         createTroveSettings(self.db)
         self._addColumn("BuildTroves", "troveType",
-                        "troveType      STRING NOT NULL DEFAULT 'build'")
+                        "troveType      TEXT NOT NULL DEFAULT 'build'")
         return 11
 
 class PluginSchemaManager(AbstractSchemaManager):

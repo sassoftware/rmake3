@@ -71,7 +71,7 @@ class JobStore(object):
         cu = self.db.cursor()
         cu.execute("""
         CREATE TEMPORARY TABLE tjobIdList(
-            jobId INT
+            jobId integer
         )""", start_transaction=False)
 
         try:
@@ -241,11 +241,11 @@ class JobStore(object):
     def getTroves(self, troveList):
         cu = self.db.cursor()
         cu.execute('''CREATE TEMPORARY TABLE tTroveInfo(
-                          jobId INT,
-                          troveName STR,
-                          version STR,
-                          flavor STR,
-                          context STR
+                          jobId integer,
+                          troveName text,
+                          version text,
+                          flavor text,
+                          context text
                       )''', start_transaction=False)
         try:
 
@@ -341,7 +341,7 @@ class JobStore(object):
         ret = []
         cu.execute("""
         SELECT changed, message, args FROM StateLogs
-        WHERE jobId = ? AND troveId=0 ORDER BY logId LIMIT ? OFFSET ?
+        WHERE jobId = ? AND troveId IS NULL ORDER BY logId LIMIT ? OFFSET ?
         """, (jobId, 100, mark))
         return cu.fetchall()
 
@@ -378,8 +378,8 @@ class JobStore(object):
 
     def addJob(self, job):
         cu = self.db.cursor()
-        cu.execute("INSERT INTO Jobs (jobId, uuid, state, owner) "
-                   "VALUES (NULL, ?, ?, ?)",
+        cu.execute("INSERT INTO Jobs (uuid, state, owner) "
+                   "VALUES ( ?, ?, ? )",
                    job.uuid, job.state, job.owner)
         jobId = cu.lastrowid
         for trove in job.iterTroves():
@@ -456,6 +456,8 @@ class JobStore(object):
     def updateJob(self, job):
         cu = self.db.cursor()
         failureTup = freeze('FailureReason', job.getFailureReason())
+        if failureTup[0] == '':
+            failureTup = None, None
         cu.execute("""UPDATE Jobs set pid = ?, state = ?, status = ?, 
                                       start = ?, finish = ?, failureReason = ?, 
                                       failureData = ?
@@ -472,6 +474,8 @@ class JobStore(object):
             chrootId = 0
 
         failureTup = freeze('FailureReason', trove.getFailureReason())
+        if failureTup[0] == '':
+            failureTup = None, None
         kw = dict(pid=trove.pid, 
                   start=trove.start,
                   finish=trove.finish,
@@ -521,6 +525,8 @@ class JobStore(object):
             trove.logPath = self.db.logStore.getTrovePath(trove)
 
         failureTup = freeze('FailureReason', trove.getFailureReason())
+        if failureTup[0] == '':
+            failureTup = None, None
         kw = dict(jobId=trove.jobId,
                   troveName=trove.getName(),
                   version=trove.getVersion().freeze(),
@@ -556,8 +562,8 @@ class JobStore(object):
 
     def updateJobLog(self, job, message):
         cu = self.db.cursor()
-        cu.execute("INSERT INTO StateLogs (jobId, troveId, message, args)"
-                   " VALUES (?, 0, ?, ?)",
+        cu.execute("INSERT INTO StateLogs (jobId, message, args)"
+                   " VALUES (?, ?, ?)",
                    (job.jobId, message, ''))
         return True
 

@@ -73,15 +73,15 @@ class SubscriberData(object):
                        FROM Subscriber
                        JOIN SubscriberEvents USING(subscriberId)
                        JOIN SubscriberData USING(subscriberId)
-                       WHERE jobId IN (0,?) AND event IN (?,"ALL")
+                       WHERE jobId IN (0,?) AND event IN (?,'ALL')
                   '''
-        subCmd = cmd + 'AND subEvent IN (?, "ALL")'
+        subCmd = cmd + "AND subEvent IN (?, 'ALL')"
         subscriberCache = {}
         for (event, subEvent), data in eventList:
             params = [jobId, event]
             if subEvent:
                 thisCmd = subCmd
-                params.append(subEvent)
+                params.append(str(subEvent))
             else:
                 thisCmd = cmd
 
