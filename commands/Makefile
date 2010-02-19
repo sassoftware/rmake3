@@ -58,7 +58,7 @@ install-client: install-client-mkdirs
 		install -m755 $$f $(DESTDIR)$(bindir)/$$f; \
 	done
 
-install: install-mkdirs install-client
+install: install-mkdirs install-client chroothelper
 	for f in $(sbin_files); do \
 		install -m755 $$f $(DESTDIR)$(sbindir)/$$f; \
 	done

@@ -7,6 +7,7 @@ bindir=$(dirname $0)
 bin=$(basename $0)
 importdir=$(cd $bindir/.. 2> /dev/null && pwd -P;)
 export PYTHONPATH=$importdir:$CONARY_PATH
+declare -a config
 config=
 
 if [ "$bin" = "rmake-server" ]; then
@@ -19,19 +20,18 @@ if [ "$bin" = "rmake-server" ]; then
     certfile=/tmp/rmake-server-cert.pem
     # Force the generation of a new SSL certificate
     rm -f $certfile
-    # Using arrays now
-    declare -a config
     config=("--config=helperDir $importdir/commands"
             "--config=sslCertPath $certfile")
 
 elif [ "$bin" = "rmake-node" ]; then
     # multi-node rmake worker
-    modes=$(stat -c '%a %u %g' $RMAKE_PATH/commands/chroothelper)
+    modes=$(stat -c '%a %u %g' $importdir/commands/chroothelper)
     if [ "$modes" != "4755 0 0" ]; then
         echo "run make test to make chroothelper setuid root"
         exit 1;
     else
-        config="helperDir $RMAKE_PATH/commands"
+        config=("--config=helperDir $importdir/commands"
+                )
     fi
 fi
 

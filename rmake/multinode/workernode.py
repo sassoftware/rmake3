@@ -15,6 +15,7 @@ from conary import errors
 from rmake import failure
 from rmake.build import subscriber
 from rmake.lib import logger
+from rmake.lib import osutil
 from rmake.lib import procutil
 from rmake.lib import server
 from rmake.lib.apiutils import api, api_parameters, api_return, freeze, thaw
@@ -57,6 +58,17 @@ class rMakeWorkerNodeServer(worker.Worker):
             self.error('Error initializing Node Server:\n  %s\n%s', err,
                                    traceback.format_exc())
             raise
+
+        try:
+            osutil.setproctitle("rmake node [not registered]")
+        except:
+            pass
+
+    def busConnected(self, sessionId):
+        try:
+            osutil.setproctitle('rmake node %s' % (sessionId,))
+        except:
+            pass
 
     def receivedResolveCommand(self, info):
         eventHandler = DirectRmakeBusPublisher(info.getJobId(), self.client)
@@ -231,6 +243,7 @@ class WorkerNodeClient(nodeclient.NodeClient):
         nodeclient.NodeClient.messageReceived(self, m)
         if isinstance(m, messages.ConnectedResponse):
             self.bus.subscribe('/command?targetNode=%s' % m.getSessionId())
+            self.server.busConnected(m.getSessionId())
         elif isinstance(m, messages.BuildCommand):
             self.server.info('Received build command')
             self.server.receivedBuildCommand(m)

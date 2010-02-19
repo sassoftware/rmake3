@@ -92,8 +92,6 @@ static PyMethodDef CapMethods[] = {
 };
 
 
-PYMODULE_DECLARE(pycap, "rmake.lib.pycap",
-        "python wrapper for libcap",
-        CapMethods);
+PYMODULE_DECLARE(pycap, "python wrapper for libcap", CapMethods);
 
 /* vim: set sts=4 sw=4 expandtab : */

@@ -116,6 +116,15 @@ class Server(object):
         pid = os.fork()
         if not pid:
             self._resetSignalHandlers()
+            try:
+                # The import is delayed until here because this file is
+                # imported by chrooted machinery that may not be running the
+                # same python.
+                from rmake.lib import osutil
+                osutil.setproctitle('rmake %s' % (name,))
+            except:
+                # Failing to set the process title is not a big deal.
+                pass
             return
         self._pids[pid] = name
         return pid
