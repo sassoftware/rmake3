@@ -22,6 +22,7 @@
 
 #include <Python.h>
 
+#include <dlfcn.h>
 #include <string.h>
 
 #include "pycompat.h"
@@ -32,21 +33,37 @@ static size_t ps_buffer_size;
 
 extern char **environ;
 
-void Py_GetArgcArgv(int *argc, char ***argv);
-
 int
 setproctitle_init() {
     int argc, i;
     char **argv;
     char *end_of_area = NULL;
     char **new_environ;
+    void *dlmain;
+    void (*Py_GetArgcArgv)(int *argc, char ***argv);
 
     if (ps_buffer) {
         /* Already done. */
         return 0;
     }
 
+    /* Py_GetArgcArgv will not be available if running in anything other than
+     * the main python binary, e.g. mod_python, so we have to use dlopen() to
+     * avoid making a hard dependency.
+     */
+    if ((dlmain = dlopen(NULL, RTLD_NOW)) == NULL) {
+        PyErr_SetString(PyExc_RuntimeError,
+                "setproctitle_init failed: could not dlopen() self");
+        return -1;
+    }
+    if ((Py_GetArgcArgv = dlsym(dlmain, "Py_GetArgcArgv")) == NULL) {
+        PyErr_SetString(PyExc_RuntimeError,
+                "setproctitle_init failed: Py_GetArgcArgv not available");
+        dlclose(dlmain);
+        return -1;
+    }
     Py_GetArgcArgv(&argc, &argv);
+    dlclose(dlmain);
     if (!argv) {
         PyErr_SetString(PyExc_RuntimeError,
                 "setproctitle_init failed: argv not available");

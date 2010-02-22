@@ -23,13 +23,13 @@ install: all pyfiles-install $(so_targets)
 %.so : %.o
 	gcc $(PY_LDFLAGS) -o $@ $+
 
-.PHONY: -lcap
+.PHONY: -lcap -ldl
 
 # Source requirements (headers)
 pycapmodule.o osutil.o osutil_setproctitle.o: pycompat.h
 
 # Modules
-osutil.so: osutil_setproctitle.o
+osutil.so: osutil_setproctitle.o -ldl
 pycap.so: -lcap
 
 
