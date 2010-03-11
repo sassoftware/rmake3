@@ -1,8 +1,17 @@
 #
-# Copyright (c) 2006-2009 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2006-2010 rPath, Inc.
+#
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
 #
 
-TOPDIR=..
 
 bin_files = \
 	rmake
@@ -13,17 +22,16 @@ sbin_files = \
 	rmake-node \
 	gencert-rmake
 
-extra_dist = Makefile rmake-wrapper chroothelper.c chroothelper.h.in gen-cert.sh
-
-dist_files = $(bin_files) $(extra_dist) $(sbin_files)
-
 libexec_files = chroothelper gen-cert.sh
 
-all: default-all chroothelper
-	mkdir -p $(TOPDIR)/bin
-	install -m755 rmake-wrapper $(TOPDIR)/bin/rmake-wrapper
+generated_files = config.h chroothelper.h chroothelper
+
+
+all: chroothelper default-build
+	mkdir -p ../bin
+	install -m755 rmake-wrapper ../bin/rmake-wrapper
 	for f in $(bin_files) $(sbin_files); do \
-		ln -sf rmake-wrapper $(TOPDIR)/bin/$$f; \
+		ln -sf rmake-wrapper ../bin/$$f; \
 	done
 
 config.h:
@@ -46,36 +54,17 @@ chroothelper.h: chroothelper.h.in ../Make.defs
 chroothelper: chroothelper.c chroothelper.h config.h
 	gcc -Wall -O2 -g -o chroothelper chroothelper.c -lcap
 
-install-mkdirs: install-client-mkdirs
-	mkdir -p $(DESTDIR)$(sbindir)
-	mkdir -p $(DESTDIR)/$(libexecdir)
-
-install-client-mkdirs:
-	mkdir -p $(DESTDIR)$(bindir)
-
-install-client: install-client-mkdirs
-	for f in $(bin_files); do \
-		install -m755 $$f $(DESTDIR)$(bindir)/$$f; \
-	done
-
-install: install-mkdirs install-client chroothelper
-	for f in $(sbin_files); do \
-		install -m755 $$f $(DESTDIR)$(sbindir)/$$f; \
-	done
-	mkdir -p $(DESTDIR)$(libexecdir)/rmake
-	for f in $(libexec_files); do \
-		install -m755 $$f $(DESTDIR)$(libexecdir)/rmake/$$f; \
-	done
+install: chroothelper
+	for f in $(bin_files); do install -D -m755 $$f $(DESTDIR)$(bindir)/$$f; done
+	for f in $(sbin_files); do install -D -m755 $$f $(DESTDIR)$(sbindir)/$$f; done
+	for f in $(libexec_files); do install -D -m755 $$f $(DESTDIR)$(libexecdir)/rmake/$$f; done
 	chmod 4755 $(DESTDIR)$(libexecdir)/rmake/chroothelper
 
-dist: default-dist
-
 clean: default-clean
-	rm -f config.h
-	rm -f chroothelper chroothelper.h
-	rm -rf $(TOPDIR)/bin
+	rm -rf ../bin
 
-include $(TOPDIR)/Make.rules
-include $(TOPDIR)/Make.defs
+
+include ../Make.defs
+include ../Make.rules
 
 # vim: set sts=8 sw=8 noexpandtab :

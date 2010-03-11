@@ -1,17 +1,28 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2010 rPath, Inc.
 #
-python_files = *.py
-dist_files = Makefile $(python_files)
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
+#
 
-SUBDIRS=chroot
+install_files = $(wildcard *.py)
 
-all: default-subdirs default-all
 
-clean: clean-subdirs default-clean
+all: default-build
 
-install: all pyfiles-install install-subdirs default-install
+install: default-install
 
-dist: default-dist
+clean: default-clean
+
 
 include ../../Make.rules
+include ../../Make.defs
+
+# vim: set sts=8 sw=8 noexpandtab filetype=make :
