@@ -13,7 +13,6 @@ from rmake.plugins import plugin
 
 # 
 from rmake.multinode.server import dispatcher
-from rmake.multinode.server import messagebus
 from rmake_plugins.multinode.build.builder import WorkerClient
 from rmake_plugins.multinode.server.server import ServerExtension
 from rmake_plugins.multinode.server import servercfg
@@ -92,6 +91,7 @@ class MultinodePlugin(plugin.ServerPlugin, plugin.ClientPlugin):
 
     def server_postInit(self, server):
         if server.cfg.messageBusHost is None:
+            assert False  # FIXME before 3.0
             self.startMessageBus(server)
         self.startDispatcher(server)
 

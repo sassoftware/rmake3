@@ -281,9 +281,9 @@ class DispatcherNodeClient(nodeclient.NodeClient):
         """
         nodeclient.NodeClient.messageReceived(self, m)
         if isinstance(m, messages.RegisterNodeMessage):
-            self.server.nodeRegistered(m.getSessionId(), m.getNode())
+            self.server.nodeRegistered(m.sessionId, m.getNode())
         elif isinstance(m, messages.NodeInfo):
-            self.server.nodeUpdated(m.getSessionId(), m.getNodeInfo(),
+            self.server.nodeUpdated(m.sessionId, m.getNodeInfo(),
                                     m.getCommands())
         elif isinstance(m, messages._Command):
             if m.getTargetNode():
@@ -292,7 +292,7 @@ class DispatcherNodeClient(nodeclient.NodeClient):
             self.server.log('Received Command: %s' % m.getCommandId())
             self.server.requestCommandAssignment(m)
         elif isinstance(m, messages.EventList):
-            self.server.eventsOccurred(m.getSessionId(), m.getJobId(),
+            self.server.eventsOccurred(m.sessionId, m.getJobId(),
                                        m.getEventList())
         elif isinstance(m, messages.NodeStatus):
             if m.isDisconnected():

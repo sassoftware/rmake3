@@ -8,12 +8,12 @@ from rmake.lib.apiutils import freeze, thaw
 
 from rmake.messagebus import busclient
 from rmake.multinode.server import dispatcher
-from rmake.multinode.server import messagebus
 from rmake.multinode import workernode
 
 
 class MessageBusAdminClient(object):
     def __init__(self, client):
+        # XXX: 3.0 rework
         self.messagebus = messagebus.MessageBusRPCClient(client)
         self.dispatcher = None
         self._client = client

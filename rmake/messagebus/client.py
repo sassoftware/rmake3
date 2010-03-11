@@ -20,238 +20,173 @@ This includes a client protocol, factory, and XMLRPC proxy.
 
 
 import logging
-from twisted.application.service import Service
-from twisted.internet.defer import Deferred
-from twisted.internet.protocol import ReconnectingClientFactory
-from rmake.lib import apirpc
-from rmake.messagebus.protocol import BusProtocol, NotConnectedError
-from rmake.multinode import messages
-from zope.interface import Interface, implements
+from twisted.words.protocols.jabber.xmlstream import XMPPHandler
+from rmake.lib import pubsub
+from rmake.messagebus import common
+from rmake.messagebus import message
+from rmake.messagebus.common import toJID
+from rmake.messagebus.pubsub import BusSubscriber
+from wokkel import disco
+from wokkel import xmppim
+from wokkel.client import XMPPClient
+from wokkel.ping import PingHandler
 
 log = logging.getLogger(__name__)
 
 
-class BusClientProtocol(BusProtocol):
+class RmakeHandler(XMPPHandler):
 
-    """Twisted protocol for messagebus clients."""
+    jid = None
 
-    def __init__(self):
-        self.queries = {}
+    def connectionInitialized(self):
+        self.jid = self.xmlstream.authenticator.jid
+        self.xmlstream.addObserver(common.XPATH_RMAKE_MESSAGE, self.onMessage)
+        self.xmlstream.addObserver(common.XPATH_RMAKE_IQ, self.onCommand)
 
-    def connectionMade(self):
-        msg = messages.ConnectionRequest()
-        msg.set(self.factory.user, self.factory.password,
-                self.factory.sessionClass, '', self.factory.subscriptions)
-        self.sendMessage(msg, force=True)
-
-    def connectionLost(self, reason):
-        # Notify any pending queries that the connection has died.
-        for query in self.queries.values():
-            query.errback(reason)
-
-        self.factory.busLost()
-
-    def sendMessage(self, message, force=False):
-        if not self.sessionId and not force:
-            raise NotConnectedError("Not connected")
-        BusProtocol.sendMessage(self, message)
-
-    def sendMethodCall(self, targetId, methodName, params):
-        if not self.sessionId:
-            raise NotConnectedError("Not connected")
-        msg = messages.MethodCall(targetId, methodName, params)
-        self._stamp(msg)
-        self.queries[msg.getMessageId()] = deferred = Deferred()
-        self.sendMessage(msg)
-        return deferred
-
-    def messageReceived(self, message):
-        if isinstance(message, messages.ConnectedResponse):
-            # Message bus was kind enough to assign us an identity.
-            self.sessionId = message.headers.sessionId
-            self.factory.busConnected(self)
-
-        elif isinstance(message, messages.MethodResponse):
-            # Reply from some previous RPC query.
-            query = self.queries.get(message.getResponseTo())
-            if query:
-                query.callback(message)
-                if message.isFinal():
-                    del self.queries[message.getResponseTo()]
-
+    def onMessage(self, element):
+        msg = message.Message.from_dom(element)
+        if msg:
+            print 'a message!'
         else:
-            # Some other message.
-            self.factory.messageReceived(message)
+            print 'not a message :('
+
+    def onCommand(self, element):
+        print 'cmd'
 
 
-class BusClientFactory(ReconnectingClientFactory):
 
-    """Twisted factory for messagebus clients."""
+class RmakeClientHandler(RmakeHandler):
 
-    protocol = BusClientProtocol
+    targetRole = 'dispatcher'
 
-    continueTrying = False # no retries until at least one success
-    maxDelay = 15
-    maxRetries = 120 # 30 minutes
+    def __init__(self, targetJID):
+        self.targetJID = targetJID
 
-    subscriptions = ()
-
-    def __init__(self, sessionClass='', user='', password='', service=None):
-        self.connection = None
-        self.stopping = False
-        if service:
-            self.service = IBusClientService(service)
-        else:
-            self.service = None
-
-        self.sessionClass = sessionClass
-        self.user = user
-        self.password = password
-
-        self.eventHandlers = []
-
-    def clientConnectionFailed(self, connector, err):
-        if self.continueTrying:
-            self.connector = connector
-            self.retry()
-            if self.service and self.retries > self.maxRetries:
-                self.service.busFailed(err)
-        elif not self.stopping:
-            if self.service:
-                self.service.busFailed(err)
-    clientConnectionLost = clientConnectionFailed
-
-    def busConnected(self, connection):
-        log.debug("Connected to message bus")
-        self.resetDelay()
-        self.connection = connection
-
-        if self.service:
-            self.service.busConnected()
-
-    def busLost(self):
-        self.connection = None
-        if self.service:
-            if not self.stopping:
-                self.service.busLost()
-            else:
-                self.service.busDisconnected()
-
-    def messageReceived(self, message):
-        if self.service:
-            self.service.messageReceived(message)
-
-    def disconnect(self):
-        self.stopping = True
-        self.stopTrying()
-        if self.connection:
-            self.connection.transport.loseConnection()
-
-    def getProxy(self, apiClass, targetId):
-        return BusClientProxy(apiClass, self, targetId)
+    def connectionInitialized(self):
+        RmakeHandler.connectionInitialized(self)
+        d = self.parent.checkAndSubscribe(self.targetJID, self.targetRole)
+        def say_hi(dummy):
+            msg = message.Event('useless', 'hello', (), {})
+            msg.send(self.xmlstream, self.targetJID)
+        d.addCallback(say_hi)
+        d.addErrback(onError)
 
 
-class BusClientProxy(apirpc.ApiProxy):
+class BusService(XMPPClient):
 
-    """XMLRPC proxy which serializes to a messagebus target."""
+    def __init__(self, reactor, jid, password):
+        XMPPClient.__init__(self, toJID(jid), password)
+        self._reactor = reactor
 
-    def __init__(self, apiClass, factory, targetId):
-        apirpc.ApiProxy.__init__(self, apiClass)
-        self.factory = factory
-        self.targetId = targetId
+        self._handler = self._getHandler()
+        self._handler.setHandlerParent(self)
 
-    def _request(self, method, params):
-        args, apiInfo = self._pre_request(method, params)
-        conn = self.factory.connection
-        if not conn:
-            raise NotConnectedError("Not connected")
-        # TODO: loopback case
-        toCaller = Deferred()
-        fromProtocol = conn.sendMethodCall(self.targetId, method, args)
-        fromProtocol.addCallback(self._request_finished, toCaller, apiInfo)
-        fromProtocol.addErrback(toCaller.errback)
-        return toCaller
+        self._handlers = {
+                'disco': disco.DiscoClientProtocol(),
+                'disco_s': disco.DiscoHandler(),
+                'ping': PingHandler(),
+                'presence': PresenceProtocol(),
+                }
+        for handler in self._handlers.values():
+            handler.setHandlerParent(self)
 
-    def _request_finished(self, msg, toCaller, apiInfo):
-        try:
-            result = self._post_request(not msg.isError(), msg.getReturnValue(),
-                    apiInfo)
-        except:
-            # TODO: figure out how to produce a stack trace from when the call
-            # was originally invoked. The stack here is completely worthless.
-            toCaller.errback()
-        else:
-            toCaller.callback(result)
+        self._publishers = {}
+        self._subscribers = {}
 
+    def _getHandler(self):
+        raise NotImplementedError
 
-class IBusClientService(Interface):
-
-    """Methods that a bus client is expected to implement."""
-
-    def busConnected(self):
-        """Called when the bus is first connected."""
-
-    def busLost(self):
-        """Called if the connection to the bus is unexpectedly lost."""
-
-    def busDisconnected(self):
-        """Called when the bus connection is finished disconnecting."""
-
-    def busFailed(self, err):
-        """Called if a connection to the bus cannot be made."""
-
-    def messageReceived(self, msg):
-        """Called when an unsolicited message arrives."""
+    def checkAndSubscribe(self, jid, role):
+        d = self._handlers['disco'].requestInfo(jid)
+        def got_info(info):
+            if common.NS_RMAKE not in info.features:
+                raise RuntimeError("%s is not a rmake component" % jid.full())
+            form = info.extensions[common.FORM_RMAKE_INFO]
+            actual_role = form.fields['role'].value
+            if role != actual_role:
+                raise RuntimeError("%s is not a rmake %s" % (jid.full(), role))
+            self._handlers['presence'].subscribe(jid.userhostJID())
+        d.addCallback(got_info)
+        return d
 
 
-class BusClientService(Service):
+class BusClientService(BusService):
 
     """Base class for services that maintain a messagebus client."""
 
-    implements(IBusClientService)
+    resource = 'rmake'
 
-    sessionClass = None
-    subscriptions = ()
+    def __init__(self, reactor, jid, password, targetJID):
+        # Connect with an anonymous JID (just the host + resource)
+        self._targetJID = toJID(targetJID)
+        BusService.__init__(self, reactor, jid, password)
 
-    def __init__(self, reactor, busAddress):
-        self._reactor = reactor
-        self._busAddress = busAddress
-        self._connection = None
-        self.client = BusClientFactory(self.sessionClass)
-        self.client.subscriptions = self.subscriptions
-
-    def startService(self):
-        Service.startService(self)
-        host, port = self._busAddress
-        self._connection = self._reactor.connectTCP(host, port, self.client)
-        self.client.service = self
-
-    def stopService(self):
-        Service.stopService(self)
-        self.client.service = None
-        if self._connection is not None:
-            self._connection.disconnect()
-            self._connection = None
-
-    # Events
-    def busConnected(self):
-        pass
-
-    def busLost(self):
-        pass
-
-    def busDisconnected(self):
-        pass
-
-    def busFailed(self):
-        pass
+    def _getHandler(self):
+        return RmakeClientHandler(self._targetJID)
 
     def messageReceived(self, message):
-        if isinstance(message, messages.EventList):
-            apiVer, eventList = message.getEventList()
-            for eventHandler in self.client.eventHandlers:
-                eventHandler._receiveEvents(apiVer, eventList)
+        if isinstance(message, message_types.Event):
+            # Forward event to all interested subscribers.
+            publisher = self._publishers.get(message.targetTopic)
+            if publisher:
+                message.publish(publisher)
 
-    # Commands
-    def subscribe(self, eventHandler):
-        self.client.eventHandlers.append(eventHandler)
+    # Pub-sub infrastructure
+    def subscribeEvents(self, topic, subscriber):
+        """Subscribe "subscriber" to events directed to "topic"."""
+        if topic in self._publishers:
+            publisher = self._publishers[topic]
+        else:
+            publisher = self._publishers[topic] = pubsub.Publisher()
+        publisher.subscribe(subscriber)
+
+    def publishEvents(self, topic, publisher):
+        """Publish events from "publisher" to the given "topic"."""
+        if topic in self._subscribers:
+            subscriber = self._subscribers[topic]
+        else:
+            subscriber = self._subscribers[topic] = BusSubscriber(self, topic)
+        publisher.subscribe(subscriber)
+
+
+class PresenceProtocol(xmppim.PresenceProtocol, xmppim.RosterClientProtocol):
+    """Accept all subscription requests and reply in kind."""
+
+    def connectionInitialized(self):
+        xmppim.PresenceProtocol.connectionInitialized(self)
+        xmppim.RosterClientProtocol.connectionInitialized(self)
+        # RFC-3921 7.3 says that we should request the roster before sending
+        # initial presence or expecting any subscriptions to be in effect.
+        def process_roster(roster):
+            # Purge roster items with no active subscription.
+            for item in roster.values():
+                if not item.subscriptionTo and not item.subscriptionFrom:
+                    self.removeItem(item.jid)
+        d = self.getRoster()
+        d.addCallback(process_roster)
+        d.addBoth(lambda result: self.available())
+
+    def subscribeReceived(self, presence):
+        """If someone subscribed to us, subscribe to them."""
+        self.subscribed(presence.sender)
+        self.subscribe(presence.sender.userhostJID())
+
+    def unsubscribeReceived(self, presence):
+        """If someone unsubscribed us, unsubscribe them."""
+        self.unsubscribed(presence.sender)
+        self.unsubscribe(presence.sender.userhostJID())
+
+    def onRosterSet(self, item):
+        """If we no longer have visibility on someone, remove them entirely."""
+        if not item.subscriptionTo and not item.subscriptionFrom:
+            self.removeItem(item.jid)
+
+
+def onError(failure):
+    failure.printTraceback()
+    # XXX -- don't do this
+    from twisted.internet import reactor
+    try:
+        reactor.stop()
+    except:
+        pass

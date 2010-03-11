@@ -232,7 +232,8 @@ class WorkerNodeClient(nodeclient.NodeClient):
             @param info: current status of this node
             @type info: procutil.MachineInformation
         """
-        m = messages.NodeInfo(info, commandIds)
+        print 'ping'
+        m = messages.NodeInfo(nodeInfo=info, commands=commandIds)
         self.bus.sendMessage('/nodestatus', m)
 
     def messageReceived(self, m):
@@ -242,8 +243,8 @@ class WorkerNodeClient(nodeclient.NodeClient):
         """
         nodeclient.NodeClient.messageReceived(self, m)
         if isinstance(m, messages.ConnectedResponse):
-            self.bus.subscribe('/command?targetNode=%s' % m.getSessionId())
-            self.server.busConnected(m.getSessionId())
+            self.bus.subscribe('/command?targetNode=%s' % m.sessionId)
+            self.server.busConnected(m.sessionId)
         elif isinstance(m, messages.BuildCommand):
             self.server.info('Received build command')
             self.server.receivedBuildCommand(m)

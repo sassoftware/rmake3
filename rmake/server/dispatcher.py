@@ -22,84 +22,63 @@ commands.  Status updates are routed back to clients and to the database.
 import logging
 import weakref
 from twisted.application.service import Service
-from rmake.lib.subscriber import StatusSubscriber
-from rmake.multinode import messages
-from rmake.messagebus.client import BusClientFactory, IBusClientService
+from rmake.lib.pubsub import Subscriber
+from rmake.messagebus.client import BusService, RmakeHandler
+from rmake.messagebus.common import getInfoForm, NS_RMAKE
+from wokkel import disco
+from wokkel import iwokkel
 from zope.interface import implements
 
-# thawers
-import rmake.build.subscriber
-import rmake.worker.resolver
 
 log = logging.getLogger(__name__)
 
 
-class Dispatcher(Service):
+class DispatcherHandler(RmakeHandler):
 
-    implements(IBusClientService)
-
-    def __init__(self, reactor, busAddress):
-        self.reactor = reactor
-        self.busAddress = busAddress
-        self.client = BusClientFactory('DSP2')
-        self.client.subscriptions = [
-                '/command',
-                '/event',
-                '/internal/nodes',
-                '/nodestatus',
-                '/commandstatus',
+    implements(iwokkel.IDisco)
+    def getDiscoInfo(self, requestor, target, nodeIdentifier=''):
+        return [disco.DiscoIdentity('automation', 'rmake', 'rMake Dispatcher'),
+                disco.DiscoFeature(NS_RMAKE),
+                getInfoForm('dispatcher'),
                 ]
-        self.connection = None
-        self.subscriber = EventHandler(self)
-
-    def startService(self):
-        Service.startService(self)
-        host, port = self.busAddress
-        self.connection = self.reactor.connectTCP(host, port, self.client)
-        self.client.service = self
-
-    def stopService(self):
-        Service.stopService(self)
-        self.client.service = None
-        if self.connection is not None:
-            self.connection.disconnect()
-            self.connection = None
-
-    def busConnected(self):
-        pass
-
-    def busLost(self):
-        pass
-
-    def messageReceived(self, message):
-        if isinstance(message, messages.NodeInfo):
-            load = message.getNodeInfo().loadavg
-            print 'Node %s: %.02f %.02f %.02f' % (message.getSessionId(),
-                    load[0], load[1], load[2])
-        elif isinstance(message, messages.NodeStatus):
-            print 'Node %s: %s' % (message.getStatusId(), message.getStatus())
-        elif isinstance(message, messages.CommandStatus):
-            print 'Command %s: %s' % (message.getCommandId(),
-                    message.headers.status)
-        elif isinstance(message, messages.EventList):
-            apiVer, eventList = message.getEventList()
-            if apiVer == 1:
-                self.subscriber._addEvent(message.getJobId(), eventList)
-            else:
-                log.error("Got event list with unknown API version %r", apiVer)
-        else:
-            print message
-            print
+    def getDiscoItems(self, requestor, target, nodeIdentifier=''):
+        return []
 
 
-class EventHandler(StatusSubscriber):
+class Dispatcher(BusService):
+
+    def _getHandler(self):
+        return DispatcherHandler()
+
+
+class EventHandler(Subscriber):
     """Process events and command results from workers."""
 
     def __init__(self, disp):
-        StatusSubscriber.__init__(self, None, None)
         self.disp = weakref.proxy(disp)
 
-    @StatusSubscriber.listen('TROVE_STATE_UPDATED')
     def troveStateUpdated(self, (jobId, troveTuple), state, status):
         print '%d %s{%s} changed state: %s %s' % (jobId, troveTuple[0],
                 troveTuple[2], buildtrove.stateNames[state], status)
+
+
+def main():
+    import optparse
+    parser = optparse.OptionParser()
+    parser.add_option('-j', '--jid', default='rmake@localhost')
+    options, args = parser.parse_args()
+    if args:
+        parser.error("No arguments expected")
+
+    from rmake.lib.logger import setupLogging
+    setupLogging(consoleLevel=logging.DEBUG)
+
+    from twisted.internet import reactor
+    import epdb;epdb.st()
+    service = Dispatcher(reactor, options.jid)
+    service.startService()
+    reactor.run()
+
+
+if __name__ == '__main__':
+    main()
