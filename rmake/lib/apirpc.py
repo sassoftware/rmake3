@@ -47,20 +47,16 @@ from conary.lib import coveragehook
 
 from rmake import constants, errors
 
-from rmake.lib import apiutils
 from rmake.lib import localrpc
 from rmake.lib import rpclib
 from rmake.lib import rpcproxy
 from rmake.lib import server
-from rmake.lib.apiutils import api, api_parameters, api_return
 from rmake.lib import logger
 
 # This version describes the current iteration of the API protocol.
 _API_VERSION = 1
 
 class ApiProxy(rpcproxy.BaseServerProxy):
-    _apiMajorVersion = constants.apiMajorVersion
-    _apiMinorVersion = constants.apiMinorVersion
 
     def __init__(self, apiClass):
         rpcproxy.BaseServerProxy.__init__(self)
@@ -117,13 +113,7 @@ class XMLApiProxy(ApiProxy, rpcproxy.GenericServerProxy):
         rpcproxy.GenericServerProxy.__init__(self, address, **options)
 
 
-class BaseRPCLogger(logger.Logger):
-    def logRPCCall(self, callData, methodName, args):
-        pass
-
 class ApiServer(server.Server):
-    _apiMajorVersion = constants.apiMajorVersion
-    _apiMinorVersion = constants.apiMinorVersion
 
     _debug = False
     def __init__(self, logger=None, forkByDefault = False):
@@ -221,9 +211,6 @@ class ApiServer(server.Server):
         # By default, we return empty string since None is not allowed
         return True, ''
 
-    @api(version=1)
-    @api_parameters(1)
-    @api_return(1, 'bool')
     def ping(self, callData):
         return True
 
@@ -358,7 +345,7 @@ def _thawReturn(api, val, version):
 
 class ApiError(errors.RmakeError):
     pass
-apiutils.register(ApiError)
+
 
 class NoSuchMethodError(ApiError):
     def __init__(self, method):

@@ -493,12 +493,8 @@ class Builder(object):
             trove.logPid = pid
         return logHost, logPort, key
 
-class BuildLogger(logger.Logger):
-   def __init__(self, jobId, path):
-        logger.Logger.__init__(self, 'build-%s' % jobId, path)
 
-from rmake.lib import subscriber
-class EventHandler(subscriber.StatusSubscriber):
+class EventHandler(object):
     listeners = { 'TROVE_PREPARING_CHROOT' : 'trovePreparingChroot',
                   'TROVE_BUILT'            : 'troveBuilt',
                   'TROVE_PREPARED'         : 'trovePrepared',

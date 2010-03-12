@@ -22,12 +22,28 @@ from twisted.words.protocols.jabber.xmlstream import IQ
 log = logging.getLogger(__name__)
 
 
+class _MessageTypeRegistrar(type):
+
+    messageTypes = {}
+
+    def __new__(metacls, name, bases, clsdict):
+        clsdict.setdefault('__slots__', ())
+        cls = type.__new__(metacls, name, bases, clsdict)
+        if cls.messageType:
+            metacls.messageTypes[cls.messageType] = cls
+        return cls
+
+
 class Message(object):
     """Base class for all thawed message types."""
+    __metaclass__ = _MessageTypeRegistrar
+    __slots__ = ('payload', 'info')
 
     messageType = None
 
     def __init__(self, *args, **kwargs):
+        self.payload = MessagePayload()
+        self.info = MessageInfo()
         if args or kwargs:
             self.set(*args, **kwargs)
 
@@ -38,16 +54,16 @@ class Message(object):
     def _add_rmake_node(self, xmppNode):
         rmakeNode = xmppNode.addElement('rmake', NS_RMAKE)
         rmakeNode['type'] = self.messageType
-        rmakeNode['content-type'] = 'application/python-pickle'
-
-        payloadBytes = cPickle.dumps(self, 2)
-        zippedBytes = payloadBytes.encode('zlib')
-        if len(zippedBytes) < len(payloadBytes):
-            rmakeNode['transfer-encoding'] = 'gzip+base64'
-            rmakeNode.addContent(zippedBytes.encode('base64'))
-        else:
-            rmakeNode['transfer-encoding'] = 'base64'
-            rmakeNode.addContent(payloadBytes.encode('base64'))
+        if self.payload.__dict__:
+            rmakeNode['content-type'] = 'application/python-pickle'
+            payloadBytes = cPickle.dumps(self.payload, 2)
+            zippedBytes = payloadBytes.encode('zlib')
+            if len(zippedBytes) < len(payloadBytes):
+                rmakeNode['transfer-encoding'] = 'gzip+base64'
+                rmakeNode.addContent(zippedBytes.encode('base64'))
+            else:
+                rmakeNode['transfer-encoding'] = 'base64'
+                rmakeNode.addContent(payloadBytes.encode('base64'))
         return rmakeNode
 
     @staticmethod
@@ -72,36 +88,51 @@ class Message(object):
             # Not a rMake message.
             return None
 
-        transferCoding = rmakeNode['transfer-encoding']
-        if transferCoding == 'gzip+base64':
-            payloadBytes = str(rmakeNode).decode('base64').decode('zlib')
-        elif transferCoding == 'base64':
-            payloadBytes = str(rmakeNode).decode('base64')
-        else:
-            log.warning("Unknown transfer coding %s from %s", transferCoding,
-                    sender)
+        messageType = rmakeNode['type']
+        messageClass = _MessageTypeRegistrar.messageTypes.get(messageType)
+        if not messageClass:
+            log.warning("Unknown message type %s from %s", messageType, sender)
             return None
+        msg = messageClass()
 
-        payloadType = rmakeNode['content-type']
-        if payloadType == 'application/python-pickle':
-            try:
-                message = cPickle.loads(payloadBytes)
-            except:
-                log.warning("Failed to unpickle message from %s:", sender,
-                        exc_info=1)
+        payloadType = rmakeNode.getAttribute('content-type')
+        transferCoding = rmakeNode.getAttribute('transfer-encoding')
+        if payloadType is None:
+            msg.payload = None
+        else:
+            if transferCoding == 'gzip+base64':
+                payloadBytes = str(rmakeNode).decode('base64').decode('zlib')
+            elif transferCoding == 'base64':
+                payloadBytes = str(rmakeNode).decode('base64')
+            else:
+                log.warning("Unknown transfer coding %s from %s",
+                        transferCoding, sender)
                 return None
-        else:
-            return None
 
-        if rmakeNode['type'] != message.messageType:
-            log.warning("Got message of type %s but it unpickled as a %s "
-                    "(from %s)", rmakeNode['type'], message.messageType,
-                    sender)
-            return None
+            if payloadType == 'application/python-pickle':
+                try:
+                    msg.payload = cPickle.loads(payloadBytes)
+                except:
+                    log.warning("Failed to unpickle message from %s:", sender,
+                            exc_info=1)
+                    return None
+            else:
+                log.warning("Unknown payload type %s from %s", payloadType,
+                        sender)
+                return None
 
-        if xmppNode.hasAttribute('id'):
-            message._id = xmppNode['id']
-        return message
+        msg.info.sender = xmppNode['from']
+        msg.info.id = xmppNode.getAttribute('id')
+        return msg
+
+
+class MessagePayload(object):
+    """Dummy object used as an attribute store for messages."""
+
+
+class MessageInfo(object):
+    id = None
+    sender = None
 
 
 class Event(Message):
@@ -109,12 +140,16 @@ class Event(Message):
 
     messageType = 'event'
 
-    def set(self, subsystem, event, args, kwargs):
-        self.subsystem = subsystem
-        self.event = event
-        self.args = args
-        self.kwargs = kwargs
+    def set(self, event, args, kwargs):
+        self.payload.event = event
+        self.payload.args = args
+        self.payload.kwargs = kwargs
 
     def publish(self, publisher):
         """Publish this event to the given "publisher"."""
-        publisher._send(self.event, *self.args, **self.kwargs)
+        publisher._send(self.payload.event, self.info, *self.payload.args,
+                **self.payload.kwargs)
+
+    @property
+    def event(self):
+        return self.payload.event

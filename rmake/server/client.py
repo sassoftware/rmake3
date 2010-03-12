@@ -7,12 +7,10 @@ import urllib
 
 from conary.lib import util
 
-from rmake import subscribers
 from rmake.build import buildjob
 from rmake.build import buildtrove
 from rmake.errors import InsufficientPermission
 from rmake.lib import apirpc, rpclib, localrpc
-from rmake.lib.apiutils import thaw, freeze
 
 from rmake.server import server
 

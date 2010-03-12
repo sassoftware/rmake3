@@ -12,17 +12,12 @@
 # full details.
 
 """
-The dispatcher is responsible for moving a job through the build workflow.
-
-It creates jobs, assigns them to nodes, and monitors the progress of the jobs.
-Status updates are routed back to clients and to the database.
+The worker spawns processes to handle jobs for the dispatcher.
 """
 
 
 import logging
-import weakref
-from rmake.messagebus.client import BusService
-
+from rmake.messagebus.client import BusClientService
 
 log = logging.getLogger(__name__)
 
@@ -34,10 +29,10 @@ class Dispatcher(BusService):
 
     def __init__(self, reactor, jid, password):
         BusService.__init__(self, reactor, jid, password)
-        self.addObserver('heartbeat', self.onHeartbeat)
+        self.addObserver('node/heartbeat', self.onHeartbeat)
 
-    def onHeartbeat(self, info, nodeType):
-        print 'heartbeat from %s (%s)' % (info.sender, nodeType)
+    def onHeartbeat(self, pants):
+        print 'number:', pants
 
 
 def main():

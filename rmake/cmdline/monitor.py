@@ -8,7 +8,7 @@ import tempfile
 import time
 
 from rmake.build import buildjob, buildtrove
-from rmake.subscribers import xmlrpc
+
 
 def _getUri(client):
     if not isinstance(client.uri, str) or client.uri.startswith('unix://'):
@@ -55,7 +55,7 @@ def waitForJob(client, jobId, uri=None, serve=True):
         if tmpPath:
             os.remove(tmpPath)
 
-class _AbstractDisplay(xmlrpc.BasicXMLRPCStatusSubscriber):
+class _AbstractDisplay(object):#xmlrpc.BasicXMLRPCStatusSubscriber):
     def __init__(self, client, showBuildLogs=True, out=None,
                  exitOnFinish=True):
         self.client = client

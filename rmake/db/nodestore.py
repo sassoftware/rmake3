@@ -7,7 +7,6 @@ from rmake.build import buildjob
 from rmake.worker import chroot
 from rmake.worker import node
 
-from rmake.lib.apiutils import thaw, freeze
 
 def toBuildFlavors(frz):
     lst = marshal.loads(frz)

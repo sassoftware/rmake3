@@ -11,40 +11,57 @@
 # or fitness for a particular purpose. See the Common Public License for
 # full details.
 
-"""
-The dispatcher is responsible for moving a job through the build workflow.
-
-It creates jobs, assigns them to nodes, and monitors the progress of the jobs.
-Status updates are routed back to clients and to the database.
-"""
-
 
 import logging
-import weakref
-from rmake.messagebus.client import BusService
+from twisted.application.internet import TCPServer
+from twisted.application.service import MultiService
+from twisted.web.resource import Resource
+from twisted.web.server import Site
+from twisted.web.xmlrpc import XMLRPC
+from rmake.messagebus.client import BusClientService
 
 
 log = logging.getLogger(__name__)
 
 
-class Dispatcher(BusService):
+class ServerBusService(BusClientService):
 
-    role = 'dispatcher'
-    description = 'rMake Dispatcher'
+    role = 'server'
+    description = 'rMake RPC Server'
 
-    def __init__(self, reactor, jid, password):
-        BusService.__init__(self, reactor, jid, password)
-        self.addObserver('heartbeat', self.onHeartbeat)
+    def targetConnected(self):
+        self.sendHeartbeat()
 
-    def onHeartbeat(self, info, nodeType):
-        print 'heartbeat from %s (%s)' % (info.sender, nodeType)
+    def sendHeartbeat(self):
+        self._send('heartbeat', nodeType='rpc')
+        self._reactor.callLater(5, self.sendHeartbeat)
+
+
+class ServerRPC(XMLRPC):
+
+    def xmlrpc_test(self):
+        return 'test'
+
+
+class Server(MultiService):
+
+    def __init__(self, reactor, jid, password, targetJID):
+        MultiService.__init__(self)
+
+        self.bus = ServerBusService(reactor, jid, password, targetJID)
+        self.bus.setServiceParent(self)
+
+        root = Resource()
+        root.putChild('RPC2', ServerRPC())
+        TCPServer(9999, Site(root)).setServiceParent(self)
 
 
 def main():
     import optparse
     parser = optparse.OptionParser()
     parser.add_option('--debug', action='store_true')
-    parser.add_option('-j', '--jid', default='rmake@localhost/rmake')
+    parser.add_option('-c', '--connect', default='rmake@localhost/rmake')
+    parser.add_option('-j', '--jid', default='rserver@localhost/rmake')
     parser.add_option('-p', '--password', default='password')
     options, args = parser.parse_args()
     if args:
@@ -55,7 +72,7 @@ def main():
             withTwisted=True)
 
     from twisted.internet import reactor
-    service = Dispatcher(reactor, options.jid, options.password)
+    service = Server(reactor, options.jid, options.password, options.connect)
     if options.debug:
         service.logTraffic = True
     service.startService()

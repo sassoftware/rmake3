@@ -13,8 +13,6 @@ from conary import trove
 from rmake import failure
 from rmake.build import publisher
 from rmake.build import trovesettings
-from rmake.lib import apiutils
-from rmake.lib.apiutils import freeze, thaw
 from rmake.lib import flavorutil
 
 troveStates = {
@@ -95,7 +93,6 @@ class _BuildTroveRegister(type):
     def __init__(class_, *args, **kw):
         type.__init__(class_, *args, **kw)
         _troveClassesByType[class_.troveType] = class_
-        apiutils.register_freezable_classmap('BuildTrove', class_)
 
 class _AbstractBuildTrove(object):
     """
@@ -778,7 +775,6 @@ class LoadSpecs(object):
                     stack.append((subLoadDict, newFrzDict))
         return d
 
-apiutils.register(LoadSpecs)
 class LoadSpecsList(object):
 
     @staticmethod
@@ -788,7 +784,6 @@ class LoadSpecsList(object):
     @staticmethod
     def __thaw__(frzLoadSpecsList):
         return [ apiutils.thaw('LoadSpecs', x) for x in frzLoadSpecsList ]
-apiutils.register(LoadSpecsList)
 
 
 class LoadTroveResult(object):
@@ -830,4 +825,3 @@ class LoadTroveResult(object):
         for attr, value in blob.items():
             setattr(new, attr, thaw(cls.attrTypes[attr], value))
         return new
-apiutils.register(LoadTroveResult)

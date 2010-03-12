@@ -19,12 +19,9 @@ import traceback
 from conary.lib import util
 
 from rmake import errors
-from rmake import subscribers
 from rmake.build import buildjob, buildtrove
 from rmake.cmdline import query
-from rmake.lib.apiutils import thaw, freeze
 from rmake.lib import rpclib, localrpc
-from rmake.subscribers import xmlrpc
 
 from rmake.cmdline import monitor
 from rmake.plugins import plugin
@@ -64,7 +61,7 @@ def restore_terminal(oldTerm, oldFlags):
         fcntl.fcntl(fd, fcntl.F_SETFL, oldFlags)
 
 
-class _AbstractDisplay(xmlrpc.BasicXMLRPCStatusSubscriber):
+class _AbstractDisplay(object):#xmlrpc.BasicXMLRPCStatusSubscriber):
     def __init__(self, client, showBuildLogs=True, out=None):
         self.client = client
         self.finished = False
@@ -302,7 +299,7 @@ class OutBuffer(object):
             else:
                 self.data.pop(0)
 
-class DisplayState(xmlrpc.BasicXMLRPCStatusSubscriber):
+class DisplayState(object):#xmlrpc.BasicXMLRPCStatusSubscriber):
     def __init__(self, client):
         self.troves = []
         self.states = {}
@@ -398,7 +395,7 @@ class DisplayState(xmlrpc.BasicXMLRPCStatusSubscriber):
         return self.jobState in (
                     buildjob.JOB_STATE_FAILED, buildjob.JOB_STATE_BUILT)
 
-class DisplayManager(xmlrpc.BasicXMLRPCStatusSubscriber):
+class DisplayManager(object):#xmlrpc.BasicXMLRPCStatusSubscriber):
 
     displayClass = JobLogDisplay
     stateClass = DisplayState

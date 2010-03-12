@@ -11,8 +11,6 @@ from conary.repository import trovesource
 
 from rmake import errors
 from rmake import failure
-from rmake.lib import apiutils
-from rmake.lib.apiutils import thaw, freeze
 from rmake.build import buildtrove
 from rmake.build import publisher
 
@@ -486,8 +484,6 @@ class BuildJob(_FreezableBuildJob):
         self.state = state
         self.status = status
         self._publisher.jobStateUpdated(self, state, status, *args)
-
-apiutils.register(apiutils.api_freezable(BuildJob))
 
 def NewBuildJob(db, troveTups, jobConfig=None, state=JOB_STATE_INIT, uuid=''):
     """

@@ -20,7 +20,6 @@ from rmake import errors
 from rmake import failure
 from rmake.build.buildstate import AbstractBuildState
 
-from rmake.lib.apiutils import freeze,thaw,register
 from rmake.lib import flavorutil
 
 FAILURE_REASON_FAILED = 0
@@ -72,7 +71,7 @@ class ResolveJob(object):
         self.builtTroves = thaw('troveTupleList', self.builtTroves)
         self.crossTroves = thaw('troveTupleList', self.crossTroves)
         return self
-register(ResolveJob)
+
 
 class DependencyGraph(graph.DirectedGraph):
     # FIXME: remove with next release of conary

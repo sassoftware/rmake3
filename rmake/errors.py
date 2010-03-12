@@ -37,13 +37,6 @@ class RmakeError(Exception):
         Any relevant data for this error should be stored outside of the
         string so it can be accessed from non-command-line interfaces.
     """
-    @classmethod
-    def __thaw__(class_, data):
-        return class_(*data)
-
-    def __freeze__(self):
-        return self.args
-apiutils.register(RmakeError)
 
 class BadParameters(RmakeError):
     """
@@ -55,25 +48,10 @@ class JobNotFound(RmakeError):
     def __str__(self):
         return "JobNotFound: Could not find job with jobId %s" % self.args[0]
 
-    @classmethod
-    def __thaw__(class_, data):
-        return class_(*data)
-
-    def __freeze__(self):
-        return self.args
-apiutils.register(JobNotFound)
 
 class TroveNotFound(RmakeError):
     def __str__(self):
         return "TroveNotFound: Could not find trove %s=%s[%s]{%s} with jobId %s" % (self.args[1:] + self.args[0:1])
-
-    @classmethod
-    def __thaw__(class_, data):
-        return class_(data[0], *thaw('troveTuple', data[1]))
-
-    def __freeze__(self):
-        return (self.args[0], freeze('troveTuple', self.args[1:]))
-apiutils.register(TroveNotFound)
 
 
 class DatabaseSchemaTooNew(RmakeError):
@@ -88,21 +66,21 @@ class ServerError(RmakeError):
         Generic error for communicating with the rMakeServer.
     """
     pass
-apiutils.register(ServerError)
+
 
 class OpenError(ServerError):
     """
         Generic error for starting communication with the rMakeServer.
     """
     pass
-apiutils.register(OpenError)
+
 
 class InsufficientPermission(ServerError):
     """
         Raised when your access is denied
     """
     pass
-apiutils.register(InsufficientPermission)
+
 
 # error that gets output when a Python exception makes it to the command 
 # line.

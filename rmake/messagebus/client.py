@@ -20,6 +20,9 @@ This includes a client protocol, factory, and XMLRPC proxy.
 
 
 import logging
+from twisted.internet import defer
+from twisted.python import failure
+from twisted.words.protocols.jabber.error import StanzaError
 from twisted.words.protocols.jabber.xmlstream import XMPPHandler
 from rmake.lib import pubsub
 from rmake.messagebus import common
@@ -27,14 +30,18 @@ from rmake.messagebus import message
 from rmake.messagebus.common import toJID
 from rmake.messagebus.pubsub import BusSubscriber
 from wokkel import disco
+from wokkel import iwokkel
 from wokkel import xmppim
 from wokkel.client import XMPPClient
 from wokkel.ping import PingHandler
+from zope.interface import implements
 
 log = logging.getLogger(__name__)
 
 
 class RmakeHandler(XMPPHandler):
+
+    implements(iwokkel.IDisco)
 
     jid = None
 
@@ -46,13 +53,21 @@ class RmakeHandler(XMPPHandler):
     def onMessage(self, element):
         msg = message.Message.from_dom(element)
         if msg:
-            print 'a message!'
-        else:
-            print 'not a message :('
+            self.parent.messageReceived(msg)
 
     def onCommand(self, element):
-        print 'cmd'
+        pass
 
+    def getDiscoInfo(self, requestor, target, nodeIdentifier=''):
+        desc = self.parent.description or 'Unknown rMake component'
+        ident = [disco.DiscoIdentity('automation', 'rmake', desc),
+                disco.DiscoFeature(common.NS_RMAKE)]
+        if self.parent.role:
+            ident.append(common.getInfoForm(self.parent.role))
+        return defer.succeed(ident)
+
+    def getDiscoItems(self, requestor, target, nodeIdentifier=''):
+        return defer.succeed([])
 
 
 class RmakeClientHandler(RmakeHandler):
@@ -65,20 +80,32 @@ class RmakeClientHandler(RmakeHandler):
     def connectionInitialized(self):
         RmakeHandler.connectionInitialized(self)
         d = self.parent.checkAndSubscribe(self.targetJID, self.targetRole)
-        def say_hi(dummy):
-            msg = message.Event('useless', 'hello', (), {})
-            msg.send(self.xmlstream, self.targetJID)
-        d.addCallback(say_hi)
+        def got_ok(dummy):
+            self.parent.targetConnected()
+        def got_error(failure):
+            failure.trap(StanzaError)
+            if failure.value.condition == 'service-unavailable':
+                self.parent.targetLost(failure)
+            else:
+                return failure
+        d.addCallbacks(got_ok, got_error)
         d.addErrback(onError)
 
 
-class BusService(XMPPClient):
+class BusService(XMPPClient, pubsub.Publisher):
 
-    def __init__(self, reactor, jid, password):
+    # Service discovery info
+    role = None
+    description = None
+
+    def __init__(self, reactor, jid, password, handler=None):
         XMPPClient.__init__(self, toJID(jid), password)
+        pubsub.Publisher.__init__(self)
         self._reactor = reactor
 
-        self._handler = self._getHandler()
+        if not handler:
+            handler = RmakeHandler()
+        self._handler = handler
         self._handler.setHandlerParent(self)
 
         self._handlers = {
@@ -89,12 +116,6 @@ class BusService(XMPPClient):
                 }
         for handler in self._handlers.values():
             handler.setHandlerParent(self)
-
-        self._publishers = {}
-        self._subscribers = {}
-
-    def _getHandler(self):
-        raise NotImplementedError
 
     def checkAndSubscribe(self, jid, role):
         d = self._handlers['disco'].requestInfo(jid)
@@ -109,6 +130,16 @@ class BusService(XMPPClient):
         d.addCallback(got_info)
         return d
 
+    def messageReceived(self, msg):
+        if isinstance(msg, message.Event):
+            try:
+                msg.publish(self)
+            except:
+                log.exception("Error handling event %s:", msg.event)
+
+    def onPresence(self, presence):
+        pass
+
 
 class BusClientService(BusService):
 
@@ -119,34 +150,26 @@ class BusClientService(BusService):
     def __init__(self, reactor, jid, password, targetJID):
         # Connect with an anonymous JID (just the host + resource)
         self._targetJID = toJID(targetJID)
-        BusService.__init__(self, reactor, jid, password)
+        BusService.__init__(self, reactor, jid, password,
+                handler=RmakeClientHandler(self._targetJID))
+        self.addRelay(self._send_events)
 
-    def _getHandler(self):
-        return RmakeClientHandler(self._targetJID)
+    def _send_events(self, event, *args, **kwargs):
+        msg = message.Event(event=event, args=args, kwargs=kwargs)
+        msg.send(self.xmlstream, self._targetJID)
 
-    def messageReceived(self, message):
-        if isinstance(message, message_types.Event):
-            # Forward event to all interested subscribers.
-            publisher = self._publishers.get(message.targetTopic)
-            if publisher:
-                message.publish(publisher)
+    def onPresence(self, presence):
+        if presence.sender == self._targetJID and not presence.available:
+            self.targetLost(failure.Failure(
+                RuntimeError("Target service became unavailable")))
 
-    # Pub-sub infrastructure
-    def subscribeEvents(self, topic, subscriber):
-        """Subscribe "subscriber" to events directed to "topic"."""
-        if topic in self._publishers:
-            publisher = self._publishers[topic]
-        else:
-            publisher = self._publishers[topic] = pubsub.Publisher()
-        publisher.subscribe(subscriber)
+    def targetConnected(self):
+        pass
 
-    def publishEvents(self, topic, publisher):
-        """Publish events from "publisher" to the given "topic"."""
-        if topic in self._subscribers:
-            subscriber = self._subscribers[topic]
-        else:
-            subscriber = self._subscribers[topic] = BusSubscriber(self, topic)
-        publisher.subscribe(subscriber)
+    def targetLost(self, failure):
+        # TODO: Not a great way to handle this.
+        log.error("Server went away (%s), shutting down.", self._targetJID)
+        self._reactor.stop()
 
 
 class PresenceProtocol(xmppim.PresenceProtocol, xmppim.RosterClientProtocol):
@@ -166,6 +189,8 @@ class PresenceProtocol(xmppim.PresenceProtocol, xmppim.RosterClientProtocol):
         d.addCallback(process_roster)
         d.addBoth(lambda result: self.available())
 
+    # Subscriptions / roster
+
     def subscribeReceived(self, presence):
         """If someone subscribed to us, subscribe to them."""
         self.subscribed(presence.sender)
@@ -181,12 +206,14 @@ class PresenceProtocol(xmppim.PresenceProtocol, xmppim.RosterClientProtocol):
         if not item.subscriptionTo and not item.subscriptionFrom:
             self.removeItem(item.jid)
 
+    # Presence
+
+    def availableReceived(self, presence):
+        self.parent.onPresence(presence)
+
+    def unavailableReceived(self, presence):
+        self.parent.onPresence(presence)
+
 
 def onError(failure):
-    failure.printTraceback()
-    # XXX -- don't do this
-    from twisted.internet import reactor
-    try:
-        reactor.stop()
-    except:
-        pass
+    log.error("Unhandled error in callback:\n%s", failure.getTraceback())

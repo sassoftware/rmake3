@@ -16,8 +16,6 @@ from rmake.build.buildjob import JOB_STATE_FAILED, JOB_STATE_INIT, \
      JOB_STATE_QUEUED, JOB_STATE_STARTED, JOB_STATE_BUILD, JOB_STATE_BUILT
 
 
-from rmake.lib.apiutils import freeze, thaw
-
 class JobStore(object):
 
     def __init__(self, db):

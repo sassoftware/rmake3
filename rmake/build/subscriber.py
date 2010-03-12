@@ -21,16 +21,13 @@
 from conary.lib import log
 
 from rmake.lib import apirpc
-from rmake.lib import apiutils
-from rmake.lib import subscriber
-from rmake.lib.apiutils import thaw, freeze
 
 
 # Internal Subscribers - not for general use
 # These subscribers are used by the build job
 # to update state, and to pass information back to the rmake server.
 
-class _InternalSubscriber(subscriber.Subscriber):
+class _InternalSubscriber(object):#subscriber.Subscriber):
 
     def __init__(self):
         subscriber.Subscriber.__init__(self)
@@ -289,5 +286,3 @@ class _EventListFreezer(object):
                 data = fn(apiVer, data)
             newEventList.append(((event, subevent), data))
         return apiVer, newEventList
-
-apiutils.register(_EventListFreezer)

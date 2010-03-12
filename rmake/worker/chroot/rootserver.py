@@ -28,14 +28,11 @@ from rmake.worker.chroot import cook
 from rmake import compat
 from rmake import constants
 from rmake.build import buildcfg
-from rmake.lib.apiutils import *
 from rmake.lib import apirpc, daemon, logger, repocache, telnetserver
+
 
 class ChrootServer(apirpc.XMLApiServer):
 
-    @api(version=1)
-    @api_parameters(1, 'BuildConfiguration')
-    @api_return(1, None)
     def storeConfig(self, callData, buildCfg):
         buildCfg = self._updateConfig(buildCfg)
         path = '%s/tmp/conaryrc' % self.cfg.root
@@ -83,8 +80,6 @@ class ChrootServer(apirpc.XMLApiServer):
         return repos
 
 
-    @api(version=1)
-    @api_parameters(1, 'BuildConfiguration', 'str', 'version')
     def checkoutPackage(self, callData, buildCfg, troveName, troveVersion):
         buildCfg = self._updateConfig(buildCfg)
         repos = self._getRepos(buildCfg, caching=True)
@@ -100,12 +95,6 @@ class ChrootServer(apirpc.XMLApiServer):
                          ['%s=%s' % (troveName, troveVersion)])
         os.chmod(checkoutPath, 0775)
 
-    @api(version=1)
-    @api_parameters(1, 'BuildConfiguration', 'label',
-                       'str', 'version', 'flavorList', 'LoadSpecsList',
-                       'troveTupleList', None, 'troveTupleList', 
-                       'troveTupleList')
-    @api_return(1, None)
     def buildTrove(self, callData, buildCfg, targetLabel,
                    name, version, flavorList, loadSpecsList, builtTroves,
                    logData, buildReqs, crossReqs):
@@ -122,9 +111,6 @@ class ChrootServer(apirpc.XMLApiServer):
         self._buildInfo[name, version, flavorList] = buildInfo
         return logPath, pid
 
-    @api(version=1)
-    @api_parameters(1, 'str', 'version', 'flavorList', 'float')
-    @api_return(1, None)
     def checkResults(self, callData, name, version, flavorList, wait):
         flavorList = tuple(flavorList)
         if (name, version, flavorList) in self._results:
@@ -144,9 +130,6 @@ class ChrootServer(apirpc.XMLApiServer):
             del self._buildInfo[name, version, flavorList]
         return freeze(cook.CookResults, results)
 
-    @api(version=1)
-    @api_parameters(1, 'str', 'version', 'flavorList')
-    @api_return(1, 'int')
     def subscribeToBuild(self, callData, name, version, flavorList):
         flavorList = tuple(flavorList)
         if not (name, version, flavorList) in self._buildInfo:
@@ -158,17 +141,11 @@ class ChrootServer(apirpc.XMLApiServer):
         self._unconnectedSubscribers[s] = name, version, flavorList
         return port
 
-    @api(version=1)
-    @api_parameters(1)
-    @api_return(1, None)
     def stop(self, callData):
         self._results = []
         self._halt = True
         return
 
-    @api(version=1)
-    @api_parameters(1, 'str')
-    @api_return(1, 'int')
     def startSession(self, callData, command=['/bin/bash', '-l']):
         s = socket.socket()
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)

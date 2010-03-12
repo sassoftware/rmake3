@@ -101,7 +101,6 @@ class Daemon(options.MainHandler):
     user   = None
     groups = None
     capabilities = None
-    loggerClass = logger.Logger
     useConaryOptions = False
 
     def __init__(self):

@@ -21,19 +21,14 @@ from rmake.messagebus.message import Event
 
 
 class BusSubscriber(pubsub.Publisher):
-    """Subscriber that forwards all events to a message bus topic."""
+    """Subscriber that forwards all events to a target subscriber."""
 
-    def __init__(self, service, subsystem, target):
-        self._service = weakref.ref(service)
+    def __init__(self, subsystem, xmlstream, targetJID):
+        self.xmlstream = xmlstream
         self.subsystem = subsystem
-        self.target = target
+        self.targetJID = targetJID
 
     def _doEvent(self, event, *args, **kwargs):
-        service = self._service()
-        if not service:
-            return
-
         msg = Event(subsystem=self.subsystem, event=event, args=args,
                 kwargs=kwargs)
-        msg.direct(target)
-        service.sendMessage(msg)
+        msg.send(self.xmlstream, self.targetJID)

@@ -31,18 +31,13 @@ from rmake.build import buildjob
 from rmake.build import imagetrove
 from rmake.build import subscriber
 from rmake.server import auth
-from rmake.server import publish
 from rmake.db import database
-from rmake.lib.apiutils import api, api_parameters, api_return, freeze, thaw
-from rmake.lib.apiutils import api_nonforking
 from rmake.lib import apirpc
 from rmake.lib import logger
 from rmake.lib import osutil
 from rmake.lib.rpcproxy import ShimAddress
 from rmake.worker import worker
 
-class ServerLogger(logger.ServerLogger):
-    name = 'rmake-server'
 
 class rMakeServer(apirpc.XMLApiServer):
     """
@@ -51,9 +46,6 @@ class rMakeServer(apirpc.XMLApiServer):
         See rMake client for documentation of API.
     """
 
-    @api(version=1)
-    @api_parameters(1, 'BuildJob')
-    @api_return(1, 'int')
     def buildTroves(self, callData, job):
         callData.logger.logRPCDetails('buildTroves')
         for buildCfg in job.iterConfigList():
@@ -75,8 +67,6 @@ class rMakeServer(apirpc.XMLApiServer):
         job.jobQueued(message)
         return job.jobId
 
-    @api(version=1)
-    @api_parameters(1, None)
     def stopJob(self, callData, jobId):
         callData.logger.logRPCDetails('stopJob', jobId=jobId)
         jobId = self.db.convertToJobId(jobId)
@@ -86,15 +76,9 @@ class rMakeServer(apirpc.XMLApiServer):
         job.own()
         job.jobStopped('User requested stop')
 
-    @api(version=1)
-    @api_parameters(1, None, None)
-    @api_return(1, None)
     def listJobs(self, callData, activeOnly, jobLimit):
         return self.db.listJobs(activeOnly=activeOnly, jobLimit=jobLimit)
 
-    @api(version=1)
-    @api_parameters(1, None, None)
-    @api_return(1, None)
     def listTrovesByState(self, callData, jobId, state):
         jobId = self.db.convertToJobId(jobId)
         if state == '':
@@ -102,9 +86,6 @@ class rMakeServer(apirpc.XMLApiServer):
         data = self.db.listTrovesByState(jobId, state)
         return [(x[0], freeze('troveContextTupleList', x[1])) for x in data.iteritems()]
 
-    @api(version=1)
-    @api_parameters(1, None, 'bool', 'bool')
-    @api_return(1, None)
     def getJobs(self, callData, jobIds, withTroves=True, withConfigs=True):
         callData.logger.logRPCDetails('getJobs', jobIds=jobIds,
                                       withTroves=withTroves,
@@ -114,17 +95,11 @@ class rMakeServer(apirpc.XMLApiServer):
                  for x in self.db.getJobs(jobIds, withTroves=withTroves,
                                           withConfigs=withConfigs) ]
 
-    @api(version=1)
-    @api_parameters(1, None)
-    @api_return(1, 'SanitizedBuildConfiguration')
     def getJobConfig(self, callData, jobId):
         jobId = self.db.convertToJobId(jobId)
         jobCfg = self.db.getJobConfig(jobId)
         return jobCfg
 
-    @api(version=1)
-    @api_parameters(1, None, None)
-    @api_return(1, None)
     def getJobLogs(self, callData, jobId, mark):
         jobId = self.db.convertToJobId(jobId)
         if not self.db.jobExists(jobId):
@@ -134,16 +109,10 @@ class rMakeServer(apirpc.XMLApiServer):
         return [ tuple(str(x) for x in data) 
                     for data in self.db.getJobLogs(jobId, mark) ]
 
-    @api(version=1)
-    @api_parameters(1, None, 'troveContextTuple', 'int')
-    @api_return(1, None)
     def getTroveLogs(self, callData, jobId, troveTuple, mark):
         jobId = self.db.convertToJobId(jobId)
         return [ tuple(str(x) for x in data) for data in self.db.getTroveLogs(jobId, troveTuple, mark) ]
 
-    @api(version=1)
-    @api_parameters(1, None, 'troveContextTuple', 'int')
-    @api_return(1, None)
     def getTroveBuildLog(self, callData, jobId, troveTuple, mark):
         jobId = self.db.convertToJobId(jobId)
         trove = self.db.getTrove(jobId, *troveTuple)
@@ -158,9 +127,6 @@ class rMakeServer(apirpc.XMLApiServer):
             f.seek(mark)
         return not trove.isFinished(), xmlrpclib.Binary(f.read()), f.tell()
 
-    @api(version=1)
-    @api_parameters(1, None)
-    @api_return(1, None)
     def deleteJobs(self, callData, jobIdList):
         jobIdList = self.db.convertToJobIds(jobIdList)
         jobs = self.db.getJobs(jobIdList, withTroves=False)
@@ -170,41 +136,26 @@ class rMakeServer(apirpc.XMLApiServer):
         deletedJobIds = self.db.deleteJobs(jobIdList)
         return deletedJobIds
 
-    @api(version=1)
-    @api_parameters(1, None, 'Subscriber')
-    @api_return(1, 'int')
     def subscribe(self, callData, jobId, subscriber):
         jobId = self.db.convertToJobId(jobId)
         self.db.addSubscriber(jobId, subscriber)
         return subscriber.subscriberId
 
-    @api(version=1)
-    @api_parameters(1, 'int')
-    @api_return(1, 'Subscriber')
     def unsubscribe(self, callData, subscriberId):
         subscriber = self.db.getSubscriber(subscriberId)
         self.db.removeSubscriber(subscriberId)
         return subscriber
 
-    @api(version=1)
-    @api_parameters(1, None, 'str')
-    @api_return(1, None)
     def listSubscribersByUri(self, callData, jobId, uri):
         jobId = self.db.convertToJobId(jobId)
         subscribers = self.db.listSubscribersByUri(jobId, uri)
         return [ freeze('Subscriber', x) for x in subscribers ]
 
-    @api(version=1)
-    @api_parameters(1, None)
-    @api_return(1, None)
     def listSubscribers(self, callData, jobId):
         jobId = self.db.convertToJobId(jobId)
         subscribers = self.db.listSubscribers(jobId)
         return [ freeze('Subscriber', x) for x in subscribers ]
 
-    @api(version=1)
-    @api_parameters(1)
-    @api_return(1, None)
     def listChroots(self, callData):
         chroots = self.db.listChroots()
         chrootNames = self.worker.listChrootsWithHost()
@@ -217,9 +168,6 @@ class rMakeServer(apirpc.XMLApiServer):
                 finalChroots.append(chroot)
         return [ freeze('Chroot', x) for x in finalChroots ]
 
-    @api(version=1)
-    @api_parameters(1, None, 'troveContextTuple', 'str', 'bool', 'str', 'str')
-    @api_return(1, None)
     def startChrootServer(self, callData, jobId, troveTuple, command,
                           superUser, chrootHost, chrootPath):
         jobId = self.db.convertToJobId(jobId)
@@ -239,27 +187,18 @@ class rMakeServer(apirpc.XMLApiServer):
         return data
 
 
-    @api(version=1)
-    @api_parameters(1, 'str', 'str', 'str')
-    @api_return(1, None)
     def archiveChroot(self, callData, host, chrootPath, newPath):
         if self.db.chrootIsActive(host, chrootPath):
             raise errors.RmakeError('Chroot is in use!')
         newPath = self.worker.archiveChroot(host, chrootPath, newPath)
         self.db.moveChroot(host, chrootPath, newPath)
 
-    @api(version=1)
-    @api_parameters(1, 'str', 'str')
-    @api_return(1, None)
     def deleteChroot(self, callData, host, chrootPath):
         if self.db.chrootIsActive(host, chrootPath):
             raise errors.RmakeError('Chroot is in use!')
         self.worker.deleteChroot(host, chrootPath)
         self.db.removeChroot(host, chrootPath)
 
-    @api(version=1)
-    @api_parameters(1)
-    @api_return(1, None)
     def deleteAllChroots(self, callData):
         chroots = self.db.listChroots()
         for chroot in chroots:
@@ -268,8 +207,6 @@ class rMakeServer(apirpc.XMLApiServer):
             self.worker.deleteChroot(chroot.host, chroot.path)
             self.db.removeChroot(chroot.host, chroot.path)
 
-    @api(version=1)
-    @api_parameters(1, None)
     def startCommit(self, callData, jobIds):
         jobIds = self.db.convertToJobIds(jobIds)
         jobs = self.db.getJobs(jobIds)
@@ -278,8 +215,6 @@ class rMakeServer(apirpc.XMLApiServer):
             job.own()
             job.jobCommitting()
 
-    @api(version=1)
-    @api_parameters(1, None, 'str')
     def commitFailed(self, callData, jobIds, message):
         jobIds = self.db.convertToJobIds(jobIds)
         jobs = self.db.getJobs(jobIds)
@@ -288,8 +223,6 @@ class rMakeServer(apirpc.XMLApiServer):
             job.own()
             job.jobCommitFailed(message)
 
-    @api(version=1)
-    @api_parameters(1, None, None)
     def commitSucceeded(self, callData, jobIds, commitMap):
         jobIds = self.db.convertToJobIds(jobIds)
         # split commitMap and recombine
@@ -304,9 +237,6 @@ class rMakeServer(apirpc.XMLApiServer):
             job.own()
             job.jobCommitted(troveMap)
 
-    @api(version=1)
-    @api_parameters(1)
-    @api_return(1, None)
     def getRepositoryInfo(self, callData):
         proxyUrl = self.cfg.getProxyUrl()
         if not proxyUrl:
@@ -316,23 +246,14 @@ class rMakeServer(apirpc.XMLApiServer):
 
     # --- callbacks from Builders
 
-    @api(version=1)
-    @api_parameters(1, None, 'EventList')
-    @api_nonforking
     def emitEvents(self, callData, jobId, (apiVer, eventList)):
         # currently we assume that this apiVer is extraneous, just
         # a part of the protocol for EventLists.
         self._publisher.addEvent(jobId, eventList)
 
-    @api(version=1)
-    @api_parameters(1)
-    @api_return(1, None)
     def listNodes(self, callData):
         return []
 
-    @api(version=1)
-    @api_parameters(1)
-    @api_return(1, None)
     def getMessageBusInfo(self, callData):
         return ''
 

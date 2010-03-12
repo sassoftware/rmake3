@@ -3,7 +3,7 @@
 #
 
 from rmake.build import subscriber
-from rmake.lib.apiutils import thaw
+
 
 class SubscriberData(object):
 

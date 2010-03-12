@@ -5,6 +5,8 @@
 Describes a BuildConfiguration, which is close to, but neither a subset nor
 a superset of a conarycfg file.
 """
+
+import logging
 import os
 import re
 
@@ -21,8 +23,11 @@ from conary.lib.cfgtypes import (CfgBool, CfgPath, CfgList, CfgDict, CfgString,
                                  CfgPathList)
 
 from rmake.cmdline import cmdutil
-from rmake.lib import apiutils, daemon, logger
-from rmake import compat, errors, subscribers
+from rmake.lib import daemon
+from rmake import compat, errors
+
+log = logging.getLogger(__name__)
+
 
 class CfgTroveSpec(CfgType):
     def parseString(self, val):
@@ -56,27 +61,6 @@ class CfgTroveTupleWithContext(CfgType):
     def format(self, val, displayOptions=None):
         return '%s=%s[%s]{%s}' % val
 
-
-class CfgSubscriberDict(CfgDict):
-    def parseValueString(self, key, value):
-        return self.valueType.parseString(key, value)
-
-class CfgSubscriber(CfgType):
-
-    def parseString(self, name, val):
-        protocol, uri = val.split(None, 1)
-        try:
-            s = subscribers.SubscriberFactory(name, protocol, uri)
-        except errors.RmakeError, err:
-            raise ParseError(err)
-        return s
-
-    def updateFromString(self, s, str):
-        s.parse(*str.split(None, 1))
-        return s
-
-    def toStrings(self, s, displayOptions):
-        return s.freezeData()
 
 class CfgUUID(CfgType):
 
@@ -131,7 +115,6 @@ class RmakeBuildContext(cfg.ConfigSection):
     resolveTrovesOnly    = (CfgBool, False)
     reuseRoots           = (CfgBool, False)
     strictMode           = (CfgBool, False)
-    subscribe            = (CfgSubscriberDict(CfgSubscriber), {})
     targetLabel          = (CfgLabel, versions.Label('NONE@local:NONE'))
     uuid                 = (CfgUUID, '')
 
@@ -233,9 +216,6 @@ class BuildConfiguration(conarycfg.ConaryConfiguration, FreezableConfigMixin):
                  strictMode=None):
         # we default the value of these items to whatever they
         # are set to on the local system's conaryrc.
-        if log is None:
-            log = logger.Logger('buildcfg')
-
         conarycfg.ConaryConfiguration.__init__(self, readConfigFiles=False)
         if hasattr(self, 'setIgnoreErrors'):
             self.setIgnoreErrors(ignoreErrors)
@@ -435,21 +415,3 @@ class BuildConfiguration(conarycfg.ConaryConfiguration, FreezableConfigMixin):
                 return
         conarycfg.ConaryConfiguration._writeKey(self, out, cfgItem,
                                                 self[cfgItem.name], options)
-
-
-apiutils.register(apiutils.api_freezable(BuildConfiguration),
-                  'BuildConfiguration')
-
-class SanitizedBuildConfiguration(object):
-
-    @staticmethod
-    def __freeze__(cfg):
-        cfg = apiutils.freeze('BuildConfiguration', cfg)
-        cfg['user'] = []
-        cfg['entitlement'] = []
-        return cfg
-
-    @staticmethod
-    def __thaw__(cfg):
-        return apiutils.thaw('BuildConfiguration', cfg)
-apiutils.register(SanitizedBuildConfiguration)
