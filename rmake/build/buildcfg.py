@@ -1,6 +1,17 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2006-2010 rPath, Inc.
 #
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
+#
+
 """
 Describes a BuildConfiguration, which is close to, but neither a subset nor
 a superset of a conarycfg file.
@@ -9,6 +20,7 @@ a superset of a conarycfg file.
 import logging
 import os
 import re
+import urllib
 
 from conary import conarycfg
 from conary import versions
@@ -101,6 +113,8 @@ class RmakeBuildContext(cfg.ConfigSection):
     copyInConfig         = (CfgBool, True)
     rbuilderUrl          = (cfgtypes.CfgString, 'https://localhost/')
     rmakeUser            = (CfgUser, None)
+    rmakeUrl             = (CfgString, 'unix:///var/lib/rmake/socket')
+    clientCert           = (CfgPath, None)
     if not compat.ConaryVersion().supportsDefaultBuildReqs():
         defaultBuildReqs     = (CfgList(CfgString), [ 'bash:runtime',
             'coreutils:runtime', 'filesystem', 'conary:runtime',
@@ -125,56 +139,8 @@ class RmakeBuildContext(cfg.ConfigSection):
             if info[0] not in self:
                 self.addConfigOption(*info)
 
-class FreezableConfigMixin(object):
 
-    def __freeze__(self):
-        """
-            Support the freeze mechanism to allow a build config to be 
-            sent via xmlrpc.  Basically converts to a set of strings
-            that can be read in on the other side.
-        """
-        configOptions = dict(prettyPrint=False, expandPaths=True)
-        d = {}
-        for name, cfgItem in self._options.iteritems():
-            val = self[name]
-            # _Path objects may change even when there at the default.
-            if (val == cfgItem.default and not isinstance(val, cfgtypes._Path)
-                and not (isinstance(val, list)
-                         and val and isinstance(val[0], cfgtypes._Path))):
-                continue
-            if val is None:
-                continue
-            else:
-                d[name] = list(cfgItem.valueType.toStrings(val, configOptions))
-        return d
-
-    @classmethod
-    def __thaw__(class_, d):
-        """ 
-            Support the thaw mechanism to allow a build config to be 
-            read from xmlrpc.  Converts back from a set of strings.
-        """
-        obj = class_()
-        for name, cfgItem in obj._options.iteritems():
-            if name in d:
-                lines = d[name]
-                if not lines and obj[name] is None:
-                    obj[name] = lines
-
-                for line in d.get(name, []):
-                    value = obj._options[name].parseString(obj[name], line)
-                    if name in obj: # it could be a hidden attribute,
-                                    # in which case we can't use setitem.
-                                    # but if we can we want to trigger the 
-                                    # default handling...
-                        obj[name] = value
-                    else:
-                        setattr(obj, name, value)
-        return obj
-
-
-
-class BuildConfiguration(conarycfg.ConaryConfiguration, FreezableConfigMixin):
+class BuildConfiguration(conarycfg.ConaryConfiguration):
 
     buildTroveSpecs      = CfgList(CfgTroveSpec)
     resolveTroveTups     = CfgList(CfgQuotedLineList(CfgTroveTuple))
@@ -314,9 +280,20 @@ class BuildConfiguration(conarycfg.ConaryConfiguration, FreezableConfigMixin):
                 self.resetToDefault(option)
 
     def getServerUri(self):
-        if self.rmakeUrl:
+        schema, rest = urllib.splittype(self.rmakeUrl)
+        if schema == 'unix':
             return self.rmakeUrl
-        return 'unix:///var/lib/rmake/socket'
+        else:
+            host, path = urllib.splithost(rest)
+            user, host = urllib.splituser(host)
+            host, port = urllib.splitport(host)
+            if not port:
+                port = 9999
+            if self.rmakeUser:
+                user = '%s:%s@' % self.rmakeUser
+            else:
+                user = ''
+            return '%s://%s%s:%s%s' % (schema, user, host, port, path)
 
     def limitToHosts(self, hosts):
         if isinstance(hosts, str):
