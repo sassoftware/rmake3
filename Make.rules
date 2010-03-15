@@ -27,17 +27,17 @@ default-clean: clean-subdirs
 ## Subdirectory rules
 build-subdirs:
 ifdef SUBDIRS
-	for d in $(SUBDIRS); do make -C $$d DIR=$(DIR)/$$d || exit 1; done
+	for d in $(SUBDIRS); do make -C $$d DEST=$(DEST)/$$d || exit 1; done
 endif
 
 clean-subdirs:
 ifdef SUBDIRS
-	for d in $(SUBDIRS); do make -C $$d DIR=$(DIR)/$$d clean || exit 1; done
+	for d in $(SUBDIRS); do make -C $$d DEST=$(DEST)/$$d clean || exit 1; done
 endif
 
 install-subdirs:
 ifdef SUBDIRS
-	for d in $(SUBDIRS); do make -C $$d DIR=$(DIR)/$$d install || exit 1; done
+	for d in $(SUBDIRS); do make -C $$d DEST=$(DEST)/$$d install || exit 1; done
 endif
 
 
