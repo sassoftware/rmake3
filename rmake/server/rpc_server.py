@@ -13,13 +13,15 @@
 
 
 import logging
+from rmake.db import database
+from rmake.lib import dbpool
+from rmake.lib import rpc_pickle
+from rmake.lib.apirpc import RPCServer, expose
+from rmake.messagebus.client import BusClientService
 from twisted.application.internet import TCPServer
 from twisted.application.service import MultiService
 from twisted.web.resource import Resource
 from twisted.web.server import Site
-from twisted.web.xmlrpc import XMLRPC
-from rmake.messagebus.client import BusClientService
-
 
 log = logging.getLogger(__name__)
 
@@ -37,13 +39,7 @@ class ServerBusService(BusClientService):
         self._reactor.callLater(5, self.sendHeartbeat)
 
 
-class ServerRPC(XMLRPC):
-
-    def xmlrpc_test(self):
-        return 'test'
-
-
-class Server(MultiService):
+class Server(MultiService, RPCServer):
 
     def __init__(self, reactor, jid, password, targetJID):
         MultiService.__init__(self)
@@ -51,9 +47,19 @@ class Server(MultiService):
         self.bus = ServerBusService(reactor, jid, password, targetJID)
         self.bus.setServiceParent(self)
 
+        dbpath = 'postgres://rmake2'
+        self.pool = dbpool.ConnectionPool(dbpath)
+        self.db = database.Database(dbpath, '/tmp/rmake',
+                dbpool.PooledDatabaseProxy(self.pool))
+
         root = Resource()
-        root.putChild('RPC2', ServerRPC())
+        root.putChild('picklerpc', rpc_pickle.PickleRPCResource(self))
         TCPServer(9999, Site(root)).setServiceParent(self)
+
+    @expose
+    def getJobs(self, callData, job_uuids, withTroves=False, withConfigs=False):
+        return self.pool.runWithTransaction(self.db.jobStore.getJobs,
+                job_uuids, withTroves, withConfigs)
 
 
 def main():

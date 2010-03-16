@@ -1,19 +1,29 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2006-2010 rPath, Inc.
+#
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
 #
 
+import cPickle
 from conary.deps import deps
 from conary import versions
-
 from conary.deps.deps import ThawFlavor
 from conary.versions import ThawVersion
-
 from rmake.build import buildjob
 from rmake.build import buildtrove
-
 from rmake.build.buildtrove import TROVE_STATE_INIT
 from rmake.build.buildjob import JOB_STATE_FAILED, JOB_STATE_INIT, \
      JOB_STATE_QUEUED, JOB_STATE_STARTED, JOB_STATE_BUILD, JOB_STATE_BUILT
+from rmake.errors import JobNotFound
+from rmake.lib.ninamori.decorators import protected, readOnly
 
 
 class JobStore(object):
@@ -61,47 +71,49 @@ class JobStore(object):
                 results[state] = [(name, version, flavor, context)]
         return results
 
-    def getJob(self, jobId, withTroves=False, withConfigs=True):
-        return self.getJobs([jobId], withTroves=withTroves, 
-                            withConfigs=withConfigs)[0]
+    def getJob(self, job_uuid, withTroves=False, withConfigs=True):
+        return self.getJobs([job_uuid], withTroves=withTroves,
+                withConfigs=withConfigs)[0]
 
-    def getJobs(self, jobIdList, withTroves=False, withConfigs=False):
-        cu = self.db.cursor()
+    @readOnly
+    def getJobs(self, cu, job_uuids, withTroves=False, withConfigs=False):
+        cu.execute("CREATE TEMPORARY TABLE t_jobs ( uuid TEXT )")
+        cu.executemany("INSERT INTO t_jobs VALUES ( %s )",
+                [(x,) for x in job_uuids])
+
         cu.execute("""
-        CREATE TEMPORARY TABLE tjobIdList(
-            jobId integer
-        )""", start_transaction=False)
+            SELECT t_jobs.uuid, job_uuid, job_id, job_name, state, status,
+                owner, failure,
+                EXTRACT(EPOCH FROM time_started) AS time_started,
+                EXTRACT(EPOCH FROM time_updated) AS time_updated,
+                EXTRACT(EPOCH FROM time_finished) AS time_finished
+            FROM t_jobs LEFT JOIN jobs ON t_jobs.uuid = jobs.job_uuid
+            """)
 
-        try:
-            for jobId in jobIdList:
-                cu.execute("INSERT INTO tJobIdList VALUES (?)",
-                           jobId, start_transaction=False)
-            results = cu.execute('''
-                            SELECT tjobIdList.jobId, Jobs.uuid, Jobs.owner,
-                                   state, status, start, finish,
-                                   failureReason, failureData, pid
-                            FROM tJobIdList
-                            LEFT JOIN Jobs USING(jobId)
-                                 ''')
+        jobs = {}
+        for row in cu:
+            job_uuid = row['job_uuid']
+            if job_uuid is None:
+                # Job not found.
+                raise JobNotFound(row['uuid'])
 
-            jobsById = {}
-            for (jobId, uuid, owner, state, status, start,
-                 finish, failureReason, failureData, pid) in results:
-                if state is None:
-                    # quick catch check for missing jobs
-                    raise KeyError, jobId
+            failure = row['failure']
+            if failure is not None:
+                failure = cPickle.loads(failure)
 
-                failureReason = thaw('FailureReason', 
-                                     (failureReason, failureData))
-                job = buildjob.BuildJob(jobId, status=status, state=state,
-                                        start=float(start),
-                                        finish=float(finish),
-                                        failureReason=failureReason,
-                                        uuid=uuid, pid=pid,
-                                        owner=owner)
-                jobsById[jobId] = job
+            jobs[job_uuid] = buildjob.BuildJob(
+                    jobUUID=job_uuid,
+                    jobId=row['job_id'],
+                    jobName=row['job_name'],
+                    state=row['state'],
+                    status=row['status'],
+                    timeStarted=row['time_started'],
+                    timeUpdated=row['time_updated'],
+                    timeFinished=row['time_finished'],
+                    failure=failure)
 
-            if withTroves:
+        if False: #if withTroves:
+            if False:
                 results = cu.execute(
                 """
                     SELECT jobId, BuildTroves.troveId, troveName, version,
@@ -192,9 +204,8 @@ class JobStore(object):
                     configD = dict((x[0], thaw('BuildConfiguration', x[1]))
                                    for x in configD.iteritems())
                     jobsById[jobId].setConfigs(configD)
-            return [jobsById[jobId] for jobId in jobIdList]
-        finally:
-            cu.execute("DROP TABLE tJobIdList", start_transaction = False)
+
+        return [jobs[x] for x in job_uuids]
 
     def getConfig(self, jobId, context):
         cu = self.db.cursor()

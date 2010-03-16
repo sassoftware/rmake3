@@ -304,6 +304,7 @@ class rMakeClient(object):
         raise
 
     def addRepositoryInfo(self, cfg):
+        return #FIXME
         reposName, repoMap, userInfo, conaryProxy = \
                                     self.proxy.getRepositoryInfo()[0:4]
         cfg.repositoryMap.update(repoMap)

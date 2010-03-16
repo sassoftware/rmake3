@@ -21,6 +21,22 @@ all: $(so_targets) default-build
 clean: default-clean
 
 install: $(so_targets) default-install
+	cp -r ninamori $(DESTDIR)$(DEST)/
+
+# Use this to regenerate the embedded ninamori implementation.
+# See http://bitbucket.org/gxti/ninamori/
+embed:
+ifdef NINAMORI_PATH
+	rm -Rf ninamori ninamori-tmp
+	mkdir ninamori
+	hg parents -R $(NINAMORI_PATH) --template '{node}\n' > ninamori/.hgnode
+	hg archive -R $(NINAMORI_PATH) -t files -r `cat ninamori/.hgnode` ninamori-tmp
+	python ninamori-tmp/embed.py ninamori-tmp/ninamori/ ninamori/ rmake.lib
+	hg addremove ninamori
+	rm -Rf ninamori-tmp
+else
+	@echo "Please set NINAMORI_PATH" && exit 1
+endif
 
 
 .PHONY: -lcap

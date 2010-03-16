@@ -1,6 +1,17 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2010 rPath, Inc.
 #
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
+#
+
 import itertools
 import os
 
@@ -16,81 +27,23 @@ from rmake.db import jobstore
 from rmake.db import logstore
 from rmake.db import nodestore
 from rmake.db import subscriber
-
-class DBInterface(object):
-    def __init__(self, db):
-        self._holdCommits = False
-        self.db = db
-        self.schemaVersion = self.loadSchema(migrate=True)
-
-    def _getOne(self, cu, key):
-        try:
-            cu = iter(cu)
-            res = cu.next()
-            assert(not(list(cu))) # make sure that we really only
-                                 # got one entry
-            return res
-        except:
-            raise KeyError, key
+from rmake.lib import ninamori
 
 
-    def cursor(self):
-        return self.db.cursor()
+class Database(object):
 
-    def commitAfter(self, fn, *args, **kw):
-        """
-            Commits after running a function
-        """
-        self._holdCommits = True
-        self.db.transaction()
-        try:
-            rv = fn(*args, **kw)
-            self._holdCommits = False
-            self.commit()
-            return rv
-        except:
-            self.rollback()
-            self._holdCommits = False
-            raise
-
-    def commit(self):
-        if not self._holdCommits:
-            return self.db.commit()
+    def __init__(self, path, contentsPath, db=None):
+        if db:
+            self.db = db
         else:
-            return True
+            self.db = ninamori.connect(path)
 
-    def rollback(self):
-        return self.db.rollback()
-
-    def inTransaction(self):
-        return self.db.inTransaction()
-
-    def reopen(self):
-        if self.db:
-            self.db.close_fork()
-        self.db = self.open()
-
-    def close(self):
-        self.db.close_fork()
-        self.db = None
-
-class Database(DBInterface):
-
-    def __init__(self, path, contentsPath, clean = False):
-        self.driver, self.dbpath = path
-
-        if os.path.exists(self.dbpath) and clean:
-            os.unlink(self.dbpath)
-
-        db = self.open()
-        DBInterface.__init__(self, db)
-
-        self.auth = authcache.AuthenticationCache(self)
-        self.jobStore = jobstore.JobStore(self)
+        self.auth = authcache.AuthenticationCache(self.db)
+        self.jobStore = jobstore.JobStore(self.db)
         self.logStore = logstore.LogStore(contentsPath + '/logs')
-        self.jobQueue = jobstore.JobQueue(self)
-        self.subscriberStore = subscriber.SubscriberData(self)
-        self.nodeStore = nodestore.NodeStore(self)
+        self.jobQueue = jobstore.JobQueue(self.db)
+        self.subscriberStore = subscriber.SubscriberData(self.db)
+        self.nodeStore = nodestore.NodeStore(self.db)
 
     def loadSchema(self, migrate=True):
         if migrate:

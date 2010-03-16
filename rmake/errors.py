@@ -82,6 +82,12 @@ class InsufficientPermission(ServerError):
     pass
 
 
+class InternalServerError(ServerError):
+    def __str__(self):
+        return ("An internal error occurred in the rMake server. "
+                "Please check the server logs for more information.")
+
+
 # error that gets output when a Python exception makes it to the command 
 # line.
 errorMessage = '''
