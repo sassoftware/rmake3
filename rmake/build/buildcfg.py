@@ -203,6 +203,7 @@ class BuildConfiguration(conarycfg.ConaryConfiguration, FreezableConfigMixin):
     usePlugins           = (CfgBool, True)
     jobContext           = CfgList(CfgInt)
     recursedGroupTroves  = CfgList(CfgTroveTuple)
+    reposName            = (CfgString, None)
     prebuiltBinaries               = CfgList(CfgTroveTuple)
     ignoreExternalRebuildDeps      = (CfgBool, False)
     ignoreAllRebuildDeps           = (CfgBool, False)
@@ -215,7 +216,8 @@ class BuildConfiguration(conarycfg.ConaryConfiguration, FreezableConfigMixin):
     _hiddenOptions = [ 'buildTroveSpecs', 'resolveTroveTups', 'jobContext',
                        'recurseGroups', 'recursedGroupTroves',
                        'prebuiltBinaries', 'ignoreExternalRebuildDeps',
-                       'ignoreAllRebuildDeps', 'primaryTroves' ]
+                       'ignoreAllRebuildDeps', 'primaryTroves', 'reposName',
+                       ]
 
     _strictOptions = [ 'buildFlavor', 'buildLabel', 'cleanAfterCook','flavor',
                        'installLabelPath', 'repositoryMap', 'root',
