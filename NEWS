@@ -1,4 +1,4 @@
-Changes in @NEW@:
+Changes in 2.0.2:
  o New Features:
     * Preliminary support for running the rMake internal database on
       PostgreSQL has been added.
