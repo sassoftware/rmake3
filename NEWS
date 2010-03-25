@@ -1,7 +1,19 @@
 Changes in @NEW@:
  o New Features:
+    * Preliminary support for running the rMake internal database on
+      PostgreSQL has been added.
     * rMake server and worker node processes will now set their process
       title to match their current task.
+    * The "rmake" and "rmake-chroot" users are now created automatically
+      in the build chroot.  This corrects issues with certain tools that
+      do not operate correctly if their UID cannot be looked up.
+
+ o Bug Fixes:
+    * A compatibility fix required for use with Conary 2.1.12 and later
+      is included in this release.
+    * The "rmake chroot" command now works correctly in multinode
+      configurations if messageBusHost has not been explicitly set.
+      (RMK-1021)
 
 Changes in 2.0.1:
  o Bug Fixes:
