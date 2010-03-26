@@ -104,7 +104,7 @@ class _AbstractBuildTrove(object):
     settingsClass = trovesettings.TroveSettings
 
 
-    def __init__(self, jobId, name, version, flavor,
+    def __init__(self, jobUUID, name, version, flavor,
                  state=TROVE_STATE_INIT, status='',
                  failureReason=None, logPath='', start=0, finish=0,
                  pid=0, recipeType=RECIPE_TYPE_PACKAGE,
@@ -112,7 +112,7 @@ class _AbstractBuildTrove(object):
                  preBuiltRequirements=None, preBuiltBinaries=None,
                  context='', flavorList=None, 
                  buildType=TROVE_BUILD_TYPE_NORMAL):
-        self.jobId = jobId
+        self.jobUUID = jobUUID
         self.name = name
         self.version = version
         self.flavor = flavor
@@ -416,62 +416,8 @@ class _AbstractBuildTrove(object):
     def __cmp__(self, other):
         return cmp(self.getNameVersionFlavor(), other.getNameVersionFlavor())
 
-class _FreezableBuildTrove(_AbstractBuildTrove):
-    """
-        "Freezable" build trove can be frozen and unfrozen into a dictionary
-        of low-level objects in order to be sent via xmlrpc.
-    """
-    attrTypes = {'jobId'             : 'int',
-                 'name'              : 'str',
-                 'version'           : 'version',
-                 'flavor'            : 'flavor',
-                 'context'           : 'str',
-                 'crossRequirements' : 'set',
-                 'buildRequirements' : 'set',
-                 'builtTroves'       : 'troveTupleList',
-                 'failureReason'     : 'FailureReason',
-                 'packages'          : None,
-                 'pid'               : 'int',
-                 'state'             : 'int',
-                 'status'            : 'str',
-                 'logPath'           : 'str',
-                 'start'             : 'float',
-                 'finish'            : 'float',
-                 'chrootHost'        : 'str',
-                 'chrootPath'        : 'str',
-                 'loadedSpecsList'   : 'LoadSpecsList',
-                 'flavorList'        : 'flavorList',
-                 'buildType'         : 'int',
-                 'settings'          : 'TroveSettings',
-                 }
 
-    def __freeze__(self):
-        d = {}
-        for attr, attrType in self.attrTypes.iteritems():
-            d[attr] = freeze(attrType, getattr(self, attr))
-        d['packages'] = list(d['packages'])
-        if self.jobId is None:
-            d['jobId'] = ''
-        return d
-
-    @classmethod
-    def __thaw__(class_, d):
-        types = class_.attrTypes
-        new = class_(thaw(types['jobId'], d.pop('jobId')),
-                     thaw(types['name'], d.pop('name')),
-                     thaw(types['version'], d.pop('version')),
-                     thaw(types['flavor'], d.pop('flavor')),
-                     thaw(types['state'], d.pop('state')))
-        d['packages'] = set(d['packages'])
-        if new.jobId == '':
-            new.jobId = None
-
-        for attr, value in d.iteritems():
-            setattr(new, attr, thaw(types[attr], value))
-        return new
-
-
-class BuildTrove(_FreezableBuildTrove):
+class BuildTrove(_AbstractBuildTrove):
     """
         BuildTrove object with "publisher" methods.  The methods below
         are used to make state changes to the trove and then publish 
@@ -746,82 +692,3 @@ class BuildTrove(_FreezableBuildTrove):
             self.status = status
         if self._publisher:
             self._publisher.troveStateUpdated(self, state, oldState, *args)
-
-class LoadSpecs(object):
-
-    @staticmethod
-    def __freeze__(loadSpecs):
-        d = {}
-        stack = [(loadSpecs, d)]
-        while stack:
-            loadDict, frozenDict = stack.pop()
-            for spec, (troveTup, subLoadDict) in loadDict.iteritems():
-                newFrzDict = {}
-                frozenDict[spec] = (freeze('troveTuple', troveTup), newFrzDict)
-                if subLoadDict:
-                    stack.append((subLoadDict, newFrzDict))
-        return d
-
-    @staticmethod
-    def __thaw__(frzLoaded):
-        d = {}
-        stack = [(d, frzLoaded)]
-        while stack:
-            loadDict, frozenDict = stack.pop()
-            for spec, (frzTroveTup, newFrzDict) in frozenDict.iteritems():
-                subLoadDict = {}
-                loadDict[spec] = (thaw('troveTuple', frzTroveTup), subLoadDict)
-                if newFrzDict:
-                    stack.append((subLoadDict, newFrzDict))
-        return d
-
-class LoadSpecsList(object):
-
-    @staticmethod
-    def __freeze__(loadSpecsList):
-        return [ apiutils.freeze('LoadSpecs', x) for x in loadSpecsList]
-
-    @staticmethod
-    def __thaw__(frzLoadSpecsList):
-        return [ apiutils.thaw('LoadSpecs', x) for x in frzLoadSpecsList ]
-
-
-class LoadTroveResult(object):
-    """
-    Container used to pass data from the recipe loader back to
-    the build trove.
-    """
-
-    attrTypes = {
-        'flavor'                : 'flavor',
-        'recipeType'            : 'int',
-        'loadedSpecsList'       : 'LoadSpecsList',
-        'loadedTroves'          : 'troveTupleList',
-        'packages'              : 'set',
-        'delayedRequirements'   : 'troveTupleList',
-        'buildRequirements'     : 'set',
-        'crossRequirements'     : 'set',
-      }
-
-    def __init__(self):
-        self.flavor = deps.Flavor()
-        self.recipeType = None
-        self.loadedSpecsList = []
-        self.loadedTroves = []
-        self.packages = set()
-        self.delayedRequirements = set()
-        self.buildRequirements = set()
-        self.crossRequirements = set()
-
-    def __freeze__(self):
-        blob = {}
-        for attr, attrType in self.attrTypes.items():
-            blob[attr] = freeze(attrType, getattr(self, attr))
-        return blob
-
-    @classmethod
-    def __thaw__(cls, blob):
-        new = cls()
-        for attr, value in blob.items():
-            setattr(new, attr, thaw(cls.attrTypes[attr], value))
-        return new

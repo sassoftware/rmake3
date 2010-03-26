@@ -24,6 +24,7 @@ from wokkel import data_form
 NS_RMAKE = 'http://rpath.com/permanent/xmpp/rmake-3.0'
 
 # XPath expressions
+XPATH_IM = "/message/body"
 XPATH_RMAKE_MESSAGE = "/message/rmake[@xmlns='%s']" % NS_RMAKE
 XPATH_RMAKE_IQ = "/iq/rmake[@xmlns='%s']" % NS_RMAKE
 

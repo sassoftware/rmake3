@@ -98,7 +98,8 @@ class BusService(XMPPClient, pubsub.Publisher):
     role = None
     description = None
 
-    def __init__(self, reactor, jid, password, handler=None):
+    def __init__(self, reactor, jid, password, handler=None,
+            other_handlers=None):
         XMPPClient.__init__(self, toJID(jid), password)
         pubsub.Publisher.__init__(self)
         self._reactor = reactor
@@ -114,6 +115,8 @@ class BusService(XMPPClient, pubsub.Publisher):
                 'ping': PingHandler(),
                 'presence': PresenceProtocol(),
                 }
+        if other_handlers:
+            self._handlers.update(other_handlers)
         for handler in self._handlers.values():
             handler.setHandlerParent(self)
 

@@ -17,8 +17,10 @@ import sys
 import thread
 from ninamori import connect
 from ninamori.connection import ConnectString
+from rmake.db.extensions import register_types
 from twisted.internet import task
 from twisted.internet import threads
+from twisted.python import context
 from twisted.python import threadpool
 
 log = logging.getLogger(__name__)
@@ -30,19 +32,18 @@ class PooledDatabaseProxy(object):
         self.pool = pool
 
     def __getattr__(self, key):
-        return getattr(self.pool._connect(), key)
+        return getattr(context.get('db'), key)
 
 
 class ConnectionPool(object):
 
     min = 2
-    max = 5
+    max = 10
 
     def __init__(self, path):
         self.path = ConnectString.parse(path)
-        self.threadpool = ThreadPool(self.min, self.max)
+        self.threadpool = ThreadPool(self.min, self.max, self.path)
         self.running = False
-        self.connections = {}
 
         from twisted.internet import reactor
         self.reactor = reactor
@@ -76,31 +77,6 @@ class ConnectionPool(object):
         self.cleanupTask.stop()
         self.threadpool.stop()
         self.running = False
-        for conn in self.connections.values():
-            self._closeConn(conn)
-        self.connections.clear()
-
-    def _connect(self):
-        tid = thread.get_ident()
-        conn = self.connections.get(tid)
-        if conn is None:
-            print 'dbpool: opening a connection'
-            conn = self.connections[tid] = connect(self.path)
-        return conn
-
-    def _disconnect(self):
-        tid = thread.get_ident()
-        conn = self.connections.get(tid)
-        if conn is not None:
-            self._closeConn(conn)
-            del self.connections[tid]
-
-    def _closeConn(self, conn):
-        print 'dbpool: closing %r' % conn
-        try:
-            conn.close()
-        except:
-            log.exception("Failed to close connection:")
 
     # Running queries
 
@@ -109,7 +85,7 @@ class ConnectionPool(object):
                 self._runWithTransaction, func, *args, **kwargs)
 
     def _runWithTransaction(self, func, *args, **kwargs):
-        db = self._connect()
+        db = context.get('db')
         assert not db._stack
         txn = db.begin()
         try:
@@ -127,13 +103,26 @@ class ConnectionPool(object):
 
 class ThreadPool(threadpool.ThreadPool):
 
+    def __init__(self, minthreads, maxthreads, dbpath):
+        threadpool.ThreadPool.__init__(self, minthreads, maxthreads)
+        self.path = dbpath
+
     def trimWorkers(self):
         if self.q.qsize():
             return
         while self.workers > max(self.min, len(self.working)):
-            print 'trimming a thread'
             self.stopAWorker()
 
     def _worker(self):
-        threadpool.ThreadPool._worker(self)
-        self.cleanup()
+        conn = connect(self.path)
+        register_types(conn)
+
+        try:
+            context.call({'db': conn}, threadpool.ThreadPool._worker, self)
+        except:
+            log.exception("Unhandled exception in database thread:")
+
+        try:
+            conn.close()
+        except:
+            log.exception("Failed to close connection:")

@@ -13,6 +13,7 @@
 #
 
 import cPickle
+import os
 from conary.deps import deps
 from conary import versions
 from conary.deps.deps import ThawFlavor
@@ -31,19 +32,19 @@ class JobStore(object):
     def __init__(self, db):
         self.db = db
 
-    def isJobBuilding(self):
+    def UNPORTED_isJobBuilding(self):
         cu = self.db.cursor()
         cu.execute("SELECT COUNT(*) FROM Jobs WHERE state in (?, ?)", 
                    JOB_STATE_BUILD, JOB_STATE_STARTED)
         return cu.fetchone()[0]
 
-    def jobExists(self, jobId):
+    def UNPORTED_jobExists(self, jobId):
         cu = self.db.cursor()
         cu.execute("SELECT COUNT(*) FROM Jobs WHERE jobId=?", jobId)
         ret = cu.fetchone()[0]
         return ret
 
-    def listJobs(self, activeOnly=False, jobLimit=None):
+    def UNPORTED_listJobs(self, activeOnly=False, jobLimit=None):
         cu = self.db.cursor()
         sql = """SELECT jobId FROM Jobs"""
         if activeOnly:
@@ -53,7 +54,7 @@ class JobStore(object):
             sql += ' LIMIT %d' % jobLimit
         return list(reversed([x[0] for x in cu.execute(sql)]))
 
-    def listTrovesByState(self, jobId, state=None):
+    def UNPORTED_listTrovesByState(self, jobId, state=None):
         cu = self.db.cursor()
         cmd = """SELECT troveName, version, flavor, context, state 
                  FROM BuildTroves 
@@ -207,7 +208,7 @@ class JobStore(object):
 
         return [jobs[x] for x in job_uuids]
 
-    def getConfig(self, jobId, context):
+    def UNPORTED_getConfig(self, jobId, context):
         cu = self.db.cursor()
         cu.execute("""SELECT  key, value
                       FROM JobConfig WHERE jobId=? AND context=?
@@ -218,7 +219,7 @@ class JobStore(object):
         cfg = thaw('BuildConfiguration', frozenCfg)
         return cfg
 
-    def _getTroveId(self, cu, jobId, name, version, flavor, context=''):
+    def UNPORTED__getTroveId(self, cu, jobId, name, version, flavor, context=''):
         cu.execute(
             '''
             SELECT troveId
@@ -229,13 +230,13 @@ class JobStore(object):
 
         return self.db._getOne(cu, (jobId, name, version, flavor, context))[0]
 
-    def getJobsByState(self, state, withTroves=False):
+    def UNPORTED_getJobsByState(self, state, withTroves=False):
         cu = self.db.cursor()
         jobIds = cu.execute('SELECT jobId FROM Jobs WHERE state=?',
                             state).fetchall()
         return self.getJobs([x[0] for x in jobIds], withTroves=withTroves)
 
-    def getJobIdsFromUUIDs(self, uuids):
+    def UNPORTED_getJobIdsFromUUIDs(self, uuids):
         cu = self.db.cursor()
         # would a temporary table be more efficient?  I'm not sure
         jobIds = []
@@ -244,10 +245,10 @@ class JobStore(object):
             jobIds.append(self.db._getOne(cu, uuid)[0])
         return jobIds
 
-    def getTrove(self, jobId, name, version, flavor, context=''):
+    def UNPORTED_getTrove(self, jobId, name, version, flavor, context=''):
         return self.getTroves([(jobId, name, version, flavor, context)])[0]
 
-    def getTroves(self, troveList):
+    def UNPORTED_getTroves(self, troveList):
         cu = self.db.cursor()
         cu.execute('''CREATE TEMPORARY TABLE tTroveInfo(
                           jobId integer,
@@ -345,7 +346,7 @@ class JobStore(object):
 
 
     # return all the log messages since last mark
-    def getJobLogs(self, jobId, mark = 0):
+    def UNPORTED_getJobLogs(self, jobId, mark = 0):
         cu = self.db.cursor()
         ret = []
         cu.execute("""
@@ -355,7 +356,7 @@ class JobStore(object):
         return cu.fetchall()
 
     # return all the log messages since last mark
-    def getTroveLogs(self, jobId, troveTuple, mark = 0):
+    def UNPORTED_getTroveLogs(self, jobId, troveTuple, mark = 0):
         if len(troveTuple) == 3:
             (name, version, flavor) = troveTuple
             context = ''
@@ -370,7 +371,7 @@ class JobStore(object):
         """, (jobId, troveId, 100, mark))
         return cu.fetchall()
 
-    def getJobConfig(self, jobId):
+    def UNPORTED_getJobConfig(self, jobId):
         cu = self.db.cursor()
         d = {}
         cu.execute("""SELECT key, value FROM JobConfig
@@ -385,37 +386,49 @@ class JobStore(object):
     #
     #---------------------------------------------------------------
 
-    def addJob(self, job):
-        cu = self.db.cursor()
-        cu.execute("INSERT INTO Jobs (uuid, state, owner) "
-                   "VALUES ( ?, ?, ? )",
-                   job.uuid, job.state, job.owner)
-        jobId = cu.lastrowid
+    @protected
+    def addJob(self, cu, job):
+        job.jobUUID = os.urandom(16).encode('hex')
+        job.state = JOB_STATE_INIT
+        job.status = buildjob.stateNames[job.state]
+        job.owner = '<unknown>'
+
+        config = cPickle.dumps(job.config[''], 2)
+        cu.execute("""
+            INSERT INTO Jobs (job_uuid, job_name, state, status, owner, config)
+            VALUES (%s, %s, %s, %s, %s)
+            """, (job.jobUUID, job.jobName, job.state, job.status, job.owner))
+        job.jobId = cu.lastrowid
+
         for trove in job.iterTroves():
-            trove.jobId = jobId
+            trove.jobUUID = job.jobUUID
+            trove.state = TROVE_STATE_INIT
+            trove.status = buildtrove.stateNames[trove.state]
+
             (troveName, version,
                 flavor, context) = trove.getNameVersionFlavor(True)
-            cu.execute("""INSERT INTO BuildTroves
-                       (jobId, troveName, version, flavor,
-                        state, context, buildType, troveType)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""", (
-                jobId, troveName, version.freeze(),
-                flavor.freeze(), TROVE_STATE_INIT, context,
-                trove.buildType, trove.troveType))
-            troveId = cu.lastrowid
-            className, settings = freeze('TroveSettings', trove.settings)
-            settings['_class'] = [className]
-            for key, values in settings.iteritems():
-                for idx, value in enumerate(values):
-                    cu.execute('''INSERT INTO TroveSettings
-                                  (jobId, troveId, key, ord, value)
-                                  VALUES (?, ?, ?, ?, ?)''', jobId, troveId,
-                                                             key, idx, value)
-        for context, jobConfig in job.getConfigDict().items():
-            self.addJobConfig(jobId, context, jobConfig)
-        self.db.commit()
-        job.jobId = jobId
-        return jobId
+            settings = cPickle.dumps(trove.settings, 2)
+            config = cPickle.dumps(job.configs[context], 2)
+            cu.execute("""
+                INSERT INTO BuildTroves (job_uuid, trove_name, trove_version,
+                    trove_flavor, context, state, status, build_type,
+                    trove_type, settings, config)
+                VALUES ( %s, %s, %s, %s, %s, %s, %s, %s)
+                """, (job.jobUUID, troveName, version.freeze(), flavor.freeze(),
+                    context, trove.state, trove.status, trove.buildType,
+                    trove.troveType, settings, config))
+
+        return job.jobUUID
+
+    @protected
+    def saveThing(self, cu, thing):
+        cu.execute("DELETE FROM thing")
+        cu.execute("INSERT INTO thing VALUES ( %s )", (thing,))
+
+    @readOnly
+    def getThing(self, cu):
+        cu.execute("SELECT thing FROM thing")
+        return cu.fetchone()[0]
 
     def deleteJobs(self, jobIdList):
         cu = self.db.cursor()

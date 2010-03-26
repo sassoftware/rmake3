@@ -274,7 +274,7 @@ class Timestamp(_Column):
     _names = ('timestamp', 'timestamp without time zone')
 
 class TimestampWithZone(_Column):
-    _names = ('timestamp with time zone')
+    _names = ('timestamp with time zone',)
 
 
 # Indexes

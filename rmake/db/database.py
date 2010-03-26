@@ -27,10 +27,24 @@ from rmake.db import jobstore
 from rmake.db import logstore
 from rmake.db import nodestore
 from rmake.db import subscriber
+from rmake.db.core import CoreDB
+from rmake.db.extensions import register_types
 from rmake.lib import ninamori
 
 
 class Database(object):
+
+    def __init__(self, path, db=None):
+        if db:
+            self.db = db
+        else:
+            self.db = ninamori.connect(path)
+            register_types(self.db)
+
+        self.core = CoreDB(self.db)
+
+
+class old_Database(object):
 
     def __init__(self, path, contentsPath, db=None):
         if db:

@@ -33,7 +33,7 @@ class PostgresConnection(DatabaseConnection):
         args = connectString.asDict(exclude=('driver',))
         args['database'] = args.pop('dbname')
 
-        #psycopg2.extensions.register_type(psycopg2.extensions.UNICODE)
+        psycopg2.extensions.register_type(psycopg2.extensions.UNICODE)
         conn = psycopg2.connect(**args)
         return cls(conn)
 
@@ -186,6 +186,10 @@ class PostgresConnection(DatabaseConnection):
 
     def _end_autocommit(self):
         self._conn.set_isolation_level(self.isolation_level)
+
+    @staticmethod
+    def binary(val):
+        return psycopg2.Binary(val)
 
 
 CONSTRAINT_MAP = {

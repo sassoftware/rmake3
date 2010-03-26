@@ -82,6 +82,10 @@ class Cursor(object):
     #def bulkload(self, tableName, rows, columnNames):
     #    self._tryCall(self._conn.bulkload, tableName, rows, columnNames)
 
+    # Data wrappers
+    def binary(self, val):
+        return self._txn().db().binary(val)
+
     # Unprotected pass-throughs for accessing results.
     def _row(self, data):
         if data is None:

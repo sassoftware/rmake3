@@ -61,3 +61,8 @@ def setupLogging(logPath=None, consoleLevel=logging.WARNING,
 
     logger.setLevel(level)
     return logger
+
+
+def logFailure(failure, what='deferred'):
+    logging.error("Unhandled exception in %s:\n%s", what,
+            failure.getTraceback())
