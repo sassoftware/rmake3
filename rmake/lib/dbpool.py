@@ -14,7 +14,6 @@
 
 import logging
 import sys
-import thread
 from ninamori import connect
 from ninamori.connection import ConnectString
 from rmake.db.extensions import register_types

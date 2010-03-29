@@ -12,7 +12,6 @@
 # full details.
 
 import itertools
-import re
 import sys
 from keyword import iskeyword as _iskeyword
 from operator import itemgetter as _itemgetter

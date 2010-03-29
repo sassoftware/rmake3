@@ -21,7 +21,6 @@ Status updates are routed back to clients and to the database.
 
 import logging
 from rmake.core.handler import getHandler
-from rmake.core.types import JobStatus
 from rmake.db import database
 from rmake.errors import RmakeError
 from rmake.lib import dbpool

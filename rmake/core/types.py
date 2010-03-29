@@ -13,10 +13,6 @@
 #
 
 
-from decimal import Decimal
-from rmake.lib.uuid import UUID
-
-
 class _SlotCompare(object):
     __slots__ = ()
 

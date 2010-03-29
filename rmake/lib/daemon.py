@@ -12,13 +12,10 @@ import signal
 import sys
 import time
 
-from optparse import OptionParser
-
-from conary.conarycfg import ConfigFile, CfgList, CfgString, CfgBool, CfgInt
-from conary.lib import options, util
+from conary.conarycfg import ConfigFile, CfgBool
+from conary.lib import options
 
 from rmake.lib import logfile
-from rmake.lib import logger
 
 (NO_PARAM,  ONE_PARAM)  = (options.NO_PARAM, options.ONE_PARAM)
 (OPT_PARAM, MULT_PARAM) = (options.OPT_PARAM, options.MULT_PARAM)

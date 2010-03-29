@@ -12,8 +12,6 @@
 # full details.
 
 import sys
-from keyword import iskeyword as _iskeyword
-from operator import itemgetter as _itemgetter
 
 
 def decorator(decorator_func):

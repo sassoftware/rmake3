@@ -7,36 +7,10 @@ Classes for extracting and examining authentification methods passed from
 external servers
 """
 import base64
-import fcntl
 import IN
 import pwd
-import sys
-import os
-from SimpleXMLRPCServer import (SimpleXMLRPCServer, SimpleXMLRPCRequestHandler,
-                                SimpleXMLRPCDispatcher)
-import xmlrpclib
 import socket
-import SocketServer
 import struct
-import urllib
-
-from rmake.lib import localrpc
-
-# Secure server support
-try:
-    open_https = urllib.URLopener.open_https
-    try:
-        from M2Crypto import SSL
-        from M2Crypto.SSL import SSLError
-        from M2Crypto.SSL import Connection as SSLConnection
-    finally:
-        # M2Crypto calls it "minor brain surgery" to replace this fn behind
-        # people's backs.  I call it brain dead library behavior.
-        urllib.URLopener.open_https = open_https
-except ImportError:
-    SSLError = None.__class__
-    SSL = None
-    SSLConnection = None
 
 
 class AuthObject(object):

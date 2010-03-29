@@ -12,7 +12,7 @@
 # full details.
 
 import psycopg2
-import psycopg2.extensions
+from psycopg2 import extensions
 from rmake.lib.ninamori.connection import DatabaseConnection
 from rmake.lib.ninamori.decorators import helper, readOnly
 from rmake.lib.ninamori.itools import fold
@@ -20,20 +20,20 @@ from rmake.lib.ninamori.schema import types as schematypes
 from rmake.lib.ninamori.schema.schema import Schema
 from rmake.lib.ninamori.schema.table import Table
 from rmake.lib.ninamori.schema.parse_schema import parseColumnType
-from rmake.lib.ninamori.types import frozendict, namedtuple
+from rmake.lib.ninamori.types import namedtuple
 
 
 class PostgresConnection(DatabaseConnection):
     __slots__ = ()
     driver = 'postgres'
-    isolation_level = psycopg2.extensions.ISOLATION_LEVEL_READ_COMMITTED
+    isolation_level = extensions.ISOLATION_LEVEL_READ_COMMITTED
 
     @classmethod
     def connect(cls, connectString):
         args = connectString.asDict(exclude=('driver',))
         args['database'] = args.pop('dbname')
 
-        psycopg2.extensions.register_type(psycopg2.extensions.UNICODE)
+        extensions.register_type(extensions.UNICODE)
         conn = psycopg2.connect(**args)
         return cls(conn)
 
@@ -182,7 +182,7 @@ class PostgresConnection(DatabaseConnection):
 
     def _start_autocommit(self):
         self._conn.set_isolation_level(
-                psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
+                extensions.ISOLATION_LEVEL_AUTOCOMMIT)
 
     def _end_autocommit(self):
         self._conn.set_isolation_level(self.isolation_level)

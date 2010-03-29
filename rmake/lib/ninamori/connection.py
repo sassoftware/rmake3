@@ -14,7 +14,7 @@
 from rmake.lib.ninamori.cursor import Cursor
 from rmake.lib.ninamori.decorators import helper, protected, readOnlyBlock, topLevel
 from rmake.lib.ninamori.error import TransactionError
-from rmake.lib.ninamori.schema.schema import Schema, SchemaVersion
+from rmake.lib.ninamori.schema.schema import SchemaVersion
 from rmake.lib.ninamori.schema.timeline import Timeline
 from rmake.lib.ninamori.transaction import Transaction
 from rmake.lib.ninamori.types import DependencyGraph, SQL

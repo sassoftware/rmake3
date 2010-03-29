@@ -11,7 +11,6 @@
 # or fitness for a particular purpose. See the Common Public License for
 # full details.
 
-import re
 from rmake.lib.ninamori.types import DependencySet
 
 
