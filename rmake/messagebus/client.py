@@ -19,7 +19,9 @@ This includes a client protocol, factory, and XMLRPC proxy.
 """
 
 
+import errno
 import logging
+import os
 from twisted.internet import defer
 from twisted.python import failure
 from twisted.words.protocols.jabber.error import StanzaError
@@ -27,12 +29,10 @@ from twisted.words.protocols.jabber.xmlstream import XMPPHandler
 from rmake.lib import pubsub
 from rmake.messagebus import common
 from rmake.messagebus import message
+from rmake.messagebus.client_support import PresenceProtocol, XMPPClient
 from rmake.messagebus.common import toJID
-from rmake.messagebus.pubsub import BusSubscriber
 from wokkel import disco
 from wokkel import iwokkel
-from wokkel import xmppim
-from wokkel.client import XMPPClient
 from wokkel.ping import PingHandler
 from zope.interface import implements
 
@@ -98,9 +98,10 @@ class BusService(XMPPClient, pubsub.Publisher):
     role = None
     description = None
 
-    def __init__(self, reactor, jid, password, handler=None,
-            other_handlers=None):
-        XMPPClient.__init__(self, toJID(jid), password)
+    def __init__(self, reactor, cfg, handler=None, other_handlers=None):
+        self.cfg = cfg
+        jid, password = self._getIdent()
+        XMPPClient.__init__(self, jid, password, registerCB=self._writeIdent)
         pubsub.Publisher.__init__(self)
         self._reactor = reactor
 
@@ -120,8 +121,46 @@ class BusService(XMPPClient, pubsub.Publisher):
         for handler in self._handlers.values():
             handler.setHandlerParent(self)
 
+    def _getIdent(self):
+        """Retrieve or generate a JID + password for this component to use."""
+        try:
+            fObj = open(self.cfg.xmppIdentFile)
+        except IOError, err:
+            if err.errno == errno.ENOENT:
+                return self._makeIdent()
+            raise
+        return self._getIdent2(fObj)
+
+    def _getIdent2(self, fObj):
+        """Locate the JID and password to use in a stored identity map."""
+        # This implementation is for components with well-known JIDs
+        myJID = self.cfg.xmppJID
+        assert myJID
+
+        for line in fObj:
+            jid, password = line.split()[:2]
+            if toJID(jid).userhost() == myJID.userhost():
+                return myJID, password.decode('ascii')
+        else:
+            return self._makeIdent()
+
+    def _makeIdent(self):
+        password = os.urandom(16).encode('hex').decode('utf8')
+        return self.cfg.xmppJID, password
+
+    def _writeIdent(self, jid, password):
+        try:
+            fObj = open(self.cfg.xmppIdentFile, 'a')
+        except:
+            log.exception("Could not save credentials for JID %s. Continuing "
+                    "anyway.", jid)
+            return
+        fObj.write('%s %s\n' % (jid.userhost(), password))
+        fObj.close()
+
     def checkAndSubscribe(self, jid, role):
         d = self._handlers['disco'].requestInfo(jid)
+        @d.addCallback
         def got_info(info):
             if common.NS_RMAKE not in info.features:
                 raise RuntimeError("%s is not a rmake component" % jid.full())
@@ -130,7 +169,6 @@ class BusService(XMPPClient, pubsub.Publisher):
             if role != actual_role:
                 raise RuntimeError("%s is not a rmake %s" % (jid.full(), role))
             self._handlers['presence'].subscribe(jid.userhostJID())
-        d.addCallback(got_info)
         return d
 
     def messageReceived(self, msg):
@@ -150,16 +188,34 @@ class BusClientService(BusService):
 
     resource = 'rmake'
 
-    def __init__(self, reactor, jid, password, targetJID):
+    def __init__(self, reactor, cfg):
         # Connect with an anonymous JID (just the host + resource)
-        self._targetJID = toJID(targetJID)
-        BusService.__init__(self, reactor, jid, password,
+        self._targetJID = cfg.dispatcherJID
+        BusService.__init__(self, reactor, cfg,
                 handler=RmakeClientHandler(self._targetJID))
         self.addRelay(self._send_events)
 
     def _send_events(self, event, *args, **kwargs):
         msg = message.Event(event=event, args=args, kwargs=kwargs)
         msg.send(self.xmlstream, self._targetJID)
+
+    def _getIdent2(self, fObj):
+        """Locate the JID and password to use in a stored identity map."""
+        # This implementation is for client components.
+        targetJID = self.cfg.dispatcherJID
+        assert targetJID
+
+        for line in fObj:
+            jid, password = line.split()[:2]
+            jid = toJID(jid)
+            if jid.host == targetJID.host:
+                return jid, password.decode('ascii')
+        else:
+            return self._makeIdent()
+
+    def _makeIdent(self):
+        password = os.urandom(16).encode('hex').decode('utf8')
+        return self.cfg.xmppJID, password
 
     def onPresence(self, presence):
         if presence.sender == self._targetJID and not presence.available:
@@ -173,49 +229,6 @@ class BusClientService(BusService):
         # TODO: Not a great way to handle this.
         log.error("Server went away (%s), shutting down.", self._targetJID)
         self._reactor.stop()
-
-
-class PresenceProtocol(xmppim.PresenceProtocol, xmppim.RosterClientProtocol):
-    """Accept all subscription requests and reply in kind."""
-
-    def connectionInitialized(self):
-        xmppim.PresenceProtocol.connectionInitialized(self)
-        xmppim.RosterClientProtocol.connectionInitialized(self)
-        # RFC-3921 7.3 says that we should request the roster before sending
-        # initial presence or expecting any subscriptions to be in effect.
-        def process_roster(roster):
-            # Purge roster items with no active subscription.
-            for item in roster.values():
-                if not item.subscriptionTo and not item.subscriptionFrom:
-                    self.removeItem(item.jid)
-        d = self.getRoster()
-        d.addCallback(process_roster)
-        d.addBoth(lambda result: self.available())
-
-    # Subscriptions / roster
-
-    def subscribeReceived(self, presence):
-        """If someone subscribed to us, subscribe to them."""
-        self.subscribed(presence.sender)
-        self.subscribe(presence.sender.userhostJID())
-
-    def unsubscribeReceived(self, presence):
-        """If someone unsubscribed us, unsubscribe them."""
-        self.unsubscribed(presence.sender)
-        self.unsubscribe(presence.sender.userhostJID())
-
-    def onRosterSet(self, item):
-        """If we no longer have visibility on someone, remove them entirely."""
-        if not item.subscriptionTo and not item.subscriptionFrom:
-            self.removeItem(item.jid)
-
-    # Presence
-
-    def availableReceived(self, presence):
-        self.parent.onPresence(presence)
-
-    def unavailableReceived(self, presence):
-        self.parent.onPresence(presence)
 
 
 def onError(failure):

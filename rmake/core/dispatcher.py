@@ -28,6 +28,7 @@ from rmake.lib import rpc_pickle
 from rmake.lib.apirpc import RPCServer, expose
 from rmake.lib.uuid import UUID
 from rmake.messagebus.client import BusService
+from rmake.messagebus.config import DispatcherConfig
 from rmake.messagebus.interact import InteractiveHandler
 from twisted.application.internet import TCPServer
 from twisted.application.service import MultiService
@@ -43,8 +44,8 @@ class DispatcherBusService(BusService):
     role = 'dispatcher'
     description = 'rMake Dispatcher'
 
-    def __init__(self, reactor, jid, password):
-        BusService.__init__(self, reactor, jid, password, other_handlers={
+    def __init__(self, reactor, cfg):
+        BusService.__init__(self, reactor, cfg, other_handlers={
             'interactive': DispatcherInteractiveHandler(),
             })
         self.addObserver('heartbeat', self.onHeartbeat)
@@ -86,15 +87,14 @@ class DispatcherInteractiveHandler(InteractiveHandler):
 
 class Dispatcher(MultiService, RPCServer):
 
-    def __init__(self, reactor, jid, password):
+    def __init__(self, reactor, cfg):
         MultiService.__init__(self)
 
-        dbpath = 'postgres://rmake'
-        self.pool = dbpool.ConnectionPool(dbpath)
-        self.db = database.Database(dbpath,
+        self.pool = dbpool.ConnectionPool(cfg.databaseUrl)
+        self.db = database.Database(cfg.databaseUrl,
                 dbpool.PooledDatabaseProxy(self.pool))
 
-        self.bus = DispatcherBusService(reactor, jid, password)
+        self.bus = DispatcherBusService(reactor, cfg)
         self.bus.setServiceParent(self)
 
         self.handlers = {}
@@ -142,22 +142,31 @@ class Dispatcher(MultiService, RPCServer):
 
 def main():
     import optparse
+    import sys
+
+    cfg = DispatcherConfig()
     parser = optparse.OptionParser()
     parser.add_option('--debug', action='store_true')
-    parser.add_option('-j', '--jid', default='rmake@localhost/rmake')
-    parser.add_option('-p', '--password', default='password')
+    parser.add_option('-c', '--config-file', action='callback', type='str',
+            callback=lambda a, b, value, c: cfg.read(value))
+    parser.add_option('--config', action='callback', type='str',
+            callback=lambda a, b, value, c: cfg.configLine(value))
     options, args = parser.parse_args()
     if args:
         parser.error("No arguments expected")
+
+    for name in ('xmppJID', 'xmppIdentFile'):
+        if cfg[name] is None:
+            sys.exit("error: Configuration option %r must be set." % name)
 
     from rmake.lib.logger import setupLogging
     setupLogging(consoleLevel=(options.debug and logging.DEBUG or
         logging.INFO), consoleFormat='file', withTwisted=True)
 
     from twisted.internet import reactor
-    service = Dispatcher(reactor, options.jid, options.password)
+    service = Dispatcher(reactor, cfg)
     if options.debug:
-        service.logTraffic = True
+        service.bus.logTraffic = True
     service.startService()
     reactor.run()
 
