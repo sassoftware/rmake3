@@ -1,4 +1,8 @@
 Changes in @NEW@:
+ o Bug Fixes:
+    * The previous version introduced a bug in which troves would fail
+      to build if the rMake database was initialized in rMake 2.0.1 or
+      earlier. A schema migration has been added to correct this.  (RMK-1034)
 
 Changes in 2.0.2:
  o New Features:

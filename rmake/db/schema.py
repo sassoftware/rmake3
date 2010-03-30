@@ -1,14 +1,26 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2006-2007, 2010 rPath, Inc.
 #
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
+#
+
+
 """
 SQL schema for the persistent DB store for rmake
 """
+
 from rmake import errors
 
-# NOTE: this schema is sqlite-specific
 
-SCHEMA_VERSION = 11
+SCHEMA_VERSION = 12
 
 def createJobs(db):
     cu = db.cursor()
@@ -29,9 +41,7 @@ def createJobs(db):
         )""" % db.keywords)
         db.tables["Jobs"] = []
         commit = True
-    if commit:
-        db.commit()
-        db.loadSchema()
+    return commit
 
 def createJobConfig(db):
     cu = db.cursor()
@@ -56,9 +66,7 @@ def createJobConfig(db):
     if db.createIndex("JobConfig", "JobConfigContextKeyIdx", 
                       "jobId, context, key", unique = False):
         commit = True
-    if commit:
-        db.commit()
-        db.loadSchema()
+    return commit
 
 def createTroveSettings(db):
     cu = db.cursor()
@@ -81,9 +89,7 @@ def createTroveSettings(db):
     if db.createIndex("TroveSettings", "TroveSettingsIdx2", "troveId",
                       unique = False):
         commit = True
-    if commit:
-        db.commit()
-        db.loadSchema()
+    return commit
 
 
 def createSubscriber(db):
@@ -134,11 +140,7 @@ def createSubscriber(db):
     if db.createIndex("SubscriberData", "SubscriberDataIdx", "subscriberId"):
         commit = True
 
-    if commit:
-        db.commit()
-        db.loadSchema()
-
-
+    return commit
 
 
 def createBuildTroves(db):
@@ -192,9 +194,7 @@ def createBuildTroves(db):
                       unique = False):
         commit = True
 
-    if commit:
-        db.commit()
-        db.loadSchema()
+    return commit
 
 def createBinaryTroves(db):
     cu = db.cursor()
@@ -215,9 +215,7 @@ def createBinaryTroves(db):
     if db.createIndex("BinaryTroves", "BinaryTrovesIdx",
                       "troveId"):
         commit = True
-    if commit:
-        db.commit()
-        db.loadSchema()
+    return commit
 
 def createStateLogs(db):
     cu = db.cursor()
@@ -239,9 +237,8 @@ def createStateLogs(db):
         commit = True
     if db.createIndex("StateLogs", "StateLogsJobTroveId", "jobId,troveId"):
         commit = True
-    if commit:
-        db.commit()
-        db.loadSchema()
+
+    return commit
 
 
 def createJobQueue(db):
@@ -255,9 +252,8 @@ def createJobQueue(db):
         )""" % db.keywords)
         db.tables["JobQueue"] = []
         commit = True
-    if commit:
-        db.commit()
-        db.loadSchema()
+
+    return commit
 
 def createChroots(db):
     cu = db.cursor()
@@ -276,9 +272,8 @@ def createChroots(db):
         commit = True
     if db.createIndex("Chroots", "ChrootdsIdx", "troveId"):
         commit = True
-    if commit:
-        db.commit()
-        db.loadSchema()
+
+    return commit
 
 def createNodes(db):
     cu = db.cursor()
@@ -294,9 +289,7 @@ def createNodes(db):
         )""" % db.keywords)
         db.tables["Nodes"] = []
         commit = True
-    if commit:
-        db.commit()
-        db.loadSchema()
+    return commit
 
 def createAuthCache(db):
     cu = db.cursor()
@@ -309,9 +302,8 @@ def createAuthCache(db):
         )""" % db.keywords)
         db.tables["AuthCache"] = []
         commit = True
-    if commit:
-        db.commit()
-        db.loadSchema()
+
+    return commit
 
 def createPluginVersionTable(db):
     cu = db.cursor()
@@ -324,9 +316,8 @@ def createPluginVersionTable(db):
         )""" % db.keywords)
         db.tables["PluginVersion"] = []
         commit = True
-    if commit:
-        db.commit()
-        db.loadSchema()
+
+    return commit
 
 class AbstractSchemaManager(object):
     def __init__(self, db):
@@ -382,7 +373,36 @@ class AbstractMigrator(object):
         self.cu.execute('ALTER TABLE %s ADD COLUMN %s    %s' % (table, name,
                                                                 value))
 
+    def _rebuildTable(self, table):
+        tmpTable = table + '_tmp'
+        cu = self.db.cursor()
+
+        # Drop old indexes because index names must be globally unique.
+        for index in list(self.db.tables[table]):
+            self.db.dropIndex(table, index)
+
+        # Rename old -> tmp
+        cu.execute("ALTER TABLE %s RENAME TO %s" % (table, tmpTable))
+        del self.db.tables[table]
+
+        # Recreate schema
+        assert self.schemaMgr.createTables(doCommit=False)
+
+        # Figure out which columns to copy
+        cu.execute("SELECT * FROM %s LIMIT 1" % tmpTable)
+        inFields = set(x.lower() for x in cu.fields())
+        cu.execute("SELECT * FROM %s LIMIT 1" % table)
+        outFields = set(x.lower() for x in cu.fields())
+        assert inFields == outFields
+
+        # Copy
+        fieldNames = ', '.join(inFields)
+        cu.execute("INSERT INTO %s ( %s ) SELECT %s FROM %s" % (table,
+            fieldNames, fieldNames, tmpTable))
+        cu.execute("DROP TABLE %s" % tmpTable)
+
     def migrate(self, currentVersion, newVersion):
+        self.db.transaction()
         if currentVersion < newVersion:
             while currentVersion < newVersion:
                 # migration returns the schema that they migrated to.
@@ -397,20 +417,29 @@ class AbstractMigrator(object):
 
 class SchemaManager(AbstractSchemaManager):
 
-    def createTables(self):
+    def createTables(self, doCommit=True):
         db = self.db
-        createJobs(db)
-        createJobConfig(db)
-        createBuildTroves(db)
-        createTroveSettings(db)
-        createBinaryTroves(db)
-        createStateLogs(db)
-        createSubscriber(db)
-        createJobQueue(db)
-        createChroots(db)
-        createNodes(db)
-        createPluginVersionTable(db)
-        createAuthCache(db)
+        if doCommit:
+            db.transaction()
+
+        changed = False
+        changed |= createJobs(db)
+        changed |= createJobConfig(db)
+        changed |= createBuildTroves(db)
+        changed |= createTroveSettings(db)
+        changed |= createBinaryTroves(db)
+        changed |= createStateLogs(db)
+        changed |= createSubscriber(db)
+        changed |= createJobQueue(db)
+        changed |= createChroots(db)
+        changed |= createNodes(db)
+        changed |= createPluginVersionTable(db)
+        changed |= createAuthCache(db)
+
+        if changed and doCommit:
+            db.commit()
+        db.loadSchema()
+        return changed
 
     def migrate(self, oldVersion, newVersion):
         Migrator(self.db, self).migrate(oldVersion, newVersion)
@@ -486,6 +515,18 @@ class Migrator(AbstractMigrator):
         self._addColumn("BuildTroves", "troveType",
                         "troveType      TEXT NOT NULL DEFAULT 'build'")
         return 11
+
+    def migrateFrom11(self):
+        cu = self.db.cursor()
+        for table in ['Jobs', 'Subscriber', 'SubscriberData', 'BuildTroves',
+                'StateLogs', 'Chroots', 'AuthCache']:
+            self._rebuildTable(table)
+        cu.execute("""UPDATE Jobs SET failureReason = NULL,
+                failureData = NULL WHERE failureReason = ''""")
+        cu.execute("""UPDATE BuildTroves SET failureReason = NULL,
+                failureData = NULL WHERE failureReason = ''""")
+        cu.execute("UPDATE StateLogs SET troveId = NULL WHERE troveId = 0")
+        return 12
 
 class PluginSchemaManager(AbstractSchemaManager):
     """
