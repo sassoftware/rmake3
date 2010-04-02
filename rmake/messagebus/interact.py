@@ -14,7 +14,9 @@
 
 import logging
 from twisted.internet import defer
+from twisted.words.protocols.jabber.jid import JID
 from twisted.words.protocols.jabber.xmlstream import XMPPHandler, toResponse
+from twisted.words.xish import domish
 from twisted.words.xish import xpath
 from rmake.messagebus import common
 
@@ -56,6 +58,24 @@ class InteractiveHandler(XMPPHandler):
 
         d.addErrback(on_error)
         d.addCallback(on_reply)
+
+    def sendMessage(self, targetOrMessage, text, type='normal'):
+        msg = domish.Element((None, 'message'))
+        if isinstance(targetOrMessage, JID):
+            # New message
+            msg['to'] = targetOrMessage.full()
+            msg['type'] = type
+        elif isinstance(targetOrMessage, domish.Element):
+            # Reply to a previous message
+            msg['to'] = targetOrMessage['from']
+            msg['type'] = targetOrMessage['type']
+            threads = xpath.queryForNodes('/message/thread', targetOrMessage)
+            if threads:
+                msg.addChild(threads[0])
+        else:
+            raise TypeError("Expected JID or Element")
+        msg.addElement('body', content=unicode(text))
+        self.send(msg)
 
     def interact_help(self, msg, words):
         return "I can't help you right now."

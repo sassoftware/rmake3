@@ -12,6 +12,7 @@
 # full details.
 #
 
+import os
 import socket
 from twisted.internet import fdesc
 from twisted.internet import tcp
@@ -24,6 +25,14 @@ class Paired(tcp.Connection):
         self.startReading()
         self.connected = 1
 
+    def getHost(self):
+        sockstat = os.fstat(self.socket.fileno())
+        return '[%s]' % (sockstat.st_ino,)
+
+    def getPeer(self):
+        sockstat = os.fstat(self.socket.fileno())
+        return '[peer of %s]' % (sockstat.st_ino,)
+
 
 def socketpair(protocol, family=socket.AF_UNIX, reactor=None):
     """
@@ -33,11 +42,13 @@ def socketpair(protocol, family=socket.AF_UNIX, reactor=None):
     if not reactor:
         from twisted.internet import reactor
     sock1, sock2 = socket.socketpair(family, socket.SOCK_STREAM)
-    transport = _makesock(reactor, sock1, protocol)
+    transport = makesock(sock1, protocol, reactor)
     return transport, sock2
 
 
-def _makesock(reactor, sock, protocol):
+def makesock(sock, protocol, reactor=None):
+    if not reactor:
+        from twisted.internet import reactor
     fdesc._setCloseOnExec(sock.fileno())
     transport = Paired(sock, protocol, reactor)
     protocol.makeConnection(transport)

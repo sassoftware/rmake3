@@ -25,6 +25,7 @@ import os
 from twisted.internet import defer
 from twisted.python import failure
 from twisted.words.protocols.jabber.error import StanzaError
+from twisted.words.protocols.jabber.jid import JID
 from twisted.words.protocols.jabber.xmlstream import XMPPHandler
 from rmake.lib import pubsub
 from rmake.messagebus import common
@@ -98,12 +99,11 @@ class BusService(XMPPClient, pubsub.Publisher):
     role = None
     description = None
 
-    def __init__(self, reactor, cfg, handler=None, other_handlers=None):
+    def __init__(self, cfg, handler=None, other_handlers=None):
         self.cfg = cfg
         jid, password = self._getIdent()
         XMPPClient.__init__(self, jid, password, registerCB=self._writeIdent)
         pubsub.Publisher.__init__(self)
-        self._reactor = reactor
 
         if not handler:
             handler = RmakeHandler()
@@ -188,11 +188,12 @@ class BusClientService(BusService):
 
     resource = 'rmake'
 
-    def __init__(self, reactor, cfg):
-        # Connect with an anonymous JID (just the host + resource)
+    def __init__(self, cfg, handler=None, other_handlers=None):
         self._targetJID = cfg.dispatcherJID
-        BusService.__init__(self, reactor, cfg,
-                handler=RmakeClientHandler(self._targetJID))
+        if not handler:
+            handler = RmakeClientHandler(self._targetJID)
+        BusService.__init__(self, cfg, handler=handler,
+                other_handlers=other_handlers)
         self.addRelay(self._send_events)
 
     def _send_events(self, event, *args, **kwargs):
@@ -209,13 +210,17 @@ class BusClientService(BusService):
             jid, password = line.split()[:2]
             jid = toJID(jid)
             if jid.host == targetJID.host:
+                jid = JID(tuple=(jid.user, jid.host, self.resource))
                 return jid, password.decode('ascii')
         else:
             return self._makeIdent()
 
     def _makeIdent(self):
-        password = os.urandom(16).encode('hex').decode('utf8')
-        return self.cfg.xmppJID, password
+        host = self.cfg.dispatcherJID.host
+        username = os.urandom(16).encode('hex')
+        password = os.urandom(16).encode('hex')
+        jid = toJID('%s@%s/%s' % (username, host, self.resourec))
+        return jid, password
 
     def onPresence(self, presence):
         if presence.sender == self._targetJID and not presence.available:
@@ -228,7 +233,8 @@ class BusClientService(BusService):
     def targetLost(self, failure):
         # TODO: Not a great way to handle this.
         log.error("Server went away (%s), shutting down.", self._targetJID)
-        self._reactor.stop()
+        from twisted.internet import reactor
+        reactor.stop()
 
 
 def onError(failure):

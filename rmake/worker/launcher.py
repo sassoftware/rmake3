@@ -21,34 +21,64 @@ The launcher must re-exec after forking to prevent Twisted state from escaping
 into the worker process.
 """
 
+import logging
 import os
 import socket
-import struct
 import sys
+from rmake.lib.twisted_extras.pickle_proto import PickleProtocol
 from rmake.lib.twisted_extras.socketpair import socketpair
+from rmake.messagebus import message
 from rmake.messagebus.client import BusClientService
-from twisted.application.service import Service
+from rmake.messagebus.config import BusClientConfig
+from rmake.messagebus.interact import InteractiveHandler
+from rmake.worker import executor
+from twisted.application.service import MultiService
+from twisted.internet.error import ProcessDone, ProcessTerminated
 from twisted.internet.protocol import ProcessProtocol
-from twisted.protocols.basic import Int32StringReceiver
+
+log = logging.getLogger(__name__)
 
 
-class LauncherService(Service):
+class LauncherService(MultiService):
 
-    def __init__(self):
-        self.workers = {}
-        self.bus = LauncherClien
+    def __init__(self, cfg):
+        MultiService.__init__(self)
+        self.cfg = cfg
+        self.bus = LauncherBusService(cfg)
+        self.bus.setServiceParent(self)
 
-    def launch(self, data):
+    def launch(self):
         from twisted.internet import reactor
 
         worker = LaunchedWorker(self)
         transport, sock = socketpair(worker.net, socket.AF_UNIX, reactor)
 
-        args = [sys.executable, __file__, '--worker']
+        args = [sys.executable, executor.__file__]
         reactor.spawnProcess(worker, sys.executable, args,
                 os.environ, childFDs={0:0, 1:1, 2:2, 3:sock.fileno()})
 
         sock.close()
+
+
+class LauncherBusService(BusClientService):
+
+    role = 'worker'
+    description = 'rMake Worker'
+
+    def __init__(self, cfg):
+        BusClientService.__init__(self, cfg, other_handlers={
+            'interactive': LauncherInteractiveHandler(),
+            })
+
+
+class LauncherInteractiveHandler(InteractiveHandler):
+
+    def __init__(self, *args, **kwargs):
+        InteractiveHandler.__init__(self, *args, **kwargs)
+        self.callbacks = {}
+
+    def interact_test(self, msg, words):
+        self.parent.parent.launch()
 
 
 class LaunchedWorker(ProcessProtocol):
@@ -56,30 +86,67 @@ class LaunchedWorker(ProcessProtocol):
     def __init__(self, launcher):
         self.launcher = launcher
         self.net = LaunchedWorkerSocket(self)
+        self.pid = None
 
     def connectionMade(self):
-        print 'up'
+        self.pid = self.transport.pid
+        log.debug("Executor %s started", self.pid)
 
-    def processEnded(self, status):
-        print 'down'
+        msg = message.StartWork(self.launcher.cfg)
+        self.net.sendMessage(msg)
+
+    def processEnded(self, failure):
+        if failure.check(ProcessDone):
+            log.debug("Executor %s terminated normally", self.pid)
+            return
+        elif failure.check(ProcessTerminated):
+            if failure.value.signal:
+                log.warning("Executor %s terminated with signal %s",
+                        self.pid, failure.value.signal)
+            else:
+                log.warning("Executor %s terminated with status %s",
+                        self.pid, failure.value.signal)
+        else:
+            log.error("Executor %s terminated due to an unknown error:\%s",
+                    self.pid, failure.getTraceback())
+
+        # FIXME: cleanup whatever the executor was handling
 
 
-class LaunchedWorkerSocket(Int32StringReceiver):
+class LaunchedWorkerSocket(PickleProtocol):
 
     def __init__(self, worker):
         self.worker = worker
 
-    def stringReceived(self, msg):
+    def messageReceived(self, msg):
         print 'msg: %r' % msg
 
 
 def main():
-    from twisted.internet import reactor
+    import optparse
+    cfg = BusClientConfig()
+    parser = optparse.OptionParser()
+    parser.add_option('--debug', action='store_true')
+    parser.add_option('-c', '--config-file', action='callback', type='str',
+            callback=lambda a, b, value, c: cfg.read(value))
+    parser.add_option('--config', action='callback', type='str',
+            callback=lambda a, b, value, c: cfg.configLine(value))
+    options, args = parser.parse_args()
+    if args:
+        parser.error("No arguments expected")
 
-    if sys.argv[1:2] == ['--worker']:
-        service = WorkerService()
-    else:
-        service = LauncherService()
+    for name in ('dispatcherJID', 'xmppIdentFile'):
+        if cfg[name] is None:
+            sys.exit("error: Configuration option %r must be set." % name)
+
+    from rmake.lib.logger import setupLogging
+    setupLogging(consoleLevel=(options.debug and logging.DEBUG or
+        logging.INFO), consoleFormat='file', withTwisted=True)
+
+    from twisted.internet import reactor
+    service = LauncherService(cfg)
+    if options.debug:
+        service.bus.logTraffic = True
     service.startService()
     reactor.run()
 

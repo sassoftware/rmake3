@@ -44,8 +44,8 @@ class DispatcherBusService(BusService):
     role = 'dispatcher'
     description = 'rMake Dispatcher'
 
-    def __init__(self, reactor, cfg):
-        BusService.__init__(self, reactor, cfg, other_handlers={
+    def __init__(self, cfg):
+        BusService.__init__(self, cfg, other_handlers={
             'interactive': DispatcherInteractiveHandler(),
             })
         self.addObserver('heartbeat', self.onHeartbeat)
@@ -87,14 +87,14 @@ class DispatcherInteractiveHandler(InteractiveHandler):
 
 class Dispatcher(MultiService, RPCServer):
 
-    def __init__(self, reactor, cfg):
+    def __init__(self, cfg):
         MultiService.__init__(self)
 
         self.pool = dbpool.ConnectionPool(cfg.databaseUrl)
         self.db = database.Database(cfg.databaseUrl,
                 dbpool.PooledDatabaseProxy(self.pool))
 
-        self.bus = DispatcherBusService(reactor, cfg)
+        self.bus = DispatcherBusService(cfg)
         self.bus.setServiceParent(self)
 
         self.handlers = {}
@@ -164,7 +164,7 @@ def main():
         logging.INFO), consoleFormat='file', withTwisted=True)
 
     from twisted.internet import reactor
-    service = Dispatcher(reactor, cfg)
+    service = Dispatcher(cfg)
     if options.debug:
         service.bus.logTraffic = True
     service.startService()

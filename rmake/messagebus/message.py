@@ -153,3 +153,15 @@ class Event(Message):
     @property
     def event(self):
         return self.payload.event
+
+
+class StartWork(Message):
+
+    messageType = 'start-work'
+
+    def set(self, cfg):
+        self.payload.cfg = cfg
+
+    @property
+    def cfg(self):
+        return self.payload.cfg
