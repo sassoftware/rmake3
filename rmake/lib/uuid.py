@@ -50,7 +50,7 @@ RESERVED_NCS, RFC_4122, RESERVED_MICROSOFT, RESERVED_FUTURE = [
     'reserved for NCS compatibility', 'specified in RFC 4122',
     'reserved for Microsoft compatibility', 'reserved for future definition']
 
-class UUID(long):
+class UUID(object):
     """Instances of the UUID class represent UUIDs as specified in RFC 4122.
     UUID objects are immutable, hashable, and usable as dictionary keys.
     Converting a UUID to a string with str() yields something in the form
@@ -97,9 +97,8 @@ class UUID(long):
         version     the UUID version number (1 through 5, meaningful only
                     when the variant is RFC_4122)
     """
-    __slots__ = ()
 
-    def __new__(cls, hex=None, bytes=None, bytes_le=None, fields=None,
+    def __init__(self, hex=None, bytes=None, bytes_le=None, fields=None,
                        int=None, version=None):
         r"""Create a UUID from either a string of 32 hexadecimal digits,
         a string of 16 bytes as the 'bytes' argument, a string of 16 bytes
@@ -176,23 +175,34 @@ class UUID(long):
             # Set the version number.
             int &= ~(0xf000 << 64L)
             int |= version << 76L
-        return long.__new__(cls, int)
+        self.__dict__['int'] = int
+
+    def __cmp__(self, other):
+        if isinstance(other, UUID):
+            return cmp(self.int, other.int)
+        return NotImplemented
+
+    def __hash__(self):
+        return hash(self.int)
+
+    def __int__(self):
+        return self.int
 
     def __repr__(self):
         return 'UUID(%r)' % str(self)
 
+    def __setattr__(self, name, value):
+        raise TypeError('UUID objects are immutable')
+
     def __str__(self):
-        hex = '%032x' % self
+        hex = '%032x' % self.int
         return '%s-%s-%s-%s-%s' % (
             hex[:8], hex[8:12], hex[12:16], hex[16:20], hex[20:])
-
-    def __getnewargs__(self):
-        return (None, None, None, None, long(self), None)
 
     def get_bytes(self):
         bytes = ''
         for shift in range(0, 128, 8):
-            bytes = chr((self >> shift) & 0xff) + bytes
+            bytes = chr((self.int >> shift) & 0xff) + bytes
         return bytes
 
     bytes = property(get_bytes)
@@ -211,27 +221,27 @@ class UUID(long):
     fields = property(get_fields)
 
     def get_time_low(self):
-        return self >> 96L
+        return self.int >> 96L
 
     time_low = property(get_time_low)
 
     def get_time_mid(self):
-        return (self >> 80L) & 0xffff
+        return (self.int >> 80L) & 0xffff
 
     time_mid = property(get_time_mid)
 
     def get_time_hi_version(self):
-        return (self >> 64L) & 0xffff
+        return (self.int >> 64L) & 0xffff
 
     time_hi_version = property(get_time_hi_version)
 
     def get_clock_seq_hi_variant(self):
-        return (self >> 56L) & 0xff
+        return (self.int >> 56L) & 0xff
 
     clock_seq_hi_variant = property(get_clock_seq_hi_variant)
 
     def get_clock_seq_low(self):
-        return (self >> 48L) & 0xff
+        return (self.int >> 48L) & 0xff
 
     clock_seq_low = property(get_clock_seq_low)
 
@@ -248,12 +258,12 @@ class UUID(long):
     clock_seq = property(get_clock_seq)
 
     def get_node(self):
-        return self & 0xffffffffffff
+        return self.int & 0xffffffffffff
 
     node = property(get_node)
 
     def get_hex(self):
-        return '%032x' % self
+        return '%032x' % self.int
 
     hex = property(get_hex)
 
@@ -263,11 +273,11 @@ class UUID(long):
     urn = property(get_urn)
 
     def get_variant(self):
-        if not self & (0x8000 << 48L):
+        if not self.int & (0x8000 << 48L):
             return RESERVED_NCS
-        elif not self & (0x4000 << 48L):
+        elif not self.int & (0x4000 << 48L):
             return RFC_4122
-        elif not self & (0x2000 << 48L):
+        elif not self.int & (0x2000 << 48L):
             return RESERVED_MICROSOFT
         else:
             return RESERVED_FUTURE
@@ -277,7 +287,7 @@ class UUID(long):
     def get_version(self):
         # The version bits are only meaningful for RFC 4122 UUIDs.
         if self.variant == RFC_4122:
-            return int((self >> 76L) & 0xf)
+            return int((self.int >> 76L) & 0xf)
 
     version = property(get_version)
 
@@ -498,8 +508,11 @@ def uuid1(node=None, clock_seq=None):
 
 def uuid3(namespace, name):
     """Generate a UUID from the MD5 hash of a namespace UUID and a name."""
-    import md5
-    hash = md5.new(namespace.bytes + name).digest()
+    try:
+        from hashlib import md5
+    except ImportError:
+        from md5 import new as md5
+    hash = md5(namespace.bytes + name).digest()
     return UUID(bytes=hash[:16], version=3)
 
 def uuid4():
@@ -522,8 +535,11 @@ def uuid4():
 
 def uuid5(namespace, name):
     """Generate a UUID from the SHA-1 hash of a namespace UUID and a name."""
-    import sha
-    hash = sha.new(namespace.bytes + name).digest()
+    try:
+        from hashlib import sha1
+    except ImportError:
+        from sha import new as sha1
+    hash = sha1(namespace.bytes + name).digest()
     return UUID(bytes=hash[:16], version=5)
 
 # The following standard UUIDs are for use with uuid3() or uuid5().
