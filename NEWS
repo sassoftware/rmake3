@@ -1,4 +1,4 @@
-Changes in @NEW@:
+Changes in 2.0.3:
  o Bug Fixes:
     * The previous version introduced a bug in which troves would fail
       to build if the rMake database was initialized in rMake 2.0.1 or
