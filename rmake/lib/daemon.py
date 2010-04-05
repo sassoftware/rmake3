@@ -389,8 +389,12 @@ def debugHook(signum, sigtb):
     port = 8080
     try:
         import epdb
+        try:
+            from epdb.epdb_server import InvertedTelnetServer
+        except ImportError:
+            from epdb.telnetserver import InvertedTelnetServer
         debugger = epdb.Epdb()
-        debugger._server = epdb.telnetserver.InvertedTelnetServer(('', port))
+        debugger._server = InvertedTelnetServer(('', port))
         debugger._server.handle_request()
         debugger._port = port
         debugger.set_trace(skip=1)
