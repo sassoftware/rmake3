@@ -3,6 +3,8 @@ Changes in @NEW@:
     * The previous version introduced a bug in which troves would fail
       to build if the rMake database was initialized in rMake 2.0.1 or
       earlier. A schema migration has been added to correct this.  (RMK-1034)
+    * Previously, rMake could not build group recipes that referenced
+      group policy. This has been corrected. (RMK-1032)
 
 Changes in 2.0.2:
  o New Features:

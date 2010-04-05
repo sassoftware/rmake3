@@ -144,6 +144,7 @@ def getRecipeObj(repos, name, version, flavor, trv,
             recipeObj = recipeClass(repos, cfg, buildLabel, flavor, None,
                                 extraMacros=macros)
             recipeObj.sourceVersion = version
+            recipeObj.loadPolicy()
             recipeObj.setup()
             if groupRecipeSource:
                 recipeObj.troveSource = groupRecipeSource
