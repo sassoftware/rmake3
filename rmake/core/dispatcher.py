@@ -126,7 +126,7 @@ class Dispatcher(MultiService, RPCServer):
         except KeyError:
             raise RmakeError("Job type %r is unsupported" % job.job_type)
         from twisted.internet import reactor
-        reactor.callFromThread(handler.do, 'init')
+        reactor.callFromThread(handler.start)
         return job
 
     def updateJob(self, job, frozen=None, isDone=False):

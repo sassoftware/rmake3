@@ -52,7 +52,7 @@ class JobHandler(object):
         self.job = job
         self.eventsPending = []
         self.statusPending = STATUS_IDLE
-        self.state = 'starting'
+        self.state = None
         self.setup()
 
     ## State machine methods
@@ -60,29 +60,40 @@ class JobHandler(object):
     def setup(self):
         pass
 
-    def do(self, event):
-        """Step the job's state machine using the given event.
+    def start(self):
+        assert not self.state
+        return self.setStatus(100, 'Starting', state='starting')
 
-        The method named do_FOO where FOO is the current state will be invoked
-        to handle the particular state that is currently active.
+    def _begin(self):
+        self._try_call('begin_', False)
 
-        A typical workflow is to start an asynchronous task, then add a
-        callback to that task to step the machine again with the result.
-        """
-
+    def _continue(self, event):
         if self.statusPending == STATUS_CRITICAL:
             self.eventsPending.append(event)
             return
+        self._try_call('continue_', True, event)
 
-        func = getattr(self, 'do_' + self.state)
+    def _recover(self):
+        if not self._try_call('recover_', True):
+            self._try_call('begin_', False)
+
+    def _try_call(self, prefix, missingOK, *args):
+        name = prefix + self.state
+        func = getattr(self, name, None)
+        if not func:
+            if missingOK:
+                return False
+            else:
+                raise AttributeError("Job handler must define a %s method" %
+                        name)
+
         try:
-            func(event)
+            func(*args)
         except:
-            log.exception("Error in job handler:")
+            log.exception("Error in job handler method %s:", name)
             # FIXME: fail the job
-            return
 
-    def do_done(self, event):
+    def begin_done(self):
         pass
 
     def setStatus(self, code, text, detail=None, state=None):
@@ -126,8 +137,9 @@ class JobHandler(object):
         def send_deferred_status(dummy):
             from twisted.internet import reactor
             if critical:
+                reactor.callLater(0, self._begin)
                 for event in self.eventsPending:
-                    reactor.callLater(0, self.do, event)
+                    reactor.callLater(0, self._continue, event)
                 self.eventsPending = []
             elif self.statusPending == STATUS_AGAIN:
                 # Schedule another status send immediately.
@@ -180,47 +192,40 @@ class TestHandler(JobHandler):
     jobType = 'test'
     spam = 15
 
-    def do_starting(self, event):
-        if event != 'init':
-            return
+    # State: begin
+    def begin_starting(self):
+        return self.setStatus(100, "Collecting spam", state='collect_spam')
 
+    # State: collect_spam
+    def begin_collect_spam(self):
         self.started = self.finished = 0
         self.launchStuff(self.spam)
-        return self.setStatus(100, "Collecting spam {%d/%d}" %
-                (self.finished, self.spam), state='collect_spam')
+        return self._spamStatus()
 
-    def do_collect_spam(self, event):
-        if event != 'spam':
-            return
-
+    def continue_collect_spam(self, event):
         if self.finished >= self.spam:
             return self.callChain('1')
         else:
-            return self.setStatus(100, "Collecting spam {%d/%d}" %
-                    (self.finished, self.spam))
+            return self._spamStatus()
 
-    def do_1(self, event):
-        if event == '#1 done':
-            return self.callChain('2')
+    def _spamStatus(self):
+        return self.setStatus(100, "Collecting spam {%d/%d}" %
+                (self.finished, self.spam))
 
-    def do_2(self, event):
-        if event == '#2 done':
-            return self.callChain('3')
-
-    def do_3(self, event):
-        if event == '#3 done':
-            return self.callChain('4')
-
-    def do_4(self, event):
-        if event == '#4 done':
-            return self.callChain('5')
-
-    def do_5(self, event):
-        if event == '#5 done':
-            return self.setStatus(200, "Test job complete", state='done')
+    # States 1 - 5
+    def begin_1(self):
+        return self.callChain('2')
+    def begin_2(self):
+        return self.callChain('3')
+    def begin_3(self):
+        return self.callChain('4')
+    def begin_4(self):
+        return self.callChain('5')
+    def begin_5(self):
+        return self.setStatus(200, "Test job complete", state='done')
 
     def launchStuff(self, howmany):
-        import random
+        #import random
         from twisted.internet import reactor
         for x in range(min(howmany, self.spam - self.started)):
             self.started += 1
@@ -230,9 +235,9 @@ class TestHandler(JobHandler):
 
     def did_something(self, num):
         self.finished += 1
-        self.do('spam')
+        self._continue('spam')
 
     def callChain(self, num):
         from twisted.internet import reactor
-        reactor.callLater(0, self.do, '#%s done' % num)
+        reactor.callLater(0, self._continue, '#%s done' % num)
         return self.setStatus(100, "Chaining (%s)" % num, state=str(num))
