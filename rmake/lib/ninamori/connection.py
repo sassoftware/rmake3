@@ -229,18 +229,8 @@ class DatabaseConnection(object):
         if self._stack:
             raise TransactionError("There must not be a transaction open.",
                     self._stack[0])
-        self._start_autocommit()
-        try:
-            cu = self._conn.cursor()
-            return cu.execute(query, *args, **kwargs)
-        finally:
-            self._end_autocommit()
-
-    def _start_autocommit(self):
-        raise NotImplementedError
-
-    def _end_autocommit(self):
-        raise NotImplementedError
+        cu = self._conn.cursor()
+        return cu.execute(query, *args, **kwargs)
 
     # Callbacks for our txns to open/close underlying txns, among other
     # things.
