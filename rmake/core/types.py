@@ -12,6 +12,10 @@
 # full details.
 #
 
+from rmake.lib import uuid
+
+NAMESPACE_TASK = uuid.UUID('14dfcf54-40e4-11df-b434-33d2b616adec')
+
 
 class _SlotCompare(object):
     __slots__ = ()
@@ -39,13 +43,16 @@ class RmakeJob(_SlotCompare):
         self.times = times or JobTimes()
 
 
-class RmakeUnit(_SlotCompare):
-    __slots__ = ('unit_uuid', 'job_uuid', 'unit_type', 'node_assigned',
-            'times')
+class RmakeTask(_SlotCompare):
+    __slots__ = ('task_uuid', 'job_uuid', 'task_name', 'task_type',
+            'task_data', 'node_assigned', 'times')
 
-    def __init__(self, unit_uuid, job_uuid, unit_type, node_assigned=None,
-            status=None, times=None):
-        self.unit_uuid = unit_uuid
+    def __init__(self, task_uuid, job_uuid, task_name, task_type,
+            task_data=None, node_assigned=None, times=None):
+        if not task_uuid:
+            task_uuid = uuid.uuid5(NAMESPACE_TASK,
+                    str(job_uuid) + str(task_name))
+        self.task_uuid = task_uuid
         self.job_uuid = job_uuid
         self.unit_type = unit_type
         self.node_assigned = node_assigned
@@ -63,11 +70,12 @@ class JobStatus(_SlotCompare):
 
 
 class JobTimes(_SlotCompare):
-    __slots__ = ('started', 'updated', 'finished', 'expires_after')
+    __slots__ = ('started', 'updated', 'finished', 'expires_after', 'ticks')
 
     def __init__(self, started=None, updated=None, finished=None,
-            expires_after=None):
+            expires_after=None, ticks=None):
         self.started = started
         self.updated = updated
         self.finished = finished
         self.expires_after = expires_after
+        self.ticks = ticks

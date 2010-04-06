@@ -13,13 +13,12 @@
 
 import cPickle
 import logging
+from rmake.core.types import RmakeTask
 from twisted.internet import defer
 
 log = logging.getLogger(__name__)
 
 JOB_STATE_VERSION = 1
-
-STATUS_IDLE, STATUS_SENT, STATUS_AGAIN, STATUS_CRITICAL = range(4)
 
 
 class _HandlerRegistrar(type):
@@ -35,8 +34,8 @@ class _HandlerRegistrar(type):
         return cls
 
 
-def getHandler(jobType, dispatcher, job):
-    return _HandlerRegistrar.handlers[jobType](dispatcher, job)
+def getHandlerClass(jobType):
+    return _HandlerRegistrar.handlers[jobType]
 
 
 class JobHandler(object):
@@ -51,7 +50,7 @@ class JobHandler(object):
         self.dispatcher = dispatcher
         self.job = job
         self.eventsPending = []
-        self.statusPending = STATUS_IDLE
+        self.statusPending = (None, None)
         self.state = None
         self.setup()
 
@@ -68,7 +67,8 @@ class JobHandler(object):
         self._try_call('begin_', False)
 
     def _continue(self, event):
-        if self.statusPending == STATUS_CRITICAL:
+        tickPending, critPending = self.statusPending
+        if critPending:
             self.eventsPending.append(event)
             return
         self._try_call('continue_', True, event)
@@ -97,62 +97,81 @@ class JobHandler(object):
         pass
 
     def setStatus(self, code, text, detail=None, state=None):
-        status = self.job.status
-        if (code == status.code and text == status.text and detail ==
-                status.detail and state is None):
-            return defer.succeed(None)
         if state not in (None, self.state):
             critical = True
             self.state = state
         else:
             critical = False
-        status.code = code
-        status.text = text
-        status.detail = detail
+        self.job.status.code = code
+        self.job.status.text = text
+        self.job.status.detail = detail
+        self.job.times.ticks += 1
         log.debug("Job %s status is: %s %s", self.job.job_uuid, code, text)
         self._sendStatus(critical)
 
     def _sendStatus(self, critical):
-        if self.statusPending >= STATUS_SENT and not critical:
-            if self.statusPending == STATUS_CRITICAL:
-                # Shouldn't happen because events get spooled if there's a
-                # critical update pending.
-                log.warning("Discarding non-critical status update")
+        tick = self.job.times.ticks
+        tickPending, critPending = self.statusPending
+        if tickPending is not None:
+            assert tickPending < tick
+            if critPending:
+                # Events are spooled while a critical update is pending, so
+                # this should never happen.
+                raise RuntimeError("Status update while critical update "
+                        "was pending")
+            elif not critical:
+                # Defer status update until the in-flight one finishes.
+                #print self.job.job_uuid, 'deferring', tick
                 return
-            # Send status once the current update finishes.
-            self.statusPending = STATUS_AGAIN
-            return
 
         # Start a status update and hook the end to check if someone else
         # changed it again.
-        isDone = self.state == 'done'
         if critical:
-            self.statusPending = STATUS_CRITICAL
-            d = self.dispatcher.updateJob(self.job, isDone=isDone,
-                    frozen=self.freeze())
+            frozen = self.freeze()
         else:
-            self.statusPending = STATUS_SENT
-            d = self.dispatcher.updateJob(self.job, isDone=isDone)
+            frozen = None
+        self.statusPending = tick, critical
+        #print self.job.job_uuid, 'sending', tick, critical
+        d = self.dispatcher.updateJob(self.job, isDone=(self.state == 'done'),
+                frozen=frozen)
 
+        @d.addCallback
         def send_deferred_status(dummy):
             from twisted.internet import reactor
+            #print self.job.job_uuid, 'finished', tick, critical
             if critical:
+                # Start the next state and re-send any pending events.
                 reactor.callLater(0, self._begin)
                 for event in self.eventsPending:
                     reactor.callLater(0, self._continue, event)
                 self.eventsPending = []
-            elif self.statusPending == STATUS_AGAIN:
+
+            newPending = self.statusPending[0]
+            if newPending is None or newPending > tick:
+                # Pre-empted by a critical update.
+                #print self.job.job_uuid, 'preempted', tick, 'by', newPending
+                return
+
+            if self.job.times.ticks > tick:
                 # Schedule another status send immediately.
+                #print self.job.job_uuid, 'rescheduling', self.job.times.ticks, 'after', tick
                 log.debug("Scheduling another status update")
                 reactor.callLater(0, self._sendStatus, False)
-            self.statusPending = STATUS_IDLE
-        d.addCallback(send_deferred_status)
+            self.statusPending = None, None
         d.addErrback(self.onError)
 
     def onError(self, failure):
         log.error("Unhandled error in job handler:\n%s" %
                 failure.getTraceback())
         # FIXME: fail the job
+
+    ## Creating/monitoring tasks
+
+    def newTask(self, taskName, taskType, data):
+        if data is not None:
+            data = cPickle.dumps(2, data)
+        task = RmakeTask(None, self.job.job_uuid, taskName, taskType, data)
+        return self.dispatcher.createTask(task)
 
     ## Freezer machinery
 

@@ -19,13 +19,15 @@ Status updates are routed back to clients and to the database.
 """
 
 
+import copy
 import logging
-from rmake.core.handler import getHandler
+from rmake.core.handler import getHandlerClass
 from rmake.db import database
 from rmake.errors import RmakeError
 from rmake.lib import dbpool
 from rmake.lib import rpc_pickle
 from rmake.lib.apirpc import RPCServer, expose
+from rmake.lib.daemon import setDebugHook
 from rmake.lib.uuid import UUID
 from rmake.messagebus.client import BusService
 from rmake.messagebus.config import DispatcherConfig
@@ -116,20 +118,28 @@ class Dispatcher(MultiService, RPCServer):
 
     @expose
     def createJob(self, callData, job):
-        return self.pool.runWithTransaction(self._createJob, job)
+        #job = copy.deepcopy(job)
+        try:
+            handlerClass = getHandlerClass(job.job_type)
+        except KeyError:
+            raise RmakeError("Job type %r is unsupported" % job.job_type)
+
+        d = self.pool.runWithTransaction(self.db.core.createJob, job)
+        @d.addCallback
+        def post_create(newJob):
+            self.handlers[newJob.job_uuid] = handler = handlerClass(self,
+                    newJob)
+            handler.start()
+            return newJob
+        return d
 
     def _createJob(self, job):
         job = self.db.core.createJob(job)
-        try:
-            handler = self.handlers[job.job_uuid] = getHandler(job.job_type,
-                    self, job)
-        except KeyError:
-            raise RmakeError("Job type %r is unsupported" % job.job_type)
-        from twisted.internet import reactor
-        reactor.callFromThread(handler.start)
         return job
 
     def updateJob(self, job, frozen=None, isDone=False):
+        # TODO: pass update params directly because deepcopy is super expensive
+        job = copy.deepcopy(job)
         return self.pool.runWithTransaction(self._updateJob, job,
                 frozen=frozen, isDone=isDone)
 
@@ -138,6 +148,10 @@ class Dispatcher(MultiService, RPCServer):
         if isDone:
             log.debug("Deleting job %s", job.job_uuid)
             del self.handlers[job.job_uuid]
+
+    def createTask(self, task):
+        task = copy.deepcopy(task)
+        return self.pool.runWithTransaction(self.db.core.createTask, task)
 
 
 def main():
@@ -162,6 +176,7 @@ def main():
     from rmake.lib.logger import setupLogging
     setupLogging(consoleLevel=(options.debug and logging.DEBUG or
         logging.INFO), consoleFormat='file', withTwisted=True)
+    setDebugHook()
 
     from twisted.internet import reactor
     service = Dispatcher(cfg)

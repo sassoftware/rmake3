@@ -17,6 +17,7 @@ bin_files = \
 	rmake
 
 sbin_files = \
+	rmake-dispatcher \
 	rmake-messagebus \
 	rmake-server \
 	rmake-node \
