@@ -28,10 +28,15 @@ class UUID_Adapter(object):
         return "'%s'::uuid" % self._uuid
 _ext.register_adapter(uuid.UUID, UUID_Adapter)
 
+def _uuid_cast(value, cursor):
+    if value:
+        return uuid.UUID(value)
+    else:
+        return None
+
+_uuid_oids = (2950,)
+_uuid_type = _ext.new_type(_uuid_oids, "UUID", _uuid_cast)
+
 
 def register_types(db):
-    global uuid_type
-    uuid_oids = (2950,)
-    uuid_type = _ext.new_type(uuid_oids, "UUID",
-            lambda d, cu: d and uuid.UUID(d) or None)
-    _ext.register_type(uuid_type, db._conn)
+    _ext.register_type(_uuid_type, db._conn)
