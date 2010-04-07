@@ -202,13 +202,16 @@ class DatabaseConnection(object):
 
         @rtype: L{Transaction}
         """
+        savepoint = self._getSavePointName()
+        cmd = "SAVEPOINT %s" % (savepoint,)
         if not self._stack:
-            self._execute("BEGIN")
+            cmd = "BEGIN; " + cmd
         elif topLevel:
             raise TransactionError("There must not be a transaction open.",
                     self._stack[0])
-        txn = Transaction(self, self._getSavePointName(), readOnly, depth + 1)
-        self._execute("SAVEPOINT %s" % (txn.savePoint,))
+        self._execute(cmd)
+
+        txn = Transaction(self, savepoint, readOnly, depth + 1)
         self._stack.append(txn)
         return txn
 
@@ -259,13 +262,15 @@ class DatabaseConnection(object):
 
         # Roll back this transaction and any changes "rolled up" into it
         # from subtransactions.
-        self._execute("ROLLBACK TO SAVEPOINT %s" % (txn.savePoint,))
+        cmd = "ROLLBACK TO SAVEPOINT %s" % (txn.savePoint,)
 
         if not self._stack:
             # If there are no transactions in the stack, and thus no savepoints
             # to roll back to, rollback the real transaction even though it
             # doesn't contain any changes.
-            self._execute("ROLLBACK")
+            cmd += "; ROLLBACK"
+
+        self._execute(cmd)
 
     def _txn_commit(self, txn):
         """
@@ -276,20 +281,24 @@ class DatabaseConnection(object):
         if not txn.readOnly:
             # Read-write transactions get "released" so their changes
             # become part of the parent transaction.
-            self._execute("RELEASE SAVEPOINT %s" % (txn.savePoint,))
+            cmd = "RELEASE SAVEPOINT "
         else:
             # Read-only transactions get rolled back. This will undo any
             # subtransactions that committed, as they got "rolled up" into
             # this one.
-            self._execute("ROLLBACK TO SAVEPOINT %s" % (txn.savePoint,))
+            cmd = "ROLLBACK TO SAVEPOINT "
+        cmd += txn.savePoint
+
         if not self._stack:
             # If there are no transactions in the stack, and thus no savepoints
             # to roll back to, commit the whole pile of changes, or rollback if
             # the last transaction was read-only.
             if txn.readOnly:
-                self._execute("ROLLBACK")
+                cmd += "; ROLLBACK"
             else:
-                self._execute("COMMIT")
+                cmd += "; COMMIT"
+
+        self._execute(cmd)
 
 
 class ConnectString(object):

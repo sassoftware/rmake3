@@ -29,13 +29,36 @@ class TransactionError(DatabaseError):
         return msg
 
 
-class ColumnNotUniqueError(DatabaseError):
-    pass
-
-
 class DatabaseLockedError(DatabaseError):
     pass
 
 
 class InvalidTableError(DatabaseError):
     pass
+
+
+# SQL standard errors
+
+class SQLError(DatabaseError):
+    err_class = None
+    err_code = None
+
+## Class 23 - Integrity Constraint Violation
+
+class IntegrityError(SQLError):
+    err_class = '23'
+    err_code = '23000'
+class RestrictViolationError(IntegrityError):
+    err_code = '23001'
+class NotNullViolationError(IntegrityError):
+    err_code = '23502'
+class ForeignKeyViolationError(IntegrityError):
+    err_code = '23503'
+class UniqueViolationError(IntegrityError):
+    err_code = '23505'
+class CheckViolationError(IntegrityError):
+    err_code = '23514'
+
+
+DATABASE_ERRORS = dict((x.err_code, x) for x in locals().values()
+        if getattr(x, 'err_code', None))

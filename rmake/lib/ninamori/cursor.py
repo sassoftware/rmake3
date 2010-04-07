@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2009 rPath, Inc.
+# Copyright (c) 2009-2010 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -11,8 +11,9 @@
 # or fitness for a particular purpose. See the Common Public License for
 # full details.
 
+import psycopg2
 import weakref
-from rmake.lib.ninamori.error import TransactionError
+from rmake.lib.ninamori.error import DATABASE_ERRORS, SQLError, TransactionError
 from rmake.lib.ninamori.types import Row, SQL
 
 
@@ -48,7 +49,21 @@ class Cursor(object):
         """
         self._txn().ready()
         try:
-            return func(*args, **kwargs)
+            # http://www.postgresql.org/docs/8.4/interactive/errcodes-appendix.html
+            try:
+                return func(*args, **kwargs)
+            except psycopg2.DatabaseError, err:
+                # Re-throw with our more specific types
+                if getattr(err, 'pgcode', None):
+                    exc_type = DATABASE_ERRORS.get(err.pgcode, None)
+                    if not exc_type:
+                        generic = err.pgcode[:2] + '000'
+                        exc_type = DATABASE_ERRORS.get(generic, None)
+                    if not exc_type:
+                        exc_type = SQLError
+                else:
+                    exc_type = DatabaseError
+                raise exc_type(*err.args)
         except:
             self._txn().setInError()
             raise
