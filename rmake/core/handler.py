@@ -244,13 +244,16 @@ class TestHandler(JobHandler):
         return self.setStatus(200, "Test job complete", state='done')
 
     def launchStuff(self, howmany):
-        #import random
+        import random
         from twisted.internet import reactor
         for x in range(min(howmany, self.spam - self.started)):
             self.started += 1
             num = self.started
             reactor.callLater(0, self.did_something, num)
             #reactor.callLater(random.uniform(1, 3), self.did_something, num)
+
+            name = 'foo %d' % self.started
+            self.newTask(name, 'test', None)
 
     def did_something(self, num):
         self.finished += 1

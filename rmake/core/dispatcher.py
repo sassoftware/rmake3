@@ -151,7 +151,7 @@ class Dispatcher(MultiService, RPCServer):
 
     def createTask(self, task):
         task = copy.deepcopy(task)
-        return self.pool.runWithTransaction(self.db.core.createTask, task)
+        return self.pool.runWithTransaction(self.db.core.createTaskMaybe, task)
 
 
 def main():

@@ -54,9 +54,10 @@ class RmakeTask(_SlotCompare):
                     str(job_uuid) + str(task_name))
         self.task_uuid = task_uuid
         self.job_uuid = job_uuid
-        self.unit_type = unit_type
+        self.task_name = task_name
+        self.task_type = task_type
+        self.task_data = task_data
         self.node_assigned = node_assigned
-        self.status = status or JobStatus()
         self.times = times or JobTimes()
 
 

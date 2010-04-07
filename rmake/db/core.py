@@ -14,7 +14,8 @@
 
 
 from rmake.core.types import RmakeJob, RmakeTask, JobStatus, JobTimes
-from rmake.lib.ninamori.decorators import protected, readOnly
+from rmake.lib.ninamori.decorators import protected, protectedBlock, readOnly
+from rmake.lib.ninamori.error import UniqueViolationError
 from rmake.lib.ninamori.types import SQL
 from rmake.lib.uuid import UUID
 
@@ -35,6 +36,20 @@ class CoreDB(object):
                 kwargs.pop('time_finished'), kwargs.pop('expires_after', None),
                 kwargs.pop('time_ticks', None))
 
+    @readOnly
+    def _getThings(self, cu, table, column, generator, raw_uuids):
+        uuids = []
+        for uuid in raw_uuids:
+            if not isinstance(uuid, UUID):
+                uuid = UUID(uuid)
+            uuids.append(uuid)
+
+        stmt = "SELECT * FROM %s WHERE %s IN %%s" % (table, column)
+        cu.execute(stmt, (tuple(uuids),))
+
+        things = dict(((getattr(x, column), x) for x in generator(cu)))
+        return [things.get(x) for x in uuids]
+
     ## Jobs
 
     def _iterJobs(self, cu):
@@ -45,19 +60,9 @@ class CoreDB(object):
             del kwargs['frozen']
             yield RmakeJob(**kwargs)
 
-    @readOnly
-    def getJobs(self, cu, job_uuids):
-        uuids = []
-        for uuid in job_uuids:
-            if not isinstance(uuid, UUID):
-                uuid = UUID(uuid)
-            uuids.append(uuid)
-
-        cu.execute("SELECT * FROM jobs.jobs WHERE job_uuid IN %s",
-                (tuple(uuids),))
-
-        jobs = dict((x.job_uuid, x) for x in self._iterJobs(cu))
-        return [jobs.get(x) for x in job_uuids]
+    def getJobs(self, job_uuids):
+        return self._getThings('jobs.jobs', 'job_uuid', self._iterJobs,
+                job_uuids)
 
     @protected
     def createJob(self, cu, job):
@@ -94,6 +99,10 @@ class CoreDB(object):
             kwargs['times'] = self._popTimes(kwargs)
             yield RmakeTask(**kwargs)
 
+    def getTasks(self, task_uuids):
+        return self._getThings('jobs.tasks', 'task_uuid', self._iterTasks,
+                task_uuids)
+
     @protected
     def createTask(self, cu, task):
         cu.execute("""
@@ -104,3 +113,11 @@ class CoreDB(object):
             """, (task.task_uuid, task.job_uuid, task.task_name,
                 task.task_type, task.task_data))
         return self._iterTasks(cu).next()
+
+    @protectedBlock
+    def createTaskMaybe(self, task):
+        # TODO: use a stored procedure
+        try:
+            return self.createTask(task)
+        except UniqueViolationError:
+            return self.getTasks([task.task_uuid])[0]
