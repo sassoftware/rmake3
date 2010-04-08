@@ -107,10 +107,18 @@ class Dispatcher(MultiService, RPCServer):
 
     def jobDone(self, job_uuid):
         if job_uuid in self.handlers:
-            log.info("Job %s done", job_uuid)
+            status = self.handlers[job_uuid].job.status
+            if 200 <= status < 300:
+                result = 'done'
+            elif 400 <= status < 500:
+                result = 'failed'
+            else:
+                result = 'finished'
+            log.info("Job %s %s: %s", job_uuid, result, status.text)
             del self.handlers[job_uuid]
         else:
-            log.warning("Job %s done but it is already finished", job_uuid)
+            log.warning("Tried to remove job %s but it is already gone.",
+                    job_uuid)
 
     @expose
     def getJobs(self, callData, job_uuids):
@@ -127,6 +135,8 @@ class Dispatcher(MultiService, RPCServer):
         d = self.pool.runWithTransaction(self.db.core.createJob, job)
         @d.addCallback
         def post_create(newJob):
+            log.info("Job %s of type %r started", newJob.job_uuid,
+                    newJob.job_type)
             self.handlers[newJob.job_uuid] = handler = handlerClass(self,
                     newJob)
             handler.start()
@@ -146,8 +156,7 @@ class Dispatcher(MultiService, RPCServer):
     def _updateJob(self, job, frozen=None, isDone=False):
         self.db.core.updateJob(job, frozen=frozen, isDone=isDone)
         if isDone:
-            log.debug("Deleting job %s", job.job_uuid)
-            del self.handlers[job.job_uuid]
+            self.jobDone(job.job_uuid)
 
     def createTask(self, task):
         task = copy.deepcopy(task)

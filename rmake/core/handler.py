@@ -15,6 +15,8 @@ import cPickle
 import logging
 from rmake.core.types import RmakeTask
 from twisted.internet import defer
+from twisted.python import reflect
+from twisted.python.failure import Failure
 
 log = logging.getLogger(__name__)
 
@@ -90,11 +92,20 @@ class JobHandler(object):
         try:
             func(*args)
         except:
-            log.exception("Error in job handler method %s:", name)
-            # FIXME: fail the job
+            self.failJob(Failure())
+
+    ## Special end states
 
     def begin_done(self):
         pass
+
+    def begin_failed(self):
+        pass
+
+    def _isDone(self):
+        return self.state in ('done', 'failed')
+
+    ## Changing status and state
 
     def setStatus(self, code, text, detail=None, state=None):
         if state not in (None, self.state):
@@ -107,7 +118,7 @@ class JobHandler(object):
         self.job.status.detail = detail
         self.job.times.ticks += 1
         log.debug("Job %s status is: %s %s", self.job.job_uuid, code, text)
-        self._sendStatus(critical)
+        return self._sendStatus(critical)
 
     def _sendStatus(self, critical):
         tick = self.job.times.ticks
@@ -121,7 +132,6 @@ class JobHandler(object):
                         "was pending")
             elif not critical:
                 # Defer status update until the in-flight one finishes.
-                #print self.job.job_uuid, 'deferring', tick
                 return
 
         # Start a status update and hook the end to check if someone else
@@ -131,14 +141,10 @@ class JobHandler(object):
         else:
             frozen = None
         self.statusPending = tick, critical
-        #print self.job.job_uuid, 'sending', tick, critical
-        d = self.dispatcher.updateJob(self.job, isDone=(self.state == 'done'),
+        d = self.dispatcher.updateJob(self.job, isDone=self._isDone(),
                 frozen=frozen)
-
-        @d.addCallback
-        def send_deferred_status(dummy):
+        def update_ok(dummy):
             from twisted.internet import reactor
-            #print self.job.job_uuid, 'finished', tick, critical
             if critical:
                 # Start the next state and re-send any pending events.
                 reactor.callLater(0, self._begin)
@@ -149,21 +155,40 @@ class JobHandler(object):
             newPending = self.statusPending[0]
             if newPending is None or newPending > tick:
                 # Pre-empted by a critical update.
-                #print self.job.job_uuid, 'preempted', tick, 'by', newPending
                 return
 
             if self.job.times.ticks > tick:
                 # Schedule another status send immediately.
-                #print self.job.job_uuid, 'rescheduling', self.job.times.ticks, 'after', tick
                 log.debug("Scheduling another status update")
                 reactor.callLater(0, self._sendStatus, False)
             self.statusPending = None, None
-        d.addErrback(self.onError)
+        def update_failed(failure):
+            # Clear pending field so the attempt to change state to failed can
+            # succeed.
+            self.statusPending = None, None
+            return failure
+        d.addCallbacks(update_ok, update_failed)
 
-    def onError(self, failure):
-        log.error("Unhandled error in job handler:\n%s" %
-                failure.getTraceback())
-        # FIXME: fail the job
+        d.addErrback(self.failJob, message="Error setting job status:")
+        return d
+
+    def failJob(self, failure, message="Unhandled error in job handler:"):
+        log.error("%s\n%sJob: %s\n", message, failure.getTraceback(),
+                self.job.job_uuid)
+
+        text = "Job failed: %s: %s" % (
+                reflect.qual(failure.type),
+                reflect.safe_str(failure.value))
+        d = self.setStatus(400, text=text, detail=failure.getTraceback(),
+                state='failed')
+        # If setting status fails we'll have to forget about the job and hope
+        # for the best. Perhaps in the future we can handle short-term database
+        # faults more gracefully.
+        @d.addErrback
+        def set_status_failed(failure):
+            log.error("Failed to set job status to failed:\n%s",
+                    failure.getTraceback())
+            self.dispatcher.jobDone(self.job.job_uuid)
 
     ## Creating/monitoring tasks
 
@@ -231,18 +256,6 @@ class TestHandler(JobHandler):
         return self.setStatus(100, "Collecting spam {%d/%d}" %
                 (self.finished, self.spam))
 
-    # States 1 - 5
-    def begin_1(self):
-        return self.callChain('2')
-    def begin_2(self):
-        return self.callChain('3')
-    def begin_3(self):
-        return self.callChain('4')
-    def begin_4(self):
-        return self.callChain('5')
-    def begin_5(self):
-        return self.setStatus(200, "Test job complete", state='done')
-
     def launchStuff(self, howmany):
         import random
         from twisted.internet import reactor
@@ -258,6 +271,18 @@ class TestHandler(JobHandler):
     def did_something(self, num):
         self.finished += 1
         self._continue('spam')
+
+    # States 1 - 5
+    def begin_1(self):
+        return self.callChain('2')
+    def begin_2(self):
+        return self.callChain('3')
+    def begin_3(self):
+        return self.callChain('4')
+    def begin_4(self):
+        return self.callChain('5')
+    def begin_5(self):
+        return self.setStatus(200, "Test job complete", state='done')
 
     def callChain(self, num):
         from twisted.internet import reactor
