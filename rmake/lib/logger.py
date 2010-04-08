@@ -13,6 +13,8 @@
 #
 
 import logging
+import sys
+from twisted.python import log as twlog
 
 
 FORMATS = {
@@ -55,14 +57,38 @@ def setupLogging(logPath=None, consoleLevel=logging.WARNING,
         level = min(level, fileLevel)
 
     if withTwisted:
-        from twisted.python import log as twlog
-        twlog.startLoggingWithObserver(twlog.PythonLoggingObserver().emit,
-                setStdout=False)
+        twlog.startLoggingWithObserver(twistedLogObserver, setStdout=False)
 
     logger.setLevel(level)
     return logger
 
 
-def logFailure(failure, what='deferred'):
-    logging.error("Unhandled exception in %s:\n%s", what,
-            failure.getTraceback())
+def twistedLogObserver(eventDict):
+    """Forward twisted logs to the python stdlib logger.
+
+    Primary differences from t.p.log.PythonLoggingObserver:
+     * Default level of DEBUG for non-error messages
+     * Picks a logger based on the module of the caller. This way the output
+       shows which part of twisted generated the message.
+    """
+    caller = sys._getframe(2)
+    module = caller.f_globals.get('__name__', 'twisted')
+    logger = logging.getLogger(module)
+    if 'logLevel' in eventDict:
+        level = eventDict['logLevel']
+    elif eventDict['isError']:
+        level = logging.ERROR
+    else:
+        level = logging.DEBUG
+    text = twlog.textFromEventDict(eventDict)
+    if text is None:
+        return
+    logger.log(level, text)
+
+
+def logFailure(failure, msg='Unhandled exception in deferred:'):
+    """Log a Twisted Failure object with traceback.
+
+    Suitable for use as an errback.
+    """
+    logging.error('%s\n%s', msg, failure.getTraceback())
