@@ -28,6 +28,25 @@ class _MessageTypeRegistrar(type):
 
     def __new__(metacls, name, bases, clsdict):
         clsdict.setdefault('__slots__', ())
+        pslots = clsdict.get('_payload_slots')
+        if pslots:
+            setter = 'def set(self, %s):\n' % (', '.join(pslots))
+            for pslot in pslots:
+                # Define properties for each payload slot to fetch that
+                # attribute.
+                ctx = {}
+                stmt = ('def %(n)s(self): return self.payload.%(n)s' %
+                        dict(n=pslot))
+                exec stmt in ctx
+                clsdict[pslot] = property(ctx[pslot])
+
+                setter += '    self.payload.%(n)s = %(n)s\n' % dict(n=pslot)
+
+            # Define a set() method
+            ctx = {}
+            exec setter in ctx
+            clsdict['set'] = ctx['set']
+
         cls = type.__new__(metacls, name, bases, clsdict)
         if cls.messageType:
             metacls.messageTypes[cls.messageType] = cls
@@ -38,6 +57,7 @@ class Message(object):
     """Base class for all thawed message types."""
     __metaclass__ = _MessageTypeRegistrar
     __slots__ = ('payload', 'info')
+    _payload_slots = None
 
     messageType = None
 
@@ -125,6 +145,13 @@ class Message(object):
         msg.info.id = xmppNode.getAttribute('id')
         return msg
 
+    def __getstate__(self):
+        return {'payload': self.payload, 'info': self.info}
+
+    def __setstate__(self, state):
+        self.payload = state['payload']
+        self.info = state['info']
+
 
 class MessagePayload(object):
     """Dummy object used as an attribute store for messages."""
@@ -137,56 +164,30 @@ class MessageInfo(object):
 
 class Event(Message):
     """Event published by the sender and subscribed by the receiver."""
-
     messageType = 'event'
-
-    def set(self, event, args, kwargs):
-        self.payload.event = event
-        self.payload.args = args
-        self.payload.kwargs = kwargs
+    _payload_slots = ('event', 'args', 'kwargs')
 
     def publish(self, publisher):
         """Publish this event to the given "publisher"."""
         publisher._send(self.payload.event, self.info, *self.payload.args,
                 **self.payload.kwargs)
 
-    @property
-    def event(self):
-        return self.payload.event
-
 
 class StartWork(Message):
-
     messageType = 'start-work'
-
-    def set(self, cfg):
-        self.payload.cfg = cfg
-
-    @property
-    def cfg(self):
-        return self.payload.cfg
+    _payload_slots = ('cfg',)
 
 
 class StartTask(Message):
-
     messageType = 'start-task'
-
-    def set(self, task):
-        self.payload.task = task
-
-    task = property(lambda self: self.payload.task)
+    _payload_slots = ('task',)
 
 
 class TaskStatus(Message):
-
     messageType = 'task-status'
-
-    def set(self, task):
-        self.payload.task = task
-
-    task = property(lambda self: self.payload.task)
+    _payload_slots = ('task',)
 
 
 class Heartbeat(Message):
-
     messageType = 'heartbeat'
+    _payload_slots = ('caps', 'tasks')
