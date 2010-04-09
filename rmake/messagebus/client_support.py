@@ -137,7 +137,7 @@ class RegisteringAuthenticator(xmlstream.ConnectAuthenticator):
         xmlstream.ConnectAuthenticator.associateWithStream(self, xs)
 
         xs.initializers = [
-                #xmlstream.TLSInitiatingInitializer(xs),
+                xmlstream.TLSInitiatingInitializer(xs),
                 RegisteringInitializer(xs, self.registerCB),
                 ]
 

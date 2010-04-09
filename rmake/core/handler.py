@@ -119,7 +119,6 @@ class JobHandler(object):
         tick = self.job.times.ticks
         tickPending, critPending = self.statusPending
         if tickPending is not None:
-            assert tickPending < tick
             if critPending:
                 # Events are spooled while a critical update is pending, so
                 # this should never happen.
@@ -239,7 +238,7 @@ class TestHandler(JobHandler):
     handler_version = 1
 
     jobType = 'test'
-    spam = 15
+    spam = 4
 
     # State: begin
     def begin_starting(self):
