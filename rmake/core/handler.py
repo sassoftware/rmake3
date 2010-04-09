@@ -14,7 +14,6 @@
 import cPickle
 import logging
 from rmake.core.types import RmakeTask
-from twisted.internet import defer
 from twisted.python import reflect
 from twisted.python.failure import Failure
 
@@ -42,7 +41,8 @@ def getHandlerClass(jobType):
 
 class JobHandler(object):
     __metaclass__ = _HandlerRegistrar
-    __slots__ = ('dispatcher', 'job', 'eventsPending', 'statusPending', 'state')
+    __slots__ = ('dispatcher', 'job', 'eventsPending', 'statusPending',
+            'state', 'tasks')
     _save = ('state',)
 
     jobType = None
@@ -54,6 +54,7 @@ class JobHandler(object):
         self.eventsPending = []
         self.statusPending = (None, None)
         self.state = None
+        self.tasks = {}
         self.setup()
 
     ## State machine methods
@@ -99,12 +100,6 @@ class JobHandler(object):
     def begin_done(self):
         pass
 
-    def begin_failed(self):
-        pass
-
-    def _isDone(self):
-        return self.state in ('done', 'failed')
-
     ## Changing status and state
 
     def setStatus(self, code, text, detail=None, state=None):
@@ -141,8 +136,7 @@ class JobHandler(object):
         else:
             frozen = None
         self.statusPending = tick, critical
-        d = self.dispatcher.updateJob(self.job, isDone=self._isDone(),
-                frozen=frozen)
+        d = self.dispatcher.updateJob(self.job, frozen=frozen)
         def update_ok(dummy):
             from twisted.internet import reactor
             if critical:
@@ -180,7 +174,7 @@ class JobHandler(object):
                 reflect.qual(failure.type),
                 reflect.safe_str(failure.value))
         d = self.setStatus(400, text=text, detail=failure.getTraceback(),
-                state='failed')
+                state='done')
         # If setting status fails we'll have to forget about the job and hope
         # for the best. Perhaps in the future we can handle short-term database
         # faults more gracefully.
@@ -197,6 +191,17 @@ class JobHandler(object):
             data = cPickle.dumps(2, data)
         task = RmakeTask(None, self.job.job_uuid, taskName, taskType, data)
         return self.dispatcher.createTask(task)
+
+    def countRunningTasks(self, taskType):
+        count = 0
+        for task in self.tasks.values():
+            if task.task_type == taskType and not task.status.final:
+                count += 1
+        return count
+
+    def taskUpdated(self, task):
+        self.tasks[task.task_uuid] = task
+        self._continue(('task updated', task))
 
     ## Freezer machinery
 
@@ -247,30 +252,26 @@ class TestHandler(JobHandler):
         return self._spamStatus()
 
     def continue_collect_spam(self, event):
-        if self.finished >= self.spam:
-            return self.callChain('1')
-        else:
-            return self._spamStatus()
+        log.debug("Job %s event: %r", self.job.job_uuid, event)
+        if event[0] != 'task updated':
+            return
+        task = event[1]
+        if task.status.final:
+            self.finished += 1
+        return self._spamStatus()
 
     def _spamStatus(self):
-        return self.setStatus(100, "Collecting spam {%d/%d}" %
-                (self.finished, self.spam))
+        if self.finished < self.spam:
+            return self.setStatus(100, "Collecting spam {%d/%d}" %
+                    (self.finished, self.spam))
+        else:
+            return self.callChain('1')
 
     def launchStuff(self, howmany):
-        import random
-        from twisted.internet import reactor
         for x in range(min(howmany, self.spam - self.started)):
             self.started += 1
-            num = self.started
-            reactor.callLater(0, self.did_something, num)
-            #reactor.callLater(random.uniform(1, 3), self.did_something, num)
-
             name = 'foo %d' % self.started
             self.newTask(name, 'test', None)
-
-    def did_something(self, num):
-        self.finished += 1
-        self._continue('spam')
 
     # States 1 - 5
     def begin_1(self):

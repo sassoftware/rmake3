@@ -87,15 +87,19 @@ class CoreDB(object):
         elif frozen is not None:
             stmt += SQL(", frozen = %s", cu.binary(frozen))
 
-        stmt += SQL(" WHERE job_uuid = %s AND time_ticks < %s", job.job_uuid,
-                job.times.ticks)
+        stmt += SQL("""
+            WHERE job_uuid = %s AND time_ticks < %s
+            RETURNING jobs.jobs.*
+            """, job.job_uuid, job.times.ticks)
         cu.execute(stmt)
+        return self._iterJobs(cu).next()
 
     ## Tasks
 
     def _iterTasks(self, cu):
         for row in cu:
             kwargs = dict(row)
+            kwargs['status'] = self._popStatus(kwargs)
             kwargs['times'] = self._popTimes(kwargs)
             yield RmakeTask(**kwargs)
 
@@ -107,11 +111,12 @@ class CoreDB(object):
     def createTask(self, cu, task):
         cu.execute("""
             INSERT INTO jobs.tasks ( task_uuid, job_uuid, task_name, task_type,
-                task_data )
-            VALUES ( %s, %s, %s, %s, %s )
+                task_data, status_code, status_text, status_detail )
+            VALUES ( %s, %s, %s, %s, %s, %s, %s, %s )
             RETURNING jobs.tasks.*
             """, (task.task_uuid, task.job_uuid, task.task_name,
-                task.task_type, task.task_data))
+                task.task_type, task.task_data, task.status.code,
+                task.status.text, task.status.detail))
         return self._iterTasks(cu).next()
 
     @protectedBlock
@@ -121,3 +126,20 @@ class CoreDB(object):
             return self.createTask(task)
         except UniqueViolationError:
             return self.getTasks([task.task_uuid])[0]
+
+    @protected
+    def updateTask(self, cu, task, isDone=False):
+        stmt = SQL("""
+            UPDATE jobs.tasks SET status_code = %s, status_text = %s,
+                status_detail = %s, time_updated = now(), time_ticks = %s
+                """, task.status.code, task.status.text, task.status.detail,
+                task.times.ticks)
+        if isDone:
+            stmt += SQL(", time_finished = now()")
+
+        stmt += SQL("""
+            WHERE task_uuid = %s AND time_ticks < %s
+            RETURNING jobs.tasks.*
+            """, task.task_uuid, task.times.ticks)
+        cu.execute(stmt)
+        return self._iterTasks(cu).next()

@@ -25,16 +25,18 @@ import logging
 import os
 import socket
 import sys
+from conary.lib import cfgtypes
 from rmake.lib.twisted_extras.pickle_proto import PickleProtocol
 from rmake.lib.twisted_extras.socketpair import socketpair
 from rmake.messagebus import message
-from rmake.messagebus.client import BusClientService
+from rmake.messagebus.client import BusClientService, HeartbeatService
 from rmake.messagebus.config import BusClientConfig
 from rmake.messagebus.interact import InteractiveHandler
 from rmake.worker import executor
 from twisted.application.service import MultiService
 from twisted.internet.error import ProcessDone, ProcessTerminated
 from twisted.internet.protocol import ProcessProtocol
+from twisted.internet.task import LoopingCall
 
 log = logging.getLogger(__name__)
 
@@ -46,11 +48,16 @@ class LauncherService(MultiService):
         self.cfg = cfg
         self.bus = LauncherBusService(cfg)
         self.bus.setServiceParent(self)
+        self.tasks = {}
+        HeartbeatService(self.bus).setServiceParent(self)
 
-    def launch(self):
+    def launch(self, msg):
         from twisted.internet import reactor
 
-        worker = LaunchedWorker(self)
+        task = Task(msg.task)
+        self.tasks[task.task_uuid] = task
+
+        worker = LaunchedWorker(self, task)
         transport, sock = socketpair(worker.net, socket.AF_UNIX, reactor)
 
         args = [sys.executable, executor.__file__]
@@ -58,6 +65,18 @@ class LauncherService(MultiService):
                 os.environ, childFDs={0:0, 1:1, 2:2, 3:sock.fileno()})
 
         sock.close()
+
+    def taskFinished(self, task, code, text):
+        self.sendTaskStatus(task, code, text)
+        del self.tasks[task.task_uuid]
+
+    def sendTaskStatus(self, task, code, text):
+        task.task.times.ticks += 1
+        status = task.task.status
+        status.code = code
+        status.text = text
+        msg = message.TaskStatus(task.task)
+        self.bus.sendToTarget(msg)
 
 
 class LauncherBusService(BusClientService):
@@ -69,6 +88,12 @@ class LauncherBusService(BusClientService):
         BusClientService.__init__(self, cfg, other_handlers={
             'interactive': LauncherInteractiveHandler(),
             })
+
+    def messageReceived(self, msg):
+        if isinstance(msg, message.StartTask):
+            self.parent.launch(msg)
+        else:
+            BusClientService.messageReceived(self, msg)
 
 
 class LauncherInteractiveHandler(InteractiveHandler):
@@ -83,13 +108,14 @@ class LauncherInteractiveHandler(InteractiveHandler):
 
 class LaunchedWorker(ProcessProtocol):
 
-    def __init__(self, launcher):
+    def __init__(self, launcher, task):
         self.launcher = launcher
+        self.task = task
         self.net = LaunchedWorkerSocket(self)
         self.pid = None
 
     def connectionMade(self):
-        self.pid = self.transport.pid
+        self.pid = self.task.pid = self.transport.pid
         log.debug("Executor %s started", self.pid)
 
         msg = message.StartWork(self.launcher.cfg)
@@ -98,6 +124,7 @@ class LaunchedWorker(ProcessProtocol):
     def processEnded(self, failure):
         if failure.check(ProcessDone):
             log.debug("Executor %s terminated normally", self.pid)
+            self.launcher.taskFinished(self.task, 200, "Task completed")
             return
         elif failure.check(ProcessTerminated):
             if failure.value.signal:
@@ -122,9 +149,22 @@ class LaunchedWorkerSocket(PickleProtocol):
         print 'msg: %r' % msg
 
 
+class Task(object):
+
+    def __init__(self, task):
+        self.task_uuid = task.task_uuid
+        self.task = task
+        self.pid = None
+
+
+class WorkerConfig(BusClientConfig):
+    buildDir          = (cfgtypes.CfgPath, '/var/rmake')
+    helperDir         = (cfgtypes.CfgPath, '/usr/libexec/rmake')
+
+
 def main():
     import optparse
-    cfg = BusClientConfig()
+    cfg = WorkerConfig()
     parser = optparse.OptionParser()
     parser.add_option('--debug', action='store_true')
     parser.add_option('-c', '--config-file', action='callback', type='str',
@@ -149,6 +189,3 @@ def main():
         service.bus.logTraffic = True
     service.startService()
     reactor.run()
-
-
-main()

@@ -165,3 +165,28 @@ class StartWork(Message):
     @property
     def cfg(self):
         return self.payload.cfg
+
+
+class StartTask(Message):
+
+    messageType = 'start-task'
+
+    def set(self, task):
+        self.payload.task = task
+
+    task = property(lambda self: self.payload.task)
+
+
+class TaskStatus(Message):
+
+    messageType = 'task-status'
+
+    def set(self, task):
+        self.payload.task = task
+
+    task = property(lambda self: self.payload.task)
+
+
+class Heartbeat(Message):
+
+    messageType = 'heartbeat'

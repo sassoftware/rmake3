@@ -22,6 +22,7 @@ This includes a client protocol, factory, and XMLRPC proxy.
 import errno
 import logging
 import os
+from twisted.application.internet import TimerService
 from twisted.internet import defer
 from twisted.python import failure
 from twisted.words.protocols.jabber.error import StanzaError
@@ -222,6 +223,8 @@ class BusClientService(BusService):
         jid = toJID('%s@%s/%s' % (username, host, self.resourec))
         return jid, password
 
+    ## Event handlers
+
     def onPresence(self, presence):
         if presence.sender == self._targetJID and not presence.available:
             self.targetLost(failure.Failure(
@@ -231,10 +234,25 @@ class BusClientService(BusService):
         pass
 
     def targetLost(self, failure):
-        # TODO: Not a great way to handle this.
+        # FIXME: Not a great way to handle this.
         log.error("Server went away (%s), shutting down.", self._targetJID)
         from twisted.internet import reactor
         reactor.stop()
+
+    ## Commands
+
+    def sendToTarget(self, msg):
+        msg.send(self, self._targetJID)
+
+
+class HeartbeatService(TimerService):
+
+    def __init__(self, bus, interval=5):
+        self.bus = bus
+        TimerService.__init__(self, interval, self.heartbeat)
+
+    def heartbeat(self):
+        self.bus.sendToTarget(message.Heartbeat())
 
 
 def onError(failure):

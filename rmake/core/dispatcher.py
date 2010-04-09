@@ -28,12 +28,15 @@ from rmake.lib import dbpool
 from rmake.lib import rpc_pickle
 from rmake.lib.apirpc import RPCServer, expose
 from rmake.lib.daemon import setDebugHook
+from rmake.lib.logger import logFailure
 from rmake.lib.uuid import UUID
+from rmake.messagebus import message
 from rmake.messagebus.client import BusService
 from rmake.messagebus.config import DispatcherConfig
 from rmake.messagebus.interact import InteractiveHandler
 from twisted.application.internet import TCPServer
 from twisted.application.service import MultiService
+from twisted.internet import defer
 from twisted.web.resource import Resource
 from twisted.web.server import Site
 
@@ -46,14 +49,17 @@ class DispatcherBusService(BusService):
     role = 'dispatcher'
     description = 'rMake Dispatcher'
 
-    def __init__(self, cfg):
+    def __init__(self, dispatcher, cfg):
+        self.dispatcher = dispatcher
         BusService.__init__(self, cfg, other_handlers={
             'interactive': DispatcherInteractiveHandler(),
             })
-        self.addObserver('heartbeat', self.onHeartbeat)
 
-    def onHeartbeat(self, info, nodeType):
-        print 'heartbeat from %s (%s)' % (info.sender, nodeType)
+    def messageReceived(self, msg):
+        if isinstance(msg, message.TaskStatus):
+            self.dispatcher.updateTask(msg.task)
+        else:
+            BusService.messageReceived(self, msg)
 
 
 class DispatcherInteractiveHandler(InteractiveHandler):
@@ -96,29 +102,16 @@ class Dispatcher(MultiService, RPCServer):
         self.db = database.Database(cfg.databaseUrl,
                 dbpool.PooledDatabaseProxy(self.pool))
 
-        self.bus = DispatcherBusService(cfg)
+        self.bus = DispatcherBusService(self, cfg)
         self.bus.setServiceParent(self)
 
-        self.handlers = {}
+        self.jobs = {}
 
         root = Resource()
         root.putChild('picklerpc', rpc_pickle.PickleRPCResource(self))
         TCPServer(9999, Site(root)).setServiceParent(self)
 
-    def jobDone(self, job_uuid):
-        if job_uuid in self.handlers:
-            status = self.handlers[job_uuid].job.status
-            if 200 <= status < 300:
-                result = 'done'
-            elif 400 <= status < 500:
-                result = 'failed'
-            else:
-                result = 'finished'
-            log.info("Job %s %s: %s", job_uuid, result, status.text)
-            del self.handlers[job_uuid]
-        else:
-            log.warning("Tried to remove job %s but it is already gone.",
-                    job_uuid)
+    ## Client API
 
     @expose
     def getJobs(self, callData, job_uuids):
@@ -137,30 +130,81 @@ class Dispatcher(MultiService, RPCServer):
         def post_create(newJob):
             log.info("Job %s of type %r started", newJob.job_uuid,
                     newJob.job_type)
-            self.handlers[newJob.job_uuid] = handler = handlerClass(self,
-                    newJob)
+            handler = handlerClass(self, newJob)
+            self.jobs[newJob.job_uuid] = handler
             handler.start()
             return newJob
         return d
+
+    # Job handler API
+
+    def jobDone(self, job_uuid):
+        if job_uuid in self.jobs:
+            status = self.jobs[job_uuid].job.status
+            if status.completed:
+                result = 'done'
+            elif status.failed:
+                result = 'failed'
+            else:
+                result = 'finished'
+            log.info("Job %s %s: %s", job_uuid, result, status.text)
+            del self.jobs[job_uuid]
+        else:
+            log.warning("Tried to remove job %s but it is already gone.",
+                    job_uuid)
 
     def _createJob(self, job):
         job = self.db.core.createJob(job)
         return job
 
-    def updateJob(self, job, frozen=None, isDone=False):
+    def updateJob(self, job, frozen=None):
         # TODO: pass update params directly because deepcopy is super expensive
         job = copy.deepcopy(job)
         return self.pool.runWithTransaction(self._updateJob, job,
-                frozen=frozen, isDone=isDone)
+                frozen=frozen)
 
-    def _updateJob(self, job, frozen=None, isDone=False):
-        self.db.core.updateJob(job, frozen=frozen, isDone=isDone)
-        if isDone:
+    def _updateJob(self, job, frozen=None):
+        self.db.core.updateJob(job, frozen=frozen)
+        if job.status.final:
             self.jobDone(job.job_uuid)
 
     def createTask(self, task):
+        job = self.jobs[task.job_uuid]
+        if task.task_uuid in job.tasks:
+            return defer.succeed(job.tasks[task.task_uuid])
+        job.tasks[task.task_uuid] = task
+
+        # Try to assign before saving so we can avoid a second trip to the DB
+        self._assignTask(task)
+
         task = copy.deepcopy(task)
-        return self.pool.runWithTransaction(self.db.core.createTaskMaybe, task)
+        d = self.pool.runWithTransaction(self.db.core.createTaskMaybe, task)
+        @d.addCallback
+        def post_create(newTask):
+            job.tasks[newTask.task_uuid] = newTask
+            return newTask
+        return d
+
+    ## Message bus API
+
+    def updateTask(self, task):
+        d = self.pool.runWithTransaction(self.db.core.updateTask, task)
+        @d.addCallback
+        def task_updated(newTask):
+            handler = self.jobs.get(task.job_uuid)
+            if not handler:
+                return
+            handler.taskUpdated(newTask)
+        d.addErrback(logFailure)
+
+    ## Task assignment
+
+    def _assignTask(self, task):
+        from twisted.words.protocols.jabber.jid import JID
+        node = task.node_assigned = JID(
+                'e962bdb07ee8bacc1087d38a8b07642f@dhcp196.eng.rpath.com/rmake')
+        msg = message.StartTask(copy.deepcopy(task))
+        msg.send(self.bus, node)
 
 
 def main():
