@@ -13,6 +13,7 @@
 #
 
 from rmake.lib import uuid
+from rmake.lib.ninamori.types import namedtuple
 
 NAMESPACE_TASK = uuid.UUID('14dfcf54-40e4-11df-b434-33d2b616adec')
 
@@ -93,3 +94,7 @@ class JobTimes(_SlotCompare):
         self.finished = finished
         self.expires_after = expires_after
         self.ticks = ticks
+
+
+class TaskCapability(namedtuple('TaskCapability', 'taskType')):
+    pass

@@ -22,7 +22,6 @@ This includes a client protocol, factory, and XMLRPC proxy.
 import errno
 import logging
 import os
-from twisted.application.internet import TimerService
 from twisted.internet import defer
 from twisted.python import failure
 from twisted.words.protocols.jabber.error import StanzaError
@@ -243,16 +242,6 @@ class BusClientService(BusService):
 
     def sendToTarget(self, msg):
         msg.send(self, self._targetJID)
-
-
-class HeartbeatService(TimerService):
-
-    def __init__(self, bus, interval=5):
-        self.bus = bus
-        TimerService.__init__(self, interval, self.heartbeat)
-
-    def heartbeat(self):
-        self.bus.sendToTarget(message.Heartbeat())
 
 
 def onError(failure):

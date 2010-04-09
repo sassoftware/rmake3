@@ -81,7 +81,7 @@ def main():
     sock = socket.fromfd(3, socket.AF_UNIX, socket.SOCK_STREAM)
 
     from rmake.lib.logger import setupLogging
-    setupLogging(consoleLevel=logging.DEBUG, consoleFormat='file',
+    setupLogging(consoleLevel=logging.WARNING, consoleFormat='file',
             withTwisted=True)
 
     from twisted.internet import reactor

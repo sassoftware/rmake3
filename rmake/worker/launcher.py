@@ -26,17 +26,18 @@ import os
 import socket
 import sys
 from conary.lib import cfgtypes
+from rmake.core.types import TaskCapability
 from rmake.lib.twisted_extras.pickle_proto import PickleProtocol
 from rmake.lib.twisted_extras.socketpair import socketpair
 from rmake.messagebus import message
-from rmake.messagebus.client import BusClientService, HeartbeatService
+from rmake.messagebus.client import BusClientService
 from rmake.messagebus.config import BusClientConfig
 from rmake.messagebus.interact import InteractiveHandler
 from rmake.worker import executor
+from twisted.application.internet import TimerService
 from twisted.application.service import MultiService
 from twisted.internet.error import ProcessDone, ProcessTerminated
 from twisted.internet.protocol import ProcessProtocol
-from twisted.internet.task import LoopingCall
 
 log = logging.getLogger(__name__)
 
@@ -45,17 +46,23 @@ class LauncherService(MultiService):
 
     def __init__(self, cfg):
         MultiService.__init__(self)
+        self.caps = set()
         self.cfg = cfg
         self.bus = LauncherBusService(cfg)
         self.bus.setServiceParent(self)
         self.tasks = {}
-        HeartbeatService(self.bus).setServiceParent(self)
+        HeartbeatService(self).setServiceParent(self)
+        self._setCaps()
+
+    def _setCaps(self):
+        self.caps.add(TaskCapability('test'))
 
     def launch(self, msg):
         from twisted.internet import reactor
 
         task = Task(msg.task)
         self.tasks[task.task_uuid] = task
+        log.info("Starting task %s", task.task_uuid)
 
         worker = LaunchedWorker(self, task)
         transport, sock = socketpair(worker.net, socket.AF_UNIX, reactor)
@@ -67,6 +74,7 @@ class LauncherService(MultiService):
         sock.close()
 
     def taskFinished(self, task, code, text):
+        log.info("Task %s finished", task.task_uuid)
         self.sendTaskStatus(task, code, text)
         del self.tasks[task.task_uuid]
 
@@ -104,6 +112,18 @@ class LauncherInteractiveHandler(InteractiveHandler):
 
     def interact_test(self, msg, words):
         self.parent.parent.launch()
+
+
+class HeartbeatService(TimerService):
+
+    def __init__(self, launcher, interval=5):
+        self.launcher = launcher
+        TimerService.__init__(self, interval, self.heartbeat)
+
+    def heartbeat(self):
+        tasks = set(self.launcher.tasks.keys())
+        msg = message.Heartbeat(caps=self.launcher.caps, tasks=tasks)
+        self.launcher.bus.sendToTarget(msg)
 
 
 class LaunchedWorker(ProcessProtocol):
