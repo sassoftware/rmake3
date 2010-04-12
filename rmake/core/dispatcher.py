@@ -24,8 +24,8 @@ import errno
 import logging
 import os
 import stat
-import time
 from rmake.core.config import DispatcherConfig
+from rmake.core.dispatcher_support import DispatcherBusService, WorkerChecker
 from rmake.core.handler import getHandlerClass
 from rmake.db import database
 from rmake.errors import RmakeError
@@ -35,75 +35,15 @@ from rmake.lib.apirpc import RPCServer, expose
 from rmake.lib.daemon import setDebugHook
 from rmake.lib.logger import logFailure
 from rmake.lib.twisted_extras.ipv6 import TCP6Server
-from rmake.lib.uuid import UUID
 from rmake.messagebus import message
-from rmake.messagebus.client import BusService
-from rmake.messagebus.interact import InteractiveHandler
-from twisted.application.internet import TimerService, UNIXServer
+from twisted.application.internet import UNIXServer
 from twisted.application.service import MultiService
 from twisted.internet import defer
 from twisted.web.resource import Resource
 from twisted.web.server import Site
-from twisted.words.protocols.jabber.jid import internJID
 
 
 log = logging.getLogger(__name__)
-
-
-class DispatcherBusService(BusService):
-
-    role = 'dispatcher'
-    description = 'rMake Dispatcher'
-
-    def __init__(self, dispatcher, cfg):
-        self.dispatcher = dispatcher
-        BusService.__init__(self, cfg, other_handlers={
-            'interactive': DispatcherInteractiveHandler(),
-            })
-
-    def messageReceived(self, msg):
-        if isinstance(msg, message.TaskStatus):
-            self.dispatcher.updateTask(msg.task)
-        elif isinstance(msg, message.Heartbeat):
-            sender = internJID(msg.info.sender)
-            self.dispatcher.workerHeartbeat(sender, msg.caps, msg.tasks)
-        else:
-            BusService.messageReceived(self, msg)
-
-    def onPresence(self, presence):
-        if not presence.available:
-            self.dispatcher.workerDown(presence.sender)
-
-
-class DispatcherInteractiveHandler(InteractiveHandler):
-
-    def interact_show(self, msg, words):
-        what = words.pop(0)
-        if what == 'job':
-            uuids = []
-            for uuid in words:
-                try:
-                    uuids.append(UUID(uuid))
-                except ValueError:
-                    return "Bad UUID '%s'" % (uuid,)
-
-            d = self.parent.parent.getJobs(None, uuids)
-
-            @d.addCallback
-            def on_get(jobs):
-                out = ['']
-                for uuid, job in zip(uuids, jobs):
-                    if job is not None:
-                        out.append('Job %s ' % job.job_uuid)
-                        out.append('  Type: %s' % job.job_type)
-                        out.append('  Owner: %s' % job.owner)
-                    else:
-                        out.append('Job %s not found' % uuid)
-                return '\n'.join(out)
-
-            return d
-        else:
-            return "Usage: show job <uuid>"
 
 
 class Dispatcher(MultiService, RPCServer):
@@ -254,21 +194,6 @@ class Dispatcher(MultiService, RPCServer):
                 'e962bdb07ee8bacc1087d38a8b07642f@dhcp196.eng.rpath.com/rmake')
         msg = message.StartTask(copy.deepcopy(task))
         msg.send(self.bus, node)
-
-
-class WorkerChecker(TimerService):
-
-    threshold = 4
-
-    def __init__(self, dispatcher):
-        TimerService.__init__(self, 5, self.checkWorkers)
-        self.dispatcher = dispatcher
-
-    def checkWorkers(self):
-        for info in self.dispatcher.workers.values():
-            info.expiring += 1
-            if info.expiring > self.threshold:
-                self.dispatcher.workerDown(info.jid)
 
 
 class WorkerInfo(object):
