@@ -24,6 +24,7 @@ import errno
 import logging
 import os
 import stat
+import time
 from rmake.core.config import DispatcherConfig
 from rmake.core.handler import getHandlerClass
 from rmake.db import database
@@ -38,11 +39,12 @@ from rmake.lib.uuid import UUID
 from rmake.messagebus import message
 from rmake.messagebus.client import BusService
 from rmake.messagebus.interact import InteractiveHandler
-from twisted.application.internet import UNIXServer
+from twisted.application.internet import TimerService, UNIXServer
 from twisted.application.service import MultiService
 from twisted.internet import defer
 from twisted.web.resource import Resource
 from twisted.web.server import Site
+from twisted.words.protocols.jabber.jid import internJID
 
 
 log = logging.getLogger(__name__)
@@ -62,8 +64,15 @@ class DispatcherBusService(BusService):
     def messageReceived(self, msg):
         if isinstance(msg, message.TaskStatus):
             self.dispatcher.updateTask(msg.task)
+        elif isinstance(msg, message.Heartbeat):
+            sender = internJID(msg.info.sender)
+            self.dispatcher.workerHeartbeat(sender, msg.caps, msg.tasks)
         else:
             BusService.messageReceived(self, msg)
+
+    def onPresence(self, presence):
+        if not presence.available:
+            self.dispatcher.workerDown(presence.sender)
 
 
 class DispatcherInteractiveHandler(InteractiveHandler):
@@ -110,6 +119,9 @@ class Dispatcher(MultiService, RPCServer):
         self.bus.setServiceParent(self)
 
         self.jobs = {}
+        self.workers = {}
+
+        WorkerChecker(self).setServiceParent(self)
 
         root = Resource()
         root.putChild('picklerpc', rpc_pickle.PickleRPCResource(self))
@@ -217,7 +229,24 @@ class Dispatcher(MultiService, RPCServer):
             handler.taskUpdated(newTask)
         d.addErrback(logFailure)
 
+    def workerHeartbeat(self, jid, caps, tasks):
+        worker = self.workers.get(jid)
+        if worker is None:
+            log.info("Worker %s connected: caps=%r", jid.full(), caps)
+            worker = self.workers[jid] = WorkerInfo(jid)
+        worker.setCaps(caps)
+        self._assignTasks()
+
+    def workerDown(self, jid):
+        if jid in self.workers:
+            log.info("Worker %s disconnected", jid.full())
+            del self.workers[jid]
+
     ## Task assignment
+
+    def _assignTasks(self):
+        # FIXME
+        pass
 
     def _assignTask(self, task):
         from twisted.words.protocols.jabber.jid import JID
@@ -225,6 +254,37 @@ class Dispatcher(MultiService, RPCServer):
                 'e962bdb07ee8bacc1087d38a8b07642f@dhcp196.eng.rpath.com/rmake')
         msg = message.StartTask(copy.deepcopy(task))
         msg.send(self.bus, node)
+
+
+class WorkerChecker(TimerService):
+
+    threshold = 4
+
+    def __init__(self, dispatcher):
+        TimerService.__init__(self, 5, self.checkWorkers)
+        self.dispatcher = dispatcher
+
+    def checkWorkers(self):
+        for info in self.dispatcher.workers.values():
+            info.expiring += 1
+            if info.expiring > self.threshold:
+                self.dispatcher.workerDown(info.jid)
+
+
+class WorkerInfo(object):
+
+    def __init__(self, jid):
+        self.jid = jid
+        self.caps = set()
+        self.tasks = set()
+        # expiring is incremented each time WorkerChecker runs and zeroed each
+        # time the worker heartbeats. When it gets high enough, the worker is
+        # assumed dead.
+        self.expiring = 0
+
+    def setCaps(self, caps):
+        self.caps = caps
+        self.expiring = 0
 
 
 def main():
