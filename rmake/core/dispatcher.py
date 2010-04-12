@@ -20,7 +20,11 @@ Status updates are routed back to clients and to the database.
 
 
 import copy
+import errno
 import logging
+import os
+import stat
+from rmake.core.config import DispatcherConfig
 from rmake.core.handler import getHandlerClass
 from rmake.db import database
 from rmake.errors import RmakeError
@@ -29,12 +33,12 @@ from rmake.lib import rpc_pickle
 from rmake.lib.apirpc import RPCServer, expose
 from rmake.lib.daemon import setDebugHook
 from rmake.lib.logger import logFailure
+from rmake.lib.twisted_extras.ipv6 import TCP6Server
 from rmake.lib.uuid import UUID
 from rmake.messagebus import message
 from rmake.messagebus.client import BusService
-from rmake.messagebus.config import DispatcherConfig
 from rmake.messagebus.interact import InteractiveHandler
-from twisted.application.internet import TCPServer
+from twisted.application.internet import UNIXServer
 from twisted.application.service import MultiService
 from twisted.internet import defer
 from twisted.web.resource import Resource
@@ -109,7 +113,23 @@ class Dispatcher(MultiService, RPCServer):
 
         root = Resource()
         root.putChild('picklerpc', rpc_pickle.PickleRPCResource(self))
-        TCPServer(9999, Site(root)).setServiceParent(self)
+        site = Site(root)
+        if cfg.listenPath:
+            try:
+                st = os.lstat(cfg.listenPath)
+            except OSError, err:
+                if err.errno != errno.ENOENT:
+                    raise
+            else:
+                if not stat.S_ISSOCK(st.st_mode):
+                    raise RuntimeError("Path '%s' exists but is not a socket" %
+                            (cfg.listenPath,))
+                os.unlink(cfg.listenPath)
+
+            UNIXServer(cfg.listenPath, site).setServiceParent(self)
+        if cfg.listenPort:
+            TCP6Server(cfg.listenPort, site, interface=cfg.listenAddress
+                    ).setServiceParent(self)
 
     ## Client API
 

@@ -17,6 +17,7 @@ IPv6 transport for twisted.
 
 
 import socket
+from twisted.application.internet import _AbstractServer
 from twisted.internet.interfaces import IAddress
 from twisted.internet.tcp import Port as _Port
 from twisted.internet.tcp import Server as _Server
@@ -85,3 +86,17 @@ class Port(_Port):
 
     def getHost(self):
         return IPv6Address._fromName('TCP', self.socket.getsockname())
+
+
+class TCP6Server(_AbstractServer):
+
+    def _getPort(self):
+        if self.reactor is None:
+            from twisted.internet import reactor
+        else:
+            reactor = self.reactor
+        kwargs = self.kwargs.copy()
+        kwargs['reactor'] = reactor
+        port = Port(*self.args, **kwargs)
+        port.startListening()
+        return port

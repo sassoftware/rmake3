@@ -41,7 +41,7 @@ class CfgFullJID(CfgJID):
     full = True
 
 
-class _BusConfig(ConfigFile):
+class BusConfig(ConfigFile):
 
     # XMPP
     xmppJID             = (CfgFullJID, None,
@@ -50,15 +50,9 @@ class _BusConfig(ConfigFile):
             "File in which the component will store its JID and password.")
 
 
-class BusClientConfig(_BusConfig):
+class BusClientConfig(BusConfig):
 
     # XMPP
     dispatcherJID       = (CfgFullJID, None,
             "Full JID of the dispatcher to which this "
             "component should connect.")
-
-
-class DispatcherConfig(_BusConfig):
-
-    # Database
-    databaseUrl         = (cfgtypes.CfgString, 'postgres://rmake')

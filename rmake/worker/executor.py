@@ -54,8 +54,9 @@ class ExecutorService(Service):
         def later():
             log.info("Work's done!")
             reactor.stop()
-        import random
-        reactor.callLater(random.uniform(0, 10), later)
+        #import random
+        #reactor.callLater(random.uniform(0, 10), later)
+        reactor.callLater(0, later)
 
 
 class LauncherSocket(PickleProtocol):
