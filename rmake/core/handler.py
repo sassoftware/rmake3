@@ -47,6 +47,7 @@ class JobHandler(object):
 
     jobType = None
     jobVersion = 1
+    firstState = 'starting'
 
     def __init__(self, dispatcher, job):
         self.dispatcher = dispatcher
@@ -64,7 +65,7 @@ class JobHandler(object):
 
     def start(self):
         assert not self.state
-        return self.setStatus(100, 'Starting', state='starting')
+        return self.setStatus(100, 'Initializing', state=self.firstState)
 
     def _begin(self):
         self._try_call('begin_', False)
@@ -95,7 +96,7 @@ class JobHandler(object):
         except:
             self.failJob(Failure())
 
-    ## Special end states
+    ## Special end state
 
     def begin_done(self):
         pass
@@ -234,57 +235,53 @@ class JobHandler(object):
 
 
 class TestHandler(JobHandler):
-    __slots__ = ('finished', 'started')
+    __slots__ = ('finished', 'failed')
+
     handler_version = 1
 
     jobType = 'test'
-    spam = 4
+    firstState = 'beta'
+    spam = 3
 
-    # State: begin
-    def begin_starting(self):
-        return self.setStatus(100, "Collecting spam", state='collect_spam')
+    # State: alpha -- start one task and wait for completion
+    def begin_alpha(self):
+        self.setStatus(101, 'Running task alpha {0/2;0/1}')
+        self.newTask('alpha 1', 'test', None)
 
-    # State: collect_spam
-    def begin_collect_spam(self):
-        self.started = self.finished = 0
-        self.launchStuff(self.spam)
-        return self._spamStatus()
-
-    def continue_collect_spam(self, event):
-        log.debug("Job %s event: %r", self.job.job_uuid, event)
+    def continue_alpha(self, event):
         if event[0] != 'task updated':
             return
         task = event[1]
-        if task.status.final:
-            self.finished += 1
-        return self._spamStatus()
-
-    def _spamStatus(self):
-        if self.finished < self.spam:
-            return self.setStatus(100, "Collecting spam {%d/%d}" %
-                    (self.finished, self.spam))
+        if not task.status.final:
+            return
+        if task.status.failed:
+            return self.setStatus(400, task.status.text, task.status.detail,
+                    state='done')
         else:
-            return self.callChain('1')
+            return self.setStatus(101, 'Running task alpha {0/2;1/1}',
+                    state='beta')
 
-    def launchStuff(self, howmany):
-        for x in range(min(howmany, self.spam - self.started)):
-            self.started += 1
-            name = 'foo %d' % self.started
-            self.newTask(name, 'test', None)
+    # State: beta -- start three tasks and wait for completion
+    def begin_beta(self):
+        self.finished = self.failed = 0
+        self.setStatus(102, 'Running task beta {1/2;%s/%s}' % (self.finished,
+            self.spam))
+        for x in range(self.spam):
+            self.newTask('beta %s' % x, 'test', None)
 
-    # States 1 - 5
-    def begin_1(self):
-        return self.callChain('2')
-    def begin_2(self):
-        return self.callChain('3')
-    def begin_3(self):
-        return self.callChain('4')
-    def begin_4(self):
-        return self.callChain('5')
-    def begin_5(self):
-        return self.setStatus(200, "Test job complete", state='done')
-
-    def callChain(self, num):
-        from twisted.internet import reactor
-        reactor.callLater(0, self._continue, '#%s done' % num)
-        return self.setStatus(100, "Chaining (%s)" % num, state=str(num))
+    def continue_beta(self, event):
+        if event[0] != 'task updated':
+            return
+        task = event[1]
+        if not task.status.final:
+            return
+        self.finished += 1
+        if task.status.failed:
+            self.failed += 1
+        self.setStatus(102, 'Running task beta {1/2;%s/%s}' % (self.finished,
+            self.spam))
+        if self.finished >= self.spam:
+            if self.failed:
+                return self.setStatus(400, 'Job failed {2/2}', state='done')
+            else:
+                return self.setStatus(200, 'Job complete {2/2}', state='done')

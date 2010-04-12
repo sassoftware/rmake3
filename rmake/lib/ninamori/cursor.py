@@ -12,8 +12,9 @@
 # full details.
 
 import psycopg2
+import sys
 import weakref
-from rmake.lib.ninamori.error import DATABASE_ERRORS, SQLError, TransactionError
+from rmake.lib.ninamori import error
 from rmake.lib.ninamori.types import Row, SQL
 
 
@@ -52,18 +53,19 @@ class Cursor(object):
             # http://www.postgresql.org/docs/8.4/interactive/errcodes-appendix.html
             try:
                 return func(*args, **kwargs)
-            except psycopg2.DatabaseError, err:
+            except psycopg2.DatabaseError:
+                e_type, e_value, e_tb = sys.exc_info()
                 # Re-throw with our more specific types
-                if getattr(err, 'pgcode', None):
-                    exc_type = DATABASE_ERRORS.get(err.pgcode, None)
+                if getattr(e_value, 'pgcode', None):
+                    exc_type = error.DATABASE_ERRORS.get(e_value.pgcode, None)
                     if not exc_type:
-                        generic = err.pgcode[:2] + '000'
-                        exc_type = DATABASE_ERRORS.get(generic, None)
+                        generic = e_value.pgcode[:2] + '000'
+                        exc_type = error.DATABASE_ERRORS.get(generic, None)
                     if not exc_type:
-                        exc_type = SQLError
+                        exc_type = error.SQLError
                 else:
-                    exc_type = DatabaseError
-                raise exc_type(*err.args)
+                    exc_type = error.DatabaseError
+                raise exc_type, exc_type(*e_value.args), e_tb
         except:
             self._txn().setInError()
             raise
@@ -76,7 +78,7 @@ class Cursor(object):
         command = statement.split()[0].upper()
         if command in ('BEGIN', 'START', 'ROLLBACK', 'COMMIT',
                 'SAVEPOINT', 'RELEASE', 'PREPARE'):
-            raise TransactionError("%r may not be executed directly."
+            raise error.TransactionError("%r may not be executed directly."
                     % (command,), self._txn())
 
     # Protected pass-throughs for queries and inserts

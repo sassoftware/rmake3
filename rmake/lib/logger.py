@@ -71,8 +71,20 @@ def twistedLogObserver(eventDict):
      * Picks a logger based on the module of the caller. This way the output
        shows which part of twisted generated the message.
     """
-    caller = sys._getframe(2)
-    module = caller.f_globals.get('__name__', 'twisted')
+    n = 2
+    module = 'twisted'
+    while True:
+        try:
+            caller = sys._getframe(n)
+        except ValueError:
+            break
+        name = caller.f_globals.get('__name__')
+        if name not in (None, 'twisted.python.log'):
+            module = name
+            break
+        n += 1
+    if module == 'twisted.web.http':
+        import epdb;epdb.st()
     logger = logging.getLogger(module)
     if 'logLevel' in eventDict:
         level = eventDict['logLevel']

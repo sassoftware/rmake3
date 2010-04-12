@@ -92,7 +92,11 @@ class CoreDB(object):
             RETURNING jobs.jobs.*
             """, job.job_uuid, job.times.ticks)
         cu.execute(stmt)
-        return self._iterJobs(cu).next()
+        try:
+            return self._iterJobs(cu).next()
+        except StopIteration:
+            # No row updated
+            return None
 
     ## Tasks
 
@@ -111,12 +115,13 @@ class CoreDB(object):
     def createTask(self, cu, task):
         cu.execute("""
             INSERT INTO jobs.tasks ( task_uuid, job_uuid, task_name, task_type,
-                task_data, status_code, status_text, status_detail )
-            VALUES ( %s, %s, %s, %s, %s, %s, %s, %s )
+                task_data, status_code, status_text, status_detail,
+                node_assigned )
+            VALUES ( %s, %s, %s, %s, %s, %s, %s, %s, %s )
             RETURNING jobs.tasks.*
             """, (task.task_uuid, task.job_uuid, task.task_name,
                 task.task_type, task.task_data, task.status.code,
-                task.status.text, task.status.detail))
+                task.status.text, task.status.detail, task.node_assigned))
         return self._iterTasks(cu).next()
 
     @protectedBlock
@@ -131,9 +136,10 @@ class CoreDB(object):
     def updateTask(self, cu, task, isDone=False):
         stmt = SQL("""
             UPDATE jobs.tasks SET status_code = %s, status_text = %s,
-                status_detail = %s, time_updated = now(), time_ticks = %s
+                status_detail = %s, time_updated = now(), time_ticks = %s,
+                node_assigned = %s
                 """, task.status.code, task.status.text, task.status.detail,
-                task.times.ticks)
+                task.times.ticks, task.node_assigned)
         if isDone:
             stmt += SQL(", time_finished = now()")
 
@@ -142,4 +148,8 @@ class CoreDB(object):
             RETURNING jobs.tasks.*
             """, task.task_uuid, task.times.ticks)
         cu.execute(stmt)
-        return self._iterTasks(cu).next()
+        try:
+            return self._iterTasks(cu).next()
+        except StopIteration:
+            # No row updated
+            return None

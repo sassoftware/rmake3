@@ -13,9 +13,15 @@
 #
 
 
+import os
 from conary.conarycfg import CfgUserInfo
 from conary.lib.cfgtypes import CfgInt, CfgPath, CfgString
 from rmake.messagebus.config import BusConfig
+
+
+def _logPath(fileName):
+    return property(lambda self: os.path.join(self.logDir, fileName))
+
 
 class DispatcherConfig(BusConfig):
 
@@ -38,3 +44,7 @@ class DispatcherConfig(BusConfig):
 
     # Deprecated options (ignored)
     rmakeUrl            = None
+
+    # Calculated paths
+    logPath_http = _logPath('access.log')
+    logPath_server = _logPath('server.log')

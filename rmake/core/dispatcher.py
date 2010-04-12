@@ -23,10 +23,13 @@ import copy
 import errno
 import logging
 import os
+import random
 import stat
+from rmake.core import constants as core_const
 from rmake.core.config import DispatcherConfig
 from rmake.core.dispatcher_support import DispatcherBusService, WorkerChecker
 from rmake.core.handler import getHandlerClass
+from rmake.core.types import TaskCapability
 from rmake.db import database
 from rmake.errors import RmakeError
 from rmake.lib import dbpool
@@ -60,12 +63,13 @@ class Dispatcher(MultiService, RPCServer):
 
         self.jobs = {}
         self.workers = {}
+        self.taskQueue = []
 
         WorkerChecker(self).setServiceParent(self)
 
         root = Resource()
         root.putChild('picklerpc', rpc_pickle.PickleRPCResource(self))
-        site = Site(root)
+        site = Site(root, logPath=cfg.logPath_http)
         if cfg.listenPath:
             try:
                 st = os.lstat(cfg.listenPath)
@@ -100,7 +104,7 @@ class Dispatcher(MultiService, RPCServer):
         d = self.pool.runWithTransaction(self.db.core.createJob, job)
         @d.addCallback
         def post_create(newJob):
-            log.info("Job %s of type %r started", newJob.job_uuid,
+            log.info("Job %s of type '%s' started", newJob.job_uuid,
                     newJob.job_type)
             handler = handlerClass(self, newJob)
             self.jobs[newJob.job_uuid] = handler
@@ -120,6 +124,17 @@ class Dispatcher(MultiService, RPCServer):
             else:
                 result = 'finished'
             log.info("Job %s %s: %s", job_uuid, result, status.text)
+
+            handler = self.jobs[job_uuid]
+            tasks = set(handler.tasks)
+            for worker in self.workers.values():
+                worker.tasks -= tasks
+
+            for task in self.taskQueue[:]:
+                if task.job_uuid == job_uuid:
+                    log.debug("Discarding task %s from queue", task.task_uuid)
+                    self.taskQueue.remove(task)
+
             del self.jobs[job_uuid]
         else:
             log.warning("Tried to remove job %s but it is already gone.",
@@ -136,7 +151,10 @@ class Dispatcher(MultiService, RPCServer):
                 frozen=frozen)
 
     def _updateJob(self, job, frozen=None):
-        self.db.core.updateJob(job, frozen=frozen)
+        job = self.db.core.updateJob(job, frozen=frozen)
+        if not job:
+            # Superceded by another update
+            return
         if job.status.final:
             self.jobDone(job.job_uuid)
 
@@ -147,27 +165,57 @@ class Dispatcher(MultiService, RPCServer):
         job.tasks[task.task_uuid] = task
 
         # Try to assign before saving so we can avoid a second trip to the DB
-        self._assignTask(task)
+        result = self._assignTask(task)
+        if result == core_const.A_LATER:
+            log.debug("Queueing task %s", task.task_uuid)
+            self.taskQueue.append(task)
 
         task = copy.deepcopy(task)
         d = self.pool.runWithTransaction(self.db.core.createTaskMaybe, task)
         @d.addCallback
         def post_create(newTask):
+            # Note that the task might already have failed, if it could not be
+            # assigned. We store it anyway for the convenience of the job
+            # handler.
             job.tasks[newTask.task_uuid] = newTask
             return newTask
+        d.addCallback(self._taskUpdated)
+        d.addErrback(self._failJob, task.job_uuid)
         return d
+
+    def _failJob(self, failure, job_uuid):
+        handler = self.jobs.get(job_uuid)
+        if not handler:
+            return
+        handler.failJob(failure, "Unhandled error in dispatcher:")
 
     ## Message bus API
 
     def updateTask(self, task):
         d = self.pool.runWithTransaction(self.db.core.updateTask, task)
-        @d.addCallback
-        def task_updated(newTask):
-            handler = self.jobs.get(task.job_uuid)
-            if not handler:
-                return
-            handler.taskUpdated(newTask)
+        d.addCallback(self._taskUpdated)
+        d.addErrback(self._failJob, task.job_uuid)
         d.addErrback(logFailure)
+
+    def _taskUpdated(self, newTask):
+        if not newTask:
+            # Superceded
+            return
+        # If the task is finished, remove it from the assigned node and try to
+        # assign more tasks.
+        if newTask.status.final:
+            # Note that node_assigned is not used here because the update to
+            # set it might not have completed. It is easier and just as safe to
+            # scan from the worker side.
+            for worker in self.workers.values():
+                if newTask.task_uuid in worker.tasks:
+                    worker.tasks.discard(newTask.task_uuid)
+            from twisted.internet import reactor
+            reactor.callLater(0, self._assignTasks)
+        handler = self.jobs.get(newTask.job_uuid)
+        if not handler:
+            return
+        handler.taskUpdated(newTask)
 
     def workerHeartbeat(self, jid, caps, tasks):
         worker = self.workers.get(jid)
@@ -185,15 +233,73 @@ class Dispatcher(MultiService, RPCServer):
     ## Task assignment
 
     def _assignTasks(self):
-        # FIXME
-        pass
+        for task in self.taskQueue[:]:
+            result = self._assignTask(task)
+            if result != core_const.A_LATER:
+                # Task is no longer queued (assigned or failed)
+                self.taskQueue.remove(task)
+            if result == core_const.A_NOW:
+                # Update task now that node_assigned is set.
+                self.updateTask(task)
 
     def _assignTask(self, task):
-        from twisted.words.protocols.jabber.jid import JID
-        node = task.node_assigned = JID(
-                'e962bdb07ee8bacc1087d38a8b07642f@dhcp196.eng.rpath.com/rmake')
-        msg = message.StartTask(copy.deepcopy(task))
-        msg.send(self.bus, node)
+        """Attempt to assign a task to a node.
+
+        If it is not immediately assignable, it is queued.
+
+        @return: A_NOW if the task was assigned, A_LATER if the task should be
+            queued, or A_NEVER if the task cannot be assigned.
+        """
+        log.debug("Trying to assign task %s of job %s", task.task_uuid,
+                task.job_uuid)
+        scores = {}
+        laters = 0
+        for worker in self.workers.values():
+            result, score = worker.getScore(task)
+            if result == core_const.A_NOW:
+                log.debug("Worker %s can run task %s now: score=%s",
+                        worker.jid, task.task_uuid, score)
+                scores.setdefault(score, []).append(worker.jid)
+            elif result == core_const.A_LATER:
+                log.debug("Worker %s can run task %s later", worker.jid,
+                        task.task_uuid)
+                laters += 1
+            else:
+                log.debug("Worker %s cannot run task %s", worker.jid,
+                        task.task_uuid)
+
+        if scores:
+            # The task is assignable now.
+            best = sorted(scores)[-1]
+            jid = random.choice(scores[best])
+            self._sendTask(task, jid)
+            return core_const.A_NOW
+        elif laters:
+            # Queue the task for later.
+            return core_const.A_LATER
+        else:
+            # No worker can run this task.
+            self._failTask(task, "No workers are capable of running this task.")
+            return core_const.A_NEVER
+
+    def _sendTask(self, task, jid):
+        log.debug("Assigning task %s to worker %s", task.task_uuid, jid)
+
+        # Internal accounting
+        task.node_assigned = jid.full()
+        worker = self.workers[jid]
+        worker.tasks.add(task.task_uuid)
+
+        # Send the task to the worker node
+        msg = message.StartTask(task)
+        msg.send(self.bus, jid)
+
+    def _failTask(self, task, message):
+        log.error("Task %s failed: %s", task.task_uuid, message)
+        text = "Task failed: %s" % (message,)
+        task.status.code = core_const.TASK_NOT_ASSIGNABLE
+        task.status.text = "Task failed: %s" % (message,)
+        self.updateTask(task)
 
 
 class WorkerInfo(object):
@@ -202,6 +308,7 @@ class WorkerInfo(object):
         self.jid = jid
         self.caps = set()
         self.tasks = set()
+        self.slots = 1
         # expiring is incremented each time WorkerChecker runs and zeroed each
         # time the worker heartbeats. When it gets high enough, the worker is
         # assumed dead.
@@ -210,6 +317,29 @@ class WorkerInfo(object):
     def setCaps(self, caps):
         self.caps = caps
         self.expiring = 0
+
+    def getScore(self, task):
+        """Score how able this worker is to run the given task.
+
+        Returns a tuple of an A_* constant and a number. Higher is better.
+        """
+        # Does the worker support the given task type?
+        for cap in self.caps:
+            if not isinstance(cap, TaskCapability):
+                continue
+            if cap.taskType == task.task_type:
+                break
+        else:
+            return core_const.A_NEVER, None
+
+        # Are there slots available to run this task in?
+        # Note that not all task types will consume a slot.
+        assigned = len(self.tasks)
+        free = max(self.slots - assigned, 0)
+        if free:
+            return core_const.A_NOW, free
+        else:
+            return core_const.A_LATER, None
 
 
 def main():
@@ -232,14 +362,17 @@ def main():
             sys.exit("error: Configuration option %r must be set." % name)
 
     from rmake.lib.logger import setupLogging
-    setupLogging(consoleLevel=(options.debug and logging.DEBUG or
-        logging.INFO), consoleFormat='file', withTwisted=True)
+    level = options.debug and logging.DEBUG or logging.INFO
+    setupLogging(
+            logPath=cfg.logPath_server, fileLevel=level,
+            consoleFormat='file', consoleLevel=level,
+            withTwisted=True)
     setDebugHook()
 
     from twisted.internet import reactor
     service = Dispatcher(cfg)
-    if options.debug:
-        service.bus.logTraffic = True
+    #if options.debug:
+    #    service.bus.logTraffic = True
     service.startService()
     reactor.run()
 
