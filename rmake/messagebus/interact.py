@@ -78,4 +78,20 @@ class InteractiveHandler(XMPPHandler):
         self.send(msg)
 
     def interact_help(self, msg, words):
-        return "I can't help you right now."
+        """List available commands."""
+        commands = ['Available commands:']
+        for name in sorted(dir(self)):
+            if name[:9] != 'interact_':
+                continue
+            cmd = name[9:]
+
+            func = getattr(self, name)
+            doc = ''
+            if func.__doc__:
+                for line in func.__doc__.splitlines():
+                    if line.strip():
+                        doc = line.strip()
+                        break
+
+            commands.append('%s\t%s' % (cmd, doc))
+        return '\n'.join(commands)
