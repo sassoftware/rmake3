@@ -164,6 +164,8 @@ class UUID(long):
         return self
     __deepcopy__ = __copy__
 
+    def __getnewargs__(self):
+        return None, None, None, None, long(self), None
 
 
 def _find_mac(command, args, hw_identifiers, get_index):
