@@ -50,7 +50,7 @@ RESERVED_NCS, RFC_4122, RESERVED_MICROSOFT, RESERVED_FUTURE = [
     'reserved for NCS compatibility', 'specified in RFC 4122',
     'reserved for Microsoft compatibility', 'reserved for future definition']
 
-class UUID(object):
+class UUID(long):
     """Instances of the UUID class represent UUIDs as specified in RFC 4122.
     UUID objects are immutable, hashable, and usable as dictionary keys.
     Converting a UUID to a string with str() yields something in the form
@@ -62,43 +62,10 @@ class UUID(object):
     argument named 'bytes', or a string of 16 bytes (with the first three
     fields in little-endian order) as an argument named 'bytes_le', or a
     single 128-bit integer as an argument named 'int'.
-
-    UUIDs have these read-only attributes:
-
-        bytes       the UUID as a 16-byte string (containing the six
-                    integer fields in big-endian byte order)
-
-        bytes_le    the UUID as a 16-byte string (with time_low, time_mid,
-                    and time_hi_version in little-endian byte order)
-
-        fields      a tuple of the six integer fields of the UUID,
-                    which are also available as six individual attributes
-                    and two derived attributes:
-
-            time_low                the first 32 bits of the UUID
-            time_mid                the next 16 bits of the UUID
-            time_hi_version         the next 16 bits of the UUID
-            clock_seq_hi_variant    the next 8 bits of the UUID
-            clock_seq_low           the next 8 bits of the UUID
-            node                    the last 48 bits of the UUID
-
-            time                    the 60-bit timestamp
-            clock_seq               the 14-bit sequence number
-
-        hex         the UUID as a 32-character hexadecimal string
-
-        int         the UUID as a 128-bit integer
-
-        urn         the UUID as a URN as specified in RFC 4122
-
-        variant     the UUID variant (one of the constants RESERVED_NCS,
-                    RFC_4122, RESERVED_MICROSOFT, or RESERVED_FUTURE)
-
-        version     the UUID version number (1 through 5, meaningful only
-                    when the variant is RFC_4122)
     """
+    __slots__ = ()
 
-    def __init__(self, hex=None, bytes=None, bytes_le=None, fields=None,
+    def __new__(cls, hex=None, bytes=None, bytes_le=None, fields=None,
                        int=None, version=None):
         r"""Create a UUID from either a string of 32 hexadecimal digits,
         a string of 16 bytes as the 'bytes' argument, a string of 16 bytes
@@ -175,121 +142,29 @@ class UUID(object):
             # Set the version number.
             int &= ~(0xf000 << 64L)
             int |= version << 76L
-        self.__dict__['int'] = int
-
-    def __cmp__(self, other):
-        if isinstance(other, UUID):
-            return cmp(self.int, other.int)
-        return NotImplemented
-
-    def __hash__(self):
-        return hash(self.int)
-
-    def __int__(self):
-        return self.int
+        return long.__new__(cls, int)
 
     def __repr__(self):
         return 'UUID(%r)' % str(self)
 
-    def __setattr__(self, name, value):
-        raise TypeError('UUID objects are immutable')
-
     def __str__(self):
-        hex = '%032x' % self.int
+        hex = '%032x' % self
         return '%s-%s-%s-%s-%s' % (
             hex[:8], hex[8:12], hex[12:16], hex[16:20], hex[20:])
 
-    def get_bytes(self):
+    @property
+    def bytes(self):
         bytes = ''
         for shift in range(0, 128, 8):
-            bytes = chr((self.int >> shift) & 0xff) + bytes
+            bytes = chr((self>> shift) & 0xff) + bytes
         return bytes
 
-    bytes = property(get_bytes)
 
-    def get_bytes_le(self):
-        bytes = self.bytes
-        return (bytes[3] + bytes[2] + bytes[1] + bytes[0] +
-                bytes[5] + bytes[4] + bytes[7] + bytes[6] + bytes[8:])
+    def __copy__(self, memo=None):
+        return self
+    __deepcopy__ = __copy__
 
-    bytes_le = property(get_bytes_le)
 
-    def get_fields(self):
-        return (self.time_low, self.time_mid, self.time_hi_version,
-                self.clock_seq_hi_variant, self.clock_seq_low, self.node)
-
-    fields = property(get_fields)
-
-    def get_time_low(self):
-        return self.int >> 96L
-
-    time_low = property(get_time_low)
-
-    def get_time_mid(self):
-        return (self.int >> 80L) & 0xffff
-
-    time_mid = property(get_time_mid)
-
-    def get_time_hi_version(self):
-        return (self.int >> 64L) & 0xffff
-
-    time_hi_version = property(get_time_hi_version)
-
-    def get_clock_seq_hi_variant(self):
-        return (self.int >> 56L) & 0xff
-
-    clock_seq_hi_variant = property(get_clock_seq_hi_variant)
-
-    def get_clock_seq_low(self):
-        return (self.int >> 48L) & 0xff
-
-    clock_seq_low = property(get_clock_seq_low)
-
-    def get_time(self):
-        return (((self.time_hi_version & 0x0fffL) << 48L) |
-                (self.time_mid << 32L) | self.time_low)
-
-    time = property(get_time)
-
-    def get_clock_seq(self):
-        return (((self.clock_seq_hi_variant & 0x3fL) << 8L) |
-                self.clock_seq_low)
-
-    clock_seq = property(get_clock_seq)
-
-    def get_node(self):
-        return self.int & 0xffffffffffff
-
-    node = property(get_node)
-
-    def get_hex(self):
-        return '%032x' % self.int
-
-    hex = property(get_hex)
-
-    def get_urn(self):
-        return 'urn:uuid:' + str(self)
-
-    urn = property(get_urn)
-
-    def get_variant(self):
-        if not self.int & (0x8000 << 48L):
-            return RESERVED_NCS
-        elif not self.int & (0x4000 << 48L):
-            return RFC_4122
-        elif not self.int & (0x2000 << 48L):
-            return RESERVED_MICROSOFT
-        else:
-            return RESERVED_FUTURE
-
-    variant = property(get_variant)
-
-    def get_version(self):
-        # The version bits are only meaningful for RFC 4122 UUIDs.
-        if self.variant == RFC_4122:
-            return int((self.int >> 76L) & 0xf)
-
-    version = property(get_version)
 
 def _find_mac(command, args, hw_identifiers, get_index):
     import os
