@@ -12,6 +12,7 @@
 # full details.
 #
 
+import copy
 from rmake.lib import uuid
 from rmake.lib.ninamori.types import namedtuple
 
@@ -31,6 +32,20 @@ class _SlotCompare(object):
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    def __copy__(self):
+        cls = type(self)
+        new = cls.__new__(cls)
+        for name in self.__slots__:
+            setattr(new, name, getattr(self, name))
+        return new
+
+    def __deepcopy__(self, memo):
+        cls = type(self)
+        new = cls.__new__(cls)
+        for name in self.__slots__:
+            setattr(new, name, copy.deepcopy(getattr(self, name), memo))
+        return new
 
 
 class RmakeJob(_SlotCompare):
