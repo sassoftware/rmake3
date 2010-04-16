@@ -219,7 +219,7 @@ class BusClientService(BusService):
         host = self.cfg.dispatcherJID.host
         username = os.urandom(16).encode('hex')
         password = os.urandom(16).encode('hex')
-        jid = toJID('%s@%s/%s' % (username, host, self.resourec))
+        jid = toJID('%s@%s/%s' % (username, host, self.resource))
         return jid, password
 
     ## Event handlers
