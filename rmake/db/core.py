@@ -76,13 +76,13 @@ class CoreDB(object):
         return self._iterJobs(cu).next()
 
     @protected
-    def updateJob(self, cu, job, frozen=None, isDone=False):
+    def updateJob(self, cu, job, frozen=None):
         stmt = SQL("""
             UPDATE jobs.jobs SET status_code = %s, status_text = %s,
                 status_detail = %s, time_updated = now(), time_ticks = %s
                 """, job.status.code, job.status.text, job.status.detail,
                 job.times.ticks)
-        if isDone:
+        if job.status.final:
             stmt += SQL(", time_finished = now(), frozen = NULL")
         elif frozen is not None:
             stmt += SQL(", frozen = %s", cu.binary(frozen))
@@ -133,14 +133,14 @@ class CoreDB(object):
             return self.getTasks([task.task_uuid])[0]
 
     @protected
-    def updateTask(self, cu, task, isDone=False):
+    def updateTask(self, cu, task):
         stmt = SQL("""
             UPDATE jobs.tasks SET status_code = %s, status_text = %s,
                 status_detail = %s, time_updated = now(), time_ticks = %s,
                 node_assigned = %s
                 """, task.status.code, task.status.text, task.status.detail,
                 task.times.ticks, task.node_assigned)
-        if isDone:
+        if task.status.final:
             stmt += SQL(", time_finished = now()")
 
         stmt += SQL("""

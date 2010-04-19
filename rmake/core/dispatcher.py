@@ -51,8 +51,14 @@ log = logging.getLogger(__name__)
 
 class Dispatcher(MultiService, RPCServer):
 
-    def __init__(self, cfg):
+    def __init__(self, cfg, plugins=()):
         MultiService.__init__(self)
+
+        # Get additional RPC namespaces from plugins
+        rpc_children = {}
+        for plugin in plugins:
+            rpc_children.update(plugin.getRPCNamespaces())
+        RPCServer.__init__(self, rpc_children)
 
         self.pool = dbpool.ConnectionPool(cfg.databaseUrl)
         self.db = database.Database(cfg.databaseUrl,
@@ -95,7 +101,6 @@ class Dispatcher(MultiService, RPCServer):
 
     @expose
     def createJob(self, callData, job):
-        #job = copy.deepcopy(job)
         try:
             handlerClass = getHandlerClass(job.job_type)
         except KeyError:
@@ -140,12 +145,9 @@ class Dispatcher(MultiService, RPCServer):
             log.warning("Tried to remove job %s but it is already gone.",
                     job_uuid)
 
-    def _createJob(self, job):
-        job = self.db.core.createJob(job)
-        return job
-
     def updateJob(self, job, frozen=None):
-        # TODO: pass update params directly because deepcopy is super expensive
+        # Use a copy of the job object because the request gets put into a
+        # queue until there is a DB worker available.
         job = copy.deepcopy(job)
         return self.pool.runWithTransaction(self._updateJob, job,
                 frozen=frozen)
@@ -170,6 +172,8 @@ class Dispatcher(MultiService, RPCServer):
             log.debug("Queueing task %s", task.task_uuid)
             self.taskQueue.append(task)
 
+        # Use a copy of the task because the request gets put into a queue
+        # until there is a DB worker available.
         task = copy.deepcopy(task)
         d = self.pool.runWithTransaction(self.db.core.createTaskMaybe, task)
         @d.addCallback
@@ -308,7 +312,7 @@ class WorkerInfo(object):
         self.jid = jid
         self.caps = set()
         self.tasks = set()
-        self.slots = 1
+        self.slots = 2
         # expiring is incremented each time WorkerChecker runs and zeroed each
         # time the worker heartbeats. When it gets high enough, the worker is
         # assumed dead.
