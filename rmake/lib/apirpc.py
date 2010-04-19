@@ -22,11 +22,20 @@ def expose(func):
 
 class RPCServer(object):
 
+    def __init__(self, children=()):
+        self._rpc_children = dict(children)
+
     def _callMethod(self, methodName, callData, args, kwargs):
         if not methodName.startswith('_'):
-            m = getattr(self, methodName, None)
-            if m and getattr(m, 'rpc_exposed', False):
-                return m(callData, *args, **kwargs)
+            if '.' in methodName:
+                first, rest = methodName.split('.', 1)
+                server = getattr(self, first, None)
+                if server:
+                    return server._callMethod(rest, callData, args, kwargs)
+            else:
+                m = getattr(self, methodName, None)
+                if m and getattr(m, 'rpc_exposed', False):
+                    return m(callData, *args, **kwargs)
         raise NoSuchMethodError(methodName)
 
 
