@@ -31,7 +31,7 @@ from rmake.build import buildcfg
 from rmake.lib import apirpc, daemon, logger, repocache, telnetserver
 
 
-class ChrootServer(apirpc.XMLApiServer):
+class ChrootServer:#(apirpc.XMLApiServer):
 
     def storeConfig(self, callData, buildCfg):
         buildCfg = self._updateConfig(buildCfg)

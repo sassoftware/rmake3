@@ -15,7 +15,8 @@
 
 import os
 from conary.conarycfg import CfgUserInfo
-from conary.lib.cfgtypes import CfgInt, CfgPath, CfgString
+from conary.lib.cfgtypes import (CfgBool, CfgDict, CfgInt, CfgPath,
+        CfgPathList, CfgString)
 from rmake.messagebus.config import BusConfig
 
 
@@ -38,9 +39,12 @@ class DispatcherConfig(BusConfig):
     reposName           = (CfgString, None)
 
     # Other configuration
+    lockDir             = (CfgPath, '/var/lock')
     logDir              = (CfgPath, '/var/log/rmake')
     caCertPath          = (CfgPath, None)
+    pluginDirs          = (CfgPathList, [])
     sslCertPath         = (CfgPath, '/srv/rmake/certs/rmake-server-cert.pem')
+    usePlugin           = (CfgDict(CfgBool), {})
 
     # Deprecated options (ignored)
     rmakeUrl            = None

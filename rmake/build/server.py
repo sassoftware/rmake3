@@ -1,10 +1,21 @@
-#!/usr/bin/python
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All rights reserved.
+# Copyright (c) 2006-2010 rPath, Inc.
 #
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
+#
+
 """
-rMake Backend server
+Build-related server methods for the rMake dispatcher.
 """
+
 import errno
 import itertools
 import logging
@@ -32,49 +43,22 @@ from rmake.build import imagetrove
 from rmake.build import subscriber
 from rmake.server import auth
 from rmake.db import database
-from rmake.lib import apirpc
+from rmake.lib.apirpc import RPCServer, expose
 from rmake.lib import logger
 from rmake.lib import osutil
 from rmake.lib.rpcproxy import ShimAddress
 from rmake.worker import worker
 
 
-class rMakeServer(apirpc.XMLApiServer):
+class BuildServer(RPCServer):
     """
-        rMake server.
+    Expose an interface for dealing with trove build jobs
 
-        See rMake client for documentation of API.
+    Exposed under the "build" namespace, e.g. server.build.getRepositoryInfo()
     """
 
-    def buildTroves(self, callData, job):
-        callData.logger.logRPCDetails('buildTroves')
-        for buildCfg in job.iterConfigList():
-            self.updateBuildConfig(buildCfg)
-        job.uuid = job.getMainConfig().uuid
-        authData = callData.getAuth()
-        if authData:
-            # should be true except for in testsuite
-            job.owner = authData.getUser()
-        self.db.addJob(job)
-        self._subscribeToJob(job)
-        self.db.queueJob(job)
-        queuedIds = self.db.listJobIdsOnQueue()
-        if len(queuedIds) > 1:
-            message = 'Job Queued - Builds ahead of you: %d' % (
-                len(queuedIds) - 1)
-        else:
-            message = 'Job Queued - You are next in line for processing'
-        job.jobQueued(message)
-        return job.jobId
-
-    def stopJob(self, callData, jobId):
-        callData.logger.logRPCDetails('stopJob', jobId=jobId)
-        jobId = self.db.convertToJobId(jobId)
-        job = self.db.getJob(jobId, withTroves=True)
-        self._stopJob(job)
-        self._subscribeToJob(job)
-        job.own()
-        job.jobStopped('User requested stop')
+    def __init__(self, tbs_cfg):
+        self.tbs_cfg = tbs_cfg
 
     def listJobs(self, callData, activeOnly, jobLimit):
         return self.db.listJobs(activeOnly=activeOnly, jobLimit=jobLimit)
@@ -127,35 +111,6 @@ class rMakeServer(apirpc.XMLApiServer):
             f.seek(mark)
         return not trove.isFinished(), xmlrpclib.Binary(f.read()), f.tell()
 
-    def deleteJobs(self, callData, jobIdList):
-        jobIdList = self.db.convertToJobIds(jobIdList)
-        jobs = self.db.getJobs(jobIdList, withTroves=False)
-        for job in jobs:
-            if job.isBuilding():
-                raise errors.RmakeError('cannot delete active job %s' % job.jobId)
-        deletedJobIds = self.db.deleteJobs(jobIdList)
-        return deletedJobIds
-
-    def subscribe(self, callData, jobId, subscriber):
-        jobId = self.db.convertToJobId(jobId)
-        self.db.addSubscriber(jobId, subscriber)
-        return subscriber.subscriberId
-
-    def unsubscribe(self, callData, subscriberId):
-        subscriber = self.db.getSubscriber(subscriberId)
-        self.db.removeSubscriber(subscriberId)
-        return subscriber
-
-    def listSubscribersByUri(self, callData, jobId, uri):
-        jobId = self.db.convertToJobId(jobId)
-        subscribers = self.db.listSubscribersByUri(jobId, uri)
-        return [ freeze('Subscriber', x) for x in subscribers ]
-
-    def listSubscribers(self, callData, jobId):
-        jobId = self.db.convertToJobId(jobId)
-        subscribers = self.db.listSubscribers(jobId)
-        return [ freeze('Subscriber', x) for x in subscribers ]
-
     def listChroots(self, callData):
         chroots = self.db.listChroots()
         chrootNames = self.worker.listChrootsWithHost()
@@ -193,20 +148,6 @@ class rMakeServer(apirpc.XMLApiServer):
         newPath = self.worker.archiveChroot(host, chrootPath, newPath)
         self.db.moveChroot(host, chrootPath, newPath)
 
-    def deleteChroot(self, callData, host, chrootPath):
-        if self.db.chrootIsActive(host, chrootPath):
-            raise errors.RmakeError('Chroot is in use!')
-        self.worker.deleteChroot(host, chrootPath)
-        self.db.removeChroot(host, chrootPath)
-
-    def deleteAllChroots(self, callData):
-        chroots = self.db.listChroots()
-        for chroot in chroots:
-            if chroot.active:
-                continue
-            self.worker.deleteChroot(chroot.host, chroot.path)
-            self.db.removeChroot(chroot.host, chroot.path)
-
     def startCommit(self, callData, jobIds):
         jobIds = self.db.convertToJobIds(jobIds)
         jobs = self.db.getJobs(jobIds)
@@ -237,12 +178,15 @@ class rMakeServer(apirpc.XMLApiServer):
             job.own()
             job.jobCommitted(troveMap)
 
+    @expose
     def getRepositoryInfo(self, callData):
-        proxyUrl = self.cfg.getProxyUrl()
-        if not proxyUrl:
-            proxyUrl = ''
-        return (self.cfg.reposName, self.cfg.getRepositoryMap(),
-                list(self.cfg.reposUser), proxyUrl)
+        """Return info on how to contact the internal repository."""
+        return {
+                'reposName': self.tbs_cfg.reposName,
+                'repositoryMap': self.tbs_cfg.getRepositoryMap(),
+                'reposUser': list(self.tbs_cfg.reposUser),
+                'proxyUrl': self.tbs_cfg.getProxyUrl() or '',
+                }
 
     # --- callbacks from Builders
 

@@ -1,6 +1,17 @@
 #
-# Copyright (c) 2006-2008 rPath, Inc.  All rights reserved.
+# Copyright (c) 2010 rPath, Inc.
 #
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
+#
+
 import select
 import time
 import urllib
@@ -10,20 +21,15 @@ from conary.lib import util
 from rmake.build import buildjob
 from rmake.build import buildtrove
 from rmake.errors import InsufficientPermission
-from rmake.lib import apirpc, rpclib, localrpc
+from rmake.lib.rpc_pickle import PickleServerProxy
+from rmake.lib.rpcproxy import parseAddress, Address
 
-from rmake.server import server
 
 class rMakeClient(object):
     """
         Client for communicating with rMake servers.
 
-        This may be used as a "shim" client by passing an instance of
-        L{ShimAddress<rmake.lib.rpcproxy.ShimAddress>} for C{uri}. The
-        enclosed server should be a C{rMakeServer} instance.
-
-        @param uri: URI or address to server, or a (wrapped) server
-                    object.
+        @param uri: URI or address to server
         @type  uri: URI or instance of L{rmake.lib.rpcproxy.Address}
         @param clientCert: Path to a X509 certificate and RSA private key
                            to make available when contacting a SSL-enabled
@@ -31,9 +37,14 @@ class rMakeClient(object):
         @type clientCert: C{str}
     """
     def __init__(self, uri, clientCert=None):
+        if not isinstance(uri, Address):
+            uri = parseAddress(uri)
+        if hasattr(uri, 'handler') and uri.handler in ('', '/'):
+            uri = uri.copy()
+            uri.handler = '/picklerpc'
         self.uri = uri
-        self.proxy = apirpc.XMLApiProxy(server.rMakeServer, uri,
-            key_file=clientCert)
+        self.proxy = PickleServerProxy(uri,
+                key_file=clientCert, ignoreCommonName=True)
 
     def buildTroves(self, troveList, cfg):
         """
@@ -304,16 +315,14 @@ class rMakeClient(object):
         raise
 
     def addRepositoryInfo(self, cfg):
-        return #FIXME
-        reposName, repoMap, userInfo, conaryProxy = \
-                                    self.proxy.getRepositoryInfo()[0:4]
-        cfg.repositoryMap.update(repoMap)
-        for info in reversed(userInfo):
+        info = self.proxy.build.getRepositoryInfo()
+        cfg.repositoryMap.update(info['repositoryMap'])
+        for info in reversed(info['reposUser']):
             cfg.user.append(info)
-        cfg.reposName = reposName
-        if conaryProxy and not cfg.conaryProxy:
-            cfg.conaryProxy['http'] = conaryProxy
-            cfg.conaryProxy['https'] = conaryProxy
+        cfg.reposName = info['reposName']
+        if info['conaryProxy'] and not cfg.conaryProxy:
+            cfg.conaryProxy['http'] = info['conaryProxy']
+            cfg.conaryProxy['https'] = info['conaryProxy']
 
     def listenToEvents(self, uri, jobId, listener, showTroveDetails=False,
                        serve=True):

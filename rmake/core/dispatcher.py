@@ -26,8 +26,7 @@ import os
 import random
 import stat
 from rmake.core import constants as core_const
-from rmake.core.config import DispatcherConfig
-from rmake.core.dispatcher_support import DispatcherBusService, WorkerChecker
+from rmake.core.support import DispatcherBusService, WorkerChecker
 from rmake.core.handler import getHandlerClass
 from rmake.core.types import TaskCapability
 from rmake.db import database
@@ -35,7 +34,6 @@ from rmake.errors import RmakeError
 from rmake.lib import dbpool
 from rmake.lib import rpc_pickle
 from rmake.lib.apirpc import RPCServer, expose
-from rmake.lib.daemon import setDebugHook
 from rmake.lib.logger import logFailure
 from rmake.lib.twisted_extras.ipv6 import TCP6Server
 from rmake.messagebus import message
@@ -51,47 +49,58 @@ log = logging.getLogger(__name__)
 
 class Dispatcher(MultiService, RPCServer):
 
-    def __init__(self, cfg, plugins=()):
+    def __init__(self, cfg, plugin_mgr):
         MultiService.__init__(self)
+        RPCServer.__init__(self)
+        self.cfg = cfg
 
-        # Get additional RPC namespaces from plugins
-        rpc_children = {}
-        for plugin in plugins:
-            rpc_children.update(plugin.getRPCNamespaces())
-        RPCServer.__init__(self, rpc_children)
-
-        self.pool = dbpool.ConnectionPool(cfg.databaseUrl)
-        self.db = database.Database(cfg.databaseUrl,
-                dbpool.PooledDatabaseProxy(self.pool))
-
-        self.bus = DispatcherBusService(self, cfg)
-        self.bus.setServiceParent(self)
+        self.db = None
+        self.pool = None
+        self.plugin_mgr = plugin_mgr
 
         self.jobs = {}
         self.workers = {}
         self.taskQueue = []
 
+        self._load_plugins()
+        self._start_db()
+        self._start_bus()
+        self._start_rpc()
+
+    def _load_plugins(self):
+        pass
+
+    def _start_db(self):
+        self.pool = dbpool.ConnectionPool(self.cfg.databaseUrl)
+        self.db = database.Database(self.cfg.databaseUrl,
+                dbpool.PooledDatabaseProxy(self.pool))
+
+    def _start_bus(self):
+        self.bus = DispatcherBusService(self, self.cfg)
+        self.bus.setServiceParent(self)
+
         WorkerChecker(self).setServiceParent(self)
 
+    def _start_rpc(self):
         root = Resource()
         root.putChild('picklerpc', rpc_pickle.PickleRPCResource(self))
-        site = Site(root, logPath=cfg.logPath_http)
-        if cfg.listenPath:
+        site = Site(root, logPath=self.cfg.logPath_http)
+        if self.cfg.listenPath:
             try:
-                st = os.lstat(cfg.listenPath)
+                st = os.lstat(self.cfg.listenPath)
             except OSError, err:
                 if err.errno != errno.ENOENT:
                     raise
             else:
                 if not stat.S_ISSOCK(st.st_mode):
                     raise RuntimeError("Path '%s' exists but is not a socket" %
-                            (cfg.listenPath,))
-                os.unlink(cfg.listenPath)
+                            (self.cfg.listenPath,))
+                os.unlink(self.cfg.listenPath)
 
-            UNIXServer(cfg.listenPath, site).setServiceParent(self)
-        if cfg.listenPort:
-            TCP6Server(cfg.listenPort, site, interface=cfg.listenAddress
-                    ).setServiceParent(self)
+            UNIXServer(self.cfg.listenPath, site).setServiceParent(self)
+        if self.cfg.listenPort:
+            TCP6Server(self.cfg.listenPort, site,
+                    interface=self.cfg.listenAddress).setServiceParent(self)
 
     ## Client API
 
@@ -344,42 +353,3 @@ class WorkerInfo(object):
             return core_const.A_NOW, free
         else:
             return core_const.A_LATER, None
-
-
-def main():
-    import optparse
-    import sys
-
-    cfg = DispatcherConfig()
-    parser = optparse.OptionParser()
-    parser.add_option('--debug', action='store_true')
-    parser.add_option('-c', '--config-file', action='callback', type='str',
-            callback=lambda a, b, value, c: cfg.read(value))
-    parser.add_option('--config', action='callback', type='str',
-            callback=lambda a, b, value, c: cfg.configLine(value))
-    options, args = parser.parse_args()
-    if args:
-        parser.error("No arguments expected")
-
-    for name in ('xmppJID', 'xmppIdentFile'):
-        if cfg[name] is None:
-            sys.exit("error: Configuration option %r must be set." % name)
-
-    from rmake.lib.logger import setupLogging
-    level = options.debug and logging.DEBUG or logging.INFO
-    setupLogging(
-            logPath=cfg.logPath_server, fileLevel=level,
-            consoleFormat='file', consoleLevel=level,
-            withTwisted=True)
-    setDebugHook()
-
-    from twisted.internet import reactor
-    service = Dispatcher(cfg)
-    #if options.debug:
-    #    service.bus.logTraffic = True
-    service.startService()
-    reactor.run()
-
-
-if __name__ == '__main__':
-    main()

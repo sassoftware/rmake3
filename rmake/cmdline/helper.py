@@ -33,12 +33,12 @@ from rmake import plugins
 from rmake.build import buildcfg
 from rmake.build import buildjob
 from rmake.build import imagetrove
+from rmake.build.client import rMakeClient
 from rmake.cmdline import buildcmd
 from rmake.cmdline import cmdutil
 from rmake.cmdline import commit
 from rmake.cmdline import monitor
 from rmake.cmdline import query
-from rmake.server import client
 
 class rMakeHelper(object):
     """
@@ -85,7 +85,7 @@ class rMakeHelper(object):
             if clientCert is None:
                 clientCert = buildConfig.clientCert
 
-            self.client = client.rMakeClient(uri, clientCert)
+            self.client = rMakeClient(uri, clientCert)
 
         if guiPassword:
             try:

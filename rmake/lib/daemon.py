@@ -1,33 +1,47 @@
 #
-# Copyright (c) 2006-2009 rPath, Inc.
+# Copyright (c) 2006-2010 rPath, Inc.
 #
-# All rights reserved.
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
 #
 
 import errno
 import grp
+import logging
 import os
 import pwd
 import signal
 import sys
 import time
-
 from conary.conarycfg import ConfigFile, CfgBool
 from conary.lib import options
+from twisted.application.service import MultiService
 
-from rmake.lib import logfile
+from rmake.lib import pluginlib
+from rmake.lib import logger as rmake_log
+
+log = logging.getLogger(__name__)
+
 
 (NO_PARAM,  ONE_PARAM)  = (options.NO_PARAM, options.ONE_PARAM)
 (OPT_PARAM, MULT_PARAM) = (options.OPT_PARAM, options.MULT_PARAM)
+
 
 class DaemonConfig(ConfigFile):
     logDir         = '/var/log/'
     lockDir        = '/var/run/'
     verbose        = (CfgBool, False)
 
+
 _commands = []
-def _register(cmd):
-    _commands.append(cmd)
+
 
 class DaemonCommand(options.AbstractCommand):
     docs = {'config'             : ("Set config KEY to VALUE", "'KEY VALUE'"),
@@ -61,7 +75,8 @@ class ConfigCommand(DaemonCommand):
 
     def runCommand(self, daemon, cfg, argSet, args):
         return cfg.display()
-_register(ConfigCommand)
+_commands.append(ConfigCommand)
+
 
 class StopCommand(DaemonCommand):
     commands = ['stop', 'kill']
@@ -70,7 +85,8 @@ class StopCommand(DaemonCommand):
 
     def runCommand(self, daemon, cfg, argSet, args):
         return daemon.kill()
-_register(StopCommand)
+_commands.append(StopCommand)
+
 
 class StartCommand(DaemonCommand):
     commands = ['start']
@@ -84,8 +100,9 @@ class StartCommand(DaemonCommand):
         argDef["no-daemon"] = '-n', NO_PARAM
 
     def runCommand(self, daemon, cfg, argSet, args):
-        return daemon.start(fork=not argSet.pop('no-daemon', False))
-_register(StartCommand)
+        return daemon.start(argSet)
+_commands.append(StartCommand)
+
 
 class Daemon(options.MainHandler):
     '''This class contains basic daemon functions, useful for creating your own
@@ -93,7 +110,6 @@ class Daemon(options.MainHandler):
     '''
     abstractCommand = DaemonCommand
     name = 'daemon'
-    commandName = 'daemon'
     commandList = _commands
     user   = None
     groups = None
@@ -102,287 +118,256 @@ class Daemon(options.MainHandler):
 
     def __init__(self):
         self._logFile = None
-        self.logger = self.loggerClass(self.name)
         options.MainHandler.__init__(self)
 
-    def getLockFilePath(self):
-        return os.path.join(self.cfg.lockDir, "%s.pid" % self.name)
+    def setup(self, **kwargs):
+        pass
 
-    def removeLockFile(self):
-        lockFile = self.getLockFilePath()
-        try:
-            os.unlink(lockFile)
-        except OSError, e:
-            if e.errno == errno.ENOENT:
-                pass
-            else:
-                raise
-
-    def getPidFromLockFile(self, warnOnError=False):
-        lockFile = self.getLockFilePath()
-        try:
-            lock = open(lockFile, "r")
-            pid = int(lock.read())
-            lock.close()
-            return pid
-        except Exception, e:
-            if warnOnError:
-                self.warning("unable to open lockfile for reading: %s (%s)" % (lockFile, str(e)))
-            return None
-
-    def writePidToLockFile(self):
-        lockFile = self.getLockFilePath()
-        try:
-            lock = open(lockFile, "w")
-            lock.write("%d" % os.getpid())
-            lock.close()
-            return True
-            lockFile = self.getLockFilePath()
-        except Exception, e:
-            self.warning("unable to open lockfile: %s (%s)", lockFile, str(e))
-            return False
-
-    def kill(self):
-        if not os.getuid():
-            if self.user:
-                pwent = pwd.getpwnam(self.user)
-                os.setgroups([])
-                os.setgid(pwent.pw_gid)
-                os.setuid(pwent.pw_uid)
-
-        logPath = os.path.join(self.cfg.logDir, "%s.log" % self.name)
-        self.logger.logToFile(logPath)
-        self.logger.disableConsole()
-        pid = self.getPidFromLockFile(warnOnError=True)
-        if not pid:
-            self.error("could not kill %s: no pid found." % self.name)
-            sys.exit(1)
-
-        pipeFD = os.popen("ps -p %d -o comm=" %pid)
-        procName = pipeFD.readline().strip()
-        pipeFD.close()
-        if not procName:
-            return
-
-        if procName not in sys.argv[0]:
-            self.error("pid: %d does not seem to be a valid %s." % (pid,
-                                                                   self.name))
-            sys.exit(1)
-        self.info("killing %s pid %d" % (self.name, pid))
-        try:
-            os.kill(pid, signal.SIGINT)
-            timeSlept = 0
-            killed = False
-            maxTime = 10
-            while timeSlept < maxTime:
-                # loop waiting for the process to die
-                pipeFD = os.popen("ps -p %d -o comm=" %pid)
-                procName = pipeFD.readline().strip()
-                pipeFD.close()
-                if not procName or procName.endswith('<defunct>'):
-                    killed = True
-                    break
-                time.sleep(.5)
-                timeSlept += .5
-            if not killed:
-                self.error('Failed to kill %s (pid %s) after %s seconds' %  (self.name, pid, maxTime))
-                sys.exit(1)
-        except OSError, e:
-            if e.errno != errno.ESRCH:
-                raise
-            else:
-                self.info("process not found; removing lock file")
-                self.removeLockfile()
-        else:
-            #Do we really want to remove the PID?  Shouldn't we
-            #let the daemon process do it?
-            self.removeLockFile()
-
-    def getLogFile(self):
-        if self._logFile is not None:
-            return self._logFile
-        try:
-            logPath = os.path.join(self.cfg.logDir, "%s.log" % self.name)
-            self._logFile = logfile.LogFile(logPath)
-            return self._logFile
-        except OSError, err:
-            self.error('error opening logfile "%s" for writing: %s',
-                              logPath, err.strerror)
-            sys.exit(1)
-
-    def info(self, msg, *args):
-        self.logger.info(msg, *args)
-
-    def error(self, msg, *args):
-        self.logger.error(msg, *args)
-
-    def warning(self, msg, *args):
-        self.logger.warning(msg, *args)
-
-    def start(self, fork=True):
-        if not os.getuid():
-            # libcap isn't available in the chroot, so delay importing
-            # until here.
-            from rmake.lib import pycap
-            if self.user:
-                pwent = pwd.getpwnam(self.user)
-                if self.groups:
-                    groupIds = []
-                    for group in self.groups:
-                        grpent = grp.getgrnam(group)
-                        groupIds.append(grpent.gr_gid)
-                    os.setgroups(groupIds)
-                else:
-                    os.setgroups([])
-                if self.capabilities:
-                    pycap.set_keepcaps(True)
-                os.setgid(pwent.pw_gid)
-                os.setuid(pwent.pw_uid)
-            if self.capabilities:
-                pycap.cap_set_proc(self.capabilities)
-        logPath = os.path.join(self.cfg.logDir, "%s.log" % self.name)
-        try:
-            self.logger.logToFile(logPath)
-        except EnvironmentError, e:
-            # this should handle most permission problems nicely
-            self.logger.error('Could not open logfile: %s' % (e))
-            return 1
-
-
-        pid = self.getPidFromLockFile()
-        if pid:
-            # check if the pid is actually valid...
-            pipeFD = os.popen("ps -p %s -o pid="% pid)
-            pidLine = pipeFD.readline()
-            pipeFD.close()
-
-            if str(pid) in pidLine:
-                self.error("Daemon already running as pid %s", pid)
-                sys.exit(1)
-            else:
-                self.info("Old %s pid seems to be invalid. killing." % self.name)
-                self.kill()
-
-        conaryPath = os.path.dirname(sys.modules['conary'].__file__)
-        if '/site-packages/' not in conaryPath:
-            self.info("using Conary in %s" % conaryPath)
-        if fork:
-            pid = os.fork()
-
-            if pid == 0:
-                self.logger.disableConsole()
-                # redirect stdout and stderr to <name>.log
-                logFile = self.getLogFile()
-                logFile.redirectOutput(close=True)
-                null = os.open("/dev/null", os.O_RDONLY)
-                os.dup2(null, sys.stdin.fileno())
-                os.close(null)
-
-                pid = os.fork()
-                if pid == 0:
-                    # abandon the controlling tty by resetting session id
-                    os.setsid()
-
-                    sys.stdout.flush()
-                    sys.stderr.flush()
-                    self.daemonize()
-                else:
-                    # always sleep one second, make sure that the 
-                    # process actually starts
-                    time.sleep(1)
-                    timeSlept = 1
-                    while timeSlept < 60:
-                        lockFilePid = self.getPidFromLockFile()
-                        if not lockFilePid or lockFilePid != pid:
-                            foundPid, status = os.waitpid(pid, os.WNOHANG)
-                            if foundPid:
-                                os._exit(1)
-                            else:
-                                time.sleep(.5)
-                                timeSlept += 1
-                        else:
-                            os._exit(0)
-                    os._exit(1)
-            else:
-                time.sleep(2)
-                pid, status = os.waitpid(pid, 0)
-                if os.WIFEXITED(status):
-                    rc = os.WEXITSTATUS(status)
-                    return rc
-                else:
-                    self.error('process killed with signal %s' % os.WTERMSIG(status))
-                    return 1
-        else:
-            self.daemonize()
-            return 0
-
-
-    def daemonize(self):
-        '''Call this to execute the daemon'''
-        self.writePidToLockFile()
-        try:
-            try:
-                self.doWork()
-            except KeyboardInterrupt:
-                self.info("interrupt caught; exiting")
-        finally:
-            self.removeLockFile()
+    def preFork(self):
+        pass
 
     def doWork(self):
         raise NotImplementedError
 
+    def _lock_path(self):
+        return os.path.join(self.cfg.lockDir, "%s.pid" % self.name)
+
+    def readLockFile(self):
+        path = self._lock_path()
+        try:
+            return int(open(path).readline().strip())
+        except IOError, err:
+            if err.errno != errno.ENOENT:
+                raise
+            return None
+        except ValueError:
+            return None
+
+    def writeLockFile(self):
+        path = self._lock_path()
+        open(path, 'w').write('%s\n' % os.getpid())
+
+    def removeLockFile(self):
+        path = self._lock_path()
+        try:
+            os.unlink(path)
+        except OSError, err:
+            if err.errno != errno.ENOENT:
+                raise
+
+    def testDaemon(self, pid=None):
+        if pid is None:
+            pid = self.readLockFile()
+            if pid is None:
+                # Lock file does not exist.
+                return None
+
+        try:
+            fObj = open('/proc/%s/cmdline' % (pid,))
+        except OSError, err:
+            # Process in lock file does not exist.
+            try:
+                os.stat('/proc/uptime')
+            except OSError, err:
+                if err.errno != errno.ENOENT:
+                    raise
+                sys.exit("You must mount /proc to use this program.")
+            return None
+
+        cmdline = fObj.read().split('\0')
+        exe = os.path.basename(cmdline[0])
+        if exe.startswith('python'):
+            exe = os.path.basename(cmdline[1])
+
+        if exe != self.name:
+            # Process in lock file is not this process.
+            return None
+
+        return pid
+
+    def kill(self):
+        pid = self.readLockFile()
+        if pid is None:
+            sys.exit("Could not kill %s: lock file %s does not exist" %
+                    (self.name, self._lock_path()))
+
+        if not self.testDaemon(pid):
+            sys.exit("Could not kill %s: process %s is not a %s" % (self.name,
+                pid, self.name))
+
+        try:
+            signals = [signal.SIGTERM, signal.SIGQUIT, signal.SIGKILL]
+            for signum in signals:
+                os.kill(pid, signum)
+
+                # Wait for the process to exit.
+                for x in range(50):
+                    os.kill(pid, 0)
+                    time.sleep(0.1)
+
+        except OSError, err:
+            if err.errno != errno.ESRCH:
+                raise
+            # Process no longer exists, so the kill was successful.
+            self.removeLockFile()
+            return
+
+        sys.exit("Failed to kill %s process %s" % (self.name, pid))
+
+    def start(self, argSet):
+        pid = self.testDaemon()
+        if pid:
+            sys.exit("%s already running as PID %s" % (self.name, pid))
+
+        fork = not argSet.get('no-daemon')
+        debug = bool(argSet.get('debug-all'))
+
+        self.setup(argSet=argSet, fork=fork, debug=debug)
+        self._dropPrivs()
+        self.preFork()
+
+        if not fork:
+            self._run()
+            return 0
+
+        # Double-fork in order to be reparented by init.
+        pid = os.fork()
+        if pid:
+            # This is the original calling process.
+            pid, status = os.waitpid(pid, 0)
+            if status:
+                sys.exit("%s failed to start: process exited with "
+                        "status %s" % (self.name, pid, status))
+            return 0
+
+        try:
+            if os.fork():
+                # This is the intermediate process.
+                os._exit(0)
+        except:
+            os._exit(70)
+
+        # This is the daemon process.
+        try:
+            sys.stdout.flush()
+            sys.stderr.flush()
+
+            os.setsid()
+            sink = os.open(os.devnull, os.O_RDWR)
+            os.dup2(sink, 0)
+            os.dup2(sink, 1)
+            os.dup2(sink, 2)
+            os.close(sink)
+
+            self._run()
+            os._exit(0)
+        except:
+            os._exit(70)
+
+    def _dropPrivs(self):
+        if os.getuid():
+            # Nothing we can do here.
+            return
+
+        if self.capabilities:
+            # libcap isn't available in chrooted environments, so don't import
+            # it unless we're actually going to use it.
+            from rmake.lib import pycap
+
+        if self.user:
+            pwent = pwd.getpwnam(self.user)
+            if self.groups:
+                groupIds = []
+                for group in self.groups:
+                    grpent = grp.getgrnam(group)
+                    groupIds.append(grpent.gr_gid)
+                os.setgroups(groupIds)
+            else:
+                os.setgroups([])
+
+            if self.capabilities:
+                pycap.set_keepcaps(True)
+
+            os.setgid(pwent.pw_gid)
+            os.setuid(pwent.pw_uid)
+
+        if self.capabilities:
+            pycap.cap_set_proc(self.capabilities)
+
+    def _run(self):
+        '''Call this to execute the daemon'''
+        self.writeLockFile()
+        try:
+            try:
+                self.doWork()
+            except KeyboardInterrupt:
+                log.info("Caught SIGINT; exiting")
+            except:
+                log.exception("Unhandled exception in daemon:")
+        finally:
+            self.removeLockFile()
+
     def runCommand(self, thisCommand, cfg, argSet, otherArgs, **kw):
         self.cfg = cfg
-        return options.MainHandler.runCommand(self, thisCommand, self, cfg, 
-                                             argSet, otherArgs, **kw)
+        return options.MainHandler.runCommand(self, thisCommand, self, cfg,
+                argSet, otherArgs, **kw)
 
-    def usage(self, rc=1, showAll=False):
-        print '%s: back end to rMake build tool' % self.commandName
-        if not showAll:
-            print
-            print 'Common Commands (use "%s help" for the full list)' % self.commandName
-        return options.MainHandler.usage(self, rc, showAll=showAll)
-
-    def mainWithExceptionHandling(self, argv):
-        from rmake import errors
-        try:
-            argv = list(argv)
-            debugAll = '--debug-all' in argv or '-d' in argv
-            if debugAll:
-                debuggerException = Exception
-                if '-d' in argv:
-                    argv.remove('-d')
-                else:
-                    argv.remove('--debug-all')
-            else:
-                debuggerException = errors.RmakeInternalError
-            sys.excepthook = errors.genExcepthook(debug=debugAll,
-                                                  debugCtrlC=debugAll)
-            rc = self.main(argv)
-        except debuggerException, err:
-            raise
-        except errors.RmakeError, err:
-            self.logger.error(err)
-            return 1
-        except KeyboardInterrupt:
-            return 1
-        return rc
+    def getConfigFile(self, argv):
+        return self.configClass()
 
 
-def daemonize():
-    if os.fork():
-        return False
-    if os.fork():
-        os._exit(0)
+class DaemonService(Daemon, MultiService):
+    """
+    Daemon implementation that acts as a Twisted multi-service.
+    """
 
-    os.setsid()
-    sink = os.open(os.devnull, os.O_RDWR)
-    os.dup2(sink, 0)
-    os.dup2(sink, 1)
-    os.dup2(sink, 2)
-    os.close(sink)
+    def __init__(self):
+        Daemon.__init__(self)
+        MultiService.__init__(self)
 
-    return True
+    def setup(self, **kwargs):
+        super(DaemonService, self).setup(**kwargs)
+        self.privilegedStartService()
+
+    def preFork(self):
+        from twisted.internet import reactor
+        self.startService()
+        reactor.addSystemEventTrigger('before', 'shutdown', self.stopService)
+
+    def doWork(self):
+        from twisted.internet import reactor
+        reactor.run()
+
+
+class LoggingMixin(Daemon):
+
+    logFileName = None
+
+    def getLogPath(self):
+        assert self.logFileName
+        return os.path.join(self.cfg.logDir, self.logFileName)
+
+    def setup(self, **kwargs):
+        super(LoggingMixin, self).setup(**kwargs)
+
+        if kwargs['fork']:
+            consoleLevel = None
+        elif kwargs['debug']:
+            consoleLevel = logging.DEBUG
+        else:
+            consoleLevel = logging.INFO
+        rmake_log.setupLogging(logPath=self.getLogPath(),
+                fileLevel=logging.INFO, consoleLevel=consoleLevel,
+                withTwisted=True)
+
+
+class PluginsMixin(Daemon):
+
+    plugins = None
+
+    def getConfigFile(self, argv):
+        self.plugins = pluginlib.getPluginManager(argv, self.configClass)
+        return Daemon.getConfigFile(self, argv)
 
 
 def debugHook(signum, sigtb):

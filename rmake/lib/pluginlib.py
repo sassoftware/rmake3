@@ -1,5 +1,15 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2006-2010 rPath, Inc.
+#
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
 #
 """
 Generic plugin library.  Loads plugins from the given paths, unless they
@@ -11,12 +21,14 @@ hook will find other plugins in whatever directory they are installed.
 TODO: add support for a requires syntax for plugins, and versioning of
 plugin APIs.
 """
+import logging
 import imp
 import os
 import sys
 import traceback
 
-from conary.lib import log
+log = logging.getLogger(__name__)
+
 
 class Plugin(object):
     """
@@ -332,3 +344,56 @@ class PluginImporter(object):
 
     def uninstall(self):
         sys.meta_path.remove(self)
+
+
+def getPluginManager(argv, configClass):
+    """
+        Handles plugin parameter parsing.  Unfortunately, plugin
+        parameter parsing must happen very early on in the command-line parsing
+        -- loading or not loading a plugin may change what parameters are 
+        valid, for example.  For that reason, we have to do some hand
+        parsing.
+
+        Limitations: in order to reduce the complexity of this hand-parsing,
+        plugin parameters are not allowed in contexts, and they cannot
+        be specified as --config options.
+
+        Suggestions on removing these limitations are welcome.
+    """
+    if '--no-plugins' in argv:
+        argv.remove('--no-plugins')
+        return PluginManager([])
+
+    # create an instance of our configuration file.  Ingore errors
+    # that might arise due to unknown options or changed option types,
+    # e.g. - we are only interested in the plugin dirs and usePlugins
+    # options.
+    cfg = configClass()
+    cfg.ignoreUrlIncludes()
+    cfg.setIgnoreErrors()
+    readNext = False
+    for item in argv:
+        if readNext:
+            cfg.read(item)
+            readNext = False
+            continue
+        if item.startswith('--config-file='):
+            file = item.split('=', 0)[1]
+            cfg.read(file)
+        elif item == '--config-file':
+            readNext = True
+    if not getattr(cfg, 'usePlugins', True):
+        return PluginManager([])
+
+    pluginDirInfo = [ x for x in argv if x.startswith('--plugin-dirs=')]
+
+    if pluginDirInfo:
+        pluginDirs = pluginDirInfo[-1].split('=', 1)[1].split(',')
+        [ argv.remove(x) for x in pluginDirInfo ]
+    else:
+        pluginDirs = cfg.pluginDirs
+
+    disabledPlugins = [ x[0] for x in cfg.usePlugin.items() if not x[1] ]
+    p = PluginManager(pluginDirs, disabledPlugins)
+    p.loadPlugins()
+    return p
