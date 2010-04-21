@@ -14,6 +14,7 @@
 
 import logging
 from twisted.internet import defer
+from twisted.python import failure
 from twisted.words.protocols.jabber import sasl
 from twisted.words.protocols.jabber import xmlstream
 from twisted.words.protocols.jabber import client as jclient
@@ -80,7 +81,7 @@ class RegisteringInitializer(object):
         d.addErrback(self.saslFailed)
         return d
 
-    def saslFailed(self, failure):
+    def saslFailed(self, reason):
         return self.registerAccount()
 
     def registerAccount(self):
@@ -103,14 +104,17 @@ class RegisteringInitializer(object):
         init_d, jid, password = self._inProgress
         self._inProgress = None
         if iq['type'] == 'result':
-            # Now that we're reigstered, insert another SASL attempt
-            self.xmlstream.initializers.insert(0,
-                    sasl.SASLInitiatingInitializer(self.xmlstream))
             if self.callback:
                 d = defer.maybeDeferred(self.callback, jid, password)
-                d.chainDeferred(init_d)
             else:
-                init_d.callback(None)
+                d = defer.succeed(None)
+            # Now that we're registered, reconnect so we can identify.
+            @d.addCallback
+            def after_callback(dummy):
+                self.xmlstream.transport.loseConnection()
+                return xmlstream.Reset
+            d.chainDeferred(init_d)
+
         elif iq['type'] == 'error':
             jid = self.xmlstream.authenticator.jid.userhost()
             error = iq.error.firstChildElement().name
