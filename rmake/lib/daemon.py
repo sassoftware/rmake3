@@ -164,7 +164,7 @@ class Daemon(options.MainHandler):
 
         try:
             fObj = open('/proc/%s/cmdline' % (pid,))
-        except OSError, err:
+        except IOError, err:
             # Process in lock file does not exist.
             try:
                 os.stat('/proc/uptime')
