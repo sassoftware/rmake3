@@ -116,11 +116,15 @@ class JobHandler(object):
         log.debug("Job %s status is: %s %s", self.job.job_uuid, code, text)
         return self._sendStatus(critical)
 
-    def _sendStatus(self, critical):
+    def _sendStatus(self, critical, reschedTick=None):
         tick = self.job.times.ticks
-        tickPending, critPending = self.statusPending
+        tickPending, pendIsCrit = self.statusPending
         if tickPending is not None:
-            if critPending:
+            if reschedTick is not None and reschedTick <= tickPending:
+                # Attempted to reschedule, but someone sent an update before
+                # this function actually got called.
+                return
+            elif pendIsCrit:
                 # Events are spooled while a critical update is pending, so
                 # this should never happen.
                 raise RuntimeError("Status update while critical update "
@@ -151,10 +155,10 @@ class JobHandler(object):
                 # Pre-empted by a critical update.
                 return
 
-            if self.job.times.ticks > tick:
+            newTick = self.job.times.ticks
+            if newTick > tick:
                 # Schedule another status send immediately.
-                log.debug("Scheduling another status update")
-                reactor.callLater(0, self._sendStatus, False)
+                reactor.callLater(0, self._sendStatus, False, newTick)
             self.statusPending = None, None
         def update_failed(failure):
             # Clear pending field so the attempt to change state to failed can
