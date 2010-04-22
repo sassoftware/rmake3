@@ -14,7 +14,6 @@
 
 import logging
 from twisted.internet import defer
-from twisted.python import failure
 from twisted.words.protocols.jabber import sasl
 from twisted.words.protocols.jabber import xmlstream
 from twisted.words.protocols.jabber import client as jclient

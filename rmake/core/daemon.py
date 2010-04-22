@@ -43,7 +43,7 @@ class DispatcherDaemon(daemon.DaemonService, daemon.PluginsMixin,
 
         srv = Dispatcher(self.cfg, self.plugins)
         srv.setServiceParent(self)
-        if kwargs['debug']:
+        if self.cfg.xmppDebug:
             srv.bus.logTraffic = True
 
         # Call super *after* adding services.

@@ -17,7 +17,6 @@ import random
 from rmake.messagebus.common import toJID, NS_RMAKE
 from twisted.internet import defer
 from twisted.words.xish import domish
-from twisted.words.protocols.jabber.xmlstream import IQ
 
 log = logging.getLogger(__name__)
 

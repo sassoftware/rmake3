@@ -159,6 +159,10 @@ class UUID(long):
             bytes = chr((self>> shift) & 0xff) + bytes
         return bytes
 
+    @property
+    def short(self):
+        return str(self)[24:]
+
 
     def __copy__(self, memo=None):
         return self
