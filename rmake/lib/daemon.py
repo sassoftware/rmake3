@@ -118,6 +118,7 @@ class Daemon(options.MainHandler):
 
     def __init__(self):
         self._logFile = None
+        rmake_log.setupLogging(consoleLevel=logging.WARNING)
         options.MainHandler.__init__(self)
 
     def setup(self, **kwargs):
@@ -364,9 +365,11 @@ class LoggingMixin(Daemon):
 class PluginsMixin(Daemon):
 
     plugins = None
+    pluginTypes = ()
 
     def getConfigFile(self, argv):
-        self.plugins = pluginlib.getPluginManager(argv, self.configClass)
+        self.plugins = pluginlib.getPluginManager(argv, self.configClass,
+                self.pluginTypes)
         return Daemon.getConfigFile(self, argv)
 
 

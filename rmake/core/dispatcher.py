@@ -56,19 +56,17 @@ class Dispatcher(MultiService, RPCServer):
 
         self.db = None
         self.pool = None
-        self.plugin_mgr = plugin_mgr
+        self.plugins = plugin_mgr
 
         self.jobs = {}
         self.workers = {}
         self.taskQueue = []
 
-        self._load_plugins()
+        self.plugins.p.dispatcher.pre_setup(self)
         self._start_db()
         self._start_bus()
         self._start_rpc()
-
-    def _load_plugins(self):
-        pass
+        self.plugins.p.dispatcher.post_setup(self)
 
     def _start_db(self):
         self.pool = dbpool.ConnectionPool(self.cfg.databaseUrl)
@@ -105,11 +103,11 @@ class Dispatcher(MultiService, RPCServer):
     ## Client API
 
     @expose
-    def getJobs(self, callData, job_uuids):
+    def getJobs(self, job_uuids):
         return self.pool.runWithTransaction(self.db.core.getJobs, job_uuids)
 
     @expose
-    def createJob(self, callData, job):
+    def createJob(self, job):
         try:
             handlerClass = getHandlerClass(job.job_type)
         except KeyError:

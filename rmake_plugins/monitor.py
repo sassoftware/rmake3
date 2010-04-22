@@ -21,15 +21,14 @@ from conary.lib import util
 from rmake import errors
 from rmake.build import buildjob, buildtrove
 from rmake.cmdline import query
-from rmake.lib import rpclib, localrpc
+from rmake.lib import rpclib, localrpc, pluginlib
 
 from rmake.cmdline import monitor
-from rmake.plugins import plugin
 
 oldMonitorJob = monitor.monitorJob
 
-class MonitorPlugin(plugin.ClientPlugin, plugin.LibraryPlugin):
-    types = [plugin.TYPE_CLIENT, plugin.TYPE_LIBRARY]
+class MonitorPlugin(object):#plugin.ClientPlugin, plugin.LibraryPlugin):
+    #types = [plugin.TYPE_CLIENT, plugin.TYPE_LIBRARY]
     def client_preInit(self, main, argv):
         if sys.stdout.isatty() and sys.stdin.isatty():
             monitor.monitorJob = monitorJob

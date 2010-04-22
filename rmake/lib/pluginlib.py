@@ -68,12 +68,13 @@ class PluginManager(object):
             plugin module.
 
         @param supportedTypes: the different types which plugins 
-            are allowed to be.  Defaults to empty, effectively disabling
+            are allowed to be.  Defaults to empty, which allows all plugin
             types.
     """
 
     def __init__(self, pluginDirs=None, disabledPlugins=None,
-                 pluginPrefix='__plugins__', pluginClass=Plugin):
+            pluginPrefix='__plugins__', pluginClass=Plugin,
+            supportedTypes=()):
         if pluginDirs is None:
             pluginDirs = []
         if disabledPlugins is None:
@@ -87,6 +88,8 @@ class PluginManager(object):
         self.pluginsByType = {}
         self.pluginsByName = {}
         self.disabledPlugins = disabledPlugins
+        self.supportedTypes = frozenset(supportedTypes)
+        self.p = _PluginProxy(self)
 
         self.loader = PluginImporter(self.pluginDirs, self.pluginPrefix,
                                      logger=self)
@@ -169,6 +172,9 @@ class PluginManager(object):
             self.pluginsByType[type].remove(plugin)
 
     def storePlugin(self, plugin):
+        if self.supportedTypes and not (
+                set(plugin.types) & self.supportedTypes):
+            return
         if plugin.name in self.pluginsByName:
             oldPlugin = self.pluginsByName[plugin.name]
             self.plugins.remove(oldPlugin)
@@ -214,8 +220,8 @@ class PluginManager(object):
         """
         plugins = []
         for class_ in pluginModule.__dict__.itervalues():
-            if (isinstance(class_, type)
-                and issubclass(class_, self.pluginClass)):
+            if (isinstance(class_, type) and
+                    issubclass(class_, self.pluginClass)):
                 plugin = class_(name, pluginModule.__file__, self)
                 plugins.append(plugin)
         if len(plugins) > 1:
@@ -226,12 +232,13 @@ class PluginManager(object):
             return None
         return plugins[0]
 
-    def callHook(self, type, hookName, *args, **kw):
+    def callHook(self, type_, hookName, *args, **kw):
+        attr = '%s_%s' % (type_, hookName)
         self.loader.install()
-        for plugin in self.getPluginsByType(type):
+        for plugin in self.getPluginsByType(type_):
             if not getattr(plugin, 'enabled', True):
                 continue
-            getattr(plugin, hookName)(*args, **kw)
+            getattr(plugin, attr)(*args, **kw)
         self.loader.uninstall()
 
 
@@ -346,7 +353,29 @@ class PluginImporter(object):
         sys.meta_path.remove(self)
 
 
-def getPluginManager(argv, configClass):
+class _PluginProxy(object):
+
+    def __init__(self, mgr, pluginType=None, methodName=None):
+        self.mgr = mgr
+        self.pluginType = pluginType
+        self.methodName = methodName
+
+    def __getattr__(self, key):
+        if not self.pluginType:
+            return _PluginProxy(self.mgr, key)
+        elif not self.methodName:
+            return _PluginProxy(self.mgr, self.pluginType, key)
+        else:
+            raise AttributeError(key)
+
+    def __call__(self, *args, **kwargs):
+        if not self.pluginType or not self.methodName:
+            raise TypeError("You must supply a plugin type and hook name")
+        return self.mgr.callHook(self.pluginType, self.methodName,
+                *args, **kwargs)
+
+
+def getPluginManager(argv, configClass, supportedTypes=(), readFiles=False):
     """
         Handles plugin parameter parsing.  Unfortunately, plugin
         parameter parsing must happen very early on in the command-line parsing
@@ -368,7 +397,8 @@ def getPluginManager(argv, configClass):
     # that might arise due to unknown options or changed option types,
     # e.g. - we are only interested in the plugin dirs and usePlugins
     # options.
-    cfg = configClass()
+    kwargs = readFiles and dict(readConfigFiles=True) or {}
+    cfg = configClass(**kwargs)
     cfg.ignoreUrlIncludes()
     cfg.setIgnoreErrors()
     readNext = False
@@ -394,6 +424,7 @@ def getPluginManager(argv, configClass):
         pluginDirs = cfg.pluginDirs
 
     disabledPlugins = [ x[0] for x in cfg.usePlugin.items() if not x[1] ]
-    p = PluginManager(pluginDirs, disabledPlugins)
+    p = PluginManager(pluginDirs, disabledPlugins,
+            supportedTypes=supportedTypes)
     p.loadPlugins()
     return p

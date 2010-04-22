@@ -46,6 +46,22 @@ class rMakeClient(object):
         self.proxy = PickleServerProxy(uri,
                 key_file=clientCert, ignoreCommonName=True)
 
+    def addRepositoryInfo(self, cfg):
+        info = self.proxy.build.getRepositoryInfo()
+        cfg.repositoryMap.update(info['repositoryMap'])
+        for user in info['reposUser']:
+            cfg.user.append(user)
+        cfg.reposName = info['reposName']
+        if info['conaryProxy'] and not cfg.conaryProxy:
+            cfg.conaryProxy['http'] = info['conaryProxy']
+            cfg.conaryProxy['https'] = info['conaryProxy']
+
+    def buildJob(self, job):
+        return self.proxy.build.createJob(job)
+
+
+class rMakeClient_UNPORTED(object):
+
     def buildTroves(self, troveList, cfg):
         """
             Request to build the given sources and build environment.
@@ -64,9 +80,6 @@ class rMakeClient(object):
             job.addTrove(buildTrove=trove, *trove.getNameVersionFlavor())
         job.setMainConfig(cfg)
         return self.buildJob(job)
-
-    def buildJob(self, job):
-        return self.proxy.buildTroves(job)
 
     def stopJob(self, jobId):
         """
@@ -313,16 +326,6 @@ class rMakeClient(object):
                 time.sleep(sleep)
                 timeSlept += sleep
         raise
-
-    def addRepositoryInfo(self, cfg):
-        info = self.proxy.build.getRepositoryInfo()
-        cfg.repositoryMap.update(info['repositoryMap'])
-        for info in reversed(info['reposUser']):
-            cfg.user.append(info)
-        cfg.reposName = info['reposName']
-        if info['conaryProxy'] and not cfg.conaryProxy:
-            cfg.conaryProxy['http'] = info['conaryProxy']
-            cfg.conaryProxy['https'] = info['conaryProxy']
 
     def listenToEvents(self, uri, jobId, listener, showTroveDetails=False,
                        serve=True):

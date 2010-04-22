@@ -35,7 +35,6 @@ from conary.lib import util
 
 from rmake import errors
 from rmake import failure
-from rmake import plugins
 from rmake.build import builder
 from rmake.build import buildcfg
 from rmake.build import buildjob
@@ -59,6 +58,24 @@ class BuildServer(RPCServer):
 
     def __init__(self, tbs_cfg):
         self.tbs_cfg = tbs_cfg
+
+    @expose
+    def createJob(self, job):
+        import epdb;epdb.st()
+        return 42
+
+    @expose
+    def getRepositoryInfo(self):
+        """Return info on how to contact the internal repository."""
+        return {
+                'reposName': self.tbs_cfg.reposName,
+                'repositoryMap': self.tbs_cfg.getRepositoryMap(),
+                'reposUser': list(self.tbs_cfg.reposUser),
+                'conaryProxy': self.tbs_cfg.getProxyUrl() or '',
+                }
+
+
+class BuildServer_UNPORTED(object):
 
     def listJobs(self, callData, activeOnly, jobLimit):
         return self.db.listJobs(activeOnly=activeOnly, jobLimit=jobLimit)
@@ -177,16 +194,6 @@ class BuildServer(RPCServer):
             self._subscribeToJob(job)
             job.own()
             job.jobCommitted(troveMap)
-
-    @expose
-    def getRepositoryInfo(self, callData):
-        """Return info on how to contact the internal repository."""
-        return {
-                'reposName': self.tbs_cfg.reposName,
-                'repositoryMap': self.tbs_cfg.getRepositoryMap(),
-                'reposUser': list(self.tbs_cfg.reposUser),
-                'proxyUrl': self.tbs_cfg.getProxyUrl() or '',
-                }
 
     # --- callbacks from Builders
 
@@ -480,7 +487,7 @@ class BuildServer(RPCServer):
 
         self.internalAuth = (user, password)
 
-    def __init__(self, uri, cfg, repositoryPid=None, proxyPid=None,
+    def DISABLED__init__(self, uri, cfg, repositoryPid=None, proxyPid=None,
                  pluginMgr=None, quiet=False):
         util.mkdirChain(cfg.logDir)
         logPath = cfg.logDir + '/rmake.log'

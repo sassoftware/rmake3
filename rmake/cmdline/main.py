@@ -1,12 +1,24 @@
 #!/usr/bin/python
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All rights reserved.
+# Copyright (c) 2006-2010 rPath, Inc.
 #
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
+#
+
 """
 Simple client that communicates with rMake.
 """
 
 import errno
+import logging
 import os
 import sys
 
@@ -18,12 +30,13 @@ from conary.lib import options
 
 from rmake import constants
 from rmake import errors
+from rmake.lib import logger as rmake_log
+from rmake.lib import pluginlib
 
 
 sys.excepthook = errors.genExcepthook(debug=False)
 
 from rmake import compat
-from rmake import plugins
 
 from rmake.build import buildcfg
 from rmake.cmdline import command
@@ -38,6 +51,7 @@ class RmakeMain(options.MainHandler):
     configClass = buildcfg.BuildConfiguration
 
     useConaryOptions = False
+    setSysExcepthook = False
 
     commandList = command._commands
 
@@ -49,8 +63,9 @@ class RmakeMain(options.MainHandler):
         return options.MainHandler.usage(self, rc, showAll=showAll)
 
     def initializePlugins(self, argv):
-        p = plugins.getPluginManager(argv, buildcfg.BuildConfiguration)
-        p.callClientHook('client_preInit', self, argv)
+        p = pluginlib.getPluginManager(argv, buildcfg.BuildConfiguration,
+                readFiles=True)
+        p.p.client.preInit(self, argv)
         return p
 
     def getConfigFile(self, argv):
@@ -68,8 +83,8 @@ class RmakeMain(options.MainHandler):
 
     def runCommand(self, thisCommand, (buildConfig, conaryConfig,
                                        pluginManager), argSet, args):
-        pluginManager.callClientHook('client_preCommand', self, thisCommand,
-                                     (buildConfig, conaryConfig), argSet, args)
+        pluginManager.p.client.preCommand(self, thisCommand,
+                (buildConfig, conaryConfig), argSet, args)
         compat.checkRequiredVersions()
         thisCommand.verbose = (log.getVerbosity() <= log.INFO)
         if args[1] != 'help':
@@ -84,8 +99,7 @@ class RmakeMain(options.MainHandler):
         # don't let the buildFlavor be overridden yet
         client = helper.rMakeHelper(buildConfig=buildConfig)
 
-        pluginManager.callClientHook('client_preCommand2', self, client,
-                                     thisCommand)
+        pluginManager.p.client.preCommand2(self, client, thisCommand)
 
         try:
             return options.MainHandler.runCommand(self, thisCommand, client, 
@@ -97,7 +111,6 @@ class RmakeMain(options.MainHandler):
             raise
 
 def main(argv):
-    log.setVerbosity(log.WARNING)
     try:
         argv = list(argv)
         debugAll = '--debug-all' in argv

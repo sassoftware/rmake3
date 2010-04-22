@@ -72,12 +72,12 @@ class JobStore(object):
                 results[state] = [(name, version, flavor, context)]
         return results
 
-    def getJob(self, job_uuid, withTroves=False, withConfigs=True):
+    def UNPORTED_getJob(self, job_uuid, withTroves=False, withConfigs=True):
         return self.getJobs([job_uuid], withTroves=withTroves,
                 withConfigs=withConfigs)[0]
 
     @readOnly
-    def getJobs(self, cu, job_uuids, withTroves=False, withConfigs=False):
+    def UNPORTED_getJobs(self, cu, job_uuids, withTroves=False, withConfigs=False):
         cu.execute("CREATE TEMPORARY TABLE t_jobs ( uuid TEXT )")
         cu.executemany("INSERT INTO t_jobs VALUES ( %s )",
                 [(x,) for x in job_uuids])
@@ -387,7 +387,7 @@ class JobStore(object):
     #---------------------------------------------------------------
 
     @protected
-    def addJob(self, cu, job):
+    def UNPORTED_addJob(self, cu, job):
         job.jobUUID = os.urandom(16).encode('hex')
         job.state = JOB_STATE_INIT
         job.status = buildjob.stateNames[job.state]
@@ -420,17 +420,7 @@ class JobStore(object):
 
         return job.jobUUID
 
-    @protected
-    def saveThing(self, cu, thing):
-        cu.execute("DELETE FROM thing")
-        cu.execute("INSERT INTO thing VALUES ( %s )", (thing,))
-
-    @readOnly
-    def getThing(self, cu):
-        cu.execute("SELECT thing FROM thing")
-        return cu.fetchone()[0]
-
-    def deleteJobs(self, jobIdList):
+    def UNPORTED_deleteJobs(self, jobIdList):
         cu = self.db.cursor()
         troveIdList = []
         troveList = []
@@ -450,7 +440,7 @@ class JobStore(object):
                           WHERE key="jobContext" AND value=?''', jobId)
         return troveList
 
-    def addJobConfig(self, jobId, context, jobConfig):
+    def UNPORTED_addJobConfig(self, jobId, context, jobConfig):
         cu = self.db.cursor()
         cu.execute('DELETE FROM JobConfig where jobId=? and context=?', jobId,
                     context)
@@ -462,7 +452,7 @@ class JobStore(object):
                               VALUES (?, ?, ?, ?, ?)''', jobId, context, key,
                                                       idx, value)
 
-    def setBinaryTroves(self, buildTrove, troveList):
+    def UNPORTED_setBinaryTroves(self, buildTrove, troveList):
         cu = self.db.cursor()
         troveId = self._getTroveId(cu, buildTrove.jobId,
                                    *buildTrove.getNameVersionFlavor(True))
@@ -475,7 +465,7 @@ class JobStore(object):
                             troveId, binName,
                             binVersion.freeze(), binFlavor.freeze()))
 
-    def updateJob(self, job):
+    def UNPORTED_updateJob(self, job):
         cu = self.db.cursor()
         failureTup = freeze('FailureReason', job.getFailureReason())
         if failureTup[0] == '':
@@ -487,7 +477,7 @@ class JobStore(object):
                    (job.pid, job.state, job.status, job.start, job.finish, 
                     failureTup[0], failureTup[1], job.jobId))
 
-    def updateTrove(self, trove):
+    def UNPORTED_updateTrove(self, trove):
         cu = self.db.cursor()
 
         if trove.getChrootHost():
@@ -534,14 +524,14 @@ class JobStore(object):
                                                          key, idx, value)
 
 
-    def setBuildTroves(self, job):
+    def UNPORTED_setBuildTroves(self, job):
         cu = self.db.cursor()
         cu.execute('DELETE FROM BuildTroves WHERE jobId=?', job.jobId)
         cu.execute('DELETE FROM TroveSettings WHERE jobId=?', job.jobId)
         for trove in job.iterTroves():
             self.addTrove(trove)
 
-    def addTrove(self, trove):
+    def UNPORTED_addTrove(self, trove):
         cu = self.db.cursor()
         if not trove.logPath:
             trove.logPath = self.db.logStore.getTrovePath(trove)
@@ -582,14 +572,14 @@ class JobStore(object):
                               VALUES (?, ?, ?, ?, ?)''', trove.jobId, troveId,
                                                          key, idx, value)
 
-    def updateJobLog(self, job, message):
+    def UNPORTED_updateJobLog(self, job, message):
         cu = self.db.cursor()
         cu.execute("INSERT INTO StateLogs (jobId, message, args)"
                    " VALUES (?, ?, ?)",
                    (job.jobId, message, ''))
         return True
 
-    def updateTroveLog(self, trove, message):
+    def UNPORTED_updateTroveLog(self, trove, message):
         cu = self.db.cursor()
         troveId = self._getTroveId(cu, trove.jobId, 
                                    *trove.getNameVersionFlavor(True))
@@ -597,32 +587,3 @@ class JobStore(object):
                    " VALUES (?, ?, ?, ?)",
                    (trove.jobId, troveId, message, ''))
         return True
-
-
-class JobQueue(object):
-
-    def __init__(self, db):
-        self.db = db
-
-    def add(self, job):
-        cu = self.db.cursor()
-        cu.execute('INSERT INTO JobQueue VALUES (?)', job.jobId)
-
-    def pop(self):
-        cu = self.db.cursor()
-        cu.execute('SELECT jobId FROM JobQueue ORDER BY jobId ASC LIMIT 1')
-        results = cu.fetchall()
-        if results:
-            jobId = results[0][0]
-            cu.execute('DELETE FROM JobQueue WHERE jobID=?', jobId)
-            return jobId
-        else:
-            raise IndexError, 'Queue is empty'
-
-    def isEmpty(self):
-        cu = self.db.cursor()
-        return cu.execute('SELECT COUNT(*) FROM JobQueue').fetchall()[0]
-
-    def listJobIds(self):
-        cu = self.db.cursor()
-        return [ x[0] for x in cu.execute('SELECT jobId FROM JobQueue') ]

@@ -11,6 +11,7 @@
 # or fitness for a particular purpose. See the Common Public License for
 # full details.
 
+from conary.lib.util import rethrow
 from rmake import errors
 
 
@@ -25,17 +26,32 @@ class RPCServer(object):
     def __init__(self, children=()):
         self._rpc_children = dict(children)
 
+    def _addChild(self, child, server):
+        self._rpc_children[child] = server
+
     def _callMethod(self, methodName, callData, args, kwargs):
         if not methodName.startswith('_'):
             if '.' in methodName:
                 first, rest = methodName.split('.', 1)
-                server = getattr(self, first, None)
+                server = self._rpc_children.get(first)
                 if server:
                     return server._callMethod(rest, callData, args, kwargs)
             else:
                 m = getattr(self, methodName, None)
                 if m and getattr(m, 'rpc_exposed', False):
-                    return m(callData, *args, **kwargs)
+                    self.callData = callData
+                    try:
+                        try:
+                            return m(*args)
+                        except TypeError, err:
+                            if methodName in str(err):
+                                # Probably a call signature error, so make sure
+                                # the client sees it.
+                                rethrow(errors.APIError)
+                            else:
+                                raise
+                    finally:
+                        self.callData = None
         raise NoSuchMethodError(methodName)
 
 

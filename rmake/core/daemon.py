@@ -18,23 +18,21 @@ Daemon entry point for the rMake dispatcher.
 
 
 import sys
+from rmake import compat
 from rmake.core.config import DispatcherConfig
 from rmake.core.dispatcher import Dispatcher
 from rmake.lib import daemon
 
 
-class DispatcherDaemon(daemon.DaemonService, daemon.PluginsMixin,
-        daemon.LoggingMixin):
+class DispatcherDaemon(daemon.DaemonService, daemon.LoggingMixin,
+        daemon.PluginsMixin):
 
     name = 'rmake-dispatcher'
     configClass = DispatcherConfig
     user = 'rmake'
     groups = ['rmake']
-    logFileName = 'rmake-dispatcher.log'
-
-    def __init__(self):
-        daemon.DaemonService.__init__(self)
-        self.plugins = None
+    logFileName = 'dispatcher.log'
+    pluginTypes = ('dispatcher',)
 
     def setup(self, **kwargs):
         for name in ('xmppJID', 'xmppIdentFile'):
@@ -51,4 +49,5 @@ class DispatcherDaemon(daemon.DaemonService, daemon.PluginsMixin,
 
 
 def main():
+    compat.checkRequiredVersions()
     DispatcherDaemon().main()

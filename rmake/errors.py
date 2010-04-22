@@ -60,12 +60,17 @@ class DatabaseSchemaTooNew(RmakeError):
             """The rmake database is too new for the version of rmake you are running.""")
 
 
+## Server errors
 
 class ServerError(RmakeError):
     """
         Generic error for communicating with the rMakeServer.
     """
     pass
+
+
+class APIError(ServerError):
+    """The client performed an invalid API operation."""
 
 
 class OpenError(ServerError):

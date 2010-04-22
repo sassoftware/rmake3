@@ -115,14 +115,7 @@ class RmakeBuildContext(cfg.ConfigSection):
     rmakeUser            = (CfgUser, None)
     rmakeUrl             = (CfgString, 'unix:///var/lib/rmake/socket')
     clientCert           = (CfgPath, None)
-    if not compat.ConaryVersion().supportsDefaultBuildReqs():
-        defaultBuildReqs     = (CfgList(CfgString), [ 'bash:runtime',
-            'coreutils:runtime', 'filesystem', 'conary:runtime',
-            'conary-build:runtime', 'dev:runtime', 'grep:runtime',
-            'sed:runtime', 'findutils:runtime', 'gawk:runtime',
-            ] )
-    else:
-        defaultBuildReqs     = (CfgList(CfgString), [])
+    defaultBuildReqs     = (CfgList(CfgString), [])
     resolveTroves        = (CfgList(CfgQuotedLineList(CfgTroveSpec)),
                             [[('group-dist', None, None)]])
     matchTroveRule       = (CfgList(CfgString), [])
@@ -152,6 +145,7 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
     usePlugins           = (CfgBool, True)
     jobContext           = CfgList(CfgInt)
     recursedGroupTroves  = CfgList(CfgTroveTuple)
+    reposName            = (CfgString, None)
     prebuiltBinaries               = CfgList(CfgTroveTuple)
     ignoreExternalRebuildDeps      = (CfgBool, False)
     ignoreAllRebuildDeps           = (CfgBool, False)
@@ -164,7 +158,8 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
     _hiddenOptions = [ 'buildTroveSpecs', 'resolveTroveTups', 'jobContext',
                        'recurseGroups', 'recursedGroupTroves',
                        'prebuiltBinaries', 'ignoreExternalRebuildDeps',
-                       'ignoreAllRebuildDeps', 'primaryTroves' ]
+                       'ignoreAllRebuildDeps', 'primaryTroves', 'reposName',
+                       ]
 
     _strictOptions = [ 'buildFlavor', 'buildLabel', 'cleanAfterCook','flavor',
                        'installLabelPath', 'repositoryMap', 'root',
@@ -230,16 +225,10 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
         def _shouldOverwrite(key, current, new):
             if key not in new:
                 return False
-            if compat.ConaryVersion().supportsConfigIsDefault():
-                if (current.isDefault(key) and
-                    current[key] == current.getDefaultValue(key) and
-                   (not new.isDefault(key) or
-                    new[key] != new.getDefaultValue(key))):
-                    return True
-            elif (current[key] is current.getDefaultValue(key) or
-                  current[key] == current.getDefaultValue(key)
-                  and (not new[key] is new.getDefaultValue(key)
-                       and not new[key] == new.getDefaultValue(key))):
+            if (current.isDefault(key)
+                    and current[key] == current.getDefaultValue(key)
+                    and (not new.isDefault(key) or
+                        new[key] != new.getDefaultValue(key))):
                 return True
             return False
         if self.strictMode:

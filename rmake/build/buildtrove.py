@@ -427,7 +427,7 @@ class BuildTrove(_AbstractBuildTrove):
     def __init__(self, *args, **kwargs):
         self._publisher = publisher.JobStatusPublisher()
         self._amOwner = False
-        _FreezableBuildTrove.__init__(self, *args, **kwargs)
+        _AbstractBuildTrove.__init__(self, *args, **kwargs)
 
     def amOwner(self):
         """

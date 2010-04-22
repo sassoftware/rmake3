@@ -18,10 +18,13 @@ framework.
 """
 
 import base64
+import socket
 import urlparse
 import xmlrpclib
+from conary.lib.util import rethrow
 from httplib import HTTPConnection
 
+from rmake import errors
 from rmake.lib.localrpc import UnixDomainHTTPConnection
 
 VERSION = 0.1
@@ -282,12 +285,16 @@ class HTTPTransport(Transport):
             self.connectionClass = connectionClass
 
     def request(self, address, contentType, request_body, response_filter):
-        conn = self.make_connection(address)
-        self.send_request(conn, address)
-        self.send_host(conn, address)
-        self.send_user_agent(conn)
-        self.send_authorization(conn, address)
-        self.send_content(conn, contentType, request_body)
+        try:
+            conn = self.make_connection(address)
+            self.send_request(conn, address)
+            self.send_host(conn, address)
+            self.send_user_agent(conn)
+            self.send_authorization(conn, address)
+            self.send_content(conn, contentType, request_body)
+        except socket.error, err:
+            rethrow(errors.OpenError("Error contacting server at %s: %s" %
+                (address, err)))
 
         response = conn.getresponse()
         if response.status != 200:

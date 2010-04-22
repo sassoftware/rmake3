@@ -29,7 +29,6 @@ from conary.repository import trovesource
 
 from rmake import compat
 from rmake import errors
-from rmake import plugins
 from rmake.build import buildcfg
 from rmake.build import buildjob
 from rmake.build import imagetrove

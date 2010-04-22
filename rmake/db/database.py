@@ -28,6 +28,7 @@ from rmake.db import logstore
 from rmake.db import nodestore
 from rmake.db import subscriber
 from rmake.db.core import CoreDB
+from rmake.db.jobstore import CoreDB
 from rmake.db.extensions import register_types
 from rmake.lib import ninamori
 
@@ -42,6 +43,7 @@ class Database(object):
             register_types(self.db)
 
         self.core = CoreDB(self.db)
+        self.jobStore = JobStore(self.db)
 
 
 class old_Database(object):
