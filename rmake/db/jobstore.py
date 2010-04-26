@@ -12,6 +12,11 @@
 # full details.
 #
 
+"""
+This module holds the database interface used by the trove build system, as an
+extension of the core build system.
+"""
+
 import cPickle
 import os
 from conary.deps import deps
@@ -20,9 +25,6 @@ from conary.deps.deps import ThawFlavor
 from conary.versions import ThawVersion
 from rmake.build import buildjob
 from rmake.build import buildtrove
-from rmake.build.buildtrove import TROVE_STATE_INIT
-from rmake.build.buildjob import JOB_STATE_FAILED, JOB_STATE_INIT, \
-     JOB_STATE_QUEUED, JOB_STATE_STARTED, JOB_STATE_BUILD, JOB_STATE_BUILT
 from rmake.errors import JobNotFound
 from rmake.lib.ninamori.decorators import protected, readOnly
 
@@ -31,6 +33,37 @@ class JobStore(object):
 
     def __init__(self, db):
         self.db = db
+
+    @protected
+    def createJob(self, cu, job):
+        """Add build-specific data to the appropriate table after creating the
+        core job object.
+
+        This also assigns the job its jobId.
+
+        NB: builds.jobs only holds things that need to be indexed and searched
+        on without unpickling the job blob in the core jobs table.
+        """
+        cu.insert('build.jobs',
+                dict(job_uuid=job.jobUUID, job_name=job.jobName),
+                returning='job_id')
+        job.jobId = cu.fetchone()[0]
+
+        for trove in job.iterTroves():
+            cu.insert('build.job_troves', dict(
+                job_uuid=job.jobUUID,
+                source_name=trove.name,
+                source_version=trove.version.freeze(),
+                build_flavor=trove.flavor.freeze(),
+                build_context=trove.context,
+                trove_state=trove.state,
+                trove_status=trove.status,
+                ))
+
+        return job.jobId
+
+
+class UNPORTED_JobStore(object):
 
     def UNPORTED_isJobBuilding(self):
         cu = self.db.cursor()

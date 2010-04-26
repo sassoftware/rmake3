@@ -31,7 +31,6 @@ from rmake import compat
 from rmake import errors
 from rmake.build import buildcfg
 from rmake.build import buildjob
-from rmake.build import imagetrove
 from rmake.build.client import rMakeClient
 from rmake.cmdline import buildcmd
 from rmake.cmdline import cmdutil
@@ -631,6 +630,7 @@ class rMakeHelper(object):
                              out=out)
 
     def createImageJob(self, productName, imageList):
+        raise NotImplementedError # XXX
         allTroveSpecs = {}
         finalImageList = []
         for image in imageList:

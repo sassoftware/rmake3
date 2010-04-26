@@ -21,26 +21,19 @@ log = logging.getLogger(__name__)
 
 JOB_STATE_VERSION = 1
 
+_jobHandlers = {}
 
-class _HandlerRegistrar(type):
 
-    handlers = {}
-
-    def __new__(metacls, name, bases, clsdict):
-        cls = type.__new__(metacls, name, bases, clsdict)
-
-        if cls.jobType:
-            metacls.handlers[cls.jobType] = cls
-
-        return cls
+def registerHandler(handlerClass):
+    assert handlerClass.jobType
+    _jobHandlers[handlerClass.jobType] = handlerClass
 
 
 def getHandlerClass(jobType):
-    return _HandlerRegistrar.handlers[jobType]
+    return _jobHandlers[jobType]
 
 
 class JobHandler(object):
-    __metaclass__ = _HandlerRegistrar
     __slots__ = ('dispatcher', 'job', 'eventsPending', 'statusPending',
             'state', 'tasks')
     _save = ('state',)
@@ -140,7 +133,7 @@ class JobHandler(object):
         else:
             frozen = None
         self.statusPending = tick, critical
-        d = self.dispatcher.updateJob(self.job, frozen=frozen)
+        d = self.dispatcher.updateJob(self.job, frozen_handler=frozen)
         def update_ok(dummy):
             from twisted.internet import reactor
             if critical:
@@ -167,12 +160,17 @@ class JobHandler(object):
             return failure
         d.addCallbacks(update_ok, update_failed)
 
-        d.addErrback(self.failJob, message="Error setting job status:")
+        d.addErrback(self.failJob, message="Error setting job status:",
+                failHard=self.job.status.failed)
         return d
 
-    def failJob(self, failure, message="Unhandled error in job handler:"):
+    def failJob(self, failure, message="Unhandled error in job handler:",
+            failHard=False):
         log.error("%s\n%sJob: %s\n", message, failure.getTraceback(),
                 self.job.job_uuid)
+        if failHard:
+            self.dispatcher.jobDone(self.job.job_uuid)
+            return
 
         text = "Job failed: %s: %s" % (
                 reflect.qual(failure.type),
@@ -187,6 +185,10 @@ class JobHandler(object):
             log.error("Failed to set job status to failed:\n%s",
                     failure.getTraceback())
             self.dispatcher.jobDone(self.job.job_uuid)
+
+    def updateJobData(self):
+        """Send new type-specific job data to the database."""
+        return self.dispatcher.updateJobData(self.job)
 
     ## Creating/monitoring tasks
 
@@ -222,7 +224,7 @@ class JobHandler(object):
                 value = getattr(self, slot, NOT_SET)
                 if value is not NOT_SET:
                     state_dict[slot] = value
-        data = (self._getVersion(), state_dict)
+        data = (self._getVersion(), self.job.data, state_dict)
         return cPickle.dumps(data, 2)
 
     @classmethod
@@ -289,3 +291,5 @@ class TestHandler(JobHandler):
                 return self.setStatus(400, 'Job failed {2/2}', state='done')
             else:
                 return self.setStatus(200, 'Job complete {2/2}', state='done')
+
+registerHandler(TestHandler)

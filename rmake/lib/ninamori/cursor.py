@@ -158,3 +158,15 @@ class Cursor(object):
         the result of a C{SELECT COUNT(*)}.
         """
         return self.fetchone()[0]
+
+    # Execution helpers
+    def insert(self, table, values=(), returning=()):
+        items = dict(values).items()
+        fields = ', '.join(x[0] for x in items)
+        placeholders = ', '.join('%s' for x in items)
+        values = [x[1] for x in items]
+        sql = SQL("INSERT INTO %s ( %s ) VALUES ( %s )" % (table, fields,
+            placeholders), *values)
+        if returning:
+            sql += SQL(" RETURNING " + returning)
+        return self.execute(sql)

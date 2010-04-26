@@ -1,5 +1,15 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2006-2010 rPath, Inc.
+#
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
 #
 import sys
 import time
@@ -12,7 +22,6 @@ from conary import trove
 
 from rmake import failure
 from rmake.build import publisher
-from rmake.build import trovesettings
 from rmake.lib import flavorutil
 
 troveStates = {
@@ -64,10 +73,6 @@ stateNames.update({
     TROVE_STATE_WAITING   : 'Queued',
 })
 
-_troveClassesByType = {}
-def getClassForTroveType(troveType):
-    return _troveClassesByType[troveType]
-
 def _getStateName(state):
     return stateNames[state]
 
@@ -89,20 +94,11 @@ def getRecipeType(recipeClass):
 
 TROVE_STATE_LIST = sorted(troveStates.values())
 
-class _BuildTroveRegister(type):
-    def __init__(class_, *args, **kw):
-        type.__init__(class_, *args, **kw)
-        _troveClassesByType[class_.troveType] = class_
 
 class _AbstractBuildTrove(object):
     """
         Base class for the trove object.
     """
-    __metaclass__ = _BuildTroveRegister
-
-    troveType = 'build'
-    settingsClass = trovesettings.TroveSettings
-
 
     def __init__(self, jobUUID, name, version, flavor,
                  state=TROVE_STATE_INIT, status='',
@@ -112,11 +108,14 @@ class _AbstractBuildTrove(object):
                  preBuiltRequirements=None, preBuiltBinaries=None,
                  context='', flavorList=None, 
                  buildType=TROVE_BUILD_TYPE_NORMAL):
+        # These five fields uniquely identify the build trove.
         self.jobUUID = jobUUID
         self.name = name
         self.version = version
         self.flavor = flavor
+        self.context = context
         assert(isinstance(flavor, deps.Flavor))
+
         self.buildRequirements = set()
         self.delayedRequirements = set()
         self.crossRequirements = set()
@@ -143,9 +142,7 @@ class _AbstractBuildTrove(object):
         self.preBuiltLog = ''
 
         self.isPrimary = False
-        self.context = context
         self.cfg = None
-        self.settings = self.settingsClass()
         if flavorList is None:
             self.flavorList = [flavor]
         else:

@@ -103,22 +103,35 @@ class Dispatcher(MultiService, RPCServer):
     ## Client API
 
     @expose
-    def getJobs(self, job_uuids):
-        return self.pool.runWithTransaction(self.db.core.getJobs, job_uuids)
+    def getJobs(self, job_uuids, withData=False):
+        return self.pool.runWithTransaction(self.db.core.getJobs, job_uuids,
+                withData=withData)
 
     @expose
-    def createJob(self, job):
+    def createJob(self, job, callbackInTrans=None):
+        """Add the given job the database and start running it.
+
+        @param job: The job to add.
+        @type  job: L{rmake.core.types.RmakeJob}
+        @param callbackInTrans: A function to call inside the database thread
+            to perform additional database operations within the same
+            transaction.
+        @type  callbackInTrans: C{callable}
+        @return: C{Deferred} fired with a reconstituted C{RmakeJob} upon
+            completion.
+        """
         try:
             handlerClass = getHandlerClass(job.job_type)
         except KeyError:
             raise RmakeError("Job type %r is unsupported" % job.job_type)
+        handler = handlerClass(self, job)
 
-        d = self.pool.runWithTransaction(self.db.core.createJob, job)
+        d = self.pool.runWithTransaction(self.db.core.createJob, job,
+                handler.freeze(), callbackInTrans)
         @d.addCallback
         def post_create(newJob):
             log.info("Job %s of type '%s' started", newJob.job_uuid,
                     newJob.job_type)
-            handler = handlerClass(self, newJob)
             self.jobs[newJob.job_uuid] = handler
             handler.start()
             return newJob
@@ -152,20 +165,26 @@ class Dispatcher(MultiService, RPCServer):
             log.warning("Tried to remove job %s but it is already gone.",
                     job_uuid)
 
-    def updateJob(self, job, frozen=None):
+    def updateJob(self, job, frozen_handler=None):
         # Use a copy of the job object because the request gets put into a
         # queue until there is a DB worker available.
         job = copy.deepcopy(job)
         return self.pool.runWithTransaction(self._updateJob, job,
-                frozen=frozen)
+                frozen_handler=frozen_handler)
 
-    def _updateJob(self, job, frozen=None):
-        job = self.db.core.updateJob(job, frozen=frozen)
+    def _updateJob(self, job, frozen_handler=None):
+        job = self.db.core.updateJob(job, frozen_handler=frozen_handler)
         if not job:
             # Superceded by another update
             return
         if job.status.final:
             self.jobDone(job.job_uuid)
+
+    def updateJobData(self, job):
+        # dumps() here instead of in JobStore so we don't have to copy the data
+        # to avoid a threading race.
+        return self.pool.runWithTransaction(self.db.core.updateJobData,
+                job.job_uuid, cPickle.dumps(job.data, 2))
 
     def createTask(self, task):
         job = self.jobs[task.job_uuid]

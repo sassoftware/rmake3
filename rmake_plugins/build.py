@@ -17,6 +17,7 @@ This plugin serves as the entry point to the basic build functionality of rMake.
 """
 
 from conary import constants as cny_const
+from rmake.build import disp_handler
 from rmake.build import repos
 from rmake.build import server
 from rmake.build import servercfg
@@ -29,11 +30,15 @@ class BuildPlugin(pluginlib.Plugin):
     types = ['dispatcher', 'worker']
 
     def dispatcher_pre_setup(self, dispatcher):
+        disp_handler.register()
+
         self.cfg = servercfg.rMakeConfiguration(True)
-        dispatcher._addChild('build', server.BuildServer(self.cfg))
+        self.server = server.BuildServer(dispatcher, self.cfg)
+        dispatcher._addChild('build', self.server)
 
     def dispatcher_post_setup(self, dispatcher):
         if not self.cfg.isExternalRepos():
             repos.startRepository(self.cfg)
         if not self.cfg.isExternalProxy():
             repos.startProxy(self.cfg)
+        self.server._post_setup()

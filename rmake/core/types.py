@@ -49,14 +49,16 @@ class _SlotCompare(object):
 
 
 class RmakeJob(_SlotCompare):
-    __slots__ = ('job_uuid', 'job_type', 'owner', 'status', 'times')
+    __slots__ = ('job_uuid', 'job_type', 'owner', 'status', 'times', 'data')
 
-    def __init__(self, job_uuid, job_type, owner, status=None, times=None):
+    def __init__(self, job_uuid, job_type, owner, status=None, times=None,
+            data=None):
         self.job_uuid = job_uuid
         self.job_type = job_type
         self.owner = owner
         self.status = status or JobStatus()
         self.times = times or JobTimes()
+        self.data = data
 
 
 class RmakeTask(_SlotCompare):

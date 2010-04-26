@@ -1,32 +1,33 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2006-2010 rPath, Inc.
 #
-import bz2
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
+#
+
+
 import itertools
 import sys
 import time
 
-from conary.lib import log
-from conary.repository import trovesource
-
-from rmake import errors
 from rmake import failure
 from rmake.build import buildtrove
 from rmake.build import publisher
-
-from xmlrpclib import dumps, loads
+from rmake.lib import uuid
 
 jobStates = {
     'JOB_STATE_INIT'        : 0,
-    'JOB_STATE_FAILED'      : 1,
-    'JOB_STATE_QUEUED'      : 2,
-    'JOB_STATE_STARTED'     : 3,
-    'JOB_STATE_BUILD'       : 4,
-    'JOB_STATE_BUILT'       : 5,
-    'JOB_STATE_COMMITTING'  : 6,
-    'JOB_STATE_COMMITTED'   : 7,
-    'JOB_STATE_LOADING'     : 8,
-    'JOB_STATE_LOADED'      : 9,
+    'JOB_STATE_LOADING'     : 100,
+    'JOB_STATE_BUILD'       : 101,
+    'JOB_STATE_BUILT'       : 200,
+    'JOB_STATE_FAILED'      : 400,
     }
 
 
@@ -44,8 +45,7 @@ stateNames.update({
     JOB_STATE_BUILD      : 'Building',
 })
 
-ACTIVE_STATES = [ JOB_STATE_BUILD, JOB_STATE_QUEUED, JOB_STATE_STARTED,
-                  JOB_STATE_LOADING, JOB_STATE_LOADED ]
+ACTIVE_STATES = [ JOB_STATE_INIT, JOB_STATE_BUILD, JOB_STATE_LOADING ]
 
 def _getStateName(state):
     return stateNames[state]
@@ -62,7 +62,7 @@ class _AbstractBuildJob(object):
     def __init__(self, jobUUID=None, jobId=None, jobName=None, troveList=(),
             state=JOB_STATE_INIT, status='', owner=None, failure=None,
             configs=(), timeStarted=None, timeUpdated=None, timeFinished=None):
-        self.jobUUID = jobUUID
+        self.jobUUID = jobUUID or uuid.uuid4()
         self.jobId = jobId
         self.jobName = jobName
 
@@ -165,37 +165,23 @@ class _AbstractBuildJob(object):
     def getFailureReason(self):
         return self.failureReason
 
-    def isQueued(self):
-        return self.state == JOB_STATE_QUEUED
-
     def isBuilding(self):
-        return self.state in (JOB_STATE_STARTED, JOB_STATE_BUILD)
+        return self.state == JOB_STATE_BUILD
 
     def isBuilt(self):
-        return self.state in (JOB_STATE_BUILT,)
+        return self.state == JOB_STATE_BUILT
 
     def isFailed(self):
-        return self.state in (JOB_STATE_FAILED,)
+        return self.state == JOB_STATE_FAILED
 
     def isFinished(self):
-        return self.state in (JOB_STATE_FAILED, JOB_STATE_BUILT,
-                              JOB_STATE_COMMITTED)
+        return self.state in (JOB_STATE_FAILED, JOB_STATE_BUILT)
 
     def isRunning(self):
-        return self.state in (JOB_STATE_LOADING, JOB_STATE_LOADED,
-            JOB_STATE_STARTED, JOB_STATE_BUILD)
-
-    def isCommitted(self):
-        return self.state == JOB_STATE_COMMITTED
-
-    def isCommitting(self):
-        return self.state == JOB_STATE_COMMITTING
+        return self.state in ACTIVE_STATES
 
     def isLoading(self):
         return self.state == JOB_STATE_LOADING
-
-    def isLoaded(self):
-        return self.state == JOB_STATE_LOADED
 
     def trovesInProgress(self):
         for trove in self.iterTroves():
@@ -395,17 +381,3 @@ class BuildJob(_AbstractBuildJob):
         self.state = state
         self.status = status
         self._publisher.jobStateUpdated(self, state, status, *args)
-
-def NewBuildJob(db, troveTups, jobConfig=None, state=JOB_STATE_INIT, uuid=''):
-    """
-        Create a new build job that is attached to the database - i.e.
-        that will send notifications to the database when it is updated.
-
-        Note this is the preferred way to create a BuildJob, since it gives
-        the job a jobId.
-    """
-    job = BuildJob(None, troveTups, state=state, uuid=uuid)
-    if jobConfig:
-        job.setMainConfig(jobConfig)
-    db.addJob(job)
-    return job
