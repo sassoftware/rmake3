@@ -60,13 +60,24 @@ class BuildServer(RPCServer):
     def createJob(self, job):
         core_job = RmakeJob(job.jobUUID, job_type='build', owner='<unknown>',
                 data=job)
-        # Use the createJob callback to get the build-specific table up to date
-        # inside the same transaction.
+
+        ret = []
         def create_buildjob(_job, _db):
-            self.db.jobStore.createJob(job)
-        # Calls-back (numeric) job id
-        return self.dispatcher.createJob(core_job,
+            # Create the build.jobs row while inside the same transaction as
+            # the core job. Note that we have to do some scoping trickery to
+            # get the new numeric jobId back into the reactor thread to return
+            # it to the caller.
+            jobId = self.db.jobStore.createJob(job)
+            ret.append(jobId)
+
+        d = self.dispatcher.createJob(core_job,
                 callbackInTrans=create_buildjob)
+
+        @d.addCallback
+        def post_create(dummy):
+            # Return numeric jobId obtained from DB callback
+            return ret[0]
+        return d
 
     @expose
     def getRepositoryInfo(self):
