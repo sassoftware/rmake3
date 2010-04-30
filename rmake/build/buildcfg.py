@@ -17,7 +17,6 @@ Describes a BuildConfiguration, which is close to, but neither a subset nor
 a superset of a conarycfg file.
 """
 
-import logging
 import os
 import re
 import urllib
@@ -25,8 +24,7 @@ import urllib
 from conary import conarycfg
 from conary import versions
 from conary.lib import cfg,cfgtypes
-from conary.lib import log
-from conary.lib import sha1helper
+from conary.lib import log as clog
 from conary.conarycfg import CfgLabel
 from conary.conarycfg import ParseError
 from conary.conaryclient import cmdline
@@ -35,10 +33,6 @@ from conary.lib.cfgtypes import (CfgBool, CfgPath, CfgList, CfgDict, CfgString,
                                  CfgPathList)
 
 from rmake.cmdline import cmdutil
-from rmake.lib import daemon
-from rmake import compat, errors
-
-log = logging.getLogger(__name__)
 
 
 class CfgTroveSpec(CfgType):
@@ -192,7 +186,7 @@ class BuildConfiguration(conarycfg.ConaryConfiguration):
 
         if readConfigFiles:
             if os.path.exists(root + '/etc/rmake/clientrc'):
-                log.warning(root + '/etc/rmake/clientrc should be renamed'
+                clog.warning(root + '/etc/rmake/clientrc should be renamed'
                                    ' to /etc/rmake/rmakerc')
                 self.read(root + '/etc/rmake/clientrc', exception=False)
             self.read(root + '/etc/rmake/rmakerc', exception=False)

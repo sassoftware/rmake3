@@ -16,7 +16,6 @@
 This plugin serves as the entry point to the basic build functionality of rMake.
 """
 
-from conary import constants as cny_const
 from rmake.build import disp_handler
 from rmake.build import repos
 from rmake.build import server

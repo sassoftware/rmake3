@@ -17,6 +17,7 @@ import cPickle
 import logging
 import rmake.errors
 from rmake.lib import apirpc
+from rmake.lib import logger
 from rmake.lib import rpcproxy
 from twisted.internet import defer
 from twisted.web.resource import Resource
@@ -61,6 +62,8 @@ class PickleRPCResource(Resource):
             funcName, args, kwargs = cPickle.loads(request.content.read())
             return self.methodstore._callMethod(funcName, callData, args,
                     kwargs)
+        d = defer.maybeDeferred(call_func)
+
         def on_ok(result):
             return (True, result)
         def on_error(failure):
@@ -70,13 +73,19 @@ class PickleRPCResource(Resource):
                 log.error("Unhandled exception in RPC method:\n%s",
                         failure.getTraceback())
                 return (False, rmake.errors.InternalServerError())
+        d.addCallbacks(on_ok, on_error)
+
+        @d.addCallback
         def do_render(result):
             request.write(cPickle.dumps(result, 2))
             request.finish()
 
-        d = defer.maybeDeferred(call_func)
-        d.addCallbacks(on_ok, on_error)
-        d.addCallback(do_render)
+        @d.addErrback
+        def render_crashed(failure):
+            logger.logFailure(failure, "Crash in RPC response rendering:")
+            request.setResponseCode(500)
+            request.finish()
+
         return NOT_DONE_YET
 
     def _getCallData(self, request):

@@ -80,8 +80,7 @@ class ConaryVersion(object):
         '''
         if not self.checkVersion(minVer='2.0.26'):
             raise errors.RmakeError('rMake requires a conary version 2.0.26 or '
-                                    'greater to build factories'
-                                    % (version, msg))
+                                    'greater to build factories')
         return True
 
 

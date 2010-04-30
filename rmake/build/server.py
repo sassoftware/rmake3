@@ -16,30 +16,21 @@
 Build-related server methods for the rMake dispatcher.
 """
 
-import errno
 import itertools
 import logging
-import pwd
 import os
 import random
-import shutil
-import signal
 import sys
-import time
 import traceback
 import urllib
 import xmlrpclib
 
-from conary.deps import deps
 from conary.lib import util
 
 from rmake import errors
-from rmake import failure
 from rmake.core.types import RmakeJob
 from rmake.build import builder
-from rmake.build import buildcfg
 from rmake.build import buildjob
-from rmake.build import subscriber
 from rmake.server import auth
 from rmake.db import database
 from rmake.lib.apirpc import RPCServer, expose
@@ -67,16 +58,15 @@ class BuildServer(RPCServer):
 
     @expose
     def createJob(self, job):
-        # First create the core job
         core_job = RmakeJob(job.jobUUID, job_type='build', owner='<unknown>',
                 data=job)
-        d = self.dispatcher.createJob(core_job)
-        @d.addCallback
-        def core_created(dummy):
-            # Now add build info to build.jobs
-            return self.pool.runWithTransaction(self.db.jobStore.createJob, job)
-        # Returns (numeric) job id
-        return d
+        # Use the createJob callback to get the build-specific table up to date
+        # inside the same transaction.
+        def create_buildjob(_job, _db):
+            self.db.jobStore.createJob(job)
+        # Calls-back (numeric) job id
+        return self.dispatcher.createJob(core_job,
+                callbackInTrans=create_buildjob)
 
     @expose
     def getRepositoryInfo(self):

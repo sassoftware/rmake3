@@ -83,8 +83,6 @@ def twistedLogObserver(eventDict):
             module = name
             break
         n += 1
-    if module == 'twisted.web.http':
-        import epdb;epdb.st()
     logger = logging.getLogger(module)
     if 'logLevel' in eventDict:
         level = eventDict['logLevel']

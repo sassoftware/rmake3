@@ -33,6 +33,7 @@ from rmake.messagebus import message
 from rmake.messagebus.client_support import PresenceProtocol, XMPPClient
 from rmake.messagebus.common import toJID
 from wokkel import disco
+from wokkel import generic
 from wokkel import iwokkel
 from wokkel.ping import PingHandler
 from zope.interface import implements
@@ -115,6 +116,7 @@ class BusService(XMPPClient, pubsub.Publisher):
                 'disco_s': disco.DiscoHandler(),
                 'ping': PingHandler(),
                 'presence': PresenceProtocol(),
+                'fallback': generic.FallbackHandler(),
                 }
         if other_handlers:
             self._handlers.update(other_handlers)

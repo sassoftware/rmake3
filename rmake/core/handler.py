@@ -246,7 +246,7 @@ class TestHandler(JobHandler):
     handler_version = 1
 
     jobType = 'test'
-    firstState = 'beta'
+    firstState = 'alpha'
     spam = 3
 
     # State: alpha -- start one task and wait for completion

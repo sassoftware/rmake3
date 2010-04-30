@@ -58,12 +58,11 @@ def startRepository(cfg, logger=None):
             os.chmod(reposDir + '/password', 0700)
         cfg.reposUser.addServerGlob(cfg.reposName, 'rmake', password)
 
-    serverCfg = cny_server.ServerConfig(cfg.getReposConfigPath())
+    serverCfg = cny_server.ServerConfig()
     serverCfg.repositoryDB = ('sqlite', cfg.getReposDbPath())
     serverCfg.contentsDir = cfg.getContentsPath()
     serverCfg.port = cfg.getReposInfo()[1]
     serverCfg.configKey('serverName', cfg.reposName)
-    serverCfg.logFile = None
 
     # Transfer SSL settings from rMake config object
     if getattr(cny_server, 'SSL', None):
@@ -105,13 +104,12 @@ def startProxy(cfg, logger=None):
     util.mkdirChain(proxyDir)
     os.chdir(proxyDir)
 
-    serverCfg = cny_server.ServerConfig(cfg.getProxyConfigPath())
+    serverCfg = cny_server.ServerConfig()
     serverCfg.serverName = []
     serverCfg.proxyDB = ('sqlite', cfg.getProxyPath())
     serverCfg.changesetCacheDir = cfg.getProxyChangesetPath()
     serverCfg.proxyContentsDir = cfg.getProxyContentsPath()
     serverCfg.port = proxyPort
-    serverCfg.logFile = None
 
     # Transfer SSL settings from rMake config object
     if getattr(cny_server, 'SSL', None):

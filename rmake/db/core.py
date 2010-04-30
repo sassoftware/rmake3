@@ -76,9 +76,9 @@ class CoreDB(object):
         sql = SQL("""
             SELECT job_uuid, job_type, owner, status_code, status_text,
             status_detail, time_started, time_updated, time_finished,
-            expires_after, time_ticks, """)
+            expires_after, time_ticks""")
         if withData:
-            sql += "frozen_data"
+            sql += ", frozen_data"
         sql += SQL("""
             FROM jobs.jobs WHERE job_uuid IN %s""", tuple(uuids),)
         cu.execute(sql)
