@@ -337,9 +337,10 @@ class BuildCommand(rMakeCommand):
             if quiet:
                 if not client.waitForJob(jobId):
                     return 1
-            elif not client.watch(jobId, showTroveLogs=not quiet,
-                               showBuildLogs=not quiet,
-                               commit=commit, message=message):
+            else:
+                client.watchJob(job)
+                #elif not client.watch(jobId, showTroveLogs=not quiet,
+                #showBuildLogs=not quiet, #commit=commit, message=message):
                 return 1
         elif commit:
             if not client.commitJob(jobId, commitWithFailures=False,

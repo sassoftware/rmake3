@@ -584,6 +584,8 @@ class rMakeHelper(object):
         return not self.client.getJob(jobId, withTroves=False).isFailed()
     poll = watch # backwards compatibility
 
+    def watchJob(self, job):
+        return self.client.watchJob(job)
 
     def buildTroves(self, *args, **kw):
         """

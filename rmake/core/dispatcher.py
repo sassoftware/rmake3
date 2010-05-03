@@ -20,6 +20,7 @@ Status updates are routed back to clients and to the database.
 
 
 import copy
+import cPickle
 import errno
 import logging
 import os
@@ -33,8 +34,10 @@ from rmake.db import database
 from rmake.errors import RmakeError
 from rmake.lib import dbpool
 from rmake.lib import rpc_pickle
+from rmake.lib import uuid
 from rmake.lib.apirpc import RPCServer, expose
 from rmake.lib.logger import logFailure
+from rmake.lib.twisted_extras.firehose import FirehoseResource
 from rmake.lib.twisted_extras.ipv6 import TCP6Server
 from rmake.messagebus import message
 from twisted.application.internet import UNIXServer
@@ -57,6 +60,7 @@ class Dispatcher(MultiService, RPCServer):
         self.db = None
         self.pool = None
         self.plugins = plugin_mgr
+        self.firehose = None
 
         self.jobs = {}
         self.workers = {}
@@ -82,6 +86,8 @@ class Dispatcher(MultiService, RPCServer):
     def _start_rpc(self):
         root = Resource()
         root.putChild('picklerpc', rpc_pickle.PickleRPCResource(self))
+        self.firehose = FirehoseResource()
+        root.putChild('firehose', self.firehose)
         site = Site(root, logPath=self.cfg.logPath_http)
         if self.cfg.listenPath:
             try:
@@ -108,7 +114,7 @@ class Dispatcher(MultiService, RPCServer):
                 withData=withData)
 
     @expose
-    def createJob(self, job, callbackInTrans=None):
+    def createJob(self, job, callbackInTrans=None, firehose=None):
         """Add the given job the database and start running it.
 
         @param job: The job to add.
@@ -117,6 +123,9 @@ class Dispatcher(MultiService, RPCServer):
             to perform additional database operations within the same
             transaction.
         @type  callbackInTrans: C{callable}
+        @param firehose: Firehose session ID that will be subscribed to the new
+            job.
+        @type firehose: C{str}
         @return: C{Deferred} fired with a reconstituted C{RmakeJob} upon
             completion.
         """
@@ -126,6 +135,13 @@ class Dispatcher(MultiService, RPCServer):
             raise RmakeError("Job type %r is unsupported" % job.job_type)
         handler = handlerClass(self, job)
 
+        if firehose:
+            try:
+                sid = uuid.UUID(str(firehose))
+            except ValueError:
+                raise RmakeError("Invalid firehose session ID")
+            self.firehose.subscribe(('job', str(job.job_uuid)), sid)
+
         d = self.pool.runWithTransaction(self.db.core.createJob, job,
                 handler.freeze(), callbackInTrans)
         @d.addCallback
@@ -134,8 +150,18 @@ class Dispatcher(MultiService, RPCServer):
                     newJob.job_type)
             self.jobs[newJob.job_uuid] = handler
             handler.start()
+
+            self._publish(job, 'self', 'created')
+            self._publish(job, 'status', newJob.status)
+
             return newJob
         return d
+
+    def _publish(self, job, category, data):
+        if not isinstance(job, uuid.UUID):
+            job = job.job_uuid
+        event = ('job', str(job), category)
+        self.firehose.publish(event, data)
 
     # Job handler API
 
@@ -149,6 +175,8 @@ class Dispatcher(MultiService, RPCServer):
             else:
                 result = 'finished'
             log.info("Job %s %s: %s", job_uuid, result, status.text)
+
+            self._publish(job_uuid, 'self', 'finalized')
 
             handler = self.jobs[job_uuid]
             tasks = set(handler.tasks)
@@ -169,16 +197,18 @@ class Dispatcher(MultiService, RPCServer):
         # Use a copy of the job object because the request gets put into a
         # queue until there is a DB worker available.
         job = copy.deepcopy(job)
-        return self.pool.runWithTransaction(self._updateJob, job,
+        d = self.pool.runWithTransaction(self.db.core.updateJob, job,
                 frozen_handler=frozen_handler)
-
-    def _updateJob(self, job, frozen_handler=None):
-        job = self.db.core.updateJob(job, frozen_handler=frozen_handler)
-        if not job:
-            # Superceded by another update
-            return
-        if job.status.final:
-            self.jobDone(job.job_uuid)
+        @d.addCallback
+        def post_update(newJob):
+            if not newJob:
+                # Superceded by another update
+                return None
+            self._publish(newJob, 'status', job.status)
+            if newJob.status.final:
+                self.jobDone(newJob.job_uuid)
+            return newJob
+        return d
 
     def updateJobData(self, job):
         # dumps() here instead of in JobStore so we don't have to copy the data

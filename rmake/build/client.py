@@ -23,6 +23,7 @@ from rmake.build import buildtrove
 from rmake.errors import InsufficientPermission
 from rmake.lib.rpc_pickle import PickleServerProxy
 from rmake.lib.rpcproxy import parseAddress, Address
+from rmake.lib.twisted_extras.firehose import FirehoseClient
 
 
 class rMakeClient(object):
@@ -40,11 +41,20 @@ class rMakeClient(object):
         if not isinstance(uri, Address):
             uri = parseAddress(uri)
         if hasattr(uri, 'handler') and uri.handler in ('', '/'):
+            firehose_uri = uri.copy()
+            firehose_uri.handler = '/firehose'
             uri = uri.copy()
             uri.handler = '/picklerpc'
+        else:
+            firehose_uri = None
         self.uri = uri
         self.proxy = PickleServerProxy(uri,
                 key_file=clientCert, ignoreCommonName=True)
+        if firehose_uri:
+            self.firehose = FirehoseClient(firehose_uri.asString(
+                withPassword=False))
+        else:
+            self.firehose = None
 
     def addRepositoryInfo(self, cfg):
         info = self.proxy.build.getRepositoryInfo()
@@ -56,8 +66,22 @@ class rMakeClient(object):
             cfg.conaryProxy['http'] = info['conaryProxy']
             cfg.conaryProxy['https'] = info['conaryProxy']
 
-    def buildJob(self, job):
-        return self.proxy.build.createJob(job)
+    def buildJob(self, job, subscribe=True):
+        sid = subscribe and self.firehose.sid or None
+        return self.proxy.build.createJob(job, firehose=sid)
+
+    def watchJob(self, job):
+        selfEvent = ('job', str(job.jobUUID), 'self')
+        for event in self.firehose.iterAll():
+            print event.event
+            print '  Matched:', event.matched
+            if hasattr(event.data, 'code'):
+                print '  Status: %s %s' % (event.data.code, event.data.text)
+            else:
+                print '  Data:', event.data
+            if event.event == selfEvent and event.data in (
+                    'finalized', 'destroyed'):
+                break
 
 
 class rMakeClient_UNPORTED(object):

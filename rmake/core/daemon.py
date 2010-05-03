@@ -18,6 +18,7 @@ Daemon entry point for the rMake dispatcher.
 
 
 import sys
+from conary.lib import options
 from rmake import compat
 from rmake.core.config import DispatcherConfig
 from rmake.core.dispatcher import Dispatcher
@@ -50,4 +51,9 @@ class DispatcherDaemon(daemon.DaemonService, daemon.LoggingMixin,
 
 def main():
     compat.checkRequiredVersions()
-    DispatcherDaemon().main()
+    d = DispatcherDaemon()
+    try:
+        return d.main()
+    except options.OptionError, err:
+        d.usage()
+        print >> sys.stderr, 'error:', str(err)

@@ -57,7 +57,7 @@ class BuildServer(RPCServer):
         self.pool = self.dispatcher.pool
 
     @expose
-    def createJob(self, job):
+    def createJob(self, job, firehose=None):
         core_job = RmakeJob(job.jobUUID, job_type='build', owner='<unknown>',
                 data=job)
 
@@ -70,7 +70,7 @@ class BuildServer(RPCServer):
             jobId = self.db.jobStore.createJob(job)
             ret.append(jobId)
 
-        d = self.dispatcher.createJob(core_job,
+        d = self.dispatcher.createJob(core_job, firehose=firehose,
                 callbackInTrans=create_buildjob)
 
         @d.addCallback

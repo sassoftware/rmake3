@@ -11,6 +11,22 @@
 # or fitness for a particular purpose. See the Common Public License for
 # full details.
 
+"""
+The job handler is a state machine unique to each build type that governs the
+flow of tasks and status on the dispatcher. It sets build status, creates
+tasks for workers to run, and monitors those tasks for completion and failure.
+
+Each handler defines a set of attributes that it wishes to persist each time
+the handler's state is updated. These will be recovered in case of a dispatcher
+crash, and can be used to determine which tasks need to be run. An ideal
+handler arranges its efforts so that the external effects of all previous
+states are on permanent storage before it changes state, and that all effects
+within the current state can be retried without harm. A recovering handler will
+attempt to recreate all tasks within that state, and note the pre-existing
+outcomes of any tasks that are still known by the system. It may choose to
+restart tasks that were already failed at recovery time.
+"""
+
 import cPickle
 import logging
 from rmake.core.types import RmakeTask
