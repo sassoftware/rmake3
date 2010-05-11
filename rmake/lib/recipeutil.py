@@ -309,12 +309,13 @@ def loadSourceTroves(job, repos, buildFlavor, troveList,
     return resultSet
 
 def getSourceTrovesFromJob(job, troveList=None, repos=None, reposName=None):
+    cfg = job.getMainConfig()
     if repos:
         cacheDir = None
     else:
         cacheDir = tempfile.mkdtemp(prefix='rmake-trovecache-')
         try:
-            client = conaryclient.ConaryClient(job.getMainConfig())
+            client = conaryclient.ConaryClient(cfg)
             repos = repocache.CachingTroveSource(client.getRepos(), cacheDir)
         except:
             util.rmtree(cacheDir)
@@ -326,17 +327,20 @@ def getSourceTrovesFromJob(job, troveList=None, repos=None, reposName=None):
         if not troveList:
             return {}
         if reposName is None:
-            reposName = job.getMainConfig().reposName
+            reposName = cfg.reposName
 
         resultSet = {}
         tupList = sorted(x.getNameVersionFlavor() for x in troveList)
 
         # create fake "packages" for all the troves we're building so that
         # they can be found for loadInstalled.
-        buildTrovePackages = [ (x[0].split(':')[0], x[1], x[2])
-            for x in tupList ]
-        buildTroveSource = RemoveHostSource(trovesource.SimpleTroveSource(
-            buildTrovePackages), reposName)
+        if not cfg.isolateTroves:
+            buildTrovePackages = [ (x[0].split(':')[0], x[1], x[2])
+                for x in tupList ]
+            buildTroveSource = RemoveHostSource(trovesource.SimpleTroveSource(
+                buildTrovePackages), reposName)
+        else:
+            buildTroveSource = None
 
         # don't search the internal repository explicitly for loadRecipe
         # sources - they may be a part of some bogus build.
@@ -357,8 +361,12 @@ def getSourceTrovesFromJob(job, troveList=None, repos=None, reposName=None):
             loadInstalledList = [ trovesource.TroveListTroveSource(repos, x)
                 for x in buildCfg.resolveTroveTups ]
             loadInstalledList.append(repos)
-            loadInstalledSource = trovesource.stack(buildTroveSource,
-                                                    *loadInstalledList)
+
+            if buildTroveSource is not None:
+                loadInstalledSource = trovesource.stack(buildTroveSource,
+                                                        *loadInstalledList)
+            else:
+                loadInstalledSource = trovesource.stack(*loadInstalledList)
 
             loadInstalledRepos = trovesource.stack(*loadInstalledList)
             if isinstance(loadInstalledRepos, trovesource.TroveSourceStack):

@@ -194,6 +194,8 @@ class FreezableConfigMixin(object):
 class BuildConfiguration(conarycfg.ConaryConfiguration, FreezableConfigMixin):
 
     buildTroveSpecs      = CfgList(CfgTroveSpec)
+    isolateTroves        = (CfgBool, False, "Ignore the results of other "
+            "troves in the same job when searching for build requirements.")
     resolveTroveTups     = CfgList(CfgQuotedLineList(CfgTroveTuple))
     recurseGroups        = (CfgInt, 0)
     prepOnly             = (CfgBool, False)

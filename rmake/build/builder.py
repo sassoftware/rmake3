@@ -220,12 +220,9 @@ class Builder(object):
         logDir = self.serverCfg.getBuildLogDir(self.job.jobId)
         util.mkdirChain(logDir)
         specialTroves = [ x for x in buildTroves if x.isSpecial() ]
-        self.dh = dephandler.DependencyHandler(
-                                           self.job.getPublisher(),
-                                           self.logger,
-                                           regularTroves,
-                                           specialTroves,
-                                           logDir)
+        self.dh = dephandler.DependencyHandler(self.job.getPublisher(),
+                self.logger, regularTroves, specialTroves, logDir,
+                dumbMode=self.buildCfg.isolateTroves)
         if not self._checkBuildSanity(buildTroves):
             return False
         return True
@@ -280,7 +277,7 @@ class Builder(object):
         troveToBuild.disown()
 
         logData = self.startTroveLogger(troveToBuild)
-        if troveToBuild.isDelayed():
+        if troveToBuild.isDelayed() and not self.buildCfg.isolateTroves:
             builtTroves = self.job.getBuiltTroveList()
         else:
             builtTroves = []

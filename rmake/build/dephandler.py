@@ -1,5 +1,15 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2006-2008, 2010 rPath, Inc.
+#
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
 #
 """
 Dependency Handler and DependencyState classes
@@ -7,7 +17,6 @@ Dependency Handler and DependencyState classes
 
 import itertools
 import sys
-import time
 import traceback
 
 from conary.deps import deps
@@ -413,11 +422,12 @@ class DependencyHandler(object):
         Updates what troves are buildable based on dependency information.
     """
     def __init__(self, statusLog, logger, buildTroves, specialTroves,
-                 logDir=None):
+            logDir=None, dumbMode=False):
         self.depState = DependencyBasedBuildState(buildTroves, specialTroves,
                                                   logger)
         self.logger = logger
         self.logDir = logDir
+        self.dumbMode = dumbMode
         self.specialTroves = specialTroves
         self.inactiveSpecial = list(specialTroves)
         self.graphCount = 0
@@ -553,6 +563,10 @@ class DependencyHandler(object):
         return self.depState.moreToDo()
 
     def _addResolutionDeps(self, trv, jobSet, crossJobSet, inCycle=False):
+        if self.dumbMode:
+            # Short circuit: Nothing to block a trove from building in dumb
+            # mode.
+            return set()
         found = set()
         for jobs, isCross in ((jobSet, False), (crossJobSet, True)):
             for (name, oldInfo, newInfo, isAbs) in jobs:
@@ -664,7 +678,11 @@ class DependencyHandler(object):
                 self.trovePrebuilt(buildTrove, cycleTroves)
                 return
         self._resolving[buildTrove] = cycleTroves
-        if buildTrove.hasTargetArch():
+        if self.dumbMode:
+            # Not ordering builds, so ignore built troves completely.
+            builtTroves = []
+            crossTroves = []
+        elif buildTrove.hasTargetArch():
             builtTroves = self.depState.getNonCrossCompiledBinaries()
             crossTroves = self.depState.getCrossCompiledBinaries()
         else:
