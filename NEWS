@@ -1,4 +1,7 @@
 Changes in @NEW@:
+ o New Features:
+    * Added a isolateTroves build configuration option to disable
+      intra-job trove dependencies. (RMK-1048)
 
 Changes in 2.0.3:
  o Bug Fixes:
