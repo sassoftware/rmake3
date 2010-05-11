@@ -517,15 +517,16 @@ class Migrator(AbstractMigrator):
         return 11
 
     def migrateFrom11(self):
-        cu = self.db.cursor()
-        for table in ['Jobs', 'Subscriber', 'SubscriberData', 'BuildTroves',
-                'StateLogs', 'Chroots', 'AuthCache']:
-            self._rebuildTable(table)
-        cu.execute("""UPDATE Jobs SET failureReason = NULL,
-                failureData = NULL WHERE failureReason = ''""")
-        cu.execute("""UPDATE BuildTroves SET failureReason = NULL,
-                failureData = NULL WHERE failureReason = ''""")
-        cu.execute("UPDATE StateLogs SET troveId = NULL WHERE troveId = 0")
+        if self.db.driver == 'sqlite':
+            cu = self.db.cursor()
+            for table in ['Jobs', 'Subscriber', 'SubscriberData', 'BuildTroves',
+                    'StateLogs', 'Chroots', 'AuthCache']:
+                self._rebuildTable(table)
+            cu.execute("""UPDATE Jobs SET failureReason = NULL,
+                    failureData = NULL WHERE failureReason = ''""")
+            cu.execute("""UPDATE BuildTroves SET failureReason = NULL,
+                    failureData = NULL WHERE failureReason = ''""")
+            cu.execute("UPDATE StateLogs SET troveId = NULL WHERE troveId = 0")
         return 12
 
 class PluginSchemaManager(AbstractSchemaManager):
