@@ -275,9 +275,13 @@ class _SessionClient(asyncore.dispatcher):
             self.handle_error()
             return
         if m:
-            m.thawPayloadStream()
             self._receivedMessages = True
-            self.handle_message(m)
+            try:
+                m.thawPayloadStream()
+            except:
+                self.logger.error("Corrupt message payload received; ignoring.")
+            else:
+                self.handle_message(m)
 
     def handle_message(self, m):
         self.logger.logMessage(m)
