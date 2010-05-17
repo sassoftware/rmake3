@@ -1,5 +1,15 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2006-2010 rPath, Inc.
+#
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
 #
 """
     Creates chroots to be used for building.
@@ -8,6 +18,7 @@
 """
 
 import grp
+import itertools
 import os
 import pwd
 import shutil
@@ -19,7 +30,7 @@ from conary import conarycfg
 from conary import conaryclient
 from conary import callbacks
 from conary.deps import deps
-from conary.lib import util, log, openpgpkey, sha1helper
+from conary.lib import util, openpgpkey, sha1helper
 
 #rmake
 from rmake import errors
@@ -54,6 +65,7 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
         if targetFlavor is not None:
             cfg.initializeFlavors()
             self.sysroot = flavorutil.getSysRootPath(targetFlavor)
+        self.rpmRoot = None
 
         self.addDir('/tmp', mode=01777)
         self.addDir('/var/tmp', mode=01777)
@@ -105,12 +117,7 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
         client = conaryclient.ConaryClient(self.cfg)
         repos = client.getRepos()
         if self.chrootCache and hasattr(repos, 'getChangeSetFingerprints'):
-            fingerprints = client.repos.getChangeSetFingerprints(
-                sorted(self.jobList + self.crossJobList +
-                    self.bootstrapJobList),
-                recurse=False, withFiles=True, withFileContents=True,
-                excludeAutoSource=True, mirrorMode=False)
-            chrootFingerprint = sha1helper.sha1String(''.join(fingerprints))
+            chrootFingerprint = self._getChrootFingerprint(client)
             if self.chrootCache.hasChroot(chrootFingerprint):
                 strFingerprint = sha1helper.sha1ToString(chrootFingerprint)
                 self.logger.info('restoring cached chroot with '
@@ -151,10 +158,15 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
                 client.applyUpdate(updJob, replaceFiles=True,
                                    tagScript=self.cfg.root + '/root/tagscripts')
 
+        self._installRPM()
+
         if self.bootstrapJobList:
             self.logger.info("Installing initial chroot bootstrap requirements")
             oldRoot = self.cfg.dbPath
             try:
+                # Bootstrap troves are installed outside the system DB,
+                # although it doesn't matter as much in trove builds as it does
+                # in image builds.
                 self.cfg.dbPath += '.bootstrap'
                 _install(self.bootstrapJobList)
             finally:
@@ -172,6 +184,8 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
                 _install(self.crossJobList)
             finally:
                 self.cfg.root = oldRoot
+
+        self._uninstallRPM()
 
         # directories must be traversable and files readable (RMK-1006)
         for root, dirs, files in os.walk(self.cfg.root, topdown=True):
@@ -211,6 +225,81 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
                 self.copyDir(scriptsDir)
                 self.copyFile(os.path.join(scriptsDir, 'perlreqs.pl'),
                     '/usr/libexec/conary/perlreqs.pl')
+
+    def _installRPM(self):
+        """If needed, choose a version of RPM to use to install the chroot."""
+        self._uninstallRPM()
+        if not self.cfg.rpmRequirements:
+            return
+
+        ccfg = conarycfg.ConaryConfiguration(False)
+        cli = conaryclient.ConaryClient(ccfg)
+
+        # Find troves that provide the necessary RPM dep.
+        found = cli.db.getTrovesWithProvides(self.cfg.rpmRequirements)
+        tups = list(itertools.chain(*found.values()))
+        if not tups:
+            raise errors.ServerError("Could not locate a RPM trove meeting "
+                    "one of these requirements:\n  %s"
+                    % ("\n  ".join(str(x) for x in self.cfg.rpmRequirements)))
+
+        # Search those troves for the python import root.
+        targetRoot = '/python%s.%s/site-packages' % sys.version_info[:2]
+        targetPath = targetRoot + '/rpm/__init__.py'
+        roots = set()
+        for trove in cli.db.getTroves(tups, pristine=False):
+            for pathId, path, fileId, fileVer in trove.iterFileList():
+                if path.endswith(targetPath):
+                    root = path[:-len(targetPath)] + targetRoot
+                    roots.add(root)
+
+        # Insert into the search path and do a test import.
+        if not roots:
+            raise errors.ServerError("A required RPM trove was found but "
+                    "did not contain a suitable python module "
+                    "(expected python%s.%s)" % sys.version_info[:2])
+
+        self.rpmRoot = sorted(roots)[0]
+        self.logger.info("Using RPM in root %s", self.rpmRoot)
+        sys.path.insert(0, self.rpmRoot)
+        __import__('rpm')
+
+
+    def _uninstallRPM(self):
+        """Remove a previously-installed RPM from the python path and clear the
+        module cache."""
+        if self.rpmRoot:
+            assert sys.path[0] == self.rpmRoot
+            del sys.path[0]
+            self.rpmRoot = None
+        for name in sys.modules.keys():
+            if name.split('.')[0] == 'rpm':
+                del sys.modules[name]
+
+    def _getChrootFingerprint(self, client):
+        job = (sorted(self.jobList) + sorted(self.crossJobList) +
+                sorted(self.bootstrapJobList))
+        fingerprints = client.repos.getChangeSetFingerprints(job,
+                recurse=False, withFiles=True, withFileContents=True,
+                excludeAutoSource=True, mirrorMode=False)
+
+        a = len(self.jobList)
+        b = a + len(self.crossJobList)
+
+        # Make backwards-compatible chroot fingerprints by only appending more
+        # info if it is set.
+
+        # version 1 or later fingerprint
+        blob = ''.join(fingerprints[:a])  # jobList
+        if (self.crossJobList or self.bootstrapJobList or
+                self.cfg.rpmRequirements):
+            # version 2 or later fingerprint
+            blob += '\n'
+            blob += ''.join(fingerprints[a:b]) + '\n'  # crossJobList
+            blob += ''.join(fingerprints[b:]) + '\n'  # bootstrapJobList
+            blob += '\t'.join(str(x) for x in self.cfg.rpmRequirements) + '\n'
+        return sha1helper.sha1String(blob)
+
 
 class rMakeChroot(ConaryBasedChroot):
 
