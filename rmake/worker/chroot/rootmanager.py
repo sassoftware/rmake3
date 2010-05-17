@@ -184,7 +184,8 @@ class ChrootManager(object):
     def chrootFinished(self, chrootPath):
         self.queue.chrootFinished(chrootPath)
 
-    def getRootFactory(self, cfg, buildReqList, crossReqList, buildTrove):
+    def getRootFactory(self, cfg, buildReqList, crossReqList, bootstrapReqs,
+            buildTrove):
         cfg = copy.deepcopy(cfg)
         cfg.threaded = False
 
@@ -205,7 +206,7 @@ class ChrootManager(object):
         chroot = chrootClass(buildTrove,
                              self.chrootHelperPath,
                              cfg, self.serverCfg, buildReqList, crossReqList,
-                             self.logger,
+                             bootstrapReqs, self.logger,
                              csCache=self.csCache,
                              chrootCache=self.chrootCache,
                              copyInConary=copyInConary)

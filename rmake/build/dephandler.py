@@ -370,8 +370,8 @@ class DependencyBasedBuildState(AbstractBuildState):
         self.depGraph.delete(trove)
         self.buildReqTroves.pop(trove, False)
 
-    def troveBuildable(self, trove, buildReqs, crossReqs):
-        self.buildReqTroves[trove] = (buildReqs, crossReqs)
+    def troveBuildable(self, trove, buildReqs, crossReqs, bootstrapReqs):
+        self.buildReqTroves[trove] = (buildReqs, crossReqs, bootstrapReqs)
 
     def hasCrossRequirements(self, trove):
         for childTrove, reason in self.depGraph.getChildren(trove,
@@ -903,6 +903,7 @@ class DependencyHandler(object):
         if results.success:
             buildReqs = results.getBuildReqs()
             crossReqs = results.getCrossReqs()
+            bootstrapReqs = results.getBootstrapReqs()
             newDeps = self._addResolutionDeps(trv, buildReqs, crossReqs,
                                               results.inCycle)
             if not newDeps and results.inCycle:
@@ -959,7 +960,7 @@ class DependencyHandler(object):
                 for cycleTrove in cycleTroves:
                     self._cycleChecked.pop(cycleTrove, False)
             trv.troveBuildable()
-            self.depState.troveBuildable(trv, buildReqs, crossReqs)
+            self.depState.troveBuildable(trv, buildReqs, crossReqs, bootstrapReqs)
         else:
             # FIXME: there's probably a case here where self._cycleTroves
             # is empty but a missing dependency could expand the cycle

@@ -242,8 +242,9 @@ class Builder(object):
                 if self.worker._checkForResults():
                     self.resolveIfReady()
                 elif self.dh.hasBuildableTroves():
-                    trv, (buildReqs, crossReqs) = self.dh.popBuildableTrove()
-                    self.buildTrove(trv, buildReqs, crossReqs)
+                    trv, (buildReqs, crossReqs, bootstrapReqs
+                            ) = self.dh.popBuildableTrove()
+                    self.buildTrove(trv, buildReqs, crossReqs, bootstrapReqs)
                 elif self.dh.hasSpecialTroves():
                     self.actOnTrove(self.dh.popSpecialTrove())
                 elif not self.resolveIfReady():
@@ -271,7 +272,7 @@ class Builder(object):
                                trove.cfg, trove.jobId,
                                trove, self.eventHandler, logData)
 
-    def buildTrove(self, troveToBuild, buildReqs, crossReqs):
+    def buildTrove(self, troveToBuild, buildReqs, crossReqs, bootstrapReqs):
         targetLabel = troveToBuild.cfg.getTargetLabel(troveToBuild.getVersion())
         troveToBuild.troveQueued('Waiting to be assigned to chroot')
         troveToBuild.disown()
@@ -284,7 +285,8 @@ class Builder(object):
         self.worker.buildTrove(troveToBuild.cfg, troveToBuild.jobId,
                                troveToBuild, self.eventHandler, buildReqs,
                                crossReqs, targetLabel, logData,
-                               builtTroves=builtTroves)
+                               builtTroves=builtTroves,
+                               bootstrapReqs=bootstrapReqs)
 
     def resolveIfReady(self):
         resolveJob = self.dh.getNextResolveJob()

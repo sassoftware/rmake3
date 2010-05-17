@@ -10,6 +10,7 @@ import re
 
 from conary import conarycfg
 from conary import versions
+from conary.deps import deps
 from conary.lib import cfg,cfgtypes
 from conary.lib import log
 from conary.lib import sha1helper
@@ -23,6 +24,16 @@ from conary.lib.cfgtypes import (CfgBool, CfgPath, CfgList, CfgDict, CfgString,
 from rmake.cmdline import cmdutil
 from rmake.lib import apiutils, daemon, logger
 from rmake import compat, errors, subscribers
+
+
+class CfgDependency(CfgType):
+
+    def parseString(self, val):
+        return deps.parseDep(val)
+
+    def format(self, val, displayOptions=None):
+        return str(val)
+
 
 class CfgTroveSpec(CfgType):
     def parseString(self, val):
@@ -113,6 +124,9 @@ class CfgUser(CfgType):
 
 class RmakeBuildContext(cfg.ConfigSection):
 
+    bootstrapTroves      = (CfgList(CfgTroveSpec), [],
+            "INTERNAL USE ONLY: Troves to be installed before the remaining "
+            "chroot contents.")
     copyInConary         = (CfgBool, False)
     copyInConfig         = (CfgBool, True)
     rbuilderUrl          = (cfgtypes.CfgString, 'https://localhost/')
@@ -130,6 +144,9 @@ class RmakeBuildContext(cfg.ConfigSection):
     matchTroveRule       = (CfgList(CfgString), [])
     resolveTrovesOnly    = (CfgBool, False)
     reuseRoots           = (CfgBool, False)
+    rpmRequirements      = (CfgList(CfgDependency), [],
+            "INTERNAL USE ONLY: Dep provided by the RPM to be used for "
+            "installation of the chroot.")
     strictMode           = (CfgBool, False)
     subscribe            = (CfgSubscriberDict(CfgSubscriber), {})
     targetLabel          = (CfgLabel, versions.Label('NONE@local:NONE'))

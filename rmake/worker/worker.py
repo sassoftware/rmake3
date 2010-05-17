@@ -56,7 +56,8 @@ class Worker(server.Server):
 
     def buildTrove(self, buildCfg, jobId, trove, eventHandler,
                    buildReqs, crossReqs, targetLabel, logData=None,
-                   logPath=None, commandId=None, builtTroves=None):
+                   logPath=None, commandId=None, builtTroves=None,
+                   bootstrapReqs=()):
         if not commandId:
             commandId = self.idgen.getBuildCommandId(trove)
         if logPath is None:
@@ -65,7 +66,7 @@ class Worker(server.Server):
             builtTroves = []
 
         chrootFactory = self.chrootManager.getRootFactory(buildCfg, buildReqs,
-                                                          crossReqs, trove)
+                crossReqs, bootstrapReqs, trove)
         self.queueCommand(self.commandClasses['build'], self.cfg, commandId,
                           jobId, eventHandler, buildCfg, chrootFactory,
                           trove, builtTroves, targetLabel, logData,

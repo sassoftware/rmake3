@@ -99,6 +99,7 @@ class rMakeWorkerNodeServer(worker.Worker):
                         info.getTrove(), eventHandler,
                         info.getBuildReqs(), info.getCrossReqs(),
                         info.getTargetLabel(), info.getLogInfo(),
+                        bootstrapReqs=info.getBootstrapReqs(),
                         builtTroves=info.getBuiltTroves(),
                         commandId=info.getCommandId())
 

@@ -172,15 +172,17 @@ class BuildCommand(_Command):
     messageType = 'BUILD'
 
     def set(self, commandId, buildCfg, jobId, trove, buildReqs, crossReqs,
-            targetLabel, logData=None, builtTroves=[], targetNode=''):
+            targetLabel, logData=None, bootstrapReqs=(), builtTroves=(),
+            targetNode=''):
         _Command.set(self, commandId, jobId, targetNode)
         self.payload.logData = logData
         self.payload.trove = trove
         self.payload.buildCfg = buildCfg
-        self.payload.buildReqs = buildReqs
-        self.payload.crossReqs = crossReqs
+        self.payload.buildReqs = list(buildReqs)
+        self.payload.crossReqs = list(crossReqs)
+        self.payload.bootstrapReqs = list(bootstrapReqs)
         self.payload.targetLabel = targetLabel
-        self.payload.builtTroves = builtTroves
+        self.payload.builtTroves = list(builtTroves)
 
     def getLogInfo(self):
         return self.payload.logData
@@ -205,6 +207,9 @@ class BuildCommand(_Command):
     def getCrossReqs(self):
         return self.payload.crossReqs
 
+    def getBootstrapReqs(self):
+        return self.payload.bootstrapReqs
+
     def getBuiltTroves(self):
         return self.payload.builtTroves
 
@@ -215,19 +220,17 @@ class BuildCommand(_Command):
         buildCfg = freeze('BuildConfiguration', self.payload.buildCfg)
         trove = freeze('BuildTrove', self.payload.trove)
         targetLabel = freeze('label', self.payload.targetLabel)
-        buildReqs = [((x[0],) + x[2]) for x in self.payload.buildReqs]
-        buildReqs = freeze('troveTupleList', buildReqs)
-
-        crossReqs = [((x[0],) + x[2]) for x in self.payload.crossReqs]
-        crossReqs = freeze('troveTupleList', crossReqs)
         builtTroves = freeze('troveTupleList', self.payload.builtTroves)
-
         d = dict(buildCfg=buildCfg,
                  trove=trove,
-                 buildReqs=buildReqs, crossReqs=crossReqs,
                  targetLabel=targetLabel,
                  builtTroves=builtTroves,
                  logData=self.payload.logData)
+
+        for name in ('buildReqs', 'crossReqs', 'bootstrapReqs'):
+            tuples = [((x[0],) + x[2]) for x in getattr(self.payload, name)]
+            d[name] = freeze('troveTupleList', tuples)
+
         if self.payload.logData is None:
             d['logData'] = ''
         return d
@@ -237,12 +240,10 @@ class BuildCommand(_Command):
         self.payload.buildCfg = thaw('BuildConfiguration',
                                      self.payload.buildCfg)
         self.payload.trove = thaw('BuildTrove', self.payload.trove)
-        self.payload.buildReqs = thaw('troveTupleList', self.payload.buildReqs)
-        self.payload.buildReqs = [(x[0], (None, None), x[1:3], False) 
-                                  for x in self.payload.buildReqs ]
-        self.payload.crossReqs = thaw('troveTupleList', self.payload.crossReqs)
-        self.payload.crossReqs = [(x[0], (None, None), x[1:3], False)
-                                  for x in self.payload.crossReqs ]
+        for name in ('buildReqs', 'crossReqs', 'bootstrapReqs'):
+            tuples = thaw('troveTupleList', getattr(self.payload, name))
+            jobs = [(x[0], (None, None), x[1:3], False) for x in tuples]
+            setattr(self.payload, name, jobs)
         self.payload.builtTroves = thaw('troveTupleList',
                                         self.payload.builtTroves)
         self.payload.targetLabel = thaw('label', self.payload.targetLabel)

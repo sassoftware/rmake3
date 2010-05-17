@@ -39,12 +39,13 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
         the necessary files for the root to be usuable, and cleaning up
         after itself as much as possible.
     """
-    def __init__(self, jobList, crossJobList, logger, cfg, csCache=None,
-                 chrootCache=None, targetFlavor=None, oldRoot=None):
+    def __init__(self, jobList, crossJobList, bootstrapJobList, logger, cfg,
+            csCache=None, chrootCache=None, targetFlavor=None, oldRoot=None):
         rootfactory.BasicChroot.__init__(self)
         self.cfg = cfg
         self.jobList = jobList
         self.crossJobList = crossJobList
+        self.bootstrapJobList = bootstrapJobList
         self.callback = None
         self.logger = logger
         self.csCache = csCache
@@ -105,7 +106,8 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
         repos = client.getRepos()
         if self.chrootCache and hasattr(repos, 'getChangeSetFingerprints'):
             fingerprints = client.repos.getChangeSetFingerprints(
-                sorted(self.jobList + self.crossJobList),
+                sorted(self.jobList + self.crossJobList +
+                    self.bootstrapJobList),
                 recurse=False, withFiles=True, withFileContents=True,
                 excludeAutoSource=True, mirrorMode=False)
             chrootFingerprint = sha1helper.sha1String(''.join(fingerprints))
@@ -149,10 +151,21 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
                 client.applyUpdate(updJob, replaceFiles=True,
                                    tagScript=self.cfg.root + '/root/tagscripts')
 
+        if self.bootstrapJobList:
+            self.logger.info("Installing initial chroot bootstrap requirements")
+            oldRoot = self.cfg.dbPath
+            try:
+                self.cfg.dbPath += '.bootstrap'
+                _install(self.bootstrapJobList)
+            finally:
+                self.cfg.dbPath = oldRoot
+
         if self.jobList:
+            self.logger.info("Installing chroot requirements")
             _install(self.jobList)
 
         if self.crossJobList:
+            self.logger.info("Installing chroot cross-compile requirements")
             oldRoot = self.cfg.root
             try:
                 self.cfg.root += self.sysroot
@@ -201,17 +214,37 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
 
 class rMakeChroot(ConaryBasedChroot):
 
-    def __init__(self, buildTrove, chrootHelperPath, cfg, serverCfg,
-                 jobList, crossJobList, logger, uid=None, gid=None, 
-                 csCache=None, chrootCache=None, copyInConary=True,
-                 oldRoot=None):
+    def __init__(self,
+            buildTrove,
+            chrootHelperPath,
+            cfg,
+            serverCfg,
+            jobList,
+            crossJobList,
+            bootstrapJobList,
+            logger,
+            uid=None,
+            gid=None,
+            csCache=None,
+            chrootCache=None,
+            copyInConary=True,
+            oldRoot=None,
+            ):
         """ 
             uid/gid:  the uid/gid which special files in the chroot should be 
                       owned by
         """
-        ConaryBasedChroot.__init__(self, jobList, crossJobList, logger, cfg,
-                                   csCache, chrootCache,
-                                   buildTrove.getFlavor(), oldRoot=None)
+        ConaryBasedChroot.__init__(self,
+                jobList,
+                crossJobList,
+                bootstrapJobList,
+                logger,
+                cfg,
+                csCache,
+                chrootCache,
+                buildTrove.getFlavor(),
+                oldRoot=None,
+                )
         self.jobId = buildTrove.jobId
         self.buildTrove = buildTrove
         self.chrootHelperPath = chrootHelperPath

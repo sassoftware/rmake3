@@ -21,6 +21,7 @@ class ResolveResult(object):
         self.success = False
         self.buildReqs = []
         self.crossReqs = []
+        self.bootstrapReqs = []
         self.missingBuildReqs = []
         self.missingDeps = []
         self.inCycle = inCycle
@@ -32,6 +33,10 @@ class ResolveResult(object):
     def getCrossReqs(self):
         assert(self.success)
         return self.crossReqs
+
+    def getBootstrapReqs(self):
+        assert self.success
+        return self.bootstrapReqs
 
     def getMissingBuildReqs(self):
         return self.missingBuildReqs
@@ -45,10 +50,11 @@ class ResolveResult(object):
     def hasMissingDeps(self):
         return bool(self.missingDeps)
 
-    def troveResolved(self, buildReqs, crossReqs):
+    def troveResolved(self, buildReqs, crossReqs, bootstrapReqs):
         self.success = True
         self.buildReqs = buildReqs
         self.crossReqs = crossReqs
+        self.bootstrapReqs = bootstrapReqs
 
     def troveMissingBuildReqs(self, isCross, buildReqs):
         self.success = False
@@ -64,6 +70,7 @@ class ResolveResult(object):
                                     self.missingBuildReqs])
         d.update(buildReqs=freeze('installJobList', self.buildReqs))
         d.update(crossReqs=freeze('installJobList', self.crossReqs))
+        d.update(bootstrapReqs=freeze('installJobList', self.bootstrapReqs))
         d.update(missingDeps=freeze('dependencyMissingList', 
                                     self.missingDeps))
         return d
@@ -74,6 +81,7 @@ class ResolveResult(object):
         self.__dict__.update(d)
         self.buildReqs = thaw('installJobList', self.buildReqs)
         self.crossReqs = thaw('installJobList', self.crossReqs)
+        self.bootstrapReqs = thaw('installJobList', self.bootstrapReqs)
         self.missingDeps = thaw('dependencyMissingList', self.missingDeps)
         self.missingBuildReqs = [(x[0], thaw('troveSpec', x[1])) 
                                  for x in self.missingBuildReqs]
@@ -199,12 +207,12 @@ class DependencyResolver(object):
         buildReqs = trv.getBuildRequirementSpecs()
         crossReqs = trv.getCrossRequirementSpecs()
         if not (buildReqs or crossReqs):
-            resolveResult.troveResolved([], [])
+            resolveResult.troveResolved([], [], [])
             return resolveResult
         self.logger.debug('   finding buildreqs for %s....' % trv.getName())
         self.logger.debug('   resolving deps for %s...' % trv.getName())
         start = time.time()
-        buildReqJobs = crossReqJobs = []
+        buildReqJobs = crossReqJobs = bootstrapJobs = []
         if buildReqs:
             success, results = self._resolve(cfg, resolveResult, trv,
                                              searchSource, resolveSource,
@@ -232,6 +240,18 @@ class DependencyResolver(object):
                 searchSource.close()
                 resolveSource.close()
                 return resolveResult
+        bootstrapSpecs = trv.getBootstrapSpecs()
+        if bootstrapSpecs:
+            success, results = self._resolve(cfg, resolveResult, trv,
+                    searchSource, resolveSource, installLabelPath,
+                    searchFlavor, bootstrapSpecs)
+            if success:
+                bootstrapJobs = results
+            else:
+                client.close()
+                searchSource.close()
+                resolveSource.close()
+                return resolveResult
         client.close()
         searchSource.close()
         resolveSource.close()
@@ -241,12 +261,16 @@ class DependencyResolver(object):
             self.logger.info('   Cross Requirements:')
             self.logger.info('\n    '.join(['%s=%s[%s]' % (x[0], x[2][0], x[2][1])
                                    for x in sorted(crossReqJobs)]))
+        if bootstrapJobs:
+            self.logger.info('   Chroot Init Requirements:')
+            self.logger.info('\n    '.join(['%s=%s[%s]' %
+                (x[0], x[2][0], x[2][1]) for x in sorted(bootstrapJobs)]))
         if buildReqJobs:
             self.logger.info('   Build Requirements:')
             self.logger.info('\n    '.join(['%s=%s[%s]' % (x[0],
                                                           x[2][0], x[2][1])
                                for x in sorted(buildReqJobs)]))
-        resolveResult.troveResolved(buildReqJobs, crossReqJobs)
+        resolveResult.troveResolved(buildReqJobs, crossReqJobs, bootstrapJobs)
         return resolveResult
 
 

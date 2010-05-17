@@ -31,11 +31,12 @@ class WorkerClient(server.Server):
 
     def buildTrove(self, buildCfg, jobId, buildTrove, eventHandler,
                    buildReqs, crossReqs, targetLabel, logData,
-                   builtTroves=None):
+                   builtTroves=None, bootstrapReqs=()):
         buildTrove.disown()
         self.client.buildTrove(buildCfg, jobId, buildTrove,
                                buildReqs, crossReqs, targetLabel, logData,
-                               builtTroves=builtTroves)
+                               builtTroves=builtTroves,
+                               bootstrapReqs=bootstrapReqs)
 
     def actOnTrove(self, commandName, buildCfg, jobId, buildTrove, 
                    eventHandler, logData):
@@ -135,11 +136,11 @@ class BuilderNodeClient(nodeclient.NodeClient):
         self.bus.sendMessage('/command', m)
 
     def buildTrove(self, buildCfg, jobId, buildTrove, buildReqs, crossReqs,
-                   targetLabel, logData, builtTroves=None):
+                   targetLabel, logData, builtTroves=None, bootstrapReqs=()):
         commandId = self.idgen.getBuildCommandId(buildTrove)
         m = messages.BuildCommand(commandId, buildCfg, jobId, buildTrove,
-                                  buildReqs, crossReqs, targetLabel, logData, 
-                                  builtTroves)
+                                  buildReqs, crossReqs, targetLabel, logData,
+                                  builtTroves, bootstrapReqs)
         self.bus.sendMessage('/command', m)
         self.bus.subscribe('/commandstatus?commandId=%s' % commandId)
         self._commands[commandId] = m
