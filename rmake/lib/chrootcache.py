@@ -1,6 +1,17 @@
 #
-# Copyright (c) 2008 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2008-2010 rPath, Inc.
 #
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
+#
+
 """
 Cache of chroots.
 """
@@ -56,6 +67,7 @@ class ChrootCacheInterface(object):
         """
         raise NotImplementedError
 
+
 class LocalChrootCache(ChrootCacheInterface):
     """
     The LocalChrootCache class implements a chroot cache that uses the
@@ -76,7 +88,7 @@ class LocalChrootCache(ChrootCacheInterface):
         fd, fn = tempfile.mkstemp('.tar.gz', prefix, self.cacheDir)
         os.close(fd)
         try:
-            subprocess.call('tar cSpf - -C %s . | gzip -9 - > %s' %(root, fn),
+            subprocess.call('tar cSpf - -C %s . | gzip -1 - > %s' %(root, fn),
                             shell=True)
             os.rename(fn, path)
         finally:
