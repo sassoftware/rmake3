@@ -247,8 +247,8 @@ class XMLRPCResponseHandler(object):
                 os._exit(0)
             except:
                 if self.debug:
-                    from conary.lib import epdb
-                    epdb.post_mortem()
+                    from conary.lib import debugger
+                    debugger.post_mortem()
                 self.sendInternalError()
         finally:
             os._exit(1)

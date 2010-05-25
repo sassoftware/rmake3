@@ -380,8 +380,8 @@ class CallData(object):
         except Exception, err:
             response = (False, _freezeException(err))
             if self.debug:
-                from conary.lib import epdb
-                epdb.post_mortem(sys.exc_info()[2])
+                from conary.lib import debugger
+                debugger.post_mortem(sys.exc_info()[2])
         return response
 
     def respondWithFunction(self, fn, *args, **kw):

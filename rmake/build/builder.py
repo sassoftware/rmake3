@@ -84,11 +84,11 @@ class Builder(object):
         signal.signal(signal.SIGTERM, self._signalHandler)
         signal.signal(signal.SIGINT, self._signalHandler)
         def _interrupt(*args, **kw):
-            import epdb
-            if hasattr(epdb, 'serve'):
-                epdb.serve()
+            from conary.lib import debugger
+            if hasattr(debugger, 'serve'):
+                debugger.serve()
             else:
-                epdb.st()
+                debugger.st()
         # if you kill the dispatcher w/ SIGUSR1 you'll get a breakpoint.
         signal.signal(signal.SIGUSR1, _interrupt)
 
@@ -149,8 +149,8 @@ class Builder(object):
                     if sys.stdin.isatty():
                         # this sets us back to be connected with the controlling
                         # terminal (owned by our parent, the rmake server)
-                        from conary.lib import epdb
-                        epdb.post_mortem(sys.exc_info()[2])
+                        from conary.lib import debugger
+                        debugger.post_mortem(sys.exc_info()[2])
                     os._exit(0)
         finally:
             os._exit(1)
