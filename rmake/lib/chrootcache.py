@@ -16,6 +16,7 @@
 Cache of chroots.
 """
 
+import errno
 import os
 import subprocess
 import tempfile
@@ -53,6 +54,15 @@ class ChrootCacheInterface(object):
         @param root: The location to restore the chroot in the filesystem
         @type root: str
         @return: None
+        """
+        raise NotImplementedError
+
+    def remove(self, chrootFingerprint):
+        """
+        Delete a cached chroot archive.
+
+        @param chrootFingerprint: The fingerprint (a SHA1 sum) to delete
+        @type  chrootFingerprint: str of length 20
         """
         raise NotImplementedError
 
@@ -98,6 +108,14 @@ class LocalChrootCache(ChrootCacheInterface):
         path = self._fingerPrintToPath(chrootFingerprint)
         subprocess.call('zcat %s | tar xSpf - -C %s' %(path, root),
                         shell=True)
+
+    def remove(self, chrootFingerprint):
+        path = self._fingerPrintToPath(chrootFingerprint)
+        try:
+            os.unlink(path)
+        except OSError, err:
+            if err.errno != errno.ENOENT:
+                raise
 
     def hasChroot(self, chrootFingerprint):
         path = self._fingerPrintToPath(chrootFingerprint)

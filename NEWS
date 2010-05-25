@@ -3,6 +3,10 @@ Changes in @NEW@:
     * Added a isolateTroves build configuration option to disable
       intra-job trove dependencies. (RMK-1048)
 
+ o Bug Fixes:
+    * Cached chroots are now deleted if they subsequently fail to start.
+      (RMK-1049)
+
 Changes in 2.0.3:
  o Bug Fixes:
     * The previous version introduced a bug in which troves would fail

@@ -363,7 +363,11 @@ class rMakeChrootServer(object):
         if pid:
             self.logger.info("Chroot server starting (pid %s)" % pid)
             self.socketPath = self.socketPath % pid
-            return self._waitForChrootServer(pid)
+            try:
+                return self._waitForChrootServer(pid)
+            except:
+                self.chroot.invalidateCachedChroot()
+                raise
         else:
             self.socketPath = self.socketPath % os.getpid()
             try:

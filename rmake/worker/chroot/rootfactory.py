@@ -61,6 +61,7 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
         self.logger = logger
         self.csCache = csCache
         self.chrootCache = chrootCache
+        self.chrootFingerprint = None
         self.oldRoot = oldRoot
         if targetFlavor is not None:
             cfg.initializeFlavors()
@@ -117,12 +118,13 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
         client = conaryclient.ConaryClient(self.cfg)
         repos = client.getRepos()
         if self.chrootCache and hasattr(repos, 'getChangeSetFingerprints'):
-            chrootFingerprint = self._getChrootFingerprint(client)
-            if self.chrootCache.hasChroot(chrootFingerprint):
-                strFingerprint = sha1helper.sha1ToString(chrootFingerprint)
+            self.chrootFingerprint = self._getChrootFingerprint(client)
+            if self.chrootCache.hasChroot(self.chrootFingerprint):
+                strFingerprint = sha1helper.sha1ToString(
+                        self.chrootFingerprint)
                 self.logger.info('restoring cached chroot with '
                         'fingerprint %s', strFingerprint)
-                self.chrootCache.restore(chrootFingerprint, self.cfg.root)
+                self.chrootCache.restore(self.chrootFingerprint, self.cfg.root)
                 self.logger.info('chroot fingerprint %s '
                          'restore done', strFingerprint)
                 return
@@ -194,11 +196,11 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
             for filename in files:
                 _addModeBits(os.sep.join((root, filename)), 04)
 
-        if self.chrootCache:
-            strFingerprint = sha1helper.sha1ToString(chrootFingerprint)
+        if self.chrootFingerprint:
+            strFingerprint = sha1helper.sha1ToString(self.chrootFingerprint)
             self.logger.info('caching chroot with fingerprint %s',
                     strFingerprint)
-            self.chrootCache.store(chrootFingerprint, self.cfg.root)
+            self.chrootCache.store(self.chrootFingerprint, self.cfg.root)
             self.logger.info('caching chroot %s done',
                     strFingerprint)
 
@@ -299,6 +301,13 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
             blob += ''.join(fingerprints[b:]) + '\n'  # bootstrapJobList
             blob += '\t'.join(str(x) for x in self.cfg.rpmRequirements) + '\n'
         return sha1helper.sha1String(blob)
+
+    def invalidateCachedChroot(self):
+        """Destroy a cached chroot archive associated with this chroot."""
+        if self.chrootFingerprint:
+            self.logger.warning("Removing cached chroot with fingerprint %s",
+                    sha1helper.sha1ToString(self.chrootFingerprint))
+            self.chrootCache.remove(self.chrootFingerprint)
 
 
 class rMakeChroot(ConaryBasedChroot):
