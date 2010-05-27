@@ -53,9 +53,14 @@ class WorkerClient(server.Server):
         self.client.loadTroves(job, loadTroves, reposName)
 
     def commandErrored(self, commandInfo, failureReason):
-        buildTrove = commandInfo.getTrove()
-        buildTrove.own()
-        buildTrove.troveFailed(failureReason)
+        if hasattr(commandInfo, 'getTrove'):
+            buildTrove = commandInfo.getTrove()
+            buildTrove.own()
+            buildTrove.troveFailed(failureReason)
+        elif hasattr(commandInfo, 'getJob'):
+            buildJob = commandInfo.getJob()
+            buildJob.own()
+            buildJob.troveFailed(failureReason)
 
     def commandCompleted(self, commandInfo):
         # we'll wait for the "Trove built" message.
