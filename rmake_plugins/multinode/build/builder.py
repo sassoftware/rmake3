@@ -60,7 +60,7 @@ class WorkerClient(server.Server):
         elif hasattr(commandInfo, 'getJob'):
             buildJob = commandInfo.getJob()
             buildJob.own()
-            buildJob.troveFailed(failureReason)
+            buildJob.jobFailed(failureReason)
 
     def commandCompleted(self, commandInfo):
         # we'll wait for the "Trove built" message.
