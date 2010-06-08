@@ -1,6 +1,17 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2010 rPath, Inc.
 #
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
+#
+
 """
 Describes a BuildConfiguration, which is close to, but neither a subset nor
 a superset of a conarycfg file.
@@ -12,17 +23,15 @@ from conary import conarycfg
 from conary import versions
 from conary.deps import deps
 from conary.lib import cfg,cfgtypes
-from conary.lib import log
-from conary.lib import sha1helper
 from conary.conarycfg import CfgLabel
 from conary.conarycfg import ParseError
 from conary.conaryclient import cmdline
-from conary.lib.cfgtypes import (CfgBool, CfgPath, CfgList, CfgDict, CfgString,
+from conary.lib.cfgtypes import (CfgBool, CfgList, CfgDict, CfgString,
                                  CfgInt, CfgType, CfgQuotedLineList, 
                                  CfgPathList)
 
 from rmake.cmdline import cmdutil
-from rmake.lib import apiutils, daemon, logger
+from rmake.lib import apiutils, logger
 from rmake import compat, errors, subscribers
 
 
@@ -421,7 +430,7 @@ class BuildConfiguration(conarycfg.ConaryConfiguration, FreezableConfigMixin):
                 targetLabel = versions.Label(targetLabel)
             return targetLabel
         else:
-            return version.getTrailingLabel()
+            return cookLabel
 
     def dropContexts(self):
         self._sections = {}
