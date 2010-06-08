@@ -240,11 +240,10 @@ class DependencyResolver(object):
                 searchSource.close()
                 resolveSource.close()
                 return resolveResult
-        bootstrapSpecs = trv.getBootstrapSpecs()
-        if bootstrapSpecs:
+        if cfg.bootstrapTroves:
             success, results = self._resolve(cfg, resolveResult, trv,
                     searchSource, resolveSource, installLabelPath,
-                    searchFlavor, bootstrapSpecs)
+                    searchFlavor, cfg.bootstrapTroves)
             if success:
                 bootstrapJobs = results
             else:

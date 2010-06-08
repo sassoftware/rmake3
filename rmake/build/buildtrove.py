@@ -369,9 +369,6 @@ class _AbstractBuildTrove(object):
         return [ cmdline.parseTroveSpec(x)
                  for x in self.getCrossRequirements() ]
 
-    def getBootstrapSpecs(self):
-        return list(self.cfg and self.cfg.bootstrapTroves or ())
-
     def getLoadedSpecs(self):
         return dict(self.loadedSpecsList[0])
 

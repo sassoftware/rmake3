@@ -145,7 +145,7 @@ class BuilderNodeClient(nodeclient.NodeClient):
         commandId = self.idgen.getBuildCommandId(buildTrove)
         m = messages.BuildCommand(commandId, buildCfg, jobId, buildTrove,
                                   buildReqs, crossReqs, targetLabel, logData,
-                                  builtTroves, bootstrapReqs)
+                                  bootstrapReqs, builtTroves)
         self.bus.sendMessage('/command', m)
         self.bus.subscribe('/commandstatus?commandId=%s' % commandId)
         self._commands[commandId] = m
