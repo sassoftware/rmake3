@@ -77,6 +77,9 @@ class rMakeClient(object):
             print '  Matched:', event.matched
             if hasattr(event.data, 'code'):
                 print '  Status: %s %s' % (event.data.code, event.data.text)
+                if event.data.detail:
+                    print event.data.detail
+                    print
             else:
                 print '  Data:', event.data
             if event.event == selfEvent and event.data in (

@@ -235,11 +235,13 @@ class PluginManager(object):
     def callHook(self, type_, hookName, *args, **kw):
         attr = '%s_%s' % (type_, hookName)
         self.loader.install()
+        results = {}
         for plugin in self.getPluginsByType(type_):
             if not getattr(plugin, 'enabled', True):
                 continue
-            getattr(plugin, attr)(*args, **kw)
+            results[plugin.name] = getattr(plugin, attr)(*args, **kw)
         self.loader.uninstall()
+        return results
 
 
 class PluginImporter(object):

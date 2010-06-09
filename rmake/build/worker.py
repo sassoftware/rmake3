@@ -1,4 +1,3 @@
-#!/usr/bin/python
 #
 # Copyright (c) 2010 rPath, Inc.
 #
@@ -13,20 +12,21 @@
 # full details.
 #
 
-import os
-import sys
+"""
+Implementations of trove building tasks that are run on the worker node.
+"""
 
-if 'CONARY_PATH' in os.environ:
-    sys.path.insert(0, os.environ['CONARY_PATH'])
-if 'RMAKE_PATH' in os.environ:
-    sys.path.insert(0, os.environ['RMAKE_PATH'])
+from conary import conaryclient
+from rmake.lib import repocache
 
-# We have to do this early because various Twisted and wokkel modules
-# inadvertently cause the default select reactor to be installed.
-from twisted.internet import epollreactor
-epollreactor.install()
 
-from rmake.worker import daemon
+class LoadTask(object):
 
-if __name__ == "__main__":
-    sys.exit(daemon.main())
+    def run(self):
+        self.job = self.task.task_data.thaw()
+        self.log.info("Loading %d troves", len(self.job.troves))
+        raise RuntimeError("oops")
+
+        repos = conaryclient.ConaryClient(self.job.getMainConfig()).getRepos()
+        if self.cfg.useCache:
+            repos = repocache.CachingTroveSource(repos, self.cfg.getCacheDir())

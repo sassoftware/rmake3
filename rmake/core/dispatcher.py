@@ -29,7 +29,7 @@ import stat
 from rmake.core import constants as core_const
 from rmake.core.support import DispatcherBusService, WorkerChecker
 from rmake.core.handler import getHandlerClass
-from rmake.core.types import TaskCapability
+from rmake.core.types import TaskCapability, FrozenObject
 from rmake.db import database
 from rmake.errors import RmakeError
 from rmake.lib import dbpool
@@ -214,7 +214,7 @@ class Dispatcher(MultiService, RPCServer):
         # dumps() here instead of in JobStore so we don't have to copy the data
         # to avoid a threading race.
         return self.pool.runWithTransaction(self.db.core.updateJobData,
-                job.job_uuid, cPickle.dumps(job.data, 2))
+                job.job_uuid, FrozenObject.fromObject(job.data))
 
     def createTask(self, task):
         job = self.jobs[task.job_uuid]
@@ -287,6 +287,7 @@ class Dispatcher(MultiService, RPCServer):
 
     def workerDown(self, jid):
         if jid in self.workers:
+            # TODO: kill tasks
             log.info("Worker %s disconnected", jid.full())
             del self.workers[jid]
 

@@ -174,7 +174,7 @@ class Event(Message):
 
 class StartWork(Message):
     messageType = 'start-work'
-    _payload_slots = ('cfg',)
+    _payload_slots = ('cfg', 'task')
 
 
 class StartTask(Message):

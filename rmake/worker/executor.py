@@ -35,6 +35,7 @@ class ExecutorService(Service):
 
     def __init__(self, sock):
         self.cfg = None
+        self.plugins = None
         self.net = LauncherSocket(self)
         self.sock = sock
 
@@ -47,9 +48,10 @@ class ExecutorService(Service):
         Service.stopService(self)
         return self.net.transport.loseConnection()
 
-    def startWork(self, cfg):
+    def startWork(self, cfg, task):
         self.cfg = cfg
         log.info("Starting work!")
+        raise RuntimeError("oops")
         from twisted.internet import reactor
         def later():
             log.info("Work's done!")
@@ -64,7 +66,7 @@ class LauncherSocket(PickleProtocol):
 
     def messageReceived(self, msg):
         if isinstance(msg, message.StartWork):
-            self.executor.startWork(msg.cfg)
+            self.executor.startWork(msg.cfg, msg.task)
         else:
             print 'msg: %r' % (msg,)
 

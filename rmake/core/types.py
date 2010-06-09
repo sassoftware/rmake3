@@ -13,6 +13,7 @@
 #
 
 import copy
+import cPickle
 from rmake.lib import uuid
 from rmake.lib.ninamori.types import namedtuple
 
@@ -115,3 +116,26 @@ class JobTimes(_SlotCompare):
 
 class TaskCapability(namedtuple('TaskCapability', 'taskType')):
     pass
+
+
+class FrozenObject(_SlotCompare):
+    """Encapsulated pickled object."""
+    __slots__ = ('data',)
+
+    def __init__(self, data):
+        self.data = data
+
+    @classmethod
+    def fromObject(cls, obj):
+        return cls('pickle:' + cPickle.dumps(obj, 2))
+
+    def freeze(self):
+        return self.data
+
+    def thaw(self):
+        idx = self.data.index(':')
+        kind = self.data[:idx]
+        if kind == 'pickle':
+            return cPickle.loads(self.data[idx+1:])
+        else:
+            raise RuntimeError("Unrecognized serialization format %s" % kind)

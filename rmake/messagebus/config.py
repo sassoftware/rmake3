@@ -45,7 +45,7 @@ class BusConfig(ConfigFile):
 
     # XMPP
     xmppJID             = (CfgFullJID, None,
-            "Full JID that the component will identify as.")
+            "Full JID that the component will identify as. (optional)")
     xmppIdentFile       = (cfgtypes.CfgPath, None,
             "File in which the component will store its JID and password.")
     xmppDebug           = (cfgtypes.CfgBool, False,

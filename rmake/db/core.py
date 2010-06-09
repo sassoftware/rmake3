@@ -13,8 +13,8 @@
 #
 
 
-import cPickle
-from rmake.core.types import RmakeJob, RmakeTask, JobStatus, JobTimes
+from rmake.core.types import (RmakeJob, RmakeTask, JobStatus, JobTimes,
+        FrozenObject)
 from rmake.lib.ninamori.decorators import protected, protectedBlock, readOnly
 from rmake.lib.ninamori.error import UniqueViolationError
 from rmake.lib.ninamori.types import SQL
@@ -66,7 +66,7 @@ class CoreDB(object):
             kwargs['status'] = self._popStatus(kwargs)
             kwargs['times'] = self._popTimes(kwargs)
             if 'frozen_data' in kwargs:
-                kwargs['data'] = cPickle.loads(str(kwargs.pop('frozen_data')))
+                kwargs['data'] = FrozenObject(str(kwargs.pop('frozen_data')))
             kwargs.pop('frozen_handler', None)
             yield RmakeJob(**kwargs)
 
@@ -91,7 +91,7 @@ class CoreDB(object):
             status_code=job.status.code, status_text=job.status.text,
             status_detail=job.status.detail,
             expires_after=job.times.expires_after,
-            frozen_data=cu.binary(cPickle.dumps(job.data, 2)),
+            frozen_data=cu.binary(FrozenObject.fromObject(job.data).freeze()),
             frozen_handler=cu.binary(frozen_handler),
             ),
             returning='jobs.jobs.*')
@@ -124,9 +124,16 @@ class CoreDB(object):
             return None
 
     @protected
-    def updateJobData(self, cu, job_uuid, data):
+    def updateJobData(self, cu, job_uuid, frozen):
+        """Update a single job's auxilliary data.
+
+        @param job_uuid: UUID of job to update
+        @type  job_uuid: L{rmake.lib.uuid.UUID}
+        @param frozen: Frozen job data
+        @type  frozen: L{rmake.core.types.FrozenObject}
+        """
         cu.execute("UPDATE jobs.jobs SET frozen_data = %s WHERE job_uuid = %s",
-                (cu.binary(data), job_uuid))
+                (cu.binary(frozen.data), job_uuid))
 
     ## Tasks
 
@@ -135,6 +142,7 @@ class CoreDB(object):
             kwargs = dict(row)
             kwargs['status'] = self._popStatus(kwargs)
             kwargs['times'] = self._popTimes(kwargs)
+            kwargs['task_data'] = FrozenObject(str(kwargs['task_data']))
             yield RmakeTask(**kwargs)
 
     def getTasks(self, task_uuids):
@@ -150,8 +158,9 @@ class CoreDB(object):
             VALUES ( %s, %s, %s, %s, %s, %s, %s, %s, %s )
             RETURNING jobs.tasks.*
             """, (task.task_uuid, task.job_uuid, task.task_name,
-                task.task_type, task.task_data, task.status.code,
-                task.status.text, task.status.detail, task.node_assigned))
+                task.task_type, cu.binary(task.task_data.freeze()),
+                task.status.code, task.status.text, task.status.detail,
+                task.node_assigned))
         return self._iterTasks(cu).next()
 
     @protectedBlock

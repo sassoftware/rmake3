@@ -10,4 +10,11 @@
 # without any warranty; without even the implied warranty of merchantability
 # or fitness for a particular purpose. See the Common Public License for
 # full details.
+#
 
+_PREFIX = 'com.rpath.rmake.build'
+BUILD_JOB       = _PREFIX
+LOAD_TASK       = _PREFIX + '.load'
+RESOLVE_TASK    = _PREFIX + '.resolve'
+BUILD_TASK      = _PREFIX + '.build'
+COMMIT_TASK     = _PREFIX + '.commit'

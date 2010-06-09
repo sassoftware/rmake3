@@ -16,10 +16,12 @@
 This plugin serves as the entry point to the basic build functionality of rMake.
 """
 
+from rmake.build import constants as buildconst
 from rmake.build import disp_handler
 from rmake.build import repos
 from rmake.build import server
 from rmake.build import servercfg
+from rmake.build import worker
 from rmake.lib import pluginlib
 
 
@@ -41,3 +43,8 @@ class BuildPlugin(pluginlib.Plugin):
         if not self.cfg.isExternalProxy():
             repos.startProxy(self.cfg)
         self.server._post_setup()
+
+    def worker_get_task_types(self):
+        return {
+                buildconst.LOAD_TASK: worker.LoadTask,
+                }

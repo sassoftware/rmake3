@@ -29,7 +29,7 @@ restart tasks that were already failed at recovery time.
 
 import cPickle
 import logging
-from rmake.core.types import RmakeTask
+from rmake.core.types import RmakeTask, FrozenObject
 from twisted.python import reflect
 from twisted.python.failure import Failure
 
@@ -210,9 +210,9 @@ class JobHandler(object):
 
     def newTask(self, taskName, taskType, data):
         if data is not None:
-            data = cPickle.dumps(2, data)
+            data = FrozenObject.fromObject(data)
         task = RmakeTask(None, self.job.job_uuid, taskName, taskType, data)
-        return self.dispatcher.createTask(task)
+        return task, self.dispatcher.createTask(task)
 
     def countRunningTasks(self, taskType):
         count = 0

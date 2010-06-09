@@ -31,6 +31,7 @@ from rmake import errors
 from rmake.core.types import RmakeJob
 from rmake.build import builder
 from rmake.build import buildjob
+from rmake.build import constants as buildconst
 from rmake.server import auth
 from rmake.db import database
 from rmake.lib.apirpc import RPCServer, expose
@@ -58,8 +59,8 @@ class BuildServer(RPCServer):
 
     @expose
     def createJob(self, job, firehose=None):
-        core_job = RmakeJob(job.jobUUID, job_type='build', owner='<unknown>',
-                data=job)
+        core_job = RmakeJob(job.jobUUID, job_type=buildconst.BUILD_JOB,
+                owner='<unknown>', data=job)
 
         ret = []
         def create_buildjob(_job, _db):
