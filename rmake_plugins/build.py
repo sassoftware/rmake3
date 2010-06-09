@@ -22,13 +22,13 @@ from rmake.build import repos
 from rmake.build import server
 from rmake.build import servercfg
 from rmake.build import worker
-from rmake.lib import pluginlib
+from rmake.core import plug_dispatcher
+from rmake.worker import plug_worker
 
 
-class BuildPlugin(pluginlib.Plugin):
+class BuildPlugin(plug_dispatcher.DispatcherPlugin, plug_worker.WorkerPlugin):
 
     cfg = None
-    types = ['dispatcher', 'worker']
 
     def dispatcher_pre_setup(self, dispatcher):
         disp_handler.register()

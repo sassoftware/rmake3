@@ -34,12 +34,16 @@ class Plugin(object):
     """
         Basic plugin.  Should be derived from by plugins.
     """
-    types = []
     def __init__(self, name, path, pluginManager):
         self.name = name
         self.path = path
         self.pluginManager = pluginManager
         self.enabled = True
+        self.types = []
+        for cls in self.__class__.mro():
+            ptype = vars(cls).get('_plugin_type')
+            if ptype:
+                self.types.append(ptype)
 
     def unload(self):
         pass
