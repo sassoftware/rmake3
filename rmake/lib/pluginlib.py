@@ -410,7 +410,7 @@ def getPluginManager(argv, configClass, supportedTypes=(), readFiles=False):
             readNext = False
             continue
         if item.startswith('--config-file='):
-            file = item.split('=', 0)[1]
+            file = item.split('=', 1)[1]
             cfg.read(file)
         elif item == '--config-file':
             readNext = True
