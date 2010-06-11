@@ -1,6 +1,6 @@
 #!/usr/bin/python
 import os
-import subprocess
+import socket
 
 
 def getUptime():
@@ -58,33 +58,19 @@ def getNetName():
     """
     Find a hostname or IP suitable for representing ourselves to clients.
     """
-    # Find the interface with the default route
-    ipp = subprocess.Popen(['/sbin/ip', '-4', 'route',
-        'show', '0.0.0.0/0'], shell=False, stdout=subprocess.PIPE)
-    routes = ipp.communicate()[0].splitlines()
-    device = None
-    for line in routes:
-        words = line.split()
-        while words:
-            word = words.pop(0)
-            if word == 'dev':
-                device = words.pop(0)
-                break
-        else:
-            continue
-        break
-
-    if device:
-        # Use the first IP on the interface providing the default route.
-        ipp = subprocess.Popen(['/sbin/ip', '-4', 'addr',
-            'show', 'dev', device], shell=False, stdout=subprocess.PIPE)
-        addresses = ipp.communicate()[0].splitlines()
-        for line in addresses:
-            words = line.split()
-            if words[0] != 'inet':
-                continue
-            # Strip CIDR suffix
-            return words[1].split('/')[0]
+    for (so_fam, addr) in [
+            # These addresses are on the public internet, although they don't
+            # necessarily point anywhere.
+            (socket.AF_INET, '8.8.8.8'),
+            (socket.AF_INET6, '2001:4800::')]:
+        try:
+            # "connecting" a DGRAM socket doesn't do anything but bind to an
+            # interface, which is exactly what we want.
+            s = socket.socket(so_fam, socket.SOCK_DGRAM)
+            s.connect((addr, 0))
+            return s.getsockname()[0]
+        except socket.error:
+            pass
 
     # No default route or no IP, but at least local operations will work.
     return 'localhost'
