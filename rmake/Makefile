@@ -17,7 +17,7 @@ install_files = $(wildcard *.py) $(generated_files)
 
 override DEST = $(sitedir)/rmake
 
-SUBDIRS = build cmdline db lib messagebus node plugins server worker
+SUBDIRS = build cmdline db lib messagebus node server worker
 
 all: $(generated_files) default-build
 

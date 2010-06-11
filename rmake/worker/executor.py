@@ -16,80 +16,161 @@
 The executor is responsible for handling a particular unit of subwork, either
 in-process or by forking off additional tasks.
 
-It communicates with the dispatcher through a UNIX domain socket handed to it
-by the launcher on startup.
+It communicates with the dispatcher through a pair of pipes configured by the
+ampoule library.
 """
 
+import cPickle
 import logging
-import socket
-from rmake.lib.twisted_extras.pickle_proto import PickleProtocol
-from rmake.lib.twisted_extras.socketpair import makesock
-from rmake.messagebus import message
-from twisted.application.service import Service
-from twisted.internet.error import ReactorNotRunning
+from ampoule import commands
+from twisted.internet import defer
+from twisted.internet import error as ierror
+from twisted.protocols.basic import Int32StringReceiver
+
+from rmake.lib import osutil
 
 log = logging.getLogger(__name__)
 
 
-class ExecutorService(Service):
+class WorkerProtocol(Int32StringReceiver):
+    """Simple protocol used to link the launcher and executors."""
 
-    def __init__(self, sock):
-        self.cfg = None
-        self.plugins = None
-        self.net = LauncherSocket(self)
-        self.sock = sock
+    # Packets should be no more than 10MB including overhead.
+    MAX_LENGTH = 10000000
 
-    def startService(self):
-        Service.startService(self)
-        makesock(self.sock, self.net)
-        self.sock = None
+    def sendCommand(self, ctr, command, **kwargs):
+        if command is commands.Shutdown:
+            command = 'shutdown'
+        self.sendString(cPickle.dumps((ctr, command, kwargs), 2))
 
-    def stopService(self):
-        Service.stopService(self)
-        return self.net.transport.loseConnection()
-
-    def startWork(self, cfg, task):
-        self.cfg = cfg
-        log.info("Starting work!")
-        raise RuntimeError("oops")
-        from twisted.internet import reactor
-        def later():
-            log.info("Work's done!")
-            reactor.stop()
-        reactor.callLater(1, later)
-
-
-class LauncherSocket(PickleProtocol):
-
-    def __init__(self, executor):
-        self.executor = executor
-
-    def messageReceived(self, msg):
-        if isinstance(msg, message.StartWork):
-            self.executor.startWork(msg.cfg, msg.task)
+    def stringReceived(self, data):
+        ctr, command, kwargs = cPickle.loads(data)
+        try:
+            m = getattr(self, 'cmd_' + command)
+        except AttributeError:
+            log.error("Ignoring unknown worker command %r", command)
         else:
-            print 'msg: %r' % (msg,)
+            m(ctr, **kwargs)
+
+
+class WorkerParent(WorkerProtocol):
+    """Communicate messages from the launcher to the executor."""
+
+    def __init__(self):
+        self.ctr = 0
+        self.pending = {}
+        self.task = None
+
+    def callRemote(self, command, **kwargs):
+        ctr = self.ctr
+        self.ctr += 1
+        d = self.pending[ctr] = defer.Deferred()
+        if command == 'launch':
+            self._hook_launch(kwargs, d)
+        self.sendCommand(ctr, command, **kwargs)
+        return d
+
+    def connectionLost(self, reason):
+        """Child process went away, fail all pending calls."""
+        for d in self.pending.values():
+            d.errback(reason)
+
+    def cmd_ack(self, ctr, **result):
+        if not result:
+            result = None
+        d = self.pending.pop(ctr)
+        d.callback(result)
+
+    def _hook_launch(self, kwargs, d):
+        """Snoop launch commands to keep track of the current task."""
+        self.task = kwargs['task']
+        self.launcher = kwargs.pop('launcher')
+
+        # Fail tasks that exited cleanly but didn't report success.
+        @d.addCallback
+        def cb_checkResult(result):
+            if not self.task.status.final:
+                raise InternalWorkerError("Task failed to send a finalized "
+                        "status before terminating.")
+            return result
+
+        # Clear saved task and launcher fields after the task is done.
+        @d.addBoth
+        def bb_clearTask(result):
+            self.task = self.launcher = None
+            return result
+
+        # Turn process termination events into relevant exceptions.
+        @d.addErrback
+        def eb_filterErrors(reason):
+            if reason.check(ierror.ProcessTerminated, ierror.ProcessDone):
+                log.error("Worker exited prematurely with status %s",
+                        reason.value.status)
+                raise InternalWorkerError("The worker executing the task "
+                        "has exited abnormally.")
+            return reason
+
+        # Report errors back to the dispatcher.
+        d.addErrback(self.launcher.taskFailed, self.task)
+
+    def cmd_status_update(self, ctr, task):
+        """Propagate status updates back to the dispatcher."""
+        if task.task_uuid != self.task.task_uuid:
+            log.warning("Dropping worker status report for wrong task.")
+            return
+        self.task = task
+        self.launcher.forwardTaskStatus(task)
+
+
+class WorkerChild(WorkerProtocol):
+
+    shutdown = False
+    task = None
+
+    def _setproctitle(self):
+        title = 'rmake-node worker - '
+        if self.task:
+            title += 'task %s' % self.task.task_uuid.short
+        else:
+            title += '<idle>'
+        osutil.setproctitle(title)
 
     def connectionLost(self, reason):
         from twisted.internet import reactor
         try:
             reactor.stop()
-        except ReactorNotRunning:
+        except ierror.ReactorNotRunning:
             pass
+        if not self.shutdown:
+            import os
+            os._exit(-1)
+
+    def cmd_launch(self, ctr, task):
+        self.task = task
+        self._setproctitle()
+        print 'FIRE ZE MISSILES!'
+        print 'task uuid:', task.task_uuid
+        from twisted.internet import reactor
+        def later():
+            self.sendStatus(200, 'done')
+            self.sendCommand(ctr, 'ack')
+            self.task = None
+            self._setproctitle()
+        reactor.callLater(0, later)
+
+    def cmd_shutdown(self, ctr):
+        self.shutdown = True
+        self.sendCommand(ctr, 'ack')
+        self.transport.loseConnection()
+
+    def sendStatus(self, code, text, detail=None):
+        self.task.times.ticks += 1
+        status = self.task.status
+        status.code = code
+        status.text = text
+        status.detail = detail
+        self.sendCommand(None, 'status_update', task=self.task)
 
 
-def main():
-    sock = socket.fromfd(3, socket.AF_UNIX, socket.SOCK_STREAM)
-
-    from rmake.lib.logger import setupLogging
-    setupLogging(consoleLevel=logging.WARNING, consoleFormat='file',
-            withTwisted=True)
-
-    from twisted.internet import reactor
-    service = ExecutorService(sock)
-    service.startService()
-    reactor.run()
-
-
-if __name__ == '__main__':
-    main()
+class InternalWorkerError(RuntimeError):
+    pass

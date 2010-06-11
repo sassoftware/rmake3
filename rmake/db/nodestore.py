@@ -5,7 +5,6 @@ import marshal
 
 from rmake.build import buildjob
 from rmake.worker import chroot
-from rmake.worker import node
 
 
 def toBuildFlavors(frz):

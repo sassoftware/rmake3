@@ -22,22 +22,15 @@ into the worker process.
 """
 
 import logging
-import os
-import socket
-import sys
+from ampoule import pool
 from conary.lib import cfgtypes
 from rmake.core.types import TaskCapability
-from rmake.lib.twisted_extras.pickle_proto import PickleProtocol
-from rmake.lib.twisted_extras.socketpair import socketpair
 from rmake.messagebus import message
 from rmake.messagebus.client import BusClientService
 from rmake.messagebus.config import BusClientConfig
 from rmake.worker import executor
 from twisted.application.internet import TimerService
-from twisted.application.service import MultiService
-from twisted.internet.error import ProcessDone, ProcessTerminated
-from twisted.internet.protocol import ProcessProtocol
-from twisted.python import failure
+from twisted.application.service import MultiService, Service
 from twisted.python import reflect
 
 log = logging.getLogger(__name__)
@@ -50,12 +43,13 @@ class LauncherService(MultiService):
         self.cfg = cfg
         self.bus = None
         self.caps = set()
+        self.pool = None
         self.task_types = {}
-        self.tasks = {}
         self.plugins = plugin_mgr
         self.plugins.p.launcher.pre_setup(self)
         self._set_caps()
         self._start_bus()
+        self._start_pool()
         self.plugins.p.launcher.post_setup(self)
 
     def _set_caps(self):
@@ -69,6 +63,10 @@ class LauncherService(MultiService):
         self.bus.setServiceParent(self)
         HeartbeatService(self).setServiceParent(self)
 
+    def _start_pool(self):
+        self.pool = PoolService()
+        self.pool.setServiceParent(self)
+
     def launch(self, msg):
         task = msg.task
         if task.task_type not in self.task_types:
@@ -78,39 +76,30 @@ class LauncherService(MultiService):
             return
 
         log.info("Starting task %s", task.task_uuid)
-        self.tasks[task.task_uuid] = protocol = LaunchedWorker(self, task)
-        try:
-            self._spawn(protocol)
-        except:
-            self.taskFailed(task, failure.Failure())
+        d = self.pool.launch(task=task, launcher=self)
+        d.addErrback(self.taskFailed, task)
 
-    def _spawn(self, protocol):
-        from twisted.internet import reactor
-
-        transport, sock = socketpair(protocol.net, socket.AF_UNIX, reactor)
-
-        args = [sys.executable, executor.__file__]
-        reactor.spawnProcess(protocol, sys.executable, args,
-                os.environ, childFDs={0:0, 1:1, 2:2, 3:sock.fileno()})
-
-        sock.close()
-
-    def taskFailed(self, task, reason):
+    def taskFailed(self, reason, task):
         text = "Fatal error in task runner: %s: %s" % (
                 reflect.qual(reason.type),
                 reflect.safe_str(reason.value))
         self.sendTaskStatus(task, 400, text, detail=reason.getTraceback())
 
-    def sendTaskStatus(self, task, code, text, detail=None):
+    def sendTaskStatus(self, task, code=None, text=None, detail=None):
         task.times.ticks += 1
         status = task.status
-        status.code = code
-        status.text = text
-        status.detail = detail
+        if code is not None:
+            status.code = code
+            status.text = text
+            status.detail = detail
+        self.forwardTaskStatus(task)
+
+    def forwardTaskStatus(self, task):
+        status = task.status
         if status.final:
-            log.info("Task %s finished", task.task_uuid)
-            if task.task_uuid in self.tasks:
-                del self.tasks[task.task_uuid]
+            log.info("Task %s %s: %s %s", task.task_uuid,
+                    status.completed and 'completed' or 'failed', status.code,
+                    status.text)
         msg = message.TaskStatus(task)
         self.bus.sendToTarget(msg)
 
@@ -134,53 +123,41 @@ class HeartbeatService(TimerService):
         TimerService.__init__(self, interval, self.heartbeat)
 
     def heartbeat(self):
-        tasks = set(self.launcher.tasks.keys())
+        tasks = self.launcher.pool.getTaskList()
         msg = message.Heartbeat(caps=self.launcher.caps, tasks=tasks)
         self.launcher.bus.sendToTarget(msg)
 
 
-class LaunchedWorker(ProcessProtocol):
+class PoolService(Service):
 
-    def __init__(self, launcher, task):
-        self.launcher = launcher
-        self.task = task
-        self.net = LaunchedWorkerSocket(self)
-        self.pid = None
+    childFactory = executor.WorkerChild
+    serverFactory = executor.WorkerParent
 
-    def connectionMade(self):
-        self.pid = self.transport.pid
-        log.debug("Executor %s started", self.pid)
+    pool = None
 
-        msg = message.StartWork(self.launcher.cfg, self.task)
-        self.net.sendMessage(msg)
+    def startService(self):
+        Service.startService(self)
+        from twisted.internet import reactor
+        self.pool = pool.ProcessPool(self.childFactory, self.serverFactory,
+                min=1, max=1000, recycleAfter=5)
+        reactor.callLater(0, self.pool.start)
 
-    def processEnded(self, reason):
-        if reason.check(ProcessDone):
-            log.debug("Executor %s terminated normally", self.pid)
-            return
-        elif reason.check(ProcessTerminated):
-            if reason.value.signal:
-                log.warning("Executor %s terminated with signal %s",
-                        self.pid, reason.value.signal)
-            else:
-                log.warning("Executor %s terminated with status %s",
-                        self.pid, reason.value.status)
-        else:
-            log.error("Executor %s terminated due to an unknown error:\%s",
-                    self.pid, reason.getTraceback())
+    def stopService(self):
+        print 'shutting down'
+        Service.stopService(self)
+        return self.pool.stop()
 
-        self.launcher.taskFailed(self.task, reason)
+    def launch(self, task, launcher):
+        return self.pool.doWork('launch', task=task, launcher=launcher)
 
-
-class LaunchedWorkerSocket(PickleProtocol):
-
-    def __init__(self, worker):
-        self.worker = worker
-
-    def messageReceived(self, msg):
-        # FIXME: make sure to stash relayed status messages so we send the
-        # correct tick count in case of failure.
-        print 'msg: %r' % msg
+    def getTaskList(self):
+        if not self.pool:
+            return set()
+        tasks = set()
+        for child in self.pool.busy:
+            if child.task:
+                tasks.add(child.task.task_uuid)
+        return tasks
 
 
 class WorkerConfig(BusClientConfig):
