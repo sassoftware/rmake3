@@ -6,6 +6,8 @@ Changes in @NEW@:
  o Bug Fixes:
     * Cached chroots are now deleted if they subsequently fail to start.
       (RMK-1049)
+    * Chroots now contain a device called /dev/random though the real
+      underlying device is the one used for /dev/urandom. (RMK-839)
 
 Changes in 2.0.3:
  o Bug Fixes:
