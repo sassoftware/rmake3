@@ -6,7 +6,7 @@ all: default-subdirs default-all
 
 export TOPDIR = $(shell pwd)
 export DISTDIR = $(TOPDIR)/rmake-$(VERSION)
-
+export CHANGESET = $(shell ./scripts/hg-version.sh)
 SUBDIRS=rmake commands extra man rmake_plugins
 
 extra_files = \

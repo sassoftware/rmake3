@@ -12,6 +12,7 @@ all: default-subdirs default-all constants.py
 
 constants.py: constants.py.in ../Makefile ../Make.defs Makefile
 	sed -e s,@version@,$(VERSION),g \
+	    -e s,@changeset@,$(CHANGESET),g \
 	    -e s,@rmakeuser@,$(RMAKE_USER),g \
 	    -e s,@chrootuser@,$(CHROOT_USER),g \
 	    -e s,@chrootrmake@,$(CHROOT_RMAKE),g \

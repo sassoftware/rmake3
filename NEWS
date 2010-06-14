@@ -1,5 +1,7 @@
 Changes in @NEW@:
  o New Features:
+    * constants.changeset now contains the hg changeset of this version of 
+      rMake. (RBL-6494)
     * Added a isolateTroves build configuration option to disable
       intra-job trove dependencies. (RMK-1048)
 
