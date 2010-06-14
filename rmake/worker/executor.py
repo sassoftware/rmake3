@@ -15,14 +15,10 @@
 """
 The executor is responsible for handling a particular unit of subwork, either
 in-process or by forking off additional tasks.
-
-It communicates with the dispatcher through a pair of pipes configured by the
-ampoule library.
 """
 
 import cPickle
 import logging
-from ampoule import commands
 from twisted.internet import defer
 from twisted.internet import error as ierror
 from twisted.protocols.basic import Int32StringReceiver
@@ -39,8 +35,6 @@ class WorkerProtocol(Int32StringReceiver):
     MAX_LENGTH = 10000000
 
     def sendCommand(self, ctr, command, **kwargs):
-        if command is commands.Shutdown:
-            command = 'shutdown'
         self.sendString(cPickle.dumps((ctr, command, kwargs), 2))
 
     def stringReceived(self, data):
@@ -128,12 +122,15 @@ class WorkerChild(WorkerProtocol):
     task = None
 
     def _setproctitle(self):
-        title = 'rmake-node worker - '
+        title = 'rmake-worker: '
         if self.task:
-            title += 'task %s' % self.task.task_uuid.short
+            title += '<task %s>' % self.task.task_uuid.short
         else:
             title += '<idle>'
         osutil.setproctitle(title)
+
+    def connectionMade(self):
+        self._setproctitle()
 
     def connectionLost(self, reason):
         from twisted.internet import reactor
@@ -156,7 +153,7 @@ class WorkerChild(WorkerProtocol):
             self.sendCommand(ctr, 'ack')
             self.task = None
             self._setproctitle()
-        reactor.callLater(0, later)
+        reactor.callLater(10, later)
 
     def cmd_shutdown(self, ctr):
         self.shutdown = True

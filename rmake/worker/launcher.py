@@ -22,16 +22,17 @@ into the worker process.
 """
 
 import logging
-from ampoule import pool
 from conary.lib import cfgtypes
+from twisted.application.internet import TimerService
+from twisted.application.service import MultiService
+from twisted.python import reflect
+
 from rmake.core.types import TaskCapability
+from rmake.lib.proc_pool import pool
 from rmake.messagebus import message
 from rmake.messagebus.client import BusClientService
 from rmake.messagebus.config import BusClientConfig
 from rmake.worker import executor
-from twisted.application.internet import TimerService
-from twisted.application.service import MultiService, Service
-from twisted.python import reflect
 
 log = logging.getLogger(__name__)
 
@@ -128,33 +129,20 @@ class HeartbeatService(TimerService):
         self.launcher.bus.sendToTarget(msg)
 
 
-class PoolService(Service):
+class PoolService(pool.ProcessPool):
 
     childFactory = executor.WorkerChild
-    serverFactory = executor.WorkerParent
-
-    pool = None
-
-    def startService(self):
-        Service.startService(self)
-        from twisted.internet import reactor
-        self.pool = pool.ProcessPool(self.childFactory, self.serverFactory,
-                min=1, max=1000, recycleAfter=5)
-        reactor.callLater(0, self.pool.start)
-
-    def stopService(self):
-        print 'shutting down'
-        Service.stopService(self)
-        return self.pool.stop()
+    parentFactory = executor.WorkerParent
 
     def launch(self, task, launcher):
-        return self.pool.doWork('launch', task=task, launcher=launcher)
+        return self.startWork('launch', task=task, launcher=launcher)
 
     def getTaskList(self):
-        if not self.pool:
+        if self.finished:
             return set()
         tasks = set()
-        for child in self.pool.busy:
+        for connector in self.busy:
+            child = connector.protocol
             if child.task:
                 tasks.add(child.task.task_uuid)
         return tasks
