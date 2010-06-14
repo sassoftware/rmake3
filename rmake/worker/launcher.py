@@ -116,6 +116,11 @@ class LauncherBusService(BusClientService):
         else:
             BusClientService.messageReceived(self, msg)
 
+    def targetConnected(self):
+        # Call up to the daemon instance so it can set the process title.
+        self.parent.parent.targetConnected(self._handler.jid,
+                self._handler.targetJID)
+
 
 class HeartbeatService(TimerService):
 

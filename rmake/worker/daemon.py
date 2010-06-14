@@ -20,6 +20,7 @@ import sys
 from conary.lib import options
 from rmake import compat
 from rmake.lib import daemon
+from rmake.lib import osutil
 from rmake.worker import launcher
 
 
@@ -42,6 +43,10 @@ class WorkerDaemon(daemon.DaemonService, daemon.LoggingMixin,
             srv.bus.logTraffic = True
 
         super(WorkerDaemon, self).setup(**kwargs)
+
+    def targetConnected(self, myJID, targetJID):
+        osutil.setproctitle(('rmake-node %s for %s'
+            % (myJID.full(), targetJID.full())).encode('utf-8'))
 
 
 def main():
