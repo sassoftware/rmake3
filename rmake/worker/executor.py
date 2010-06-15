@@ -19,6 +19,8 @@ in-process or by forking off additional tasks.
 
 import cPickle
 import logging
+import os
+import sys
 from twisted.internet import defer
 from twisted.internet import error as ierror
 from twisted.protocols.basic import Int32StringReceiver
@@ -38,13 +40,17 @@ class WorkerProtocol(Int32StringReceiver):
         self.sendString(cPickle.dumps((ctr, command, kwargs), 2))
 
     def stringReceived(self, data):
-        ctr, command, kwargs = cPickle.loads(data)
         try:
-            m = getattr(self, 'cmd_' + command)
-        except AttributeError:
-            log.error("Ignoring unknown worker command %r", command)
-        else:
-            m(ctr, **kwargs)
+            ctr, command, kwargs = cPickle.loads(data)
+            try:
+                m = getattr(self, 'cmd_' + command)
+            except AttributeError:
+                log.error("Ignoring unknown worker command %r", command)
+            else:
+                m(ctr, **kwargs)
+        except:
+            log.exception("Unhandled error processing incoming command:")
+            os._exit(1)
 
 
 class WorkerParent(WorkerProtocol):
@@ -119,6 +125,10 @@ class WorkerParent(WorkerProtocol):
 class WorkerChild(WorkerProtocol):
 
     shutdown = False
+
+    cfg = None
+    plugins = None
+
     task = None
 
     def _setproctitle(self):
@@ -139,7 +149,6 @@ class WorkerChild(WorkerProtocol):
         except ierror.ReactorNotRunning:
             pass
         if not self.shutdown:
-            import os
             os._exit(-1)
 
     def cmd_launch(self, ctr, task):
@@ -153,7 +162,10 @@ class WorkerChild(WorkerProtocol):
             self.sendCommand(ctr, 'ack')
             self.task = None
             self._setproctitle()
-        reactor.callLater(10, later)
+        reactor.callLater(3, later)
+
+    def cmd_startup(self, ctr, pluginDirs, disabledPlugins, cfgBlob):
+        self.sendCommand(ctr, 'ack')
 
     def cmd_shutdown(self, ctr):
         self.shutdown = True

@@ -40,6 +40,9 @@ class ProcessConnector(protocol.ProcessProtocol):
         self.in_fd = in_fd
         self.pid = None
 
+    def __repr__(self):
+        return '<ProcessConnector %s>' % (self.pid or hex(id(self)))
+
     # For parent transport
 
     def signalProcess(self, sig):
@@ -57,6 +60,9 @@ class ProcessConnector(protocol.ProcessProtocol):
 
     def errReceived(self, data):
         for line in data.splitlines():
+            if line == '\x1b[?1034h':
+                # Silly readline, this is not a terminal!
+                continue
             log.debug("worker %d: %s", self.pid, line)
 
     def processEnded(self, status):

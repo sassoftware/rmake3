@@ -21,6 +21,7 @@ The launcher must re-exec after forking to prevent Twisted state from escaping
 into the worker process.
 """
 
+import cPickle
 import logging
 from conary.lib import cfgtypes
 from twisted.application.internet import TimerService
@@ -65,7 +66,14 @@ class LauncherService(MultiService):
         HeartbeatService(self).setServiceParent(self)
 
     def _start_pool(self):
-        self.pool = PoolService()
+        # The elusive double pickle: even though parent-child communication
+        # is transparently pickled, the config object needs special handling
+        # because the worker must load plugins before unpickling.
+        self.pool = PoolService(args=dict(
+            pluginDirs=self.plugins.pluginDirs,
+            disabledPlugins=self.plugins.disabledPlugins,
+            cfgBlob=cPickle.dumps(self.cfg, 2),
+            ))
         self.pool.setServiceParent(self)
 
     def launch(self, msg):
@@ -140,7 +148,7 @@ class PoolService(pool.ProcessPool):
     parentFactory = executor.WorkerParent
 
     def launch(self, task, launcher):
-        return self.startWork('launch', task=task, launcher=launcher)
+        return self.doWork('launch', task=task, launcher=launcher)
 
     def getTaskList(self):
         if self.finished:

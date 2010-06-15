@@ -27,6 +27,7 @@ from twisted.internet import error
 from twisted.internet import task
 from twisted.python import reflect
 
+from rmake.lib import logger
 from rmake.lib.proc_pool import connector
 
 log = logging.getLogger(__name__)
@@ -42,10 +43,11 @@ class ProcessPool(service.Service):
 
     pool = None
 
-    def __init__(self, starter=None):
+    def __init__(self, starter=None, args=()):
         if starter is None:
             starter = ProcessStarter(packages=('twisted', 'rmake'))
         self.starter = starter
+        self.args = dict(args)
 
         self.finished = False
         self.started = False
@@ -92,6 +94,10 @@ class ProcessPool(service.Service):
         self.ready.add(child)
         self.calls[child] = 0
         log.debug("Starting worker %r", child)
+        child.callRemote('startup', **self.args
+                ).addErrback(logger.logFailure,
+                        "Error starting worker subprocess:")
+        child.finished.addBoth(self._pruneProcess, child)
 
     def stopAWorker(self, child=None):
         """Stop one worker, preferring idle workers if there are any."""
@@ -102,18 +108,18 @@ class ProcessPool(service.Service):
                 child = random.choice(list(self.processes))
         log.debug("Stopping worker %r", child)
         child.callRemote('shutdown'
-                ).addCallback(self._pruneProcess, child
                 ).addErrback(
                 lambda reason: reason.trap(error.ProcessTerminated))
         return child.finished
 
     def _pruneProcess(self, _, child):
+        log.debug("Removing worker %r", child)
         self.processes.discard(child)
         self.ready.discard(child)
         self.busy.discard(child)
         self.calls.pop(child, None)
 
-    def startWork(self, command, **kwargs):
+    def doWork(self, command, **kwargs):
         if not self.ready:
             self.startAWorker()
         child = self.ready.pop()
@@ -131,6 +137,7 @@ class ProcessPool(service.Service):
                 self.stopAWorker(child).addCallback(lambda _: self.rebalance())
             else:
                 self.ready.add(child)
+            return result
 
         return child.callRemote(command, **kwargs
                 ).addCallback(cb_returned, child
@@ -178,6 +185,6 @@ class ProcessStarter(object):
 
         args = (sys.executable, bootstrapPath, childClassPath)
         reactor.spawnProcess(prot, sys.executable, args, env,
-                childFDs={#0: 'w', 1: 'r', 2: 'r',
+                childFDs={0: 'w', 1: 'r', 2: 'r',
                     connector.TO_CHILD: 'w', connector.FROM_CHILD: 'r'})
         return prot
