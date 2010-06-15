@@ -26,9 +26,8 @@ import logging
 from conary.lib import cfgtypes
 from twisted.application.internet import TimerService
 from twisted.application.service import MultiService
-from twisted.python import reflect
 
-from rmake.core.types import TaskCapability
+from rmake.core.types import JobStatus, TaskCapability
 from rmake.lib.proc_pool import pool
 from rmake.messagebus import message
 from rmake.messagebus.client import BusClientService
@@ -46,7 +45,6 @@ class LauncherService(MultiService):
         self.bus = None
         self.caps = set()
         self.pool = None
-        self.task_types = {}
         self.plugins = plugin_mgr
         self.plugins.p.launcher.pre_setup(self)
         self._set_caps()
@@ -56,8 +54,7 @@ class LauncherService(MultiService):
 
     def _set_caps(self):
         for plugin, tasks in self.plugins.p.worker.get_task_types().items():
-            for task, taskClass in tasks.items():
-                self.task_types[task] = taskClass
+            for task in tasks:
                 self.caps.add(TaskCapability(task))
 
     def _start_bus(self):
@@ -78,29 +75,14 @@ class LauncherService(MultiService):
 
     def launch(self, msg):
         task = msg.task
-        if task.task_type not in self.task_types:
-            log.error("Got task of unsupported type %r", task.type)
-            self.sendTaskStatus(task, 400,
-                    "Task type is not supported by this node")
-            return
-
         log.info("Starting task %s", task.task_uuid)
         d = self.pool.launch(task=task, launcher=self)
-        d.addErrback(self.taskFailed, task)
+        d.addErrback(self.failTask, task)
 
-    def taskFailed(self, reason, task):
-        text = "Fatal error in task runner: %s: %s" % (
-                reflect.qual(reason.type),
-                reflect.safe_str(reason.value))
-        self.sendTaskStatus(task, 400, text, detail=reason.getTraceback())
-
-    def sendTaskStatus(self, task, code=None, text=None, detail=None):
+    def failTask(self, reason, task):
         task.times.ticks += 1
-        status = task.status
-        if code is not None:
-            status.code = code
-            status.text = text
-            status.detail = detail
+        task.status = JobStatus.from_failure(reason,
+                "Fatal error in task runner")
         self.forwardTaskStatus(task)
 
     def forwardTaskStatus(self, task):

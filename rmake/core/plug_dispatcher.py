@@ -12,6 +12,14 @@
 # full details.
 #
 
+"""
+Skeleton for dispatcher plugins.
+
+Inherit from this to add functionality to the dispatcher, for example a new job
+type. The pre/post hooks can also be used to start auxilliary functionality
+needed by your job or task handlers.
+"""
+
 from rmake.lib import pluginlib
 
 

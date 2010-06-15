@@ -20,12 +20,13 @@ in-process or by forking off additional tasks.
 import cPickle
 import logging
 import os
-import sys
 from twisted.internet import defer
 from twisted.internet import error as ierror
 from twisted.protocols.basic import Int32StringReceiver
 
+from rmake.core.types import JobStatus
 from rmake.lib import osutil
+from rmake.lib import pluginlib
 
 log = logging.getLogger(__name__)
 
@@ -111,7 +112,7 @@ class WorkerParent(WorkerProtocol):
             return reason
 
         # Report errors back to the dispatcher.
-        d.addErrback(self.launcher.taskFailed, self.task)
+        d.addErrback(self.launcher.failTask, self.task)
 
     def cmd_status_update(self, ctr, task):
         """Propagate status updates back to the dispatcher."""
@@ -124,11 +125,16 @@ class WorkerParent(WorkerProtocol):
 
 class WorkerChild(WorkerProtocol):
 
-    shutdown = False
+    # Static
+    pluginTypes = ('worker',)
 
+    # Configuration
     cfg = None
     plugins = None
+    task_types = None
 
+    # Runtime (per task)
+    shutdown = False
     task = None
 
     def _setproctitle(self):
@@ -153,18 +159,37 @@ class WorkerChild(WorkerProtocol):
 
     def cmd_launch(self, ctr, task):
         self.task = task
-        self._setproctitle()
-        print 'FIRE ZE MISSILES!'
-        print 'task uuid:', task.task_uuid
-        from twisted.internet import reactor
-        def later():
-            self.sendStatus(200, 'done')
+        handlerClass = self.task_types.get(task.task_type)
+        if not handlerClass:
+            # The dispatcher isn't supposed to send us tasks we can't handle,
+            # so this is probably a bug.
+            self.sendStatus(JobStatus(
+                400, "Worker can't run task of type %r" % (task.task_type,)))
             self.sendCommand(ctr, 'ack')
+            return
+        self._setproctitle()
+
+        handler = handlerClass(self, task)
+        d = handler.start()
+
+        d.addErrback(self.failTask)
+        @d.addBoth
+        def cb_cleanup(result):
             self.task = None
             self._setproctitle()
-        reactor.callLater(3, later)
+            return result
+        return d
 
     def cmd_startup(self, ctr, pluginDirs, disabledPlugins, cfgBlob):
+        self.plugins = pluginlib.PluginManager(pluginDirs, disabledPlugins,
+                supportedTypes=self.pluginTypes)
+        self.plugins.loadPlugins()
+        self.cfg = cPickle.loads(cfgBlob)
+
+        self.task_types = {}
+        for plugin, tasks in self.plugins.p.worker.get_task_types().items():
+            self.task_types.update(tasks)
+
         self.sendCommand(ctr, 'ack')
 
     def cmd_shutdown(self, ctr):
@@ -172,13 +197,14 @@ class WorkerChild(WorkerProtocol):
         self.sendCommand(ctr, 'ack')
         self.transport.loseConnection()
 
-    def sendStatus(self, code, text, detail=None):
+    def sendStatus(self, status):
         self.task.times.ticks += 1
-        status = self.task.status
-        status.code = code
-        status.text = text
-        status.detail = detail
+        self.task.status = status
         self.sendCommand(None, 'status_update', task=self.task)
+
+    def failTask(self, reason):
+        self.sendStatus(JobStatus.from_failure(reason,
+                "Fatal error in task runner"))
 
 
 class InternalWorkerError(RuntimeError):

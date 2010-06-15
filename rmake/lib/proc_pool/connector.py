@@ -28,7 +28,7 @@ class ProcessConnector(protocol.ProcessProtocol):
     """
     Present a stream-like transport interface to a wrapped protocol instance,
     while routing the inbound and outbound data over a pair of pipes attached
-    to a subprocess.
+    to the parent process transport.
     """
 
     disconnecting = False

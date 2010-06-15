@@ -185,6 +185,6 @@ class ProcessStarter(object):
 
         args = (sys.executable, bootstrapPath, childClassPath)
         reactor.spawnProcess(prot, sys.executable, args, env,
-                childFDs={0: 'w', 1: 'r', 2: 'r',
+                childFDs={0:0, 1:1, 2:2,#0: 'w', 1: 'r', 2: 'r',
                     connector.TO_CHILD: 'w', connector.FROM_CHILD: 'r'})
         return prot

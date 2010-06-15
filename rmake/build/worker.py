@@ -18,9 +18,10 @@ Implementations of trove building tasks that are run on the worker node.
 
 from conary import conaryclient
 from rmake.lib import repocache
+from rmake.worker import plug_worker
 
 
-class LoadTask(object):
+class LoadTask(plug_worker.TaskHandler):
 
     def run(self):
         self.job = self.task.task_data.thaw()

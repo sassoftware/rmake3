@@ -17,6 +17,8 @@ import cPickle
 from rmake.lib import uuid
 from rmake.lib.ninamori.types import namedtuple
 
+from twisted.python import reflect
+
 NAMESPACE_TASK = uuid.UUID('14dfcf54-40e4-11df-b434-33d2b616adec')
 
 
@@ -100,6 +102,13 @@ class JobStatus(_SlotCompare):
     @property
     def final(self):
         return self.completed or self.failed
+
+    @classmethod
+    def from_failure(cls, reason, text="Fatal error", code=400):
+        text = "%s: %s: %s" % (text,
+                reflect.qual(reason.type),
+                reflect.safe_str(reason.value))
+        return cls(code, text, reason.getTraceback())
 
 
 class JobTimes(_SlotCompare):
