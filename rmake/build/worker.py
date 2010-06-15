@@ -17,17 +17,28 @@ Implementations of trove building tasks that are run on the worker node.
 """
 
 from conary import conaryclient
-from rmake.lib import repocache
+from rmake.lib import recipeutil
+#from rmake.lib import repocache
 from rmake.worker import plug_worker
 
 
 class LoadTask(plug_worker.TaskHandler):
 
     def run(self):
-        self.job = self.task.task_data.thaw()
-        self.log.info("Loading %d troves", len(self.job.troves))
-        raise RuntimeError("oops")
+        from rmake.lib import logger
+        logger.setupLogging(consoleLevel=logger.logging.DEBUG)
+        job = self.task.task_data.thaw()
+        job._log = self.log
+        self.log.info("Loading %d troves", len(job.troves))
 
-        repos = conaryclient.ConaryClient(self.job.getMainConfig()).getRepos()
-        if self.cfg.useCache:
-            repos = repocache.CachingTroveSource(repos, self.cfg.getCacheDir())
+        repos = conaryclient.ConaryClient(job.getMainConfig()).getRepos()
+        # TODO
+        # if self.cfg.useCache:
+        #    repos = repocache.CachingTroveSource(repos, self.cfg.getCacheDir())
+
+        troves = [job.getTrove(*x) for x in job.iterLoadableTroveList()]
+        if troves:
+            self.sendStatus(101, "Loading troves")
+            result = recipeutil.getSourceTrovesFromJob(job, troves, repos,
+                    job.configs[''].reposName)
+        self.sendStatus(200, "Troves loaded")

@@ -277,6 +277,7 @@ class BuildJob(_AbstractBuildJob):
         self._publisher = publisher.JobStatusPublisher()
         _AbstractBuildJob.__init__(self, *args, **kwargs)
         self._amOwner = False
+        self._log = None
 
     def amOwner(self):
         """
@@ -296,11 +297,11 @@ class BuildJob(_AbstractBuildJob):
     def getPublisher(self):
         return self._publisher
 
-    def log(self, message):
-        """
-            Publish log message "message" to trove subscribers.
-        """
-        self._publisher.jobLogUpdated(self, message)
+    def log(self, format, *args, **kwargs):
+        if self._log:
+            self._log.info(format, *args, **kwargs)
+        else:
+            raise RuntimeError("Build job has no logger set")
 
     def setBuildTroves(self, buildTroves):
         """

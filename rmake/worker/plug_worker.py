@@ -23,9 +23,11 @@ Launcher plugins are used to add special functionality to the launcher and are
 not typically required in order to add a new task type.
 """
 
+import logging
 from twisted.internet import threads
 
 from rmake.core.types import JobStatus
+from rmake.lib import logger
 from rmake.lib import pluginlib
 
 
@@ -68,6 +70,9 @@ class TaskHandler(object):
         self._wchild = wchild
         self.wcfg = wchild.cfg
         self.task = task
+        # TODO: Replace or configure this with something that will send logs
+        # upstream.
+        self.log = logging.getLogger('rmake.task.' + task.task_uuid.short)
 
     # Reactor methods -- don't call from run()!
 
@@ -78,12 +83,12 @@ class TaskHandler(object):
 
     def sendStatus(self, code, text, detail=None):
         from twisted.internet import reactor
-        reactor.callFromThread(self._wchild.sendStatus, code, text, detail)
-
-    def taskFailed(self, reason):
-        from twisted.internet import reactor
         reactor.callFromThread(self._wchild.sendStatus,
-                JobStatus.from_failure(reason, "Fatal error in task runner"))
+                JobStatus(code, text, detail))
+
+    def failTask(self, reason):
+        from twisted.internet import reactor
+        reactor.callFromThread(self._wchild.failTask, reason)
 
     def run(self):
         raise NotImplementedError

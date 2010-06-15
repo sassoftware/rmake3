@@ -25,6 +25,7 @@ from twisted.internet import error as ierror
 from twisted.protocols.basic import Int32StringReceiver
 
 from rmake.core.types import JobStatus
+from rmake.lib import logger
 from rmake.lib import osutil
 from rmake.lib import pluginlib
 
@@ -177,6 +178,7 @@ class WorkerChild(WorkerProtocol):
         def cb_cleanup(result):
             self.task = None
             self._setproctitle()
+            self.sendCommand(ctr, 'ack')
             return result
         return d
 
@@ -202,7 +204,9 @@ class WorkerChild(WorkerProtocol):
         self.task.status = status
         self.sendCommand(None, 'status_update', task=self.task)
 
-    def failTask(self, reason):
+    def failTask(self, reason, logIt=True):
+        if logIt:
+            logger.logFailure(reason, "Fatal error in task runner:")
         self.sendStatus(JobStatus.from_failure(reason,
                 "Fatal error in task runner"))
 
