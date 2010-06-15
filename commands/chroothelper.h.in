@@ -34,6 +34,7 @@ struct devinfo_t devices[] = {
     { "zero", S_IFCHR, 0666, 1, 5 },
     { "full", S_IFCHR, 0666, 1, 7 },
     { "urandom", S_IFCHR, 0444, 1, 9 },
+    { "random", S_IFCHR, 0444, 1, 9 }, /* RMK-839: 1,9 is intentional */
     { "tty",     S_IFCHR, 0666, 5, 0 },
     { "console",     S_IFCHR, 0600, 5, 1 },
     { "ptmx",    S_IFCHR, 0666, 5, 2 } };
