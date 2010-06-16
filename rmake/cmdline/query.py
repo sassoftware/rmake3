@@ -298,16 +298,16 @@ def getFlavorSpecs(job):
 def displayTrovesByState(job, indent='     ', out=sys.stdout):
     flavorsByName = getFlavorSpecs(job)
 
-    for state in (buildtrove.TROVE_STATE_WAITING,
-                   buildtrove.TROVE_STATE_RESOLVING,
-                   buildtrove.TROVE_STATE_PREPARING,
-                   buildtrove.TROVE_STATE_BUILDING,
-                   buildtrove.TROVE_STATE_BUILDABLE,
-                   buildtrove.TROVE_STATE_UNBUILDABLE,
-                   buildtrove.TROVE_STATE_FAILED,
-                   buildtrove.TROVE_STATE_BUILT,
-                   buildtrove.TROVE_STATE_PREBUILT,
-                   buildtrove.TROVE_STATE_INIT):
+    for state in (buildtrove.TroveState.WAITING,
+                   buildtrove.TroveState.RESOLVING,
+                   buildtrove.TroveState.PREPARING,
+                   buildtrove.TroveState.BUILDING,
+                   buildtrove.TroveState.BUILDABLE,
+                   buildtrove.TroveState.UNBUILDABLE,
+                   buildtrove.TroveState.FAILED,
+                   buildtrove.TroveState.BUILT,
+                   buildtrove.TroveState.PREBUILT,
+                   buildtrove.TroveState.INIT):
         troves = sorted(job.iterTrovesByState(state))
         if not troves:
             continue

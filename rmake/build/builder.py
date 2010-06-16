@@ -310,7 +310,7 @@ class Builder(object):
             if not trovesByNVF:
                 continue
 
-            builtState = buildtrove.TROVE_STATE_BUILT
+            builtState = buildtrove.TroveState.BUILT
             trovesByState = self.db.listTrovesByState(jobId, builtState)
             for n,v,f,c in trovesByState.get(builtState, []):
                 toBuild = trovesByNVF.pop((n,v,f), False)
@@ -571,13 +571,13 @@ class EventHandler(object):
         t.own()
 
     def troveStateUpdated(self, (jobId, troveTuple), state, status):
-        if state not in (buildtrove.TROVE_STATE_FAILED,
-                         buildtrove.TROVE_STATE_UNBUILDABLE,
-                         buildtrove.TROVE_STATE_BUILT,
-                         buildtrove.TROVE_STATE_DUPLICATE,
-                         buildtrove.TROVE_STATE_RESOLVING,
-                         buildtrove.TROVE_STATE_PREPARING,
-                         buildtrove.TROVE_STATE_BUILDING):
+        if state not in (buildtrove.TroveState.FAILED,
+                         buildtrove.TroveState.UNBUILDABLE,
+                         buildtrove.TroveState.BUILT,
+                         buildtrove.TroveState.DUPLICATE,
+                         buildtrove.TroveState.RESOLVING,
+                         buildtrove.TroveState.PREPARING,
+                         buildtrove.TroveState.BUILDING):
             t = self.job.getTrove(*troveTuple)
             t._setState(state, status)
 

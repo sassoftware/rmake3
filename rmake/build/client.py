@@ -143,7 +143,7 @@ class rMakeClient_UNPORTED(object):
             @param jobId: jobId or uuid for job.
             @param state: (optional) state to list troves by.  All states if 
                           left blank.
-            @type state: build.buildtrove.TROVE_STATE_* or None
+            @type state: build.buildtrove.TroveState.* or None
 
             @return: dict of trove lists by state.
             @rtype: {TROVE_STATE_* : [(name, version, flavor)]} dict.

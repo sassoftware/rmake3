@@ -25,7 +25,7 @@ class AbstractBuildState(object):
         self.troves = []
         self.trovesByNVF = {}
 
-        self.states = dict((x, set()) for x in buildtrove.TROVE_STATE_LIST)
+        self.states = dict((x, set()) for x in buildtrove.TroveState.LIST)
         self.statesByTrove = {}
         self.addTroves(sourceTroves)
 
@@ -47,22 +47,22 @@ class AbstractBuildState(object):
         self.states[newState].add(sourceTrove)
 
     def getBuildableTroves(self):
-        return self.states[buildtrove.TROVE_STATE_BUILDABLE]
+        return self.states[buildtrove.TroveState.BUILDABLE]
 
     def getBuildingTroves(self):
-        return self.states[buildtrove.TROVE_STATE_BUILDING]
+        return self.states[buildtrove.TroveState.BUILDING]
 
     def getBuiltTroves(self):
-        return self.states[buildtrove.TROVE_STATE_BUILT]
+        return self.states[buildtrove.TroveState.BUILT]
 
     def getDuplicateTroves(self):
-        return self.states[buildtrove.TROVE_STATE_DUPLICATE]
+        return self.states[buildtrove.TroveState.DUPLICATE]
 
     def getPreparedTroves(self):
-        return self.states[buildtrove.TROVE_STATE_PREPARED]
+        return self.states[buildtrove.TroveState.PREPARED]
 
     def getFailedTroves(self):
-        return self.states[buildtrove.TROVE_STATE_FAILED] | self.states[buildtrove.TROVE_STATE_UNBUILDABLE]
+        return self.states[buildtrove.TroveState.FAILED] | self.states[buildtrove.TroveState.UNBUILDABLE]
 
     def jobFinished(self):
         return set(self.troves) == (self.getBuiltTroves()
@@ -76,13 +76,13 @@ class AbstractBuildState(object):
                                      | set(self.getPreparedTroves()))))
 
     def isUnbuilt(self, trove):
-        return (trove in self.states[buildtrove.TROVE_STATE_INIT]
-                or trove in self.states[buildtrove.TROVE_STATE_BUILDABLE]
-                or trove in self.states[buildtrove.TROVE_STATE_BUILDING]
-                or trove in self.states[buildtrove.TROVE_STATE_PREPARING]
-                or trove in self.states[buildtrove.TROVE_STATE_RESOLVING]
-                or trove in self.states[buildtrove.TROVE_STATE_PREBUILT]
-                or trove in self.states[buildtrove.TROVE_STATE_WAITING])
+        return (trove in self.states[buildtrove.TroveState.INIT]
+                or trove in self.states[buildtrove.TroveState.BUILDABLE]
+                or trove in self.states[buildtrove.TroveState.BUILDING]
+                or trove in self.states[buildtrove.TroveState.PREPARING]
+                or trove in self.states[buildtrove.TroveState.RESOLVING]
+                or trove in self.states[buildtrove.TroveState.PREBUILT]
+                or trove in self.states[buildtrove.TroveState.WAITING])
 
     def isBuilt(self, trove):
-        return trove in self.states[buildtrove.TROVE_STATE_BUILT]
+        return trove in self.states[buildtrove.TroveState.BUILT]

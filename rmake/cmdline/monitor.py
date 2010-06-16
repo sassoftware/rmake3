@@ -176,8 +176,8 @@ class JobLogDisplay(_AbstractDisplay):
         self._msg('[%d] %s' % (jobId, status))
 
     def _troveStateUpdated(self, (jobId, troveTuple), state, status):
-        isBuilding = (state in (buildtrove.TROVE_STATE_BUILDING,
-                                buildtrove.TROVE_STATE_RESOLVING))
+        isBuilding = (state in (buildtrove.TroveState.BUILDING,
+                                buildtrove.TroveState.RESOLVING))
         state = buildtrove.stateNames[state]
         self._msg('[%d] - %s - State: %s' % (jobId, troveTuple[0], state))
         if status:
@@ -208,7 +208,7 @@ class JobLogDisplay(_AbstractDisplay):
             for (timeStamp, message, args) in newLogs:
                 print '[%s] [%s] - %s' % (timeStamp, jobId, message)
 
-        BUILDING = buildtrove.TROVE_STATE_BUILDING
+        BUILDING = buildtrove.TroveState.BUILDING
         troveTups = self.client.listTrovesByState(jobId, BUILDING).get(BUILDING, [])
         for troveTuple in troveTups:
             self._tailBuildLog(jobId, troveTuple)
@@ -416,7 +416,7 @@ class JobLogDisplay(_AbstractDisplay):
         self._msg('[%d] %s' % (jobId, status))
 
     def _troveStateUpdated(self, (jobId, troveTuple), state, status):
-        isBuilding = (state == buildtrove.TROVE_STATE_BUILDING)
+        isBuilding = (state == buildtrove.TroveState.BUILDING)
         state = buildtrove.stateNames[state]
         if troveTuple[3]:
             name = '%s{%s}' % (troveTuple[0], troveTuple[3])
@@ -504,19 +504,19 @@ class DisplayState(object):#xmlrpc.BasicXMLRPCStatusSubscriber):
 
     def isFailed(self, jobId, troveTuple):
         return (self.getTroveState(jobId, troveTuple)
-                == buildtrove.TROVE_STATE_FAILED)
+                == buildtrove.TroveState.FAILED)
 
     def isBuilding(self, jobId, troveTuple):
         return self.getTroveState(jobId, troveTuple) in (
-                                            buildtrove.TROVE_STATE_BUILDING,
-                                            buildtrove.TROVE_STATE_PREPARING,
-                                            buildtrove.TROVE_STATE_RESOLVING)
+                                            buildtrove.TroveState.BUILDING,
+                                            buildtrove.TroveState.PREPARING,
+                                            buildtrove.TroveState.RESOLVING)
 
     def isFailed(self, jobId, troveTuple):
         # don't iterate through unbuildable - they are failures due to 
         # secondary causes.
         return self.getTroveState(jobId, troveTuple) in (
-                                            buildtrove.TROVE_STATE_FAILED,)
+                                            buildtrove.TroveState.FAILED,)
 
     def findTroveByName(self, troveName):
         startsWith = None
@@ -533,8 +533,8 @@ class DisplayState(object):#xmlrpc.BasicXMLRPCStatusSubscriber):
 
     def getBuildingTroves(self):
         return [ x[0] for x in self.states.iteritems()
-                 if x[1] in (buildtrove.TROVE_STATE_BUILDING, 
-                             buildtrove.TROVE_STATE_RESOLVING) ]
+                 if x[1] in (buildtrove.TroveState.BUILDING, 
+                             buildtrove.TroveState.RESOLVING) ]
 
     def updateTrovesForJob(self, jobId):
         self.troves = []
