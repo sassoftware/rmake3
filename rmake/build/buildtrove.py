@@ -23,10 +23,10 @@ from conary.repository import changeset
 from rmake import failure
 from rmake.build import publisher
 from rmake.lib import flavorutil
-from rmake.lib.ninamori.types import constants
+from rmake.lib.pyutil import simpleConstants
 
 
-TroveState = constants('TroveState',
+TroveState = simpleConstants('TroveState',
         'INIT '         # = 0
         'FAILED '       # = 1
         'RESOLVING '    # = 2
@@ -42,7 +42,7 @@ TroveState = constants('TroveState',
         )
 
 
-RecipeType = constants('RecipeType',
+RecipeType = simpleConstants('RecipeType',
         'UNKNOWN '      # = 0
         'PACKAGE '      # = 1
         'FILESET '      # = 2
@@ -52,7 +52,7 @@ RecipeType = constants('RecipeType',
         )
 
 
-BuildType = constants('BuildType',
+BuildType = simpleConstants('BuildType',
         'NORMAL '       # = 0
         'PREP '         # = 1
         'SPECIAL '      # = 2

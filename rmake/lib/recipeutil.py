@@ -306,7 +306,7 @@ def loadSourceTroves(job, repos, buildFlavor, troveList,
             buildTrove.troveFailed(fail)
 
 
-def getSourceTrovesFromJob(job, troveList=None, repos=None, reposName=None):
+def loadSourceTrovesForJob(job, troveList=None, repos=None, reposName=None):
     if repos:
         cacheDir = None
     else:
@@ -326,7 +326,6 @@ def getSourceTrovesFromJob(job, troveList=None, repos=None, reposName=None):
         if reposName is None:
             reposName = job.getMainConfig().reposName
 
-        resultSet = {}
         tupList = sorted(x.getNameVersionFlavor() for x in troveList)
 
         # create fake "packages" for all the troves we're building so that
@@ -369,17 +368,16 @@ def getSourceTrovesFromJob(job, troveList=None, repos=None, reposName=None):
                 loadInstalledRepos.searchWithFlavor()
             cachedRepos = CachingSource(loadInstalledRepos)
 
-            resultSet.update(loadSourceTroves(job, cachedRepos,
+            loadSourceTroves(job, cachedRepos,
                 buildCfg.buildFlavor, contextTroves, total=total, count=count,
                 loadInstalledSource=loadInstalledSource,
                 installLabelPath=buildCfg.installLabelPath,
                 groupRecipeSource=groupRecipeSource,
-                internalHostName=reposName))
-            count = len(resultSet)
+                internalHostName=reposName)
+            count += len(contextTroves)
     finally:
         if cacheDir:
             util.rmtree(cacheDir)
-    return resultSet
 
 class RemoveHostRepos(object):
     def __init__(self, troveSource, host):

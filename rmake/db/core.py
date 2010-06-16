@@ -176,9 +176,10 @@ class CoreDB(object):
         stmt = SQL("""
             UPDATE jobs.tasks SET status_code = %s, status_text = %s,
                 status_detail = %s, time_updated = now(), time_ticks = %s,
-                node_assigned = %s
+                node_assigned = %s, task_data = %s
                 """, task.status.code, task.status.text, task.status.detail,
-                task.times.ticks, task.node_assigned)
+                task.times.ticks, task.node_assigned,
+                cu.binary(task.task_data.freeze()))
         if task.status.final:
             stmt += SQL(", time_finished = now()")
 
