@@ -280,23 +280,22 @@ def loadSourceTroves(job, repos, buildFlavor, troveList,
                                  buildLabel=buildLabel,
                                  groupRecipeSource=groupRecipeSource,
                                  cfg=job.getTroveConfig(buildTrove))
-            result = buildtrove.LoadTroveResult()
-            result.flavor = relevantFlavor
-            result.recipeType = buildtrove.getRecipeType(recipeObj)
-            result.loadedSpecsList = [ _getLoadedSpecs(loader, recipeObj) ]
+            buildTrove.setFlavor(relevantFlavor)
+            buildTrove.setReceipeType(buildtrove.getRecipeType(recipeObj))
+            buildTrove.setLoadedSpecsList([_getLoadedSpecs(loader, recipeObj)])
             if hasattr(loader, 'getLoadedTroves'):
-                result.loadedTroves = loader.getLoadedTroves()
+                buildTrove.setLoadedTroves(loader.getLoadedTroves())
             else:
-                result.loadedTroves = recipeObj.getLoadedTroves()
-            result.packages = set(getattr(recipeObj,
-                'packages', [recipeObj.name]))
+                buildTrove.setLoadedTroves(recipeObj.getLoadedTroves())
+            buildTrove.setDerivedPackages(set(
+                getattr(recipeObj, 'packages', [recipeObj.name])))
             if 'delayedRequires' in recipeObj.__dict__:
-                result.delayedRequirements = recipeObj.delayedRequires
-            result.buildRequirements = set(
-                getattr(recipeObj, 'buildRequires', []))
-            result.crossRequirements = set(
-                getattr(recipeObj, 'crossRequires', []))
-            resultSet[buildTrove.getNameVersionFlavor(True)] = result
+                buildTrove.setDelayedRequirements(recipeObj.delayedRequires)
+            buildTrove.setBuildRequirements(set(
+                getattr(recipeObj, 'buildRequires', [])))
+            buildTrove.setCrossRequirements(set(
+                getattr(recipeObj, 'crossRequires', [])))
+
         except Exception, err:
             if isinstance(err, errors.RmakeError):
                 # we assume our internal errors have enough info
@@ -305,7 +304,7 @@ def loadSourceTroves(job, repos, buildFlavor, troveList,
             else:
                 fail = failure.LoadFailed(str(err), traceback.format_exc())
             buildTrove.troveFailed(fail)
-    return resultSet
+
 
 def getSourceTrovesFromJob(job, troveList=None, repos=None, reposName=None):
     if repos:

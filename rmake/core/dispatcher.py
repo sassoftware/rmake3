@@ -20,7 +20,6 @@ Status updates are routed back to clients and to the database.
 
 
 import copy
-import cPickle
 import errno
 import logging
 import os

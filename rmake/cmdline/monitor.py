@@ -165,7 +165,7 @@ class JobLogDisplay(_AbstractDisplay):
 
     def _jobStateUpdated(self, jobId, state, status):
         _AbstractDisplay._jobStateUpdated(self, jobId, state, status)
-        state = buildjob._getStateName(state)
+        state = buildjob.stateNames[state]
         if self._isFinished():
             self._serveLoopHook()
         self._msg('[%d] - State: %s' % (jobId, state))
@@ -178,7 +178,7 @@ class JobLogDisplay(_AbstractDisplay):
     def _troveStateUpdated(self, (jobId, troveTuple), state, status):
         isBuilding = (state in (buildtrove.TROVE_STATE_BUILDING,
                                 buildtrove.TROVE_STATE_RESOLVING))
-        state = buildtrove._getStateName(state)
+        state = buildtrove.stateNames[state]
         self._msg('[%d] - %s - State: %s' % (jobId, troveTuple[0], state))
         if status:
             self._msg('[%d] - %s - %s' % (jobId, troveTuple[0], status))
@@ -188,7 +188,7 @@ class JobLogDisplay(_AbstractDisplay):
             self._stopTailing(jobId, troveTuple)
 
     def _troveLogUpdated(self, (jobId, troveTuple), state, status):
-        state = buildtrove._getStateName(state)
+        state = buildtrove.stateNames[state]
         self._msg('[%d] - %s - %s' % (jobId, troveTuple[0], status))
 
     def _trovePreparingChroot(self, (jobId, troveTuple), host, path):
@@ -308,7 +308,7 @@ class JobLogDisplay(_AbstractDisplay):
             if self.troveToWatch not in self.state.troves:
                 self.troveToWatch = self.state.troves[0]
             state = self.state.getTroveState(*self.troveToWatch)
-            state = buildtrove._getStateName(state)
+            state = buildtrove.stateNames[state]
             name = self.troveToWatch[1][0].split(':', 1)[0] # remove :source
             context = self.troveToWatch[1][3]
             d = dict(jobId=self.troveToWatch[0], name=name, state=state,
@@ -404,7 +404,7 @@ class JobLogDisplay(_AbstractDisplay):
 
     def _jobStateUpdated(self, jobId, state, status):
         _AbstractDisplay._jobStateUpdated(self, jobId, state, status)
-        state = buildjob._getStateName(state)
+        state = buildjob.stateNames[state]
         if self._isFinished() and self.troveToWatch:
             self.updateBuildLog(*self.troveToWatch)
         self._msg('[%d] - State: %s' % (jobId, state))
@@ -417,7 +417,7 @@ class JobLogDisplay(_AbstractDisplay):
 
     def _troveStateUpdated(self, (jobId, troveTuple), state, status):
         isBuilding = (state == buildtrove.TROVE_STATE_BUILDING)
-        state = buildtrove._getStateName(state)
+        state = buildtrove.stateNames[state]
         if troveTuple[3]:
             name = '%s{%s}' % (troveTuple[0], troveTuple[3])
         else:
@@ -429,7 +429,7 @@ class JobLogDisplay(_AbstractDisplay):
 
     def _troveLogUpdated(self, (jobId, troveTuple), state, status):
         if self._watchTrove(jobId, troveTuple):
-            state = buildtrove._getStateName(state)
+            state = buildtrove.stateNames[state]
             self._msg('[%d] - %s - %s' % (jobId, troveTuple[0], status))
 
     def _trovePreparingChroot(self, (jobId, troveTuple), host, path):
@@ -499,7 +499,7 @@ class DisplayState(object):#xmlrpc.BasicXMLRPCStatusSubscriber):
     def getJobStateName(self):
         if self.jobState is None:
             return 'None'
-        return buildjob._getStateName(self.jobState)
+        return buildjob.stateNames[self.jobState]
 
 
     def isFailed(self, jobId, troveTuple):
@@ -624,7 +624,7 @@ class DisplayManager(object):#xmlrpc.BasicXMLRPCStatusSubscriber):
     def displayTrove(self, jobId, troveTuple):
         self.display.setTroveToWatch(jobId, troveTuple)
         state = self.state.getTroveState(jobId, troveTuple)
-        state = buildtrove._getStateName(state)
+        state = buildtrove.stateNames[state]
 
     def _serveLoopHook(self):
         ready = select.select([sys.stdin], [], [], 0.1)[0]
