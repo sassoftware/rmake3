@@ -241,11 +241,11 @@ class JobHandler(object):
                 if value is not NOT_SET:
                     state_dict[slot] = value
         data = (self._getVersion(), self.job.data, state_dict)
-        return cPickle.dumps(data, 2)
+        return FrozenObject.fromObject(data)
 
     @classmethod
-    def recover(cls, data):
-        data = cPickle.loads(data)
+    def recover(cls, frozen):
+        data = frozen.thaw()
         if data[0] != cls._getVersion():
             raise RuntimeError("Version mismatch when recovering job state")
 

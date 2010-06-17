@@ -91,8 +91,8 @@ class CoreDB(object):
             status_code=job.status.code, status_text=job.status.text,
             status_detail=job.status.detail,
             expires_after=job.times.expires_after,
-            frozen_data=cu.binary(FrozenObject.fromObject(job.data).freeze()),
-            frozen_handler=cu.binary(frozen_handler),
+            frozen_data=FrozenObject.fromObject(job.data),
+            frozen_handler=frozen_handler,
             ),
             returning='jobs.jobs.*')
         job = self._iterJobs(cu).next()
@@ -110,7 +110,7 @@ class CoreDB(object):
         if job.status.final:
             stmt += SQL(", time_finished = now(), frozen_handler = NULL")
         elif frozen_handler is not None:
-            stmt += SQL(", frozen_handler = %s", cu.binary(frozen_handler))
+            stmt += SQL(", frozen_handler = %s", frozen_handler)
 
         stmt += SQL("""
             WHERE job_uuid = %s AND time_ticks < %s
@@ -133,7 +133,7 @@ class CoreDB(object):
         @type  frozen: L{rmake.core.types.FrozenObject}
         """
         cu.execute("UPDATE jobs.jobs SET frozen_data = %s WHERE job_uuid = %s",
-                (cu.binary(frozen.data), job_uuid))
+                (frozen, job_uuid))
 
     ## Tasks
 
@@ -158,7 +158,7 @@ class CoreDB(object):
             VALUES ( %s, %s, %s, %s, %s, %s, %s, %s, %s )
             RETURNING jobs.tasks.*
             """, (task.task_uuid, task.job_uuid, task.task_name,
-                task.task_type, cu.binary(task.task_data.freeze()),
+                task.task_type, task.task_data,
                 task.status.code, task.status.text, task.status.detail,
                 task.node_assigned))
         return self._iterTasks(cu).next()
@@ -179,7 +179,7 @@ class CoreDB(object):
                 node_assigned = %s, task_data = %s
                 """, task.status.code, task.status.text, task.status.detail,
                 task.times.ticks, task.node_assigned,
-                cu.binary(task.task_data.freeze()))
+                task.task_data)
         if task.status.final:
             stmt += SQL(", time_finished = now()")
 

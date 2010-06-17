@@ -109,9 +109,9 @@ def getBuildJob(buildConfig, conaryclient, troveSpecList,
             else:
                 job.getMainConfig().prebuiltBinaries.extend(prebuiltBinaries)
         if mainConfig.prepOnly:
-            buildType = buildtrove.TROVE_BUILD_TYPE_PREP
+            buildType = buildtrove.BuildType.PREP
         else:
-            buildType = buildtrove.TROVE_BUILD_TYPE_NORMAL
+            buildType = buildtrove.BuildType.NORMAL
 
         for name, version, flavor in troveList:
             if flavor is None:

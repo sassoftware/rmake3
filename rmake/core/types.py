@@ -21,9 +21,19 @@ from twisted.python import reflect
 
 NAMESPACE_TASK = uuid.UUID('14dfcf54-40e4-11df-b434-33d2b616adec')
 
+IMMUTABLE_TYPES = (int, long, basestring, uuid.UUID, tuple, frozenset)
+
+
+def _freezify(cls):
+    """Returns a 'frozen' namedtuple type of the given SlotCompare subclass."""
+    frozenName = 'Frozen' + cls.__name__
+    cls._frozenType = namedtuple(frozenName, cls.__slots__)
+    return cls._frozenType
+
 
 class _SlotCompare(object):
     __slots__ = ()
+    _frozenType = None
 
     def __eq__(self, other):
         if type(self) != type(other):
@@ -50,6 +60,20 @@ class _SlotCompare(object):
             setattr(new, name, copy.deepcopy(getattr(self, name), memo))
         return new
 
+    def freeze(self):
+        vals = {}
+        for name in self.__slots__:
+            value = getattr(self, name)
+            if value is None or isinstance(value, IMMUTABLE_TYPES):
+                vals[name] = value
+            elif isinstance(value, _SlotCompare):
+                vals[name] = value.freeze()
+            else:
+                raise TypeError("Can't freeze field %r of type %r as it is "
+                        "not a type known to be immutable" % (name,
+                            type(value).__name__))
+        return self._frozenType(**vals)
+
 
 class RmakeJob(_SlotCompare):
     __slots__ = ('job_uuid', 'job_type', 'owner', 'status', 'times', 'data')
@@ -62,6 +86,9 @@ class RmakeJob(_SlotCompare):
         self.status = status or JobStatus()
         self.times = times or JobTimes()
         self.data = data
+
+
+FrozenRmakeJob = _freezify(RmakeJob)
 
 
 class RmakeTask(_SlotCompare):
@@ -81,6 +108,9 @@ class RmakeTask(_SlotCompare):
         self.node_assigned = node_assigned
         self.status = status or JobStatus()
         self.times = times or JobTimes()
+
+
+FrozenRmakeTask = _freezify(RmakeTask)
 
 
 class JobStatus(_SlotCompare):
@@ -111,6 +141,9 @@ class JobStatus(_SlotCompare):
         return cls(code, text, reason.getTraceback())
 
 
+FrozenJobStatus = _freezify(JobStatus)
+
+
 class JobTimes(_SlotCompare):
     __slots__ = ('started', 'updated', 'finished', 'expires_after', 'ticks')
 
@@ -123,23 +156,19 @@ class JobTimes(_SlotCompare):
         self.ticks = ticks
 
 
+FrozenJobTimes = _freezify(JobTimes)
+
+
 class TaskCapability(namedtuple('TaskCapability', 'taskType')):
     pass
 
 
-class FrozenObject(_SlotCompare):
+class FrozenObject(namedtuple('FrozenObject', 'data')):
     """Encapsulated pickled object."""
-    __slots__ = ('data',)
-
-    def __init__(self, data):
-        self.data = data
 
     @classmethod
     def fromObject(cls, obj):
         return cls('pickle:' + cPickle.dumps(obj, 2))
-
-    def freeze(self):
-        return self.data
 
     def thaw(self):
         idx = self.data.index(':')
@@ -148,3 +177,10 @@ class FrozenObject(_SlotCompare):
             return cPickle.loads(self.data[idx+1:])
         else:
             raise RuntimeError("Unrecognized serialization format %s" % kind)
+
+    def asBuffer(self):
+        return buffer(self.data)
+
+    def __deepcopy__(self, memo=None):
+        return self
+    __copy__ = __deepcopy__
