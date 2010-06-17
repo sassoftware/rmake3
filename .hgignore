@@ -14,3 +14,4 @@
 ^extra/rmake.recipe$
 ^extra/rmake.spec$
 ^rmake/constants.py$
+NEWS.html
