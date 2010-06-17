@@ -1,4 +1,4 @@
-Changes in @NEW@:
+Changes in 2.0.4:
  o New Features:
     * constants.changeset now contains the hg changeset of this version of 
       rMake. (RBL-6494)
