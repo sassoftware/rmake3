@@ -24,14 +24,30 @@ NAMESPACE_TASK = uuid.UUID('14dfcf54-40e4-11df-b434-33d2b616adec')
 IMMUTABLE_TYPES = (int, long, basestring, uuid.UUID, tuple, frozenset)
 
 
-def _freezify(cls):
+def freezify(cls):
     """Returns a 'frozen' namedtuple type of the given SlotCompare subclass."""
+    assert issubclass(cls, _SlotCompare)
     frozenName = 'Frozen' + cls.__name__
-    cls._frozenType = namedtuple(frozenName, cls.__slots__)
-    return cls._frozenType
+
+    # namedtuple constructs the base class.
+    baseType = namedtuple(frozenName, cls.__slots__)
+
+    # Subclass the namedtuple to add a thaw() mixin.
+    frozenDict = {'__slots__': (), '_thawedType': cls}
+    frozenType = type(frozenName, (baseType, _Thawable), frozenDict)
+
+    # Stash forward and backward type references.
+    cls._frozenType = frozenType
+    frozenType._thawedType = cls
+
+    return frozenType
 
 
 class _SlotCompare(object):
+    """Base class for types that can be easily compared using their slots.
+
+    Types can also be freezified to make them freezable to a namedtuple form.
+    """
     __slots__ = ()
     _frozenType = None
 
@@ -61,6 +77,9 @@ class _SlotCompare(object):
         return new
 
     def freeze(self):
+        if not self._frozenType:
+            raise TypeError("Object of type %s cannot be frozen" %
+                    reflect.qual(type(self)))
         vals = {}
         for name in self.__slots__:
             value = getattr(self, name)
@@ -73,6 +92,19 @@ class _SlotCompare(object):
                         "not a type known to be immutable" % (name,
                             type(value).__name__))
         return self._frozenType(**vals)
+
+
+class _Thawable(object):
+    """Mixin class used by freezify to add thawing support to named tuples."""
+    __slots__ = ()
+
+    def thaw(self):
+        ret = object.__new__(self._thawedType)
+        for name, value in zip(self._fields, self):
+            if isinstance(value, _Thawable):
+                value = value.thaw()
+            setattr(ret, name, value)
+        return ret
 
 
 class RmakeJob(_SlotCompare):
@@ -88,7 +120,7 @@ class RmakeJob(_SlotCompare):
         self.data = data
 
 
-FrozenRmakeJob = _freezify(RmakeJob)
+FrozenRmakeJob = freezify(RmakeJob)
 
 
 class RmakeTask(_SlotCompare):
@@ -110,7 +142,7 @@ class RmakeTask(_SlotCompare):
         self.times = times or JobTimes()
 
 
-FrozenRmakeTask = _freezify(RmakeTask)
+FrozenRmakeTask = freezify(RmakeTask)
 
 
 class JobStatus(_SlotCompare):
@@ -141,7 +173,7 @@ class JobStatus(_SlotCompare):
         return cls(code, text, reason.getTraceback())
 
 
-FrozenJobStatus = _freezify(JobStatus)
+FrozenJobStatus = freezify(JobStatus)
 
 
 class JobTimes(_SlotCompare):
@@ -156,7 +188,7 @@ class JobTimes(_SlotCompare):
         self.ticks = ticks
 
 
-FrozenJobTimes = _freezify(JobTimes)
+FrozenJobTimes = freezify(JobTimes)
 
 
 class TaskCapability(namedtuple('TaskCapability', 'taskType')):
