@@ -116,37 +116,65 @@ def namedtuple(typename, field_names, verbose=False):
     return result
 
 
+class _Constant(int):
+    __slots__ = ()
+    _parentType = None
+
+    def __repr__(self):
+        if not self._parentType._addPrefix:
+            return self.__str__()
+        return '.'.join((
+            self._parentType._name,
+            self._parentType.by_value[self]))
+
+    def __str__(self):
+        return self._parentType.by_value[self]
+
+
 def constants(name, nameList, prefix=True):
     nameList = nameList.split()
-    if prefix:
-        reprGen = lambda cname: lambda _: '%s.%s' % (name, cname)
-    else:
-        reprGen = lambda cname: lambda _: cname
-    valueList = [
-            type('__constant', (int,), {
-                '__slots__': (),
-                '__repr__': reprGen(cname),
-                '__str__': (lambda ret = cname: lambda _: ret)(),
-                })(cvalue)
-            for (cvalue, cname) in enumerate(nameList)]
-    byName = dict(zip(nameList, valueList))
-    byValue = dict(zip(valueList, nameList))
 
-    typedict = {
+    # We need the caller's global namespace in order to make sure pickle can
+    # find the classes we generate.
+    callerModule = sys._getframe(1).f_globals
+    callerModuleName = callerModule.get('__name__', '__main__')
+
+    # Build the initial class dictionary without any of the constant values.
+    consTypeName = '__%s_type' % name
+    consTypeDict = {
             '__slots__': (),
             '__repr__': lambda _: name,
-            '__getitem__': lambda _, key:
-                isinstance(key, (int, long)) and byValue[key] or byName[key],
-            'by_name': byName,
-            'by_value': byValue,
+            '_addPrefix': prefix,
+            '_name': name,
             }
-    typedict.update(byName)
-    ret = type(name, (object,), typedict)()
+    consType = type(consTypeName, (object,), consTypeDict)
 
-    for value in valueList:
-        setattr(value.__class__, '_parent', ret)
+    # Build a type used for all of the constant values.
+    valueTypeName = '__%s_value_type' % name
+    valueTypeDict = {
+            '__slots__': (),
+            '_parentType': consType,
+            }
+    valueType = type(valueTypeName, (_Constant,), valueTypeDict)
 
-    return ret
+    # Now go back and inject values into the class dictionary.
+    valueList = [valueType(x) for x in range(len(nameList))]
+
+    consType.by_name = dict(zip(nameList, valueList))
+    consType.by_value = dict(zip(valueList, nameList))
+    consType.__getitem__ = (lambda self, key:
+                isinstance(key, (int, long))
+                and self.by_value[key] or self.by_name[key])
+    for name, value in consType.by_name.items():
+        setattr(consType, name, value)
+
+    # Make sure the resulting types are picklable
+    consType.__module__ = callerModuleName
+    callerModule[consTypeName] = consType
+    valueType.__module__ = callerModuleName
+    callerModule[valueTypeName] = valueType
+
+    return consType()
 
 
 class frozendict(tuple):
