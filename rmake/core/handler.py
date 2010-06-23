@@ -27,11 +27,10 @@ outcomes of any tasks that are still known by the system. It may choose to
 restart tasks that were already failed at recovery time.
 """
 
-import cPickle
 import logging
-from rmake.core.types import RmakeTask, FrozenObject
+from rmake.core.types import RmakeTask, FrozenObject, JobStatus
+from twisted.internet import defer
 from twisted.python import reflect
-from twisted.python.failure import Failure
 
 log = logging.getLogger(__name__)
 
@@ -50,8 +49,7 @@ def getHandlerClass(jobType):
 
 
 class JobHandler(object):
-    __slots__ = ('dispatcher', 'job', 'eventsPending', 'statusPending',
-            'state', 'tasks')
+    __slots__ = ('dispatcher', 'job', 'state', 'tasks', 'clock')
     _save = ('state',)
 
     jobType = None
@@ -60,9 +58,8 @@ class JobHandler(object):
 
     def __init__(self, dispatcher, job):
         self.dispatcher = dispatcher
+        self.clock = dispatcher.clock
         self.job = job
-        self.eventsPending = []
-        self.statusPending = (None, None)
         self.state = None
         self.tasks = {}
         self.setup()
@@ -73,126 +70,96 @@ class JobHandler(object):
         pass
 
     def start(self):
+        """Start running a job."""
         assert not self.state
-        return self.setStatus(100, 'Initializing', state=self.firstState)
+        self.setStatus(100, 'Initializing')
+        self._changeState(self.firstState)
 
-    def _begin(self):
-        self._try_call('begin_', False)
-
-    def _continue(self, event):
-        tickPending, critPending = self.statusPending
-        if critPending:
-            self.eventsPending.append(event)
+    def _changeState(self, state):
+        """Move to a new state, persist it, and invoke the state function."""
+        if self.state == state:
             return
-        self._try_call('continue_', True, event)
+        self.state = state
+        # Wait for the job status to be updated successfully before moving to
+        # the next state.
+        log.debug("Job %s changing state to %s", self.job.job_uuid, state)
+        d = self.dispatcher.updateJob(self.job, frozen_handler=self.freeze())
+        d.addCallback(self._runState)
+        def eb_failure(reason):
+            # Try to fail a job; if it suceeds then change state to 'done'
+            d2 = self.failJob(reason)
+            d2.addCallback(self._changeState)
+            return d2
+        d.addErrback(eb_failure)
 
-    def _recover(self):
-        if not self._try_call('recover_', True):
-            self._try_call('begin_', False)
-
-    def _try_call(self, prefix, missingOK, *args):
-        name = prefix + self.state
-        func = getattr(self, name, None)
-        if not func:
-            if missingOK:
-                return False
-            else:
-                raise AttributeError("Job handler must define a %s method" %
-                        name)
-
-        try:
-            func(*args)
-        except:
-            self.failJob(Failure())
-
-    ## Special end state
-
-    def begin_done(self):
-        pass
+    def _runState(self, dummy):
+        """Run the function for handling a particular state."""
+        log.debug("Job %s running state %s", self.job.job_uuid, self.state)
+        if self.state == 'done':
+            return
+        func = getattr(self, self.state, None)
+        if func is None:
+            raise AttributeError("Handler %s doesn't define a state %r!" %
+                    (reflect.qual(type(self)), self.state))
+        d = defer.maybeDeferred(func)
+        def cb_done(newState):
+            # State functions return (or callback) their new state, so pass
+            # that state into _changeState after one loop through the reactor
+            # (to avoid recursion).
+            if newState is None:
+                newState = 'done'
+            self.clock.callLater(0, self._changeState, newState)
+        d.addCallback(cb_done)
+        # Pass func's deferred up so the caller can catch exceptions.
+        return d
 
     ## Changing status and state
 
-    def setStatus(self, code, text, detail=None, state=None):
-        if state not in (None, self.state):
-            critical = True
-            self.state = state
+    def setStatus(self, codeOrStatus, text=None, detail=None):
+        """Change the job's status.
+
+        Either pass a code, text, and optional details, or pass a L{JobStatus}
+        object as the first argument.
+        """
+        if isinstance(codeOrStatus, JobStatus):
+            self.job.status = codeOrStatus
         else:
-            critical = False
-        self.job.status.code = code
-        self.job.status.text = text
-        self.job.status.detail = detail
+            assert text is not None
+            self.job.status.code = codeOrStatus
+            self.job.status.text = text
+            self.job.status.detail = detail
         self.job.times.ticks += 1
-        log.debug("Job %s status is: %s %s", self.job.job_uuid, code, text)
-        return self._sendStatus(critical)
+        log.debug("Job %s status is: %s %s", self.job.job_uuid,
+                self.job.status.code, self.job.status.text)
 
-    def _sendStatus(self, critical, reschedTick=None):
-        tick = self.job.times.ticks
-        tickPending, pendIsCrit = self.statusPending
-        if tickPending is not None:
-            if reschedTick is not None and reschedTick <= tickPending:
-                # Attempted to reschedule, but someone sent an update before
-                # this function actually got called.
-                return
-            elif pendIsCrit:
-                # Events are spooled while a critical update is pending, so
-                # this should never happen.
-                raise RuntimeError("Status update while critical update "
-                        "was pending")
-            elif not critical:
-                # Defer status update until the in-flight one finishes.
-                return
-
-        # Start a status update and hook the end to check if someone else
-        # changed it again.
-        if critical:
-            frozen = self.freeze()
-        else:
-            frozen = None
-        self.statusPending = tick, critical
-        d = self.dispatcher.updateJob(self.job, frozen_handler=frozen)
-        def update_ok(dummy):
-            from twisted.internet import reactor
-            if critical:
-                # Start the next state and re-send any pending events.
-                reactor.callLater(0, self._begin)
-                for event in self.eventsPending:
-                    reactor.callLater(0, self._continue, event)
-                self.eventsPending = []
-
-            newPending = self.statusPending[0]
-            if newPending is None or newPending > tick:
-                # Pre-empted by a critical update.
-                return
-
-            newTick = self.job.times.ticks
-            if newTick > tick:
-                # Schedule another status send immediately.
-                reactor.callLater(0, self._sendStatus, False, newTick)
-            self.statusPending = None, None
-        def update_failed(failure):
-            # Clear pending field so the attempt to change state to failed can
-            # succeed.
-            self.statusPending = None, None
-            return failure
-        d.addCallbacks(update_ok, update_failed)
-
+        d = self.dispatcher.updateJob(self.job)
         d.addErrback(self.failJob, message="Error setting job status:",
                 failHard=self.job.status.failed)
         return d
 
     def failJob(self, failure, message="Unhandled error in job handler:",
             failHard=False):
+        """Log an exception and set the job status to 'failed'.
+
+        @param failure: Failure object to log
+        @type  failure: L{twisted.python.failure.Failure}
+        @param message: Message to display as the first line in the logfile
+        @type  message: C{str}
+        @param failHard: If C{True}, log the error but don't set the status.
+        @type  failHard: C{bool}
+        """
         log.error("%s\n%sJob: %s\n", message, failure.getTraceback(),
                 self.job.job_uuid)
         if failHard:
             self.dispatcher.jobDone(self.job.job_uuid)
-            return
+            # Transition directly to 'done' state, but short-circuit _setState
+            # so it doesn't try to persist the handler -- it'll probably fail
+            # if we've already failed twice to set status.
+            self.state = 'done'
+            return defer.succeed('done')
 
-        text = "Job failed: %s: %s" % (
-                reflect.qual(failure.type),
-                reflect.safe_str(failure.value))
-        d = self.setStatus(400, text=text, detail=failure.getTraceback(),
-                state='done')
+        status = JobStatus.from_failure(failure, "Job failed")
+        d = self.setStatus(status)
         # If setting status fails we'll have to forget about the job and hope
         # for the best. Perhaps in the future we can handle short-term database
         # faults more gracefully.
@@ -201,25 +168,16 @@ class JobHandler(object):
             log.error("Failed to set job status to failed:\n%s",
                     failure.getTraceback())
             self.dispatcher.jobDone(self.job.job_uuid)
-
-    def updateJobData(self):
-        """Send new type-specific job data to the database."""
-        return self.dispatcher.updateJobData(self.job)
+        # Transition directly to 'done' state
+        d.addBoth(lambda _: 'done')
+        return d
 
     ## Creating/monitoring tasks
 
     def newTask(self, taskName, taskType, data):
         if data is not None:
             data = FrozenObject.fromObject(data)
-        task = RmakeTask(None, self.job.job_uuid, taskName, taskType, data)
-        return task, self.dispatcher.createTask(task)
-
-    def countRunningTasks(self, taskType):
-        count = 0
-        for task in self.tasks.values():
-            if task.task_type == taskType and not task.status.final:
-                count += 1
-        return count
+        return RmakeTask(None, self.job.job_uuid, taskName, taskType, data)
 
     def taskUpdated(self, task):
         self.tasks[task.task_uuid] = task
@@ -243,22 +201,8 @@ class JobHandler(object):
         data = (self._getVersion(), self.job.data, state_dict)
         return FrozenObject.fromObject(data)
 
-    @classmethod
-    def recover(cls, frozen):
-        data = frozen.thaw()
-        if data[0] != cls._getVersion():
-            raise RuntimeError("Version mismatch when recovering job state")
-
-        state_dict = data[1]
-        self = cls.__new__()
-        for key, value in state_dict.items():
-            setattr(self, key, value)
-        return self
-
 
 class TestHandler(JobHandler):
-    __slots__ = ('finished', 'failed')
-
     handler_version = 1
 
     jobType = 'test'
@@ -266,46 +210,61 @@ class TestHandler(JobHandler):
     spam = 3
 
     # State: alpha -- start one task and wait for completion
-    def begin_alpha(self):
+    def alpha(self):
         self.setStatus(101, 'Running task alpha {0/2;0/1}')
-        self.newTask('alpha 1', 'test', None)
-
-    def continue_alpha(self, event):
-        if event[0] != 'task updated':
-            return
-        task = event[1]
-        if not task.status.final:
-            return
-        if task.status.failed:
-            return self.setStatus(400, task.status.text, task.status.detail,
-                    state='done')
-        else:
-            return self.setStatus(101, 'Running task alpha {0/2;1/1}',
-                    state='beta')
+        return 'beta'
+        task = self.newTask('alpha 1', 'test', None)
+        d = self.waitForTask(task)
+        def cb_finished(new_task):
+            if new_task.status.failed:
+                return self.setStatus(400, new_task.status.text,
+                        new_task.status.detail)
+            else:
+                # Move to next state
+                return 'beta'
+        d.addCallback(cb_finished)
+        d.addErrback(self.failJob)
+        return d
 
     # State: beta -- start three tasks and wait for completion
-    def begin_beta(self):
-        self.finished = self.failed = 0
-        self.setStatus(102, 'Running task beta {1/2;%s/%s}' % (self.finished,
-            self.spam))
-        for x in range(self.spam):
-            self.newTask('beta %s' % x, 'test', None)
-
-    def continue_beta(self, event):
-        if event[0] != 'task updated':
-            return
-        task = event[1]
-        if not task.status.final:
-            return
-        self.finished += 1
-        if task.status.failed:
-            self.failed += 1
-        self.setStatus(102, 'Running task beta {1/2;%s/%s}' % (self.finished,
-            self.spam))
-        if self.finished >= self.spam:
-            if self.failed:
-                return self.setStatus(400, 'Job failed {2/2}', state='done')
+    def beta(self):
+        y = 4
+        x = [0]
+        d = defer.Deferred()
+        def blah():
+            self.setStatus(102, 'Waiting {1/2;%s/%s}' % (x[0], y))
+            if x[0] < y:
+                x[0] += 1
+                self.clock.callLater(1, blah)
             else:
-                return self.setStatus(200, 'Job complete {2/2}', state='done')
+                self.setStatus(200, 'Done {2/2}')
+                d.callback('done')
+        self.clock.callLater(1, blah)
+        return d
+
+        finished = 0
+        def _status():
+            self.setStatus(102, 'Running task beta {1/2;%s/%s}' % (finished,
+                self.spam))
+
+        dfrs = []
+        for x in range(self.spam):
+            task = self.newTask('beta %s' % x, 'test', None)
+            d = task.wait()
+            def cb_finished(new_task):
+                finished += 1
+                _status()
+            d.addCallback(cb_finished)
+            dfrs.append(d)
+
+        all = defer.DeferredList(dfrs)
+        def cb_all_finished(results):
+            failed = [x for x in results if x[0] is defer.FAILURE]
+            if failed:
+                return self.setStatus(400, 'Job failed {2/2}')
+            else:
+                return self.setStatus(200, 'Job complete {2/2}')
+        all.addCallback(cb_all_finished)
+        return all
 
 registerHandler(TestHandler)

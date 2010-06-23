@@ -50,10 +50,9 @@ _uuid_oids = (2950,)
 _uuid_type = _ext.new_type(_uuid_oids, "UUID", _uuid_cast)
 
 
-class FrozenObject_Adapter(_Adapter):
-    def getquoted(self):
-        return _ext.adapt(self.obj.asBuffer())
-_ext.register_adapter(core_types.FrozenObject, FrozenObject_Adapter)
+def adapt_FrozenObject(obj):
+    return _ext.adapt(obj.asBuffer())
+_ext.register_adapter(core_types.FrozenObject, adapt_FrozenObject)
 
 
 def register_types(db):

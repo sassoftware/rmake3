@@ -359,6 +359,7 @@ class LoggingMixin(Daemon):
             consoleLevel = logging.INFO
         rmake_log.setupLogging(logPath=self.getLogPath(),
                 fileLevel=logging.INFO, consoleLevel=consoleLevel,
+                fileFormat='file', consoleFormat='file',
                 withTwisted=True)
 
 

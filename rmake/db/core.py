@@ -13,7 +13,7 @@
 #
 
 
-from rmake.core.types import (RmakeJob, RmakeTask, JobStatus, JobTimes,
+from rmake.core.types import (FrozenRmakeJob, RmakeTask, JobStatus, JobTimes,
         FrozenObject)
 from rmake.lib.ninamori.decorators import protected, protectedBlock, readOnly
 from rmake.lib.ninamori.error import UniqueViolationError
@@ -65,20 +65,17 @@ class CoreDB(object):
             kwargs = dict(row)
             kwargs['status'] = self._popStatus(kwargs)
             kwargs['times'] = self._popTimes(kwargs)
-            if 'frozen_data' in kwargs:
-                kwargs['data'] = FrozenObject(str(kwargs.pop('frozen_data')))
+            kwargs['data'] = FrozenObject(str(kwargs.pop('frozen_data')))
             kwargs.pop('frozen_handler', None)
-            yield RmakeJob(**kwargs)
+            yield FrozenRmakeJob(**kwargs)
 
     @readOnly
-    def getJobs(self, cu, job_uuids, withData):
+    def getJobs(self, cu, job_uuids):
         uuids = self._castUUIDS(job_uuids)
         sql = SQL("""
             SELECT job_uuid, job_type, owner, status_code, status_text,
             status_detail, time_started, time_updated, time_finished,
-            expires_after, time_ticks""")
-        if withData:
-            sql += ", frozen_data"
+            expires_after, time_ticks, frozen_data""")
         sql += SQL("""
             FROM jobs.jobs WHERE job_uuid IN %s""", tuple(uuids),)
         cu.execute(sql)
@@ -103,12 +100,13 @@ class CoreDB(object):
     @protected
     def updateJob(self, cu, job, frozen_handler=None):
         stmt = SQL("""
-            UPDATE jobs.jobs SET status_code = %s, status_text = %s,
-                status_detail = %s, time_updated = now(), time_ticks = %s
+            UPDATE jobs.jobs SET
+                status_code = %s, status_text = %s, status_detail = %s,
+                time_updated = now(), time_ticks = %s, frozen_data = %s
                 """, job.status.code, job.status.text, job.status.detail,
-                job.times.ticks)
+                job.times.ticks, job.data)
         if job.status.final:
-            stmt += SQL(", time_finished = now(), frozen_handler = NULL")
+            stmt += SQL(", time_finished = now()")
         elif frozen_handler is not None:
             stmt += SQL(", frozen_handler = %s", frozen_handler)
 
@@ -122,18 +120,6 @@ class CoreDB(object):
         except StopIteration:
             # No row updated
             return None
-
-    @protected
-    def updateJobData(self, cu, job_uuid, frozen):
-        """Update a single job's auxilliary data.
-
-        @param job_uuid: UUID of job to update
-        @type  job_uuid: L{rmake.lib.uuid.UUID}
-        @param frozen: Frozen job data
-        @type  frozen: L{rmake.core.types.FrozenObject}
-        """
-        cu.execute("UPDATE jobs.jobs SET frozen_data = %s WHERE job_uuid = %s",
-                (frozen, job_uuid))
 
     ## Tasks
 
@@ -176,12 +162,13 @@ class CoreDB(object):
         stmt = SQL("""
             UPDATE jobs.tasks SET status_code = %s, status_text = %s,
                 status_detail = %s, time_updated = now(), time_ticks = %s,
-                node_assigned = %s, task_data = %s
+                node_assigned = %s
                 """, task.status.code, task.status.text, task.status.detail,
-                task.times.ticks, task.node_assigned,
-                task.task_data)
+                task.times.ticks, task.node_assigned)
         if task.status.final:
             stmt += SQL(", time_finished = now()")
+        if task.data is not None:
+            stmt += SQL(", task_data = %s", task.data)
 
         stmt += SQL("""
             WHERE task_uuid = %s AND time_ticks < %s

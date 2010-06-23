@@ -51,7 +51,7 @@ log = logging.getLogger(__name__)
 
 class Dispatcher(MultiService, RPCServer):
 
-    def __init__(self, cfg, plugin_mgr):
+    def __init__(self, cfg, plugin_mgr, clock=None):
         MultiService.__init__(self)
         RPCServer.__init__(self)
         self.cfg = cfg
@@ -60,6 +60,12 @@ class Dispatcher(MultiService, RPCServer):
         self.pool = None
         self.plugins = plugin_mgr
         self.firehose = None
+
+        if clock is None:
+            from twisted.internet import reactor
+            self.clock = reactor
+        else:
+            self.clock = clock
 
         self.jobs = {}
         self.workers = {}
@@ -108,9 +114,8 @@ class Dispatcher(MultiService, RPCServer):
     ## Client API
 
     @expose
-    def getJobs(self, job_uuids, withData=False):
-        return self.pool.runWithTransaction(self.db.core.getJobs, job_uuids,
-                withData=withData)
+    def getJobs(self, job_uuids):
+        return self.pool.runWithTransaction(self.db.core.getJobs, job_uuids)
 
     @expose
     def createJob(self, job, callbackInTrans=None, firehose=None):
@@ -128,6 +133,8 @@ class Dispatcher(MultiService, RPCServer):
         @return: C{Deferred} fired with a reconstituted C{RmakeJob} upon
             completion.
         """
+        if not isinstance(job.data, FrozenObject):
+            job.data = FrozenObject.fromObject(job.data)
         try:
             handlerClass = getHandlerClass(job.job_type)
         except KeyError:
@@ -150,8 +157,9 @@ class Dispatcher(MultiService, RPCServer):
             self.jobs[newJob.job_uuid] = handler
             handler.start()
 
+            # Note that the handler will immediately send a new status, so no
+            # point in sending it here.
             self._publish(job, 'self', 'created')
-            self._publish(job, 'status', newJob.status)
 
             return newJob
         return d
@@ -193,10 +201,8 @@ class Dispatcher(MultiService, RPCServer):
                     job_uuid)
 
     def updateJob(self, job, frozen_handler=None):
-        # Use a copy of the job object because the request gets put into a
-        # queue until there is a DB worker available.
-        job = copy.deepcopy(job)
-        d = self.pool.runWithTransaction(self.db.core.updateJob, job,
+        # Freeze before queueing for the thread so it doesn't get mutated.
+        d = self.pool.runWithTransaction(self.db.core.updateJob, job.freeze(),
                 frozen_handler=frozen_handler)
         @d.addCallback
         def post_update(newJob):
@@ -210,8 +216,7 @@ class Dispatcher(MultiService, RPCServer):
         return d
 
     def updateJobData(self, job):
-        # dumps() here instead of in JobStore so we don't have to copy the data
-        # to avoid a threading race.
+        # Freeze before queueing for the thread so it doesn't get mutated.
         return self.pool.runWithTransaction(self.db.core.updateJobData,
                 job.job_uuid, FrozenObject.fromObject(job.data))
 
