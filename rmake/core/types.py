@@ -14,6 +14,7 @@
 
 import copy
 import cPickle
+import inspect
 from rmake.lib import uuid
 from rmake.lib.ninamori.types import namedtuple
 
@@ -32,8 +33,12 @@ def freezify(cls):
     # namedtuple constructs the base class.
     baseType = namedtuple(frozenName, cls.__slots__)
 
-    # Subclass the namedtuple to add a thaw() mixin.
+    # Subclass the namedtuple to add a thaw() mixin and to copy read-only
+    # versions of the thawed class' properties.
     frozenDict = {'__slots__': (), '_thawedType': cls}
+    for name, value in inspect.getmembers(cls):
+        if isinstance(value, property):
+            frozenDict[name] = property(value.fget)
     frozenType = type(frozenName, (baseType, _Thawable), frozenDict)
 
     # Stash forward and backward type references.
