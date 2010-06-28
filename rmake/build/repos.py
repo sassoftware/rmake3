@@ -16,6 +16,7 @@ Wrapper for starting the repository browser
 """
 
 import errno
+import logging
 import os
 import random
 import sys
@@ -36,7 +37,10 @@ from conary.repository.errors import UserNotFound
 from conary.server import server as cny_server
 from conary.server import schema as cny_schema
 from rmake import errors
+from twisted.internet import error as tw_err
 from twisted.internet import protocol
+
+log = logging.getLogger(__name__)
 
 conaryDir = sys.modules['conary'].__path__[0]
 
@@ -94,7 +98,7 @@ def startRepository(cfg, logger=None):
         addUser(serverCfg, 'anonymous', 'anonymous')
 
     return _startServer(serverCfg, cfg.getReposLogPath(),
-            cfg.getReposConfigPath())
+            cfg.getReposConfigPath(), 'repository')
 
 
 def startProxy(cfg, logger=None):
@@ -120,10 +124,10 @@ def startProxy(cfg, logger=None):
 
     util.mkdirChain(cfg.getProxyContentsPath())
     return _startServer(serverCfg, cfg.getProxyLogPath(),
-            cfg.getProxyConfigPath())
+            cfg.getProxyConfigPath(), 'proxy')
 
 
-def _startServer(serverCfg, logPath, cfgPath):
+def _startServer(serverCfg, logPath, cfgPath, name):
 
     util.mkdirChain(os.path.dirname(logPath))
 
@@ -132,7 +136,7 @@ def _startServer(serverCfg, logPath, cfgPath):
     serverrc.close()
 
     repos = os.path.join(conaryDir, 'server', 'server.py')
-    proto = MonitorProtocol(logPath)
+    proto = MonitorProtocol(logPath, name)
     from twisted.internet import reactor
     return reactor.spawnProcess(proto, repos,
             [repos, '--config-file', cfgPath])
@@ -140,10 +144,11 @@ def _startServer(serverCfg, logPath, cfgPath):
 
 class MonitorProtocol(protocol.ProcessProtocol):
 
-    def __init__(self, logPath):
+    def __init__(self, logPath, name):
         self.logPath = logPath
         self.logFile = None
         self.logInode = None
+        self.name = name
 
     def writeLog(self, data):
         if self.logFile:
@@ -169,8 +174,17 @@ class MonitorProtocol(protocol.ProcessProtocol):
         self.logFile.flush()
 
     def processEnded(self, reason):
-        # TODO: kill the server if the subproc terminated unexpectedly
-        pass
+        if reason.check(tw_err.ProcessDone):
+            return
+        elif reason.check(tw_err.ProcessTerminated):
+            msg = "Process exited with status %s" % reason.value.status
+        else:
+            msg = "Process ended with unknown error"
+        log.error("%s terminated unexpectedly: %s\n"
+                "Check the logfile for details: %s", self.name, msg,
+                self.logPath)
+        from twisted.internet import reactor
+        reactor.stop()
 
     outReceived = errReceived = writeLog
 

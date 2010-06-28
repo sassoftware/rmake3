@@ -16,6 +16,7 @@
 This plugin serves as the entry point to the basic build functionality of rMake.
 """
 
+import logging
 from rmake.build import constants as buildconst
 from rmake.build import disp_handler
 from rmake.build import repos
@@ -24,6 +25,8 @@ from rmake.build import servercfg
 from rmake.build import worker
 from rmake.core import plug_dispatcher
 from rmake.worker import plug_worker
+
+log = logging.getLogger(__name__)
 
 
 class BuildPlugin(plug_dispatcher.DispatcherPlugin, plug_worker.WorkerPlugin):
@@ -38,11 +41,20 @@ class BuildPlugin(plug_dispatcher.DispatcherPlugin, plug_worker.WorkerPlugin):
         dispatcher._addChild('build', self.server)
 
     def dispatcher_post_setup(self, dispatcher):
-        if not self.cfg.isExternalRepos():
-            repos.startRepository(self.cfg)
-        if not self.cfg.isExternalProxy():
-            repos.startProxy(self.cfg)
+        from twisted.internet import reactor
+        reactor.callWhenRunning(self._start_servers)
         self.server._post_setup()
+
+    def _start_servers(self):
+        from twisted.internet import reactor
+        try:
+            if not self.cfg.isExternalRepos():
+                repos.startRepository(self.cfg)
+            if not self.cfg.isExternalProxy():
+                repos.startProxy(self.cfg)
+        except:
+            log.traceback("Error starting server:")
+            reactor.stop()
 
     def worker_get_task_types(self):
         return {
