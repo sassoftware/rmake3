@@ -159,8 +159,8 @@ class CoreDB(object):
                 task.times.ticks, task.node_assigned)
         if task.status.final:
             stmt += SQL(", time_finished = now()")
-        if task.data is not None:
-            stmt += SQL(", task_data = %s", task.data)
+        if task.task_data is not None:
+            stmt += SQL(", task_data = %s", task.task_data)
 
         stmt += SQL("""
             WHERE task_uuid = %s AND time_ticks < %s

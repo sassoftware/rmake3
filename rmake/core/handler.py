@@ -108,6 +108,9 @@ class JobHandler(object):
             # (to avoid recursion).
             if newState is None:
                 newState = 'done'
+            elif not isinstance(newState, str):
+                raise TypeError("Handler must return its next state, not %r" %
+                        (newState,))
             self.clock.callLater(0, self._changeState, newState)
         d.addCallback(cb_done)
         # Pass func's deferred up so the caller can catch exceptions.
@@ -175,13 +178,31 @@ class JobHandler(object):
     ## Creating/monitoring tasks
 
     def newTask(self, taskName, taskType, data):
-        if data is not None:
+        if not isinstance(data, FrozenObject):
             data = FrozenObject.fromObject(data)
-        return RmakeTask(None, self.job.job_uuid, taskName, taskType, data)
+        task = RmakeTask(None, self.job.job_uuid, taskName, taskType, data)
+
+        d = defer.Deferred()
+        self.tasks[task.task_uuid] = (d, [])
+
+        d2 = self.dispatcher.createTask(task)
+        def eb_create_failed(reason):
+            del self.tasks[task.task_uuid]
+            d.errback(reason)
+        d2.addErrback(eb_create_failed)
+
+        return task
 
     def taskUpdated(self, task):
-        self.tasks[task.task_uuid] = task
-        self._continue(('task updated', task))
+        d, callbacks = self.tasks[task.task_uuid]
+        for func, args, kwargs in callbacks:
+            func(task, *args, **kwargs)
+        if task.status.final:
+            d.callback(task)
+            del self.tasks[task.task_uuid]
+
+    def waitForTask(self, task):
+        return self.tasks[task.task_uuid][0]
 
     ## Freezer machinery
 
@@ -200,70 +221,3 @@ class JobHandler(object):
                     state_dict[slot] = value
         data = (self._getVersion(), self.job.data, state_dict)
         return FrozenObject.fromObject(data)
-
-
-class TestHandler(JobHandler):
-    handler_version = 1
-
-    jobType = 'test'
-    firstState = 'alpha'
-    spam = 3
-
-    # State: alpha -- start one task and wait for completion
-    def alpha(self):
-        self.setStatus(101, 'Running task alpha {0/2;0/1}')
-        task = self.newTask('alpha 1', 'test', None)
-        d = self.waitForTask(task)
-        def cb_finished(new_task):
-            if new_task.status.failed:
-                return self.setStatus(400, new_task.status.text,
-                        new_task.status.detail)
-            else:
-                # Move to next state
-                return 'beta'
-        d.addCallback(cb_finished)
-        d.addErrback(self.failJob)
-        return d
-
-    # State: beta -- start three tasks and wait for completion
-    def beta(self):
-        y = 4
-        x = [0]
-        d = defer.Deferred()
-        def blah():
-            self.setStatus(102, 'Waiting {1/2;%s/%s}' % (x[0], y))
-            if x[0] < y:
-                x[0] += 1
-                self.clock.callLater(1, blah)
-            else:
-                self.setStatus(200, 'Done {2/2}')
-                d.callback('done')
-        self.clock.callLater(1, blah)
-        return d
-
-        finished = 0
-        def _status():
-            self.setStatus(102, 'Running task beta {1/2;%s/%s}' % (finished,
-                self.spam))
-
-        dfrs = []
-        for x in range(self.spam):
-            task = self.newTask('beta %s' % x, 'test', None)
-            d = task.wait()
-            def cb_finished(new_task):
-                finished += 1
-                _status()
-            d.addCallback(cb_finished)
-            dfrs.append(d)
-
-        all = defer.DeferredList(dfrs)
-        def cb_all_finished(results):
-            failed = [x for x in results if x[0] is defer.FAILURE]
-            if failed:
-                return self.setStatus(400, 'Job failed {2/2}')
-            else:
-                return self.setStatus(200, 'Job complete {2/2}')
-        all.addCallback(cb_all_finished)
-        return all
-
-registerHandler(TestHandler)

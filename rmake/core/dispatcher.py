@@ -40,7 +40,6 @@ from rmake.lib.twisted_extras.ipv6 import TCP6Server
 from rmake.messagebus import message
 from twisted.application.internet import UNIXServer
 from twisted.application.service import MultiService
-from twisted.internet import defer
 from twisted.web.resource import Resource
 from twisted.web.server import Site
 
@@ -172,32 +171,31 @@ class Dispatcher(MultiService, RPCServer):
     # Job handler API
 
     def jobDone(self, job_uuid):
-        if job_uuid in self.jobs:
-            status = self.jobs[job_uuid].job.status
-            if status.completed:
-                result = 'done'
-            elif status.failed:
-                result = 'failed'
-            else:
-                result = 'finished'
-            log.info("Job %s %s: %s", job_uuid, result, status.text)
+        if job_uuid not in self.jobs:
+            return
 
-            self._publish(job_uuid, 'self', 'finalized')
-
-            handler = self.jobs[job_uuid]
-            tasks = set(handler.tasks)
-            for worker in self.workers.values():
-                worker.tasks -= tasks
-
-            for task in self.taskQueue[:]:
-                if task.job_uuid == job_uuid:
-                    log.debug("Discarding task %s from queue", task.task_uuid)
-                    self.taskQueue.remove(task)
-
-            del self.jobs[job_uuid]
+        status = self.jobs[job_uuid].job.status
+        if status.completed:
+            result = 'done'
+        elif status.failed:
+            result = 'failed'
         else:
-            log.warning("Tried to remove job %s but it is already gone.",
-                    job_uuid)
+            result = 'finished'
+        log.info("Job %s %s: %s", job_uuid, result, status.text)
+
+        self._publish(job_uuid, 'self', 'finalized')
+
+        handler = self.jobs[job_uuid]
+        tasks = set(handler.tasks)
+        for worker in self.workers.values():
+            worker.tasks -= tasks
+
+        for task in self.taskQueue[:]:
+            if task.job_uuid == job_uuid:
+                log.debug("Discarding task %s from queue", task.task_uuid)
+                self.taskQueue.remove(task)
+
+        del self.jobs[job_uuid]
 
     def updateJob(self, job, frozen_handler=None):
         # Freeze before queueing for the thread so it doesn't get mutated.
@@ -208,7 +206,7 @@ class Dispatcher(MultiService, RPCServer):
             if not newJob:
                 # Superceded by another update
                 return None
-            self._publish(newJob, 'status', job.status)
+            self._publish(newJob, 'status', newJob.status)
             if newJob.status.final:
                 self.jobDone(newJob.job_uuid)
             return newJob
@@ -220,26 +218,14 @@ class Dispatcher(MultiService, RPCServer):
                 job.job_uuid, FrozenObject.fromObject(job.data))
 
     def createTask(self, task):
-        job = self.jobs[task.job_uuid]
-        if task.task_uuid in job.tasks:
-            return defer.succeed(job.tasks[task.task_uuid])
-        job.tasks[task.task_uuid] = task
-
-        # Try to assign before saving so we can avoid a second trip to the DB
-        result = self._assignTask(task)
-        if result == core_const.A_LATER:
-            log.debug("Queueing task %s", task.task_uuid)
-            self.taskQueue.append(task)
-
         d = self.pool.runWithTransaction(self.db.core.createTask,
                 task.freeze())
-        @d.addCallback
-        def post_create(newTask):
-            # Note that the task might already have failed, if it could not be
-            # assigned. We store it anyway for the convenience of the job
-            # handler.
-            job.tasks[newTask.task_uuid] = newTask
+        def cb_post_create(newTask):
+            self.taskQueue.append(newTask)
+            self._assignTasks()
             return newTask
+        d.addCallback(cb_post_create)
+
         d.addCallback(self._taskUpdated)
         d.addErrback(self._failJob, task.job_uuid)
         return d
