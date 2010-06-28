@@ -212,7 +212,6 @@ class TestHandler(JobHandler):
     # State: alpha -- start one task and wait for completion
     def alpha(self):
         self.setStatus(101, 'Running task alpha {0/2;0/1}')
-        return 'beta'
         task = self.newTask('alpha 1', 'test', None)
         d = self.waitForTask(task)
         def cb_finished(new_task):

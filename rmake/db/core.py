@@ -149,14 +149,6 @@ class CoreDB(object):
                 task.node_assigned))
         return self._iterTasks(cu).next()
 
-    @protectedBlock
-    def createTaskMaybe(self, task):
-        # TODO: use a stored procedure
-        try:
-            return self.createTask(task)
-        except UniqueViolationError:
-            return self.getTasks([task.task_uuid])[0]
-
     @protected
     def updateTask(self, cu, task):
         stmt = SQL("""

@@ -19,7 +19,6 @@ Status updates are routed back to clients and to the database.
 """
 
 
-import copy
 import errno
 import logging
 import os
@@ -232,10 +231,8 @@ class Dispatcher(MultiService, RPCServer):
             log.debug("Queueing task %s", task.task_uuid)
             self.taskQueue.append(task)
 
-        # Use a copy of the task because the request gets put into a queue
-        # until there is a DB worker available.
-        task = copy.deepcopy(task)
-        d = self.pool.runWithTransaction(self.db.core.createTaskMaybe, task)
+        d = self.pool.runWithTransaction(self.db.core.createTask,
+                task.freeze())
         @d.addCallback
         def post_create(newTask):
             # Note that the task might already have failed, if it could not be
