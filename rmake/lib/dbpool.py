@@ -13,115 +13,172 @@
 #
 
 import logging
-import sys
-from ninamori import connect
-from ninamori.connection import ConnectString
+from rmake.lib.ninamori.connection import ConnectString
+from rmake.lib.ninamori.types import Row, SQL
+from psycopg2 import extensions
 from rmake.db.extensions import register_types
+from twisted.internet import defer
 from twisted.internet import task
-from twisted.internet import threads
-from twisted.python import context
-from twisted.python import threadpool
+from txpostgres import txpostgres
 
 log = logging.getLogger(__name__)
 
 
-class PooledDatabaseProxy(object):
+class Cursor(txpostgres.Cursor):
 
-    def __init__(self, pool):
-        self.pool = pool
+    def execute(self, statement, args=None):
+        if isinstance(statement, SQL):
+            assert not args
+            statement, args = statement.statement, statement.args
+        return txpostgres.Cursor.execute(self, statement, args)
 
-    def __getattr__(self, key):
-        return getattr(context.get('db'), key)
+
+class Connection(txpostgres.Connection):
+
+    cursorFactory = Cursor
+
+    def connect(self, path):
+        params = path.asDict(exclude=('driver',))
+        params['database'] = params.pop('dbname')
+        d = txpostgres.Connection.connect(self, **params)
+        def cb_connected(result):
+            extensions.register_type(extensions.UNICODE, self._connection)
+            register_types(self._connection)
+            return result
+        d.addCallback(cb_connected)
+        return d
+
+    def _runQuery(self, *args, **kwargs):
+        c = self.cursor()
+        d = c.execute(*args, **kwargs)
+        def cb_result(c):
+            if c.description:
+                fields = [x[0] for x in c.description]
+                return [Row(x, fields) for x in c.fetchall()]
+            else:
+                return c.fetchall()
+        d.addCallback(cb_result)
+        return d
 
 
 class ConnectionPool(object):
 
-    min = 2
-    max = 10
+    min = 3
 
-    def __init__(self, path):
+    connectionFactory = Connection
+
+    def __init__(self, path, min=None):
         self.path = ConnectString.parse(path)
-        self.threadpool = ThreadPool(self.min, self.max, self.path)
         self.running = False
+        self.shutdownID = None
+        self.cleanupTask = None
+
+        if min:
+            self.min = min
+
+        self.connections = set()
+        self.ready = set()
+        self.semaphore = defer.DeferredSemaphore(1)
+        self.semaphore.tokens = self.semaphore.limit = 0
 
         from twisted.internet import reactor
         self.reactor = reactor
-        self.startID = reactor.callWhenRunning(self._start)
-        self.shutdownID = None
 
     # Pool control
 
-    def _start(self):
+    def start(self):
         if self.running:
             return
-        self.startID = None
-        self.threadpool.start()
-        self.cleanupTask = task.LoopingCall(self.threadpool.trimWorkers)
-        self.cleanupTask.start(5)
         self.shutdownID = self.reactor.addSystemEventTrigger('during',
                 'shutdown', self._finalClose)
         self.running = True
+
+        d = self.rebalance()
+        def cb_connected(result):
+            self.cleanupTask = task.LoopingCall(self.rebalance)
+            self.cleanupTask.start(5, now=False)
+            return result
+        d.addCallback(cb_connected)
+        return d
 
     def close(self):
         if self.shutdownID:
             self.reactor.removeSystemEventTrigger(self.shutdownID)
             self.shutdownID = None
-        if self.startID:
-            self.reactor.removeSystemEventTrigger(self.startID)
-            self.startID = None
         self._finalClose()
 
     def _finalClose(self):
+        for conn in self.connections:
+            conn.close()
         self.shutdownID = None
-        self.cleanupTask.stop()
-        self.threadpool.stop()
+        if self.cleanupTask:
+            self.cleanupTask.stop()
         self.running = False
+
+    def rebalance(self):
+        dfrs = []
+        while len(self.connections) < self.min:
+            dfrs.append(self._addOne())
+
+        d = defer.DeferredList(dfrs, fireOnOneErrback=True, consumeErrors=True)
+        def eb_connect_failed(reason):
+            # Pull the real error out of the FirstError DL slaps on
+            return reason.value.subFailure
+        d.addErrback(eb_connect_failed)
+        return d
+
+    def _addOne(self):
+        conn = self.connectionFactory(self.reactor)
+        self.connections.add(conn)
+
+        log.debug("Connecting asynchronously to %s", self.path.asDSN())
+        d = conn.connect(self.path)
+
+        def cb_connected(dummy):
+            log.debug("Database is connected")
+
+            self.ready.add(conn)
+            self.semaphore.limit += 1
+            self.semaphore.release()
+        d.addCallback(cb_connected)
+
+        def eb_cleanup(reason):
+            self.connections.remove(conn)
+            return reason
+        d.addErrback(eb_cleanup)
+
+        return d
 
     # Running queries
 
-    def runWithTransaction(self, func, *args, **kwargs):
-        return threads.deferToThreadPool(self.reactor, self.threadpool,
-                self._runWithTransaction, func, *args, **kwargs)
+    def runQuery(self, statement, args=None):
+        """Execute a query and callback the result."""
+        return self.semaphore.run(self._runQuery, statement, args)
 
-    def _runWithTransaction(self, func, *args, **kwargs):
-        db = context.get('db')
-        assert not db._stack
-        txn = db.begin()
-        try:
-            ret = func(*args, **kwargs)
-            txn.commit()
-            return ret
-        except:
-            e_type, e_value, e_tb = sys.exc_info()
-            try:
-                txn.rollback()
-            except:
-                log.exception("Error rolling back transaction:")
-            raise e_type, e_value, e_tb
+    def runOperation(self, statement, args=None):
+        """Execute a statement and callback C{None} when done."""
+        return self.semaphore.run(self._runQuery, statement, args)
+
+    def runInteraction(self, func, *args, **kwargs):
+        """Run function in a transaction and callback the result."""
+        return self.semaphore.run(self._runInteraction, *args, **kwargs)
 
 
-class ThreadPool(threadpool.ThreadPool):
+    def _queryDone(self, result, conn):
+        self.ready.add(conn)
+        return result
 
-    def __init__(self, minthreads, maxthreads, dbpath):
-        threadpool.ThreadPool.__init__(self, minthreads, maxthreads)
-        self.path = dbpath
+    def _runQuery(self, statement, args):
+        conn = self.ready.pop()
+        d = conn.runQuery(statement, args)
+        return d.addBoth(self._queryDone, conn)
 
-    def trimWorkers(self):
-        if self.q.qsize():
-            return
-        while self.workers > max(self.min, len(self.working)):
-            self.stopAWorker()
+    def _runOperation(self, statement, args):
+        conn = self.ready.pop()
+        d = conn.runOperation(statement, args)
+        return d.addBoth(self._queryDone, conn)
 
-    def _worker(self):
-        conn = connect(self.path)
-        register_types(conn)
-
-        try:
-            context.call({'db': conn}, threadpool.ThreadPool._worker, self)
-        except:
-            log.exception("Unhandled exception in database thread:")
-
-        try:
-            conn.close()
-        except:
-            log.exception("Failed to close connection:")
+    def _runInteraction(self, *args, **kwargs):
+        conn = self.ready.pop()
+        d = conn.runInteraction(*args, **kwargs)
+        return d.addBoth(self._queryDone, conn)

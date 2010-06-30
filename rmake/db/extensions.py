@@ -56,4 +56,4 @@ _ext.register_adapter(core_types.FrozenObject, adapt_FrozenObject)
 
 
 def register_types(db):
-    _ext.register_type(_uuid_type, db._conn)
+    _ext.register_type(_uuid_type, db)

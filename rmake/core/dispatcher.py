@@ -25,10 +25,10 @@ import os
 import random
 import stat
 from rmake.core import constants as core_const
+from rmake.core.database import CoreDB
 from rmake.core.support import DispatcherBusService, WorkerChecker
 from rmake.core.handler import getHandlerClass
 from rmake.core.types import TaskCapability, FrozenObject
-from rmake.db import database
 from rmake.errors import RmakeError
 from rmake.lib import dbpool
 from rmake.lib import rpc_pickle
@@ -77,8 +77,9 @@ class Dispatcher(MultiService, RPCServer):
 
     def _start_db(self):
         self.pool = dbpool.ConnectionPool(self.cfg.databaseUrl)
-        self.db = database.Database(self.cfg.databaseUrl,
-                dbpool.PooledDatabaseProxy(self.pool))
+        d = self.pool.start()
+        d.addErrback(logFailure, "Error connecting to database:")
+        self.db = CoreDB(self.pool)
 
     def _start_bus(self):
         self.bus = DispatcherBusService(self, self.cfg)
@@ -146,8 +147,7 @@ class Dispatcher(MultiService, RPCServer):
                 raise RmakeError("Invalid firehose session ID")
             self.firehose.subscribe(('job', str(job.job_uuid)), sid)
 
-        d = self.pool.runWithTransaction(self.db.core.createJob, job,
-                handler.freeze(), callbackInTrans)
+        d = self.db.createJob(job, handler.freeze(), callbackInTrans)
         @d.addCallback
         def post_create(newJob):
             log.info("Job %s of type '%s' started", newJob.job_uuid,
@@ -198,9 +198,7 @@ class Dispatcher(MultiService, RPCServer):
         del self.jobs[job_uuid]
 
     def updateJob(self, job, frozen_handler=None):
-        # Freeze before queueing for the thread so it doesn't get mutated.
-        d = self.pool.runWithTransaction(self.db.core.updateJob, job.freeze(),
-                frozen_handler=frozen_handler)
+        d = self.db.updateJob(job, frozen_handler=frozen_handler)
         @d.addCallback
         def post_update(newJob):
             if not newJob:
@@ -212,14 +210,8 @@ class Dispatcher(MultiService, RPCServer):
             return newJob
         return d
 
-    def updateJobData(self, job):
-        # Freeze before queueing for the thread so it doesn't get mutated.
-        return self.pool.runWithTransaction(self.db.core.updateJobData,
-                job.job_uuid, FrozenObject.fromObject(job.data))
-
     def createTask(self, task):
-        d = self.pool.runWithTransaction(self.db.core.createTask,
-                task.freeze())
+        d = self.db.createTask(task)
         def cb_post_create(newTask):
             self.taskQueue.append(newTask)
             self._assignTasks()
@@ -239,7 +231,7 @@ class Dispatcher(MultiService, RPCServer):
     ## Message bus API
 
     def updateTask(self, task):
-        d = self.pool.runWithTransaction(self.db.core.updateTask, task)
+        d = self.db.updateTask(task)
         d.addCallback(self._taskUpdated)
         d.addErrback(self._failJob, task.job_uuid)
         d.addErrback(logFailure)
