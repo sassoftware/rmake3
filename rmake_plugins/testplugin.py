@@ -12,11 +12,16 @@
 # full details.
 #
 
-from twisted.internet import defer
-
 from rmake.core import handler
 from rmake.core import plug_dispatcher
+from rmake.core import types
 from rmake.worker import plug_worker
+
+
+PREFIX = 'com.rpath.rmake.testplugin'
+TEST_JOB = PREFIX
+TEST_TASK_ARCCOT = PREFIX + '.arccot'
+TEST_TASK_REDUCE = PREFIX + '.reduce'
 
 
 class TestPlugin(plug_dispatcher.DispatcherPlugin, plug_worker.WorkerPlugin):
@@ -25,80 +30,103 @@ class TestPlugin(plug_dispatcher.DispatcherPlugin, plug_worker.WorkerPlugin):
         handler.registerHandler(TestHandler)
 
     def worker_get_task_types(self):
-        return { 'test': TestTask }
+        return {
+                TEST_TASK_ARCCOT: ArcCotTask,
+                TEST_TASK_REDUCE: ReduceTask,
+                }
 
 
 class TestHandler(handler.JobHandler):
+    __slots__ = ('a_result', 'b_result')
+    _save = __slots__
+
     handler_version = 1
 
-    jobType = 'test'
-    firstState = 'beta'
+    jobType = TEST_JOB
+    firstState = 'arccot'
 
-    # State: alpha -- start one task and wait for completion
-    def alpha(self):
-        self.setStatus(101, 'Running task alpha {0/2;0/1}')
-        task = self.newTask('alpha 1', 'test', None)
-        d = self.waitForTask(task)
-        def cb_finished(new_task):
-            if new_task.status.failed:
-                self.setStatus(400, new_task.status.text,
-                        new_task.status.detail)
-                return 'done'
-            else:
-                # Move to next state
-                return 'beta'
-        d.addCallback(cb_finished)
-        d.addErrback(self.failJob)
-        return d
+    base = 10
+    guard = 10
+    digits = 32768
 
-    # State: beta -- start three tasks and wait for completion
-    def beta(self):
-        total = 4
+    # State: arccot -- 2 tasks do the initial number crunching.
+    def arccot(self):
         finished = [0]
         def _status():
-            self.setStatus(102, 'Running task beta {1/2;%s/%s}' % (finished[0],
-                total))
+            self.setStatus(101, "Calculating arccot values {0/2;%s/2}" %
+                    (finished[0],))
+        _status()
 
-        dfrs = []
-        for x in range(total):
-            task = self.newTask('beta %s' % x, 'test', None)
-            d = self.waitForTask(task)
-            def cb_finished(new_task):
-                finished[0] += 1
-                _status()
-                return new_task
-            d.addCallback(cb_finished)
-            dfrs.append(d)
+        # Start a task for each arccot
+        params = TestParams(self.base, self.guard, self.digits)
+        a = self.newTask('arccot(5)', TEST_TASK_ARCCOT,
+                ArcCotData(params, 5))
+        b = self.newTask('arccot(239)', TEST_TASK_ARCCOT,
+                ArcCotData(params, 239))
 
-        all = defer.DeferredList(dfrs)
-        def cb_all_finished(results):
-            failed = [x for x in results if x[0] is defer.FAILURE]
-            if failed:
-                self.failJob(failed[0][1])
+        # Update status immediately when one finishes
+        def bb_partial(result):
+            finished[0] += 1
+            _status()
+            return result
+        self.waitForTask(a).addBoth(bb_partial)
+        self.waitForTask(b).addBoth(bb_partial)
 
-            tasks = [x[1] for x in results if x[0] is defer.SUCCESS]
-            failed = [x for x in tasks if x.status.failed]
-            if failed:
-                detail = ''.join('%s: %s: %s\n%s\n\n' % (
-                    x.task_name, x.status.code, x.status.text, x.status.detail)
-                    for x in failed)
-                self.setStatus(400, 'Job failed: %s subtasks failed' %
-                        len(failed), detail)
-            else:
-                self.setStatus(200, 'Job complete {2/2}')
+        # Collect results and move to the reduce state when both finish.
+        def cb_gather(tasks):
+            self.a_result = tasks[0].task_data.thaw().out
+            self.b_result = tasks[1].task_data.thaw().out
+            return 'reduce'
+        return self.gatherTasks([a, b], cb_gather)
+
+    # State: reduce -- combine the arccot results and format the result.
+    def reduce(self):
+        self.setStatus(102, "Calculating and formatting pi {1/2}")
+
+        params = TestParams(self.base, self.guard, self.digits)
+        task = self.newTask('reduce', TEST_TASK_REDUCE,
+                ReduceData(params, self.a_result, self.b_result))
+        def cb_gather(results):
+            task, = results
+            result = task.task_data.thaw().out
+            self.job.data = types.FrozenObject.fromObject(result)
+            self.setStatus(200, "Done! pi = %s..." % (result[:8],))
             return 'done'
-        all.addCallback(cb_all_finished)
-        return all
+        return self.gatherTasks([task], cb_gather)
 
 
-class TestTask(plug_worker.TaskHandler):
+TestParams = types.slottype('TestParams', 'base guard digits')
+ArcCotData = types.slottype('ArcCotData', 'p x out')
+ReduceData = types.slottype('ReduceData', 'p a b x out')
 
-    digits = 16384
+
+class ArcCotTask(plug_worker.TaskHandler):
 
     def run(self):
-        self.sendStatus(101, "Calculating pi to %s digits" % self.digits)
-        res = pi(self.digits)
-        self.sendStatus(200, "pi = %s..." % str(res)[:8])
+        data = self.getData()
+        self.sendStatus(101, "Calculating arccot(%d) to %d digits" % (
+            data.x, data.p.digits))
+
+        unity = data.p.base ** (data.p.digits + data.p.guard)
+        data.out = arccot(data.x, unity)
+
+        self.setData(data)
+        self.sendStatus(200, "Calculated arccot(%d)" % data.x)
+
+        unity = data.p.base ** (data.p.digits + data.p.guard)
+
+
+class ReduceTask(plug_worker.TaskHandler):
+
+    def run(self):
+        data = self.getData()
+        self.sendStatus(101, "Reducing pi to %d digits" % data.p.digits)
+
+        pi = reduce_pi(data.a, data.b, data.p.base, data.p.guard)
+        data.out = format_pi(pi, data.p.base, data.p.digits)
+
+        self.setData(data)
+        self.sendStatus(200, "Calculated pi")
 
 
 def arccot(x, unity):
@@ -116,7 +144,21 @@ def arccot(x, unity):
     return sum
 
 
-def pi(digits):
-    unity = 10 ** (digits + 10)
-    pi = 4 * (4 * arccot(5, unity) - arccot(239, unity))
-    return pi // 10**10
+def reduce_pi(a, b, base, guard):
+    pi = 4 * ( (4 * a) - b)
+    pi //= base ** guard
+    return pi
+
+
+def format_pi(pi, base, digits):
+    assert base <= 16
+    dstr = '0123456789abcdef'
+    out = []
+    while pi:
+        out.append(dstr[pi % base])
+        pi //= base
+    out.reverse()
+    whole = len(out) - digits
+    return '.'.join((
+        ''.join(out[:whole]),
+        ''.join(out[whole:])))

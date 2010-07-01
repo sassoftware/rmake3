@@ -15,6 +15,7 @@
 import copy
 import cPickle
 import inspect
+import sys
 from rmake.lib import uuid
 from rmake.lib.ninamori.types import namedtuple
 
@@ -27,7 +28,7 @@ IMMUTABLE_TYPES = (int, long, basestring, uuid.UUID, tuple, frozenset)
 
 def freezify(cls):
     """Returns a 'frozen' namedtuple type of the given SlotCompare subclass."""
-    assert issubclass(cls, _SlotCompare)
+    assert issubclass(cls, SlotCompare)
     frozenName = 'Frozen' + cls.__name__
 
     # namedtuple constructs the base class.
@@ -48,13 +49,21 @@ def freezify(cls):
     return frozenType
 
 
-class _SlotCompare(object):
+class SlotCompare(object):
     """Base class for types that can be easily compared using their slots.
 
     Types can also be freezified to make them freezable to a namedtuple form.
     """
     __slots__ = ()
     _frozenType = None
+
+    def __init__(self, *args):
+        for n, name in enumerate(self.__slots__):
+            if n < len(args):
+                value = args[n]
+            else:
+                value = None
+            setattr(self, name, value)
 
     def __eq__(self, other):
         if type(self) != type(other):
@@ -90,7 +99,7 @@ class _SlotCompare(object):
             value = getattr(self, name)
             if value is None or isinstance(value, IMMUTABLE_TYPES):
                 vals[name] = value
-            elif isinstance(value, _SlotCompare):
+            elif isinstance(value, SlotCompare):
                 vals[name] = value.freeze()
             else:
                 raise TypeError("Can't freeze field %r of type %r as it is "
@@ -98,10 +107,16 @@ class _SlotCompare(object):
                             type(value).__name__))
         return self._frozenType(**vals)
 
+    def thaw(self):
+        return self
+
 
 class _Thawable(object):
     """Mixin class used by freezify to add thawing support to named tuples."""
     __slots__ = ()
+
+    def freeze(self):
+        return self
 
     def thaw(self):
         ret = object.__new__(self._thawedType)
@@ -112,7 +127,16 @@ class _Thawable(object):
         return ret
 
 
-class RmakeJob(_SlotCompare):
+def slottype(name, attrs):
+    attrs = attrs.replace(',', ' ').split()
+    module = sys._getframe(1).f_globals.get('__name__', '__main__')
+    return type(name, (SlotCompare,), {
+        '__slots__': attrs,
+        '__module__': module,
+        })
+
+
+class RmakeJob(SlotCompare):
     __slots__ = ('job_uuid', 'job_type', 'owner', 'status', 'times', 'data')
 
     def __init__(self, job_uuid, job_type, owner, status=None, times=None,
@@ -128,7 +152,7 @@ class RmakeJob(_SlotCompare):
 FrozenRmakeJob = freezify(RmakeJob)
 
 
-class RmakeTask(_SlotCompare):
+class RmakeTask(SlotCompare):
     __slots__ = ('task_uuid', 'job_uuid', 'task_name', 'task_type',
             'task_data', 'node_assigned', 'status', 'times')
 
@@ -150,7 +174,7 @@ class RmakeTask(_SlotCompare):
 FrozenRmakeTask = freezify(RmakeTask)
 
 
-class JobStatus(_SlotCompare):
+class JobStatus(SlotCompare):
     __slots__ = ('code', 'text', 'detail')
 
     def __init__(self, code=0, text='', detail=None):
@@ -181,7 +205,7 @@ class JobStatus(_SlotCompare):
 FrozenJobStatus = freezify(JobStatus)
 
 
-class JobTimes(_SlotCompare):
+class JobTimes(SlotCompare):
     __slots__ = ('started', 'updated', 'finished', 'expires_after', 'ticks')
 
     def __init__(self, started=None, updated=None, finished=None,

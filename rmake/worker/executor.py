@@ -159,7 +159,7 @@ class WorkerChild(WorkerProtocol):
             os._exit(-1)
 
     def cmd_launch(self, ctr, task):
-        self.task = task
+        self.task = task.freeze()
         handlerClass = self.task_types.get(task.task_type)
         if not handlerClass:
             # The dispatcher isn't supposed to send us tasks we can't handle,
@@ -199,10 +199,16 @@ class WorkerChild(WorkerProtocol):
         self.sendCommand(ctr, 'ack')
         self.transport.loseConnection()
 
-    def sendStatus(self, status):
-        self.task.times.ticks += 1
-        self.task.status = status
+    def sendTask(self, task):
+        task = task.thaw()
+        task.times.ticks = self.task.times.ticks + 1
+        self.task = task.freeze()
         self.sendCommand(None, 'status_update', task=self.task)
+
+    def sendStatus(self, status):
+        task = self.task.thaw()
+        task.status = status
+        self.sendTask(task)
 
     def failTask(self, reason, logIt=True):
         if logIt:

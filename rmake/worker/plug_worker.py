@@ -26,8 +26,7 @@ not typically required in order to add a new task type.
 import logging
 from twisted.internet import threads
 
-from rmake.core.types import JobStatus
-from rmake.lib import logger
+from rmake.core.types import FrozenObject, JobStatus
 from rmake.lib import pluginlib
 
 
@@ -69,7 +68,7 @@ class TaskHandler(object):
     def __init__(self, wchild, task):
         self._wchild = wchild
         self.wcfg = wchild.cfg
-        self.task = task
+        self.task = task.thaw()
         # TODO: Replace or configure this with something that will send logs
         # upstream.
         self.log = logging.getLogger('rmake.task.' + task.task_uuid.short)
@@ -82,9 +81,9 @@ class TaskHandler(object):
     # Worker thread methods
 
     def sendStatus(self, code, text, detail=None):
+        self.task.status = JobStatus(code, text, detail)
         from twisted.internet import reactor
-        reactor.callFromThread(self._wchild.sendStatus,
-                JobStatus(code, text, detail))
+        reactor.callFromThread(self._wchild.sendTask, self.task.freeze())
 
     def failTask(self, reason):
         from twisted.internet import reactor
@@ -92,3 +91,10 @@ class TaskHandler(object):
 
     def run(self):
         raise NotImplementedError
+
+    # Helper methods
+    def getData(self):
+        return self.task.task_data.thaw()
+
+    def setData(self, obj):
+        self.task.task_data = FrozenObject.fromObject(obj)

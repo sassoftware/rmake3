@@ -79,6 +79,10 @@ class JobHandler(object):
         """Move to a new state, persist it, and invoke the state function."""
         if self.state == state:
             return
+        if state == 'done' and not self.job.status.final:
+            self.setStatus(400, "Internal error: Dispatcher plugin failed to "
+                    "set status before terminating (from state %r)" %
+                    (self.state,))
         self.state = state
         # Wait for the job status to be updated successfully before moving to
         # the next state.
@@ -204,6 +208,37 @@ class JobHandler(object):
     def waitForTask(self, task):
         return self.tasks[task.task_uuid][0]
 
+    def gatherTasks(self, tasks, callback):
+        """Wait for tasks to complete then invoke a callback."""
+        # Wait for all tasks. Fail job if any tasks fail.
+        d = defer.gatherResults([self.waitForTask(x) for x in tasks])
+        def cb_gather(results):
+            failed = [x for x in results if x.status.failed]
+            if not failed:
+                return results
+
+            if len(failed) > 1:
+                detail = '\n'.join('%s: %s: %s\n%s\n' % (
+                    x.task_name, x.status.code, x.status.text, x.status.detail)
+                    for x in failed)
+                self.setStatus(400, "%s subtasks failed" % len(failed), detail)
+            else:
+                task = failed[0]
+                self.setStatus(400, "%s failed: %s" % (task.task_name,
+                    task.status.text), task.status.detail)
+            raise TasksFailed(failed)
+        d.addCallback(cb_gather)
+
+        # Invoke callback if all tasks suceed; otherwise skip callback and
+        # proceed directly to 'done' state.
+        d.addCallbacks(callback,
+                lambda reason: reason.trap(TasksFailed) and 'done')
+
+        # Catch-all errback to clean up if any part of this handler crashes.
+        d.addErrback(self.failJob)
+
+        return d
+
     ## Freezer machinery
 
     @classmethod
@@ -221,3 +256,13 @@ class JobHandler(object):
                     state_dict[slot] = value
         data = (self._getVersion(), self.job.data, state_dict)
         return FrozenObject.fromObject(data)
+
+
+try:
+    BaseException
+except NameError:
+    BaseException = Exception
+
+
+class TasksFailed(BaseException):
+    pass
