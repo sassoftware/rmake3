@@ -151,13 +151,15 @@ def reduce_pi(a, b, base, guard):
 
 
 def format_pi(pi, base, digits):
-    assert base <= 16
-    dstr = '0123456789abcdef'
-    out = []
-    while pi:
-        out.append(dstr[pi % base])
-        pi //= base
-    out.reverse()
+    format = {
+            2: '%b',
+            8: '%o',
+            10: '%d',
+            16: '%x',
+            }.get(base)
+    if not format:
+        raise ValueError("Can't format base %s" % (base,))
+    out = format % (pi,)
     whole = len(out) - digits
     return '.'.join((
         ''.join(out[:whole]),

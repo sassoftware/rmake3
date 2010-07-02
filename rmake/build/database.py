@@ -26,15 +26,13 @@ from conary.versions import ThawVersion
 from rmake.build import buildjob
 from rmake.build import buildtrove
 from rmake.errors import JobNotFound
-from rmake.lib.ninamori.decorators import protected, readOnly
 
 
 class JobStore(object):
 
-    def __init__(self, db):
-        self.db = db
+    def __init__(self, pool):
+        self.pool = pool
 
-    @protected
     def createJob(self, cu, job):
         """Add build-specific data to the appropriate table after creating the
         core job object.
@@ -44,23 +42,25 @@ class JobStore(object):
         NB: builds.jobs only holds things that need to be indexed and searched
         on without unpickling the job blob in the core jobs table.
         """
-        cu.insert('build.jobs',
-                dict(job_uuid=job.jobUUID, job_name=job.jobName),
-                returning='job_id')
-        job.jobId = cu.fetchone()[0]
+        ret = []
+        d = cu.execute("""INSERT INTO build.jobs ( job_uuid, job_name )
+                VALUES ( %s, %s ) RETURNING job_id """,
+                (job.jobUUID, job.jobName))
+        d.addCallback(lambda _: ret.append(cu.fetchone()[0]))
 
         for trove in job.iterTroves():
-            cu.insert('build.job_troves', dict(
-                job_uuid=job.jobUUID,
-                source_name=trove.name,
-                source_version=trove.version.freeze(),
-                build_flavor=trove.flavor.freeze(),
-                build_context=trove.context,
-                trove_state=trove.state,
-                trove_status=trove.status,
-                ))
+            d.addCallback(lambda _: cu.execute("""INSERT INTO build.job_troves
+                    ( job_uuid, source_name, source_version,
+                    build_flavor, build_context,
+                    trove_state, trove_status )
+                VALUES ( %s, %s, %s, %s, %s, %s, %s )""",
+                (job.jobUUID, trove.name, trove.version.freeze(),
+                    trove.flavor.freeze(), trove.context,
+                    trove.state, trove.status)))
 
-        return job.jobId
+        # Just return the new jobId
+        d.addCallback(lambda _: ret[0])
+        return d
 
 
 class UNPORTED_JobStore(object):
@@ -109,7 +109,6 @@ class UNPORTED_JobStore(object):
         return self.getJobs([job_uuid], withTroves=withTroves,
                 withConfigs=withConfigs)[0]
 
-    @readOnly
     def UNPORTED_getJobs(self, cu, job_uuids, withTroves=False, withConfigs=False):
         cu.execute("CREATE TEMPORARY TABLE t_jobs ( uuid TEXT )")
         cu.executemany("INSERT INTO t_jobs VALUES ( %s )",
@@ -419,7 +418,6 @@ class UNPORTED_JobStore(object):
     #
     #---------------------------------------------------------------
 
-    @protected
     def UNPORTED_addJob(self, cu, job):
         job.jobUUID = os.urandom(16).encode('hex')
         job.state = JOB_STATE_INIT

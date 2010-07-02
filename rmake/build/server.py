@@ -32,8 +32,8 @@ from rmake.core.types import RmakeJob
 from rmake.build import builder
 from rmake.build import buildjob
 from rmake.build import constants as buildconst
+from rmake.build import database
 from rmake.server import auth
-from rmake.db import database
 from rmake.lib.apirpc import RPCServer, expose
 from rmake.lib import logger
 from rmake.lib import osutil
@@ -50,34 +50,28 @@ class BuildServer(RPCServer):
 
     def __init__(self, dispatcher, tbs_cfg):
         self.dispatcher = dispatcher
-        self.db = self.pool = None
+        self.db = None
         self.tbs_cfg = tbs_cfg
 
     def _post_setup(self):
-        self.db = self.dispatcher.db
-        self.pool = self.dispatcher.pool
+        self.db = database.JobStore(self.dispatcher.pool)
 
     @expose
     def createJob(self, job, firehose=None):
         core_job = RmakeJob(job.jobUUID, job_type=buildconst.BUILD_JOB,
                 owner='<unknown>', data=job)
-
         ret = []
-        def create_buildjob(_job, _db):
-            # Create the build.jobs row while inside the same transaction as
-            # the core job. Note that we have to do some scoping trickery to
-            # get the new numeric jobId back into the reactor thread to return
-            # it to the caller.
-            jobId = self.db.jobStore.createJob(job)
-            ret.append(jobId)
+        def callback(_, cu):
+            dx = self.db.createJob(cu, job)
+            # Save the result
+            dx.addCallback(lambda jobId: ret.append(jobId))
+            return dx
 
         d = self.dispatcher.createJob(core_job, firehose=firehose,
-                callbackInTrans=create_buildjob)
+                callbackInTrans=callback)
 
-        @d.addCallback
-        def post_create(dummy):
-            # Return numeric jobId obtained from DB callback
-            return ret[0]
+        # Return the result collected inside the callback
+        d.addCallback(lambda _: ret[0])
         return d
 
     @expose

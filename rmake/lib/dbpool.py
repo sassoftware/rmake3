@@ -32,6 +32,29 @@ class Cursor(txpostgres.Cursor):
             statement, args = statement.statement, statement.args
         return txpostgres.Cursor.execute(self, statement, args)
 
+    def query(self, statement, args=None):
+        d = self.execute(statement, args)
+        d.addCallback(lambda cu: cu.fetchall())
+        return d
+
+    def fields(self):
+        desc = self.description
+        if desc is not None:
+            return [x[0] for x in desc]
+        else:
+            return None
+
+    def _row(self, data):
+        if data is None:
+            return None
+        return Row(data, self.fields())
+
+    def fetchone(self):
+        return self._row(self._cursor.fetchone())
+
+    def fetchall(self):
+        return [self._row(x) for x in self._cursor.fetchall()]
+
 
 class Connection(txpostgres.Connection):
 
@@ -48,7 +71,7 @@ class Connection(txpostgres.Connection):
         d.addCallback(cb_connected)
         return d
 
-    def _runQuery(self, *args, **kwargs):
+    def xasdf_runQuery(self, *args, **kwargs):
         c = self.cursor()
         d = c.execute(*args, **kwargs)
         def cb_result(c):
@@ -161,7 +184,7 @@ class ConnectionPool(object):
 
     def runInteraction(self, func, *args, **kwargs):
         """Run function in a transaction and callback the result."""
-        return self.semaphore.run(self._runInteraction, *args, **kwargs)
+        return self.semaphore.run(self._runInteraction, func, *args, **kwargs)
 
 
     def _queryDone(self, result, conn):

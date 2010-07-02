@@ -25,18 +25,17 @@ log = logging.getLogger(__name__)
 
 
 class BuildHandler(handler.JobHandler):
-    __slots__ = ('cfg', 'pending')
+    __slots__ = ('cfg',)
 
     jobType = buildconst.BUILD_JOB
-    firstState = 'loading'
+    firstState = 'load_troves'
 
     def setup(self):
         build_plugin = self.dispatcher.plugins.getPlugin('build')
         self.cfg = build_plugin.cfg
 
-    def begin_loading(self):
-        self.pending = set()
-        job = self.job.data
+    def load_troves(self):
+        job = self.job.data.thaw()
 
         for cfg in job.iterConfigList():
             cfg.repositoryMap.update(self.cfg.getRepositoryMap())
@@ -51,36 +50,17 @@ class BuildHandler(handler.JobHandler):
         assert not [x for x in loadTroves if x.isSpecial()]
         self.setStatus(buildjob.JOB_STATE_LOADING,
                 'Loading %d troves' % len(loadTroves))
-        task, dummy = self.newTask('load', buildconst.LOAD_TASK, job)
-        self.pending.add(task.task_uuid)
+        task = self.newTask('load', buildconst.LOAD_TASK, job)
 
-        # Stash the updated job back into the database.
-        d = self.updateJobData()
-        self.pending.add('data update')
-        @d.addCallback
-        def data_updated(dummy):
-            self._continue(('data updated',))
-        d.addErrback(self.failJob, message="Error updating job data:")
-
-    def continue_loading(self, event):
-        evtype = event[0]
-        if evtype == 'data updated':
-            self.pending.discard('data update')
-        elif evtype == 'task updated':
-            task = event[1]
-            if not task.status.final:
-                return
-            self.pending.discard(task.task_uuid)
+        d = self.waitForTask(task)
+        def cb_loaded(task):
             if task.status.failed:
-                return self.setStatus(400, text=task.status.text,
-                        detail=task.status.detail, state='done')
-        else:
-            return
-
-        if self.pending:
-            return
-
-        return self.setStatus(200, text='oh yay', state='done')
+                self.setStatus(400, task.status.text, task.status.detail)
+            else:
+                self.setStatus(200, "Troves loaded")
+            return 'done'
+        d.addCallback(cb_loaded)
+        return d
 
 
 def register():

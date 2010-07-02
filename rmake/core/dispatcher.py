@@ -259,7 +259,7 @@ class Dispatcher(MultiService, RPCServer):
     def workerHeartbeat(self, jid, caps, tasks):
         worker = self.workers.get(jid)
         if worker is None:
-            log.info("Worker %s connected: caps=%r", jid.full(), caps)
+            log.info("Worker %s connected", jid.full())
             worker = self.workers[jid] = WorkerInfo(jid)
         worker.setCaps(caps)
         self._assignTasks()

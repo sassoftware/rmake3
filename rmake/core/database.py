@@ -44,11 +44,15 @@ class CoreDB(object):
             return self._createJob(self.pool.runQuery, job, frozen_handler)
 
         def interaction(cu, *args):
-            d = self._createJob(cu.execute, job, frozen_handler)
-            def cb_continue(newJob):
-                callback(cu, newJob)
-                return newJob
-            d.addCallback(cb_continue)
+            d = self._createJob(cu.query, job, frozen_handler)
+
+            def cb_do_callback(newJob):
+                # Invoke the callback, but discard its result (unless it errors)
+                dx = callback(newJob, cu)
+                dx.addCallback(lambda _: newJob)
+                return dx
+            d.addCallback(cb_do_callback)
+
             return d
         return self.pool.runInteraction(interaction)
 
@@ -131,10 +135,12 @@ def _popStatus(kwargs):
     return JobStatus(kwargs.pop('status_code'), kwargs.pop('status_text'),
             kwargs.pop('status_detail'))
 
+
 def _popTimes(kwargs):
     return JobTimes(kwargs.pop('time_started'), kwargs.pop('time_updated'),
             kwargs.pop('time_finished'), kwargs.pop('expires_after', None),
             kwargs.pop('time_ticks', None))
+
 
 def _castUUIDS(raw_uuids):
     uuids = []
@@ -143,17 +149,6 @@ def _castUUIDS(raw_uuids):
             uuid = UUID(uuid)
         uuids.append(uuid)
     return uuids
-
-def _mergeThings(cu, uuids, column, generator):
-    things = dict(((getattr(x, column), x) for x in generator(cu)))
-    return [things.get(x) for x in uuids]
-
-
-def _getThings(cu, table, column, generator, raw_uuids):
-    uuids = self._castUUIDS(raw_uuids)
-    stmt = "SELECT * FROM %s WHERE %s IN %%s" % (table, column)
-    cu.execute(stmt, (tuple(uuids),))
-    return self._mergeThings(cu, uuids, column, generator)
 
 
 def _oneJob(rows):
