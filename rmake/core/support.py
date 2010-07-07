@@ -25,7 +25,6 @@ log = logging.getLogger(__name__)
 
 class DispatcherBusService(BusService):
 
-    role = 'dispatcher'
     description = 'rMake Dispatcher'
 
     def __init__(self, dispatcher, cfg):
@@ -43,9 +42,8 @@ class DispatcherBusService(BusService):
         else:
             BusService.messageReceived(self, msg)
 
-    def onPresence(self, presence):
-        if not presence.available:
-            self.dispatcher.workerDown(presence.sender)
+    def onNeighborDown(self, jid):
+        self.dispatcher.workerDown(jid)
 
 
 class DispatcherInteractiveHandler(InteractiveHandler):

@@ -97,7 +97,6 @@ class LauncherService(MultiService):
 
 class LauncherBusService(BusClientService):
 
-    role = 'worker'
     description = 'rMake Worker'
 
     def messageReceived(self, msg):
@@ -121,7 +120,7 @@ class HeartbeatService(TimerService):
     def heartbeat(self):
         tasks = self.launcher.pool.getTaskList()
         msg = message.Heartbeat(caps=self.launcher.caps, tasks=tasks)
-        self.launcher.bus.sendToTarget(msg)
+        #self.launcher.bus.sendToTarget(msg)
 
 
 class PoolService(pool.ProcessPool):
