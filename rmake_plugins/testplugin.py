@@ -47,7 +47,7 @@ class TestHandler(handler.JobHandler):
 
     base = 10
     guard = 10
-    digits = 32768
+    digits = 65536
 
     # State: arccot -- 2 tasks do the initial number crunching.
     def arccot(self):
@@ -90,7 +90,8 @@ class TestHandler(handler.JobHandler):
             task, = results
             result = task.task_data.thaw().out
             self.job.data = types.FrozenObject.fromObject(result)
-            self.setStatus(200, "Done! pi = %s..." % (result[:8],))
+            self.setStatus(200, "Done! pi = %s...%s" % (result[:7],
+                result[-5:]))
             return 'done'
         return self.gatherTasks([task], cb_gather)
 
