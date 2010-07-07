@@ -16,35 +16,8 @@
 Constants and simple functions shared by message bus components.
 """
 
-from twisted.words.protocols.jabber.jid import internJID, JID
-from wokkel import data_form
-
-
 # Element namespaces
 NS_RMAKE = 'http://rpath.com/permanent/xmpp/rmake-3.0'
 
 # XPath expressions
 XPATH_IM = "/message/body"
-XPATH_RMAKE_MESSAGE = "/message/rmake[@xmlns='%s']" % NS_RMAKE
-XPATH_RMAKE_IQ = "/iq/rmake[@xmlns='%s']" % NS_RMAKE
-
-# Data form namespaces
-FORM_RMAKE_INFO = 'http://rpath.com/permanent/xmpp/rmake-3.0#info'
-
-
-def toJID(jid):
-    if isinstance(jid, basestring):
-        return internJID(jid)
-    elif isinstance(jid, JID):
-        return jid
-    else:
-        raise TypeError("Expected a JID (string or JID object)")
-
-
-def getInfoForm(role):
-    form = data_form.Form('result', formNamespace=FORM_RMAKE_INFO)
-
-    assert role in ('dispatcher', 'server', 'worker')
-    form.addField(data_form.Field(var='role', value=role))
-
-    return form

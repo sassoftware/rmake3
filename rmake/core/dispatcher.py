@@ -332,7 +332,7 @@ class Dispatcher(MultiService, RPCServer):
 
         # Send the task to the worker node
         msg = message.StartTask(task)
-        msg.send(self.bus, jid)
+        self.bus.sendTo(jid, msg)
 
     def _failTask(self, task, message):
         log.error("Task %s failed: %s", task.task_uuid, message)

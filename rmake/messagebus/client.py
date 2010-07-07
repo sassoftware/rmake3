@@ -21,12 +21,29 @@ This includes a client protocol, factory, and XMLRPC proxy.
 
 from jabberlink import cred as jcred
 from jabberlink import client as jclient
+from jabberlink import message as jmessage
 from jabberlink.handlers import link as jlink
+from twisted.internet import defer
+
+from rmake.messagebus.common import NS_RMAKE
+from rmake.messagebus import message as rmessage
 
 
 class RmakeHandler(jlink.LinkHandler):
 
     permissive = True
+
+
+class MessageHandler(jmessage.MessageHandler):
+
+    namespace = NS_RMAKE
+
+    def __init__(self, service):
+        self.service = service
+
+    def onMessage(self, neighbor, jmsg):
+        message = rmessage.Message.from_jmessage(jmsg)
+        self.service.messageReceived(message)
 
 
 class _BaseService(jclient.LinkClient):
@@ -37,6 +54,18 @@ class _BaseService(jclient.LinkClient):
 
     handlerClass = RmakeHandler
 
+    def sendTo(self, jid, message, wait=False):
+        jmsg = message.to_jmessage()
+        d = self.link.sendWithDeferred(jid, jmsg)
+        if wait:
+            return d
+        # If you don't wait for delivery, errors are always discarded.
+        d.addErrback(lambda _: None)
+        return defer.succeed(None)
+
+    def messageReceived(self, message):
+        pass
+
 
 class BusService(_BaseService):
 
@@ -46,6 +75,8 @@ class BusService(_BaseService):
         name = self.cfg.xmppJID.user, self.cfg.xmppJID.host
         _BaseService.__init__(self, name, creds, handlers=other_handlers)
 
+        self.link.addMessageHandler(MessageHandler(self))
+
 
 class BusClientService(_BaseService):
 
@@ -54,7 +85,12 @@ class BusClientService(_BaseService):
     def __init__(self, cfg, other_handlers=None):
         self.cfg = cfg
         creds = jcred.XmppClientCredentials(cfg.xmppIdentFile)
-        name = self.cfg.dispatcherJID.host
-        _BaseService.__init__(self, name, creds, handlers=other_handlers)
+        self.targetJID = self.cfg.dispatcherJID
+        _BaseService.__init__(self, self.targetJID.host, creds,
+                handlers=other_handlers)
 
+        self.link.addMessageHandler(MessageHandler(self))
         self.connectNeighbor(self.cfg.dispatcherJID)
+
+    def sendToTarget(self, message, wait=False):
+        return self.sendTo(self.targetJID, message, wait)

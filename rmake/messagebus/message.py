@@ -13,10 +13,9 @@
 
 import cPickle
 import logging
-import random
-from rmake.messagebus.common import toJID, NS_RMAKE
-from twisted.internet import defer
-from twisted.words.xish import domish
+from jabberlink import message as jmessage
+
+from rmake.messagebus.common import NS_RMAKE
 
 log = logging.getLogger(__name__)
 
@@ -70,67 +69,33 @@ class Message(object):
         className = type(self).__name__
         return '<%s>' % (className,)
 
-    def _add_rmake_node(self, xmppNode):
-        rmakeNode = xmppNode.addElement('rmake', NS_RMAKE)
-        rmakeNode['type'] = self.messageType
+    def to_jmessage(self):
+        headers = {}
         if self.payload.__dict__:
-            rmakeNode['content-type'] = 'application/python-pickle'
-            payloadBytes = cPickle.dumps(self.payload, 2)
-            zippedBytes = payloadBytes.encode('zlib')
-            if len(zippedBytes) < len(payloadBytes):
-                rmakeNode['transfer-encoding'] = 'gzip+base64'
-                rmakeNode.addContent(zippedBytes.encode('base64'))
-            else:
-                rmakeNode['transfer-encoding'] = 'base64'
-                rmakeNode.addContent(payloadBytes.encode('base64'))
-        return rmakeNode
+            headers['content-type'] = 'application/python-pickle'
+            headers['rmake-type'] = self.messageType
+            payload = cPickle.dumps(self.payload, 2)
+        else:
+            payload = ''
+        return jmessage.Message(NS_RMAKE, payload, headers)
 
-    @staticmethod
-    def _get_id():
-        return '%x' % random.getrandbits(64)
-
-    def send(self, xmlstream, to):
-        msg = domish.Element((None, 'message'))
-        msg['to'] = toJID(to).full()
-        msg['type'] = 'normal'
-        msg['id'] = self._get_id()
-        self._add_rmake_node(msg)
-        xmlstream.send(msg)
-        return defer.succeed(None)
-
-    @staticmethod
-    def from_dom(xmppNode):
-        sender = xmppNode.getAttribute('from')
-        rmakeNode = xmppNode.firstChildElement()
-        if not rmakeNode or (
-                rmakeNode.uri, rmakeNode.name) != (NS_RMAKE, 'rmake'):
-            # Not a rMake message.
-            return None
-
-        messageType = rmakeNode['type']
+    @classmethod
+    def from_jmessage(cls, jmsg):
+        sender = jmsg.sender.full()
+        messageType = jmsg.headers['rmake-type']
         messageClass = _MessageTypeRegistrar.messageTypes.get(messageType)
         if not messageClass:
             log.warning("Unknown message type %s from %s", messageType, sender)
             return None
         msg = messageClass()
 
-        payloadType = rmakeNode.getAttribute('content-type')
-        transferCoding = rmakeNode.getAttribute('transfer-encoding')
+        payloadType = jmsg.headers.get('content-type')
         if payloadType is None:
             msg.payload = None
         else:
-            if transferCoding == 'gzip+base64':
-                payloadBytes = str(rmakeNode).decode('base64').decode('zlib')
-            elif transferCoding == 'base64':
-                payloadBytes = str(rmakeNode).decode('base64')
-            else:
-                log.warning("Unknown transfer coding %s from %s",
-                        transferCoding, sender)
-                return None
-
             if payloadType == 'application/python-pickle':
                 try:
-                    msg.payload = cPickle.loads(payloadBytes)
+                    msg.payload = cPickle.loads(jmsg.payload)
                 except:
                     log.warning("Failed to unpickle message from %s:", sender,
                             exc_info=1)
@@ -140,8 +105,8 @@ class Message(object):
                         sender)
                 return None
 
-        msg.info.sender = xmppNode['from']
-        msg.info.id = xmppNode.getAttribute('id')
+        msg.info.sender = jmsg.sender
+        msg.info.id = jmsg.seq
         return msg
 
     def __getstate__(self):

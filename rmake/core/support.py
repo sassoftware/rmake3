@@ -18,7 +18,6 @@ from rmake.messagebus import message
 from rmake.messagebus.client import BusService
 from rmake.messagebus.interact import InteractiveHandler
 from twisted.application.internet import TimerService
-from twisted.words.protocols.jabber.jid import internJID
 
 log = logging.getLogger(__name__)
 
@@ -37,8 +36,8 @@ class DispatcherBusService(BusService):
         if isinstance(msg, message.TaskStatus):
             self.dispatcher.updateTask(msg.task)
         elif isinstance(msg, message.Heartbeat):
-            sender = internJID(msg.info.sender)
-            self.dispatcher.workerHeartbeat(sender, msg.caps, msg.tasks)
+            self.dispatcher.workerHeartbeat(msg.info.sender, msg.caps,
+                    msg.tasks)
         else:
             BusService.messageReceived(self, msg)
 

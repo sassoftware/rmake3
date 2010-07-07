@@ -105,10 +105,11 @@ class LauncherBusService(BusClientService):
         else:
             BusClientService.messageReceived(self, msg)
 
-    def targetConnected(self):
+    def onNeighborUp(self, jid):
+        if jid != self.cfg.dispatcherJID:
+            return
         # Call up to the daemon instance so it can set the process title.
-        self.parent.parent.targetConnected(self._handler.jid,
-                self._handler.targetJID)
+        self.parent.parent.targetConnected(self.jid, jid)
 
 
 class HeartbeatService(TimerService):
@@ -120,7 +121,7 @@ class HeartbeatService(TimerService):
     def heartbeat(self):
         tasks = self.launcher.pool.getTaskList()
         msg = message.Heartbeat(caps=self.launcher.caps, tasks=tasks)
-        #self.launcher.bus.sendToTarget(msg)
+        self.launcher.bus.sendToTarget(msg)
 
 
 class PoolService(pool.ProcessPool):
