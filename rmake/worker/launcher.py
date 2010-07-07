@@ -75,7 +75,8 @@ class LauncherService(MultiService):
 
     def launch(self, msg):
         task = msg.task
-        log.info("Starting task %s", task.task_uuid)
+        log.info("Task %s starting: job %s, task '%s'", task.task_uuid.short,
+                task.job_uuid.short, task.task_name)
         d = self.pool.launch(task=task, launcher=self)
         d.addErrback(self.failTask, task)
 
@@ -88,8 +89,8 @@ class LauncherService(MultiService):
     def forwardTaskStatus(self, task):
         status = task.status
         if status.final:
-            log.info("Task %s %s: %s %s", task.task_uuid,
-                    status.completed and 'completed' or 'failed', status.code,
+            log.info("Task %s %s: %s %s", task.task_uuid.short,
+                    status.completed and 'complete' or 'failed', status.code,
                     status.text)
         msg = message.TaskStatus(task)
         self.bus.sendToTarget(msg)

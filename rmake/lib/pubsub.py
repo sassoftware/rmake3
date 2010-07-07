@@ -23,6 +23,12 @@ class Publisher(object):
         self._observers = {}
         self._relays = []
 
+    def __getstate__(self):
+        return None
+
+    def __setstate__(self, state):
+        self.__init__()
+
     def addObserver(self, event, func):
         """Add "func" as an observer to "event"."""
         self._observers.setdefault(event, []).append(func)

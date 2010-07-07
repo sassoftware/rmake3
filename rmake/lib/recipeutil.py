@@ -281,7 +281,7 @@ def loadSourceTroves(job, repos, buildFlavor, troveList,
                                  groupRecipeSource=groupRecipeSource,
                                  cfg=job.getTroveConfig(buildTrove))
             buildTrove.setFlavor(relevantFlavor)
-            buildTrove.setReceipeType(buildtrove.getRecipeType(recipeObj))
+            buildTrove.setRecipeType(buildtrove.getRecipeType(recipeObj))
             buildTrove.setLoadedSpecsList([_getLoadedSpecs(loader, recipeObj)])
             if hasattr(loader, 'getLoadedTroves'):
                 buildTrove.setLoadedTroves(loader.getLoadedTroves())

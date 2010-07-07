@@ -25,7 +25,7 @@ class AbstractBuildState(object):
         self.troves = []
         self.trovesByNVF = {}
 
-        self.states = dict((x, set()) for x in buildtrove.TroveState.LIST)
+        self.states = dict((x, set()) for x in buildtrove.TroveState.by_value)
         self.statesByTrove = {}
         self.addTroves(sourceTroves)
 

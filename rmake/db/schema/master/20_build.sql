@@ -18,8 +18,6 @@ CREATE TABLE job_troves (
     source_version text NOT NULL,
     build_flavor text NOT NULL,
     build_context text NOT NULL,
-    trove_state integer NOT NULL,
-    trove_status text NOT NULL,
     PRIMARY KEY ( job_uuid, source_version, build_flavor, build_context )
 );
 

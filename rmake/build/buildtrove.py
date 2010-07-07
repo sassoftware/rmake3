@@ -21,7 +21,6 @@ from conary.deps import deps
 from conary.repository import changeset
 
 from rmake import failure
-from rmake.build import publisher
 from rmake.lib import flavorutil
 from rmake.lib.ninamori.types import constants
 
@@ -55,7 +54,7 @@ RecipeType = constants('RecipeType',
 BuildType = constants('BuildType',
         'NORMAL '       # = 0
         'PREP '         # = 1
-        'SPECIAL '      # = 2
+        'SPECIAL '      # = 2 (DEPRECATED)
         )
 
 
@@ -201,6 +200,10 @@ class _AbstractBuildTrove(object):
         else:
             return ''
 
+    def getTroveString(self, withContext=True):
+        return '%s=%s[%s]%s' % (self.name, self.version, self.flavor,
+                self.getContextStr())
+
     def setFlavor(self, flavor):
         self.flavor = flavor
         self.flavorList = [flavor]
@@ -256,9 +259,6 @@ class _AbstractBuildTrove(object):
 
     def isPrepOnly(self):
         return self.buildType == BuildType.PREP
-
-    def isSpecial(self):
-        return self.buildType == BuildType.SPECIAL
 
     def isPrepared(self):
         return self.state == TroveState.PREPARED
@@ -409,25 +409,9 @@ class BuildTrove(_AbstractBuildTrove):
     """
 
     def __init__(self, *args, **kwargs):
-        self._publisher = publisher.JobStatusPublisher()
-        self._amOwner = False
         _AbstractBuildTrove.__init__(self, *args, **kwargs)
+        self._publisher = None
 
-    def amOwner(self):
-        """
-            Returns True if this process owns this trove, otherwise
-            returns False.  Processes that don't own troves are not allowed
-            to update other processes about the trove's status (this avoids
-            message loops).
-        """
-        return self._amOwner
-
-    def own(self):
-        self._amOwner = True
-
-    def disown(self):
-        self._amOwner = False
- 
     def setPublisher(self, publisher):
         """
             Set the publisher for all events emitted from this trove.
@@ -439,13 +423,6 @@ class BuildTrove(_AbstractBuildTrove):
             Get the publisher for all events emitted from this trove.
         """
         return self._publisher
-
-    def log(self, message):
-        """
-            Publish log message "message" to trove subscribers.
-        """
-        if self._publisher:
-            self._publisher.troveLogUpdated(self, message)
 
     def troveLoaded(self, results):
         self.setFlavor(results.flavor)
@@ -674,5 +651,5 @@ class BuildTrove(_AbstractBuildTrove):
         self.state = state
         if status is not None:
             self.status = status
-        #if self._publisher:
-        #    self._publisher.troveStateUpdated(self, state, oldState, *args)
+        if self._publisher:
+            self._publisher.troveStateUpdated(self, state, oldState, *args)

@@ -19,7 +19,6 @@ import time
 
 from rmake import failure
 from rmake.build import buildtrove
-from rmake.build import publisher
 from rmake.lib import uuid
 
 jobStates = {
@@ -141,13 +140,10 @@ class _AbstractBuildJob(object):
             return self.troveContexts.iterkeys()
 
     def iterLoadableTroveList(self):
-        return (x[0] for x in self.troves.iteritems() if not x[1].isSpecial())
+        return (x[0] for x in self.troves.iteritems())
 
     def iterLoadableTroves(self):
-        return (x for x in self.troves.itervalues() if not x.isSpecial())
-
-    def getSpecialTroves(self):
-        return [ x for x in self.troves.itervalues() if x.isSpecial() ]
+        return (x for x in self.troves.itervalues())
 
     def getTrove(self, name, version, flavor, context=''):
         return self.troves[name, version, flavor, context]
@@ -274,28 +270,15 @@ class BuildJob(_AbstractBuildJob):
     """
 
     def __init__(self, *args, **kwargs):
-        self._publisher = publisher.JobStatusPublisher()
         _AbstractBuildJob.__init__(self, *args, **kwargs)
-        self._amOwner = False
+        self._publisher = None
         self._log = None
-
-    def amOwner(self):
-        """
-            Returns True if this process owns this job, otherwise
-            returns False.  Processes that don't own jobs are not allowed
-            to update other processes about the job's status (this avoids
-            message loops).
-        """
-        return self._amOwner
-
-    def own(self):
-        self._amOwner = True
-
-    def disown(self):
-        self._amOwner = False
 
     def getPublisher(self):
         return self._publisher
+
+    def setPublisher(self, publisher):
+        self._publisher = publisher
 
     def log(self, format, *args, **kwargs):
         if self._log:
@@ -307,12 +290,10 @@ class BuildJob(_AbstractBuildJob):
         """
             Sets the give 
         """
-        _FreezableBuildJob.setBuildTroves(self, buildTroves)
+        _AbstractBuildJob.setBuildTroves(self, buildTroves)
         publisher = self.getPublisher()
         for trove in buildTroves:
             trove.setPublisher(publisher)
-            trove.own()
-        self._publisher.buildTrovesSet(self)
 
     def jobQueued(self, message=''):
         if not message:
@@ -381,4 +362,3 @@ class BuildJob(_AbstractBuildJob):
     def _setState(self, state, status='', *args):
         self.state = state
         self.status = status
-        self._publisher.jobStateUpdated(self, state, status, *args)

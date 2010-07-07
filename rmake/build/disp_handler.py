@@ -19,23 +19,26 @@ Job handler used by the dispatcher to run trove build jobs.
 import logging
 from rmake.build import buildjob
 from rmake.build import constants as buildconst
+from rmake.build import dephandler
+from rmake.build.publisher import JobStatusPublisher
 from rmake.core import handler
 
 log = logging.getLogger(__name__)
 
 
 class BuildHandler(handler.JobHandler):
-    __slots__ = ('cfg',)
+    __slots__ = ('build_plugin', 'cfg', 'dh')
 
     jobType = buildconst.BUILD_JOB
     firstState = 'load_troves'
 
     def setup(self):
-        build_plugin = self.dispatcher.plugins.getPlugin('build')
-        self.cfg = build_plugin.cfg
+        self.build_plugin = self.dispatcher.plugins.getPlugin('build')
+        self.cfg = self.build_plugin.cfg
+        self.dh = None
 
     def load_troves(self):
-        job = self.job.data.thaw()
+        job = self.getData()
 
         for cfg in job.iterConfigList():
             cfg.repositoryMap.update(self.cfg.getRepositoryMap())
@@ -47,7 +50,6 @@ class BuildHandler(handler.JobHandler):
 
         # Start a load trove task
         loadTroves = job.troves.values()
-        assert not [x for x in loadTroves if x.isSpecial()]
         self.setStatus(buildjob.JOB_STATE_LOADING,
                 'Loading %d troves' % len(loadTroves))
         task = self.newTask('load', buildconst.LOAD_TASK, job)
@@ -56,11 +58,41 @@ class BuildHandler(handler.JobHandler):
         def cb_loaded(task):
             if task.status.failed:
                 self.setStatus(400, task.status.text, task.status.detail)
-            else:
-                self.setStatus(200, "Troves loaded")
-            return 'done'
+                return 'done'
+            return self._finish_load(task.task_data.thaw())
         d.addCallback(cb_loaded)
         return d
+
+    def _finish_load(self, job):
+        troves = sorted(job.iterTroves())
+        normalTroves = [x for x in troves
+                if not x.isRedirectRecipe() and not x.isFilesetRecipe()]
+        if normalTroves:
+            # Cannot build redirect or fileset troves with other troves, and it
+            # was probably unintentional from recursing a group, so just remove
+            # them.  Other cases, such as mixing only different solitary
+            # troves, will error out later on sanity check, and that's OK.
+            # (RMK-991)
+            troves = normalTroves
+        job.setBuildTroves(troves)
+
+        # TODO: match prebuilt troves
+        assert not job.getMainConfig().jobContext
+
+        # TODO: proper per-job logging
+        publisher = JobStatusPublisher()
+        job.setPublisher(publisher)
+        logger = logging.getLogger('dephandler.' + self.job.job_uuid.short)
+        self.dh = dephandler.DependencyHandler(publisher, logger, troves)
+
+        # TODO: sanity check
+
+        self.setData(job)
+        return 'build'
+
+    def build(self):
+        self.setStatus(101, "Building troves")
+        self.setStatus(400, "Oops")
 
 
 def register():

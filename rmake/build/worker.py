@@ -43,6 +43,23 @@ class LoadTask(plug_worker.TaskHandler):
             recipeutil.loadSourceTrovesForJob(job, troves, repos,
                     job.configs[''].reposName)
 
+        # Check if any troves failed to load
+        errors = []
+        for trove in troves:
+            if not trove.isFailed():
+                continue
+            reason = trove.getFailureReason()
+            out = 'Trove failed to load: %s\n%s' % (
+                    trove.getTroveString(withContext=True),
+                    trove.getFailureReason())
+            if reason.hasTraceback():
+                out += '\n\n' + reason.getTraceback()
+            errors.append(out)
+        if errors:
+            detail = '\n'.join(errors)
+            self.sendStatus(400, "Some troves failed to load", detail)
+            return
+
         # Post updated job object back to the dispatcher
         job._log = None
         self.task.task_data = types.FrozenObject.fromObject(job)

@@ -254,8 +254,16 @@ class JobHandler(object):
                 value = getattr(self, slot, NOT_SET)
                 if value is not NOT_SET:
                     state_dict[slot] = value
-        data = (self._getVersion(), self.job.data, state_dict)
+        data = (self._getVersion(), state_dict)
         return FrozenObject.fromObject(data)
+
+    def getData(self):
+        return self.job.data.thaw()
+
+    def setData(self, obj):
+        if not isinstance(obj, FrozenObject):
+            obj = FrozenObject.fromObject(obj)
+        self.job.data = obj
 
 
 try:

@@ -68,6 +68,7 @@ class rMakeClient(object):
 
     def buildJob(self, job, subscribe=True):
         sid = subscribe and self.firehose.sid or None
+        import pickle; pickle.dump(job, open('job.pickle', 'wb'), 2)
         return self.proxy.build.createJob(job, firehose=sid)
 
     def watchJob(self, job):

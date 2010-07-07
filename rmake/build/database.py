@@ -51,12 +51,10 @@ class JobStore(object):
         for trove in job.iterTroves():
             d.addCallback(lambda _: cu.execute("""INSERT INTO build.job_troves
                     ( job_uuid, source_name, source_version,
-                    build_flavor, build_context,
-                    trove_state, trove_status )
-                VALUES ( %s, %s, %s, %s, %s, %s, %s )""",
+                    build_flavor, build_context )
+                VALUES ( %s, %s, %s, %s, %s )""",
                 (job.jobUUID, trove.name, trove.version.freeze(),
-                    trove.flavor.freeze(), trove.context,
-                    trove.state, trove.status)))
+                    trove.flavor.freeze(), trove.context)))
 
         # Just return the new jobId
         d.addCallback(lambda _: ret[0])
