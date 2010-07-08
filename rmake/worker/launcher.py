@@ -23,10 +23,12 @@ into the worker process.
 
 import cPickle
 import logging
+import time
 from conary.lib import cfgtypes
 from twisted.application.internet import TimerService
 from twisted.application.service import MultiService
 
+from rmake.core.config import CfgPluginOption
 from rmake.core.types import JobStatus, TaskCapability
 from rmake.lib.proc_pool import pool
 from rmake.messagebus import message
@@ -69,6 +71,7 @@ class LauncherService(MultiService):
         self.pool = PoolService(args=dict(
             pluginDirs=self.plugins.pluginDirs,
             disabledPlugins=self.plugins.disabledPlugins,
+            pluginOptions=self.cfg.pluginOption,
             cfgBlob=cPickle.dumps(self.cfg, 2),
             ))
         self.pool.setServiceParent(self)
@@ -109,8 +112,14 @@ class LauncherBusService(BusClientService):
     def onNeighborUp(self, jid):
         if jid != self.cfg.dispatcherJID:
             return
+        log.info("Connected to dispatcher")
         # Call up to the daemon instance so it can set the process title.
         self.parent.parent.targetConnected(self.jid, jid)
+
+    def onNeighborDown(self, jid):
+        if jid != self.cfg.dispatcherJID:
+            return
+        log.error("Lost connection to dispatcher")
 
 
 class HeartbeatService(TimerService):
@@ -118,11 +127,17 @@ class HeartbeatService(TimerService):
     def __init__(self, launcher, interval=5):
         self.launcher = launcher
         TimerService.__init__(self, interval, self.heartbeat)
+        self.last_nag = time.time()
+        self.sent_hello = False
 
     def heartbeat(self):
         tasks = self.launcher.pool.getTaskList()
         msg = message.Heartbeat(caps=self.launcher.caps, tasks=tasks)
+        bus = self.launcher.bus
         self.launcher.bus.sendToTarget(msg)
+        if not bus.isConnected() and time.time() - self.last_nag > 5:
+            log.error("Dispatcher is not online")
+            self.last_nag = time.time()
 
 
 class PoolService(pool.ProcessPool):
@@ -145,9 +160,11 @@ class PoolService(pool.ProcessPool):
 
 
 class WorkerConfig(BusClientConfig):
-    buildDir            = (cfgtypes.CfgPath, '/var/rmake')
-    helperDir           = (cfgtypes.CfgPath, '/usr/libexec/rmake')
     lockDir             = (cfgtypes.CfgPath, '/var/lock')
     logDir              = (cfgtypes.CfgPath, '/var/log/rmake')
+
+    # Plugins
     pluginDirs          = (cfgtypes.CfgPathList, [])
+    pluginOption        = (cfgtypes.CfgDict(
+        cfgtypes.CfgList(cfgtypes.CfgString)), {})
     usePlugin           = (cfgtypes.CfgDict(cfgtypes.CfgBool), {})

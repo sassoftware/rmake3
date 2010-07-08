@@ -328,13 +328,11 @@ class BuildJob(_AbstractBuildJob):
         if isinstance(failureReason, str):
             failureReason = failure.BuildFailed(failureReason)
         self.failureReason = failureReason
-        self.getPublisher().cork()
 
         self._setState(JOB_STATE_FAILED, str(failureReason), failureReason)
         for trove in self.iterTroves():
             if trove.isStarted():
                 trove.troveFailed(failureReason)
-        self.getPublisher().uncork()
 
     def jobStopped(self, failureReason=''):
         # right now jobStopped is an alias for job failed.

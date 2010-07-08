@@ -40,6 +40,7 @@ class Plugin(object):
         self.pluginManager = pluginManager
         self.enabled = True
         self.types = []
+        self.options = []
         for cls in self.__class__.mro():
             ptype = vars(cls).get('_plugin_type')
             if ptype:
@@ -47,6 +48,16 @@ class Plugin(object):
 
     def unload(self):
         pass
+
+    def configFromOptions(self, configClass):
+        if not self.options:
+            return configClass(True)
+
+        cfg = configClass(False)
+        for line in self.options:
+            cfg.configLine(line)
+        return cfg
+
 
 class PluginManager(object):
     """
@@ -235,6 +246,14 @@ class PluginManager(object):
         if not plugins:
             return None
         return plugins[0]
+
+    def setOptions(self, options):
+        for name, lines in options.iteritems():
+            plugin = self.pluginsByName.get(name)
+            if not plugin:
+                log.warning("Ignoring option for unknown plugin %s", name)
+                continue
+            plugin.options = lines
 
     def callHook(self, type_, hookName, *args, **kw):
         attr = '%s_%s' % (type_, hookName)
@@ -433,4 +452,6 @@ def getPluginManager(argv, configClass, supportedTypes=(), readFiles=False):
     p = PluginManager(pluginDirs, disabledPlugins,
             supportedTypes=supportedTypes)
     p.loadPlugins()
+    p.setOptions(cfg.pluginOption)
+
     return p

@@ -160,7 +160,7 @@ class WorkerChild(WorkerProtocol):
 
     def cmd_launch(self, ctr, task):
         self.task = task.freeze()
-        handlerClass = self.task_types.get(task.task_type)
+        pluginName, handlerClass = self.task_types.get(task.task_type)
         if not handlerClass:
             # The dispatcher isn't supposed to send us tasks we can't handle,
             # so this is probably a bug.
@@ -171,6 +171,7 @@ class WorkerChild(WorkerProtocol):
         self._setproctitle()
 
         handler = handlerClass(self, task)
+        self.plugins.getPlugin(pluginName).worker_pre_build(handler)
         d = handler.start()
 
         d.addErrback(self.failTask)
@@ -182,15 +183,18 @@ class WorkerChild(WorkerProtocol):
             return result
         return d
 
-    def cmd_startup(self, ctr, pluginDirs, disabledPlugins, cfgBlob):
+    def cmd_startup(self, ctr, pluginDirs, disabledPlugins, pluginOptions,
+            cfgBlob):
         self.plugins = pluginlib.PluginManager(pluginDirs, disabledPlugins,
                 supportedTypes=self.pluginTypes)
         self.plugins.loadPlugins()
+        self.plugins.setOptions(pluginOptions)
         self.cfg = cPickle.loads(cfgBlob)
 
         self.task_types = {}
         for plugin, tasks in self.plugins.p.worker.get_task_types().items():
-            self.task_types.update(tasks)
+            for task_type, task_handler in tasks.items():
+                self.task_types[task_type] = (plugin, task_handler)
 
         self.sendCommand(ctr, 'ack')
 

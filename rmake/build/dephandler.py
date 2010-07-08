@@ -438,12 +438,10 @@ class DependencyHandler(object):
 
     def troveFailed(self, trove, *args):
         publisher = trove.getPublisher()
-        publisher.unsubscribe(publisher.TROVE_FAILED, self.troveFailed)
-        publisher.cork()
+        publisher.delObserver(publisher.TROVE_FAILED, self.troveFailed)
         self._delayed.pop(trove, False)
         self._troveFailed(trove)
-        publisher.subscribe(publisher.TROVE_FAILED, self.troveFailed)
-        publisher.uncork()
+        publisher.addObserver(publisher.TROVE_FAILED, self.troveFailed)
 
     def _troveFailed(self, trove):
         depState = self.depState

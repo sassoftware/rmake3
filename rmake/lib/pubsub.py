@@ -24,7 +24,7 @@ class Publisher(object):
         self._relays = []
 
     def __getstate__(self):
-        return None
+        return {}
 
     def __setstate__(self, state):
         self.__init__()
@@ -32,6 +32,10 @@ class Publisher(object):
     def addObserver(self, event, func):
         """Add "func" as an observer to "event"."""
         self._observers.setdefault(event, []).append(func)
+
+    def delObserver(self, event, func):
+        """Remove "func" as an observer to "event"."""
+        self._observers.setdefault(event, []).remove(func)
 
     def addRelay(self, func):
         """Add "func" as an observer to all events.

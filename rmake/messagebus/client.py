@@ -94,3 +94,7 @@ class BusClientService(_BaseService):
 
     def sendToTarget(self, message, wait=False):
         return self.sendTo(self.targetJID, message, wait)
+
+    def isConnected(self):
+        neighbor = self.link._findNeighbor(self.targetJID)
+        return neighbor and neighbor.isAuthenticated

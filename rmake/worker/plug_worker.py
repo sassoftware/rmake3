@@ -52,6 +52,9 @@ class WorkerPlugin(pluginlib.Plugin):
         """
         return {}
 
+    def worker_pre_build(self, handler):
+        pass
+
 
 class TaskHandler(object):
     """

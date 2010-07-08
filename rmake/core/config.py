@@ -15,13 +15,27 @@
 
 import os
 from conary.conarycfg import CfgUserInfo
+from conary.lib.cfgtypes import CfgType, ParseError
 from conary.lib.cfgtypes import (CfgBool, CfgDict, CfgInt, CfgPath,
-        CfgPathList, CfgString)
+        CfgPathList, CfgString, CfgList)
 from rmake.messagebus.config import BusConfig
 
 
 def _logPath(fileName):
     return property(lambda self: os.path.join(self.logDir, fileName))
+
+
+class CfgPluginOption(CfgType):
+
+    def parseString(self, val):
+        val = val.strip()
+        if ' ' not in val:
+            raise ParseError("pluginOption requires a plugin and a value")
+        plugin, line = val.split(' ', 1)
+        return plugin, line
+
+    def format(self, val, displayOptions=None):
+        return ' '.join(val)
 
 
 class DispatcherConfig(BusConfig):
@@ -42,12 +56,12 @@ class DispatcherConfig(BusConfig):
     lockDir             = (CfgPath, '/var/lock')
     logDir              = (CfgPath, '/var/log/rmake')
     caCertPath          = (CfgPath, None)
-    pluginDirs          = (CfgPathList, [])
     sslCertPath         = (CfgPath, '/srv/rmake/certs/rmake-server-cert.pem')
-    usePlugin           = (CfgDict(CfgBool), {})
 
-    # Deprecated options (ignored)
-    rmakeUrl            = None
+    # Plugins
+    pluginDirs          = (CfgPathList, [])
+    pluginOption        = (CfgList(CfgPluginOption), [])
+    usePlugin           = (CfgDict(CfgBool), {})
 
     # Calculated paths
     logPath_http = _logPath('access.log')

@@ -19,6 +19,7 @@ This plugin serves as the entry point to the basic build functionality of rMake.
 import logging
 from rmake.build import constants as buildconst
 from rmake.build import disp_handler
+from rmake.build import nodecfg
 from rmake.build import repos
 from rmake.build import server
 from rmake.build import servercfg
@@ -33,10 +34,12 @@ class BuildPlugin(plug_dispatcher.DispatcherPlugin, plug_worker.WorkerPlugin):
 
     cfg = None
 
+    # Dispatcher
+
     def dispatcher_pre_setup(self, dispatcher):
         disp_handler.register()
 
-        self.cfg = servercfg.rMakeConfiguration(True)
+        self.cfg = self.configFromOptions(servercfg.rMakeConfiguration)
         self.server = server.BuildServer(dispatcher, self.cfg)
         dispatcher._addChild('build', self.server)
 
@@ -56,7 +59,14 @@ class BuildPlugin(plug_dispatcher.DispatcherPlugin, plug_worker.WorkerPlugin):
             log.traceback("Error starting server:")
             reactor.stop()
 
+    # Worker
+
     def worker_get_task_types(self):
         return {
                 buildconst.LOAD_TASK: worker.LoadTask,
+                buildconst.RESOLVE_TASK: worker.ResolveTask,
+                buildconst.BUILD_TASK: worker.BuildTask,
                 }
+
+    def worker_pre_build(self, handler):
+        handler.cfg = self.configFromOptions(nodecfg.NodeConfiguration)

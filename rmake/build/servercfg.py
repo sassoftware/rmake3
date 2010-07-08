@@ -1,140 +1,35 @@
 #
-# Copyright (c) 2006-2009 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2010 rPath, Inc.
 #
-"""
-Local configuration for rMake.
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
+#
 
-The information held in this configuration object should be all the required 
-local setup needed to use rMake.
-"""
 import os
 import pwd
 import socket
-import stat
 import sys
 import subprocess
 import urllib
 
 from conary import dbstore
 from conary.lib import log, cfg, util
-from conary.lib.cfgtypes import CfgPath, CfgList, CfgString, CfgInt, CfgType
-from conary.lib.cfgtypes import CfgBool, CfgPathList, CfgDict, ParseError
-from conary.conarycfg import CfgLabel, CfgUserInfo
-
-from rmake import constants
-from rmake import errors
-from rmake.lib import daemon, chrootcache, procutil
+from conary.lib.cfgtypes import CfgPath, CfgString
+from conary.conarycfg import CfgUserInfo
 
 
-class CfgChrootCache(cfg.CfgType):
-    def parseString(self, str):
-        s = str.split()
-        if len(s) != 2:
-            raise ParseError("chroot cache type and path expected")
-        return tuple(s)
-
-    def format(self, val, displayOptions = None):
-        return "%s %s" % val
-
-
-class rMakeBuilderConfiguration(daemon.DaemonConfig):
-    buildDir          = (CfgPath, '/var/rmake')
-    helperDir         = (CfgPath, "/usr/libexec/rmake")
-    slots             = (CfgInt, 1)
-    useCache          = (CfgBool, False)
-    useTmpfs          = (CfgBool, False)
-    pluginDirs        = (CfgPathList, ['/usr/share/rmake/plugins'])
-    usePlugins        = (CfgBool, True)
-    usePlugin         = CfgDict(CfgBool)
-    chrootLimit       = (CfgInt, 4)
-    chrootCache       = CfgChrootCache
-    chrootCaps        = (CfgBool, False,
-            "Set capability masks as directed by chroot contents. "
-            "This has the potential to be unsafe.")
-    hostName          = (CfgString, 'localhost')
-    verbose           = False
-
-    def getAuthUrl(self):
-        return None
-
-    def getCommandSocketDir(self):
-        return self.buildDir + '/tmp/'
-
-    def getName(self):
-        return '_local_'
-
-    def getCacheDir(self):
-        return self.buildDir + '/cscache'
-
-    def getChrootDir(self):
-        return self.buildDir + '/chroots'
-
-    def getChrootArchiveDir(self):
-        return self.buildDir + '/archive'
-
-    def getBuildLogDir(self, jobId=None):
-        if jobId:
-            return self.logDir + '/buildlogs/%d/' % jobId
-        return self.logDir + '/buildlogs/'
-
-    def getBuildLogPath(self, jobId):
-        return self.logDir + '/buildlogs/%d.log' % jobId
-
-    def getChrootHelper(self):
-        return self.helperDir + '/chroothelper'
-
-    def getChrootCache(self):
-        if not self.chrootCache:
-            return None
-        elif self.chrootCache[0] == 'local':
-            return chrootcache.LocalChrootCache(self.chrootCache[1])
-        else:
-            raise errors.RmakeError('unknown chroot cache type of "%s" specified' %self.chrootCache[0])
-
-    def _getChrootCacheDir(self):
-        if not self.chrootCache:
-            return None
-        elif self.chrootCache[0] == 'local':
-            return self.chrootCache[1]
-        return None
-
-    def _checkDir(self, name, path, requiredOwner=None,
-                   requiredMode=None):
-        if not os.path.exists(path):
-            raise errors.RmakeError('%s does not exist, expected at %s - cannot start server' % (name, path))
-            sys.exit(1)
-        if not (requiredOwner or requiredMode):
-            return
-        statInfo = os.stat(path)
-        if requiredMode and statInfo.st_mode & 0777 != requiredMode:
-            raise errors.RmakeError('%s (%s) must have mode %o' % (path, name, requiredMode))
-        if requiredOwner:
-            ownerName = pwd.getpwuid(statInfo.st_uid).pw_name
-            if ownerName != requiredOwner:
-                raise errors.RmakeError('%s (%s) must have owner %s' % (
-                                            path, name, requiredOwner))
-
-
-    def checkBuildSanity(self):
-        rmakeUser = constants.rmakeUser
-        if pwd.getpwuid(os.getuid()).pw_name == rmakeUser:
-            self._checkDir('buildDir', self.buildDir)
-            self._checkDir('chroot dir (subdirectory of buildDir)',
-                            self.getChrootDir(),
-                            rmakeUser, 0700)
-            self._checkDir('chroot archive dir (subdirectory of buildDir)',
-                            self.getChrootArchiveDir(),
-                            rmakeUser, 0700)
-            chrootCacheDir = self._getChrootCacheDir()
-            if chrootCacheDir:
-                self._checkDir('chroot cache dir (subdirectory of buildDir)',
-                               chrootCacheDir, rmakeUser, 0700)
-
-class rMakeConfiguration(rMakeBuilderConfiguration):
+class rMakeConfiguration(cfg.ConfigFile):
     logDir            = (CfgPath, '/var/log/rmake')
-    lockDir           = (CfgPath, '/var/run/rmake')
     serverDir         = (CfgPath, '/srv/rmake')
     proxyUrl          = (CfgString, 'http://LOCAL:7778') # local here means
+    hostName          = (CfgString, 'localhost')
                                                          # managed by rMake
     reposUrl          = (CfgString, 'http://LOCAL:7777')
     reposName         = socket.gethostname()
@@ -145,7 +40,7 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
     dbPath            = dbstore.CfgDriver
 
     def __init__(self, readConfigFiles = False, ignoreErrors=False):
-        daemon.DaemonConfig.__init__(self)
+        cfg.ConfigFile.__init__(self)
         self.setIgnoreErrors(ignoreErrors)
         self.addAlias('proxy', 'proxyUrl')
         self.addAlias('serverUrl', 'reposUrl')
@@ -153,7 +48,8 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
         self.addAlias('user',  'reposUser')
         if readConfigFiles:
             self.readFiles()
-
+        if not self.hostName:
+            self.hostName = socket.getfqdn()
 
     def setServerName(self, serverName):
         for x in list(self.reposUser):
@@ -210,9 +106,6 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
 
     def getProxyConfigPath(self):
         return self.getProxyDir() + '/serverrc'
-
-    def getProxyLogPath(self):
-        return self.logDir + '/proxy.log'
 
     def getReposDir(self):
         return self.serverDir + '/repos'

@@ -36,28 +36,28 @@ class JobStatusPublisher(pubsub.Publisher):
     # The publisher then publishes the right signal(s).
 
     def troveResolved(self, buildTrove, resolveResult):
-        self._send(self.TROVE_RESOLVED, '', buildTrove, resolveResult)
+        self._send(self.TROVE_RESOLVED, buildTrove, resolveResult)
 
-    def troveStateUpdated(self, buildTrove, state, oldState, *args):
-        self._send(self.TROVE_STATE_UPDATED, state, buildTrove, 
-                   state, buildTrove.status)
+    def troveStateUpdated(self, buildTrove, state, *args):
+        self._send(self.TROVE_STATE_UPDATED, buildTrove, state,
+                buildTrove.status)
         if buildTrove.isPreparing():
-            self._send(self.TROVE_PREPARING_CHROOT, '', buildTrove, *args)
+            self._send(self.TROVE_PREPARING_CHROOT, buildTrove, *args)
         elif buildTrove.isResolving():
-            self._send(self.TROVE_RESOLVING, '', buildTrove, *args)
+            self._send(self.TROVE_RESOLVING, buildTrove, *args)
         if buildTrove.isBuilt():
-            self._send(self.TROVE_BUILT, '', buildTrove, *args)
+            self._send(self.TROVE_BUILT, buildTrove, *args)
         if buildTrove.isPrebuilt():
-            self._send(self.TROVE_PREBUILT, '', buildTrove, *args)
+            self._send(self.TROVE_PREBUILT, buildTrove, *args)
         if buildTrove.isDuplicate():
-            self._send(self.TROVE_DUPLICATE, '', buildTrove, *args)
+            self._send(self.TROVE_DUPLICATE, buildTrove, *args)
         elif buildTrove.isBuilding():
-            self._send(self.TROVE_BUILDING, '', buildTrove, *args)
+            self._send(self.TROVE_BUILDING, buildTrove, *args)
         elif buildTrove.isFailed():
-            self._send(self.TROVE_FAILED, '', buildTrove, *args)
+            self._send(self.TROVE_FAILED, buildTrove, *args)
         if buildTrove.isPrepared():
-            self._send(self.TROVE_PREPARED, '', buildTrove, *args)
+            self._send(self.TROVE_PREPARED, buildTrove, *args)
 
     def troveLogUpdated(self, buildTrove, message):
-        self._send(self.TROVE_LOG_UPDATED, '', buildTrove, buildTrove.state,
+        self._send(self.TROVE_LOG_UPDATED, buildTrove, buildTrove.state,
                    message)
