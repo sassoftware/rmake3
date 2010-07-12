@@ -83,6 +83,7 @@ class LauncherService(MultiService):
         d.addErrback(self.failTask, task)
 
     def failTask(self, reason, task):
+        task = task.thaw()
         task.times.ticks += 1
         task.status = JobStatus.from_failure(reason,
                 "Fatal error in task runner")

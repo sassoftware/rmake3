@@ -89,21 +89,14 @@ class WorkerParent(WorkerProtocol):
         self.launcher = kwargs.pop('launcher')
 
         # Fail tasks that exited cleanly but didn't report success.
-        @d.addCallback
         def cb_checkResult(result):
             if not self.task.status.final:
                 raise InternalWorkerError("Task failed to send a finalized "
                         "status before terminating.")
             return result
-
-        # Clear saved task and launcher fields after the task is done.
-        @d.addBoth
-        def bb_clearTask(result):
-            self.task = self.launcher = None
-            return result
+        d.addCallback(cb_checkResult)
 
         # Turn process termination events into relevant exceptions.
-        @d.addErrback
         def eb_filterErrors(reason):
             if reason.check(ierror.ProcessTerminated, ierror.ProcessDone):
                 log.error("Worker exited prematurely with status %s",
@@ -111,9 +104,21 @@ class WorkerParent(WorkerProtocol):
                 raise InternalWorkerError("The worker executing the task "
                         "has exited abnormally.")
             return reason
+        d.addErrback(eb_filterErrors)
 
-        # Report errors back to the dispatcher.
-        d.addErrback(self.launcher.failTask, self.task)
+        # Report errors back to the dispatcher. Using a function here because
+        # self.task will get replaced.
+        def eb_failTask(reason):
+            self.launcher.failTask(reason, self.task)
+        d.addErrback(eb_failTask)
+
+        # Clear saved task and launcher fields after the task is done.
+        def bb_clearTask(result):
+            self.task = self.launcher = None
+        d.addBoth(bb_clearTask)
+
+        d.addErrback(logger.logFailure)
+
 
     def cmd_status_update(self, ctr, task):
         """Propagate status updates back to the dispatcher."""
