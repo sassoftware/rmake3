@@ -16,7 +16,7 @@ import logging
 from rmake.lib.ninamori.connection import ConnectString
 from rmake.lib.ninamori.types import Row, SQL
 from psycopg2 import extensions
-from rmake.db.extensions import register_types
+from rmake.lib.dbextensions import register_types
 from twisted.internet import defer
 from twisted.internet import task
 from txpostgres import txpostgres

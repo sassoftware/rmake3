@@ -3,7 +3,6 @@ General layout of the rMake tree:
 build           Trove build implementation, including client, dispatcher, and worker bits
 cmdline         Command-line entry point for trove job interface
 core            Core job functionality, including the dispatcher
-db              Database layer
 lib             Utility modules and extensions for third-party libs
 messagebus      Message bus client implementation and message type definitions
 worker          Task-running component used on worker nodes
