@@ -38,6 +38,7 @@ class ProcessConnector(protocol.ProcessProtocol):
         self.protocol = prot
         self.out_fd = out_fd
         self.in_fd = in_fd
+        self.log_stream = None
         self.pid = None
 
     def __repr__(self):
@@ -59,11 +60,11 @@ class ProcessConnector(protocol.ProcessProtocol):
             self.errReceived(data)
 
     def errReceived(self, data):
-        for line in data.splitlines():
-            if line == '\x1b[?1034h':
-                # Silly readline, this is not a terminal!
-                continue
-            log.debug("worker %d: %s", self.pid, line)
+        if self.log_stream:
+            self.log_stream.write(data)
+        else:
+            for line in data.splitlines():
+                log.debug("Worker %s: %s", self.pid, line)
 
     def processEnded(self, status):
         self.protocol.connectionLost(status)
@@ -92,3 +93,6 @@ class ProcessConnector(protocol.ProcessProtocol):
 
     def callRemote(self, command, **kwargs):
         return self.protocol.callRemote(command, **kwargs)
+
+    def setLogStream(self, log_stream):
+        self.log_stream = log_stream

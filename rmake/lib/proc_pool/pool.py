@@ -127,11 +127,15 @@ class ProcessPool(service.Service):
         self.busy.add(child)
         self.calls[child] += 1
 
+        log_stream = kwargs.pop('log_stream', None)
+        child.setLogStream(log_stream)
+
         die = False
         if self.recycleAfter and self.calls[child] >= self.recycleAfter:
             die = True
 
         def cb_returned(result, child, is_error=False):
+            child.setLogStream(None)
             self.busy.discard(child)
             if die:
                 self.stopAWorker(child).addCallback(lambda _: self.rebalance())
@@ -185,6 +189,6 @@ class ProcessStarter(object):
 
         args = (sys.executable, bootstrapPath, childClassPath)
         reactor.spawnProcess(prot, sys.executable, args, env,
-                childFDs={0:0, 1:1, 2:2,#0: 'w', 1: 'r', 2: 'r',
+                childFDs={0: 'w', 1: 'r', 2: 'r',
                     connector.TO_CHILD: 'w', connector.FROM_CHILD: 'r'})
         return prot
