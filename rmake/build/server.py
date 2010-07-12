@@ -29,7 +29,6 @@ from conary.lib import util
 
 from rmake import errors
 from rmake.core.types import RmakeJob
-from rmake.build import builder
 from rmake.build import buildjob
 from rmake.build import constants as buildconst
 from rmake.build import database
@@ -38,7 +37,6 @@ from rmake.lib.apirpc import RPCServer, expose
 from rmake.lib import logger
 from rmake.lib import osutil
 from rmake.lib.rpcproxy import ShimAddress
-from rmake.worker import worker
 
 
 class BuildServer(RPCServer):

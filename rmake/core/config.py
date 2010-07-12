@@ -25,19 +25,6 @@ def _logPath(fileName):
     return property(lambda self: os.path.join(self.logDir, fileName))
 
 
-class CfgPluginOption(CfgType):
-
-    def parseString(self, val):
-        val = val.strip()
-        if ' ' not in val:
-            raise ParseError("pluginOption requires a plugin and a value")
-        plugin, line = val.split(' ', 1)
-        return plugin, line
-
-    def format(self, val, displayOptions=None):
-        return ' '.join(val)
-
-
 class DispatcherConfig(BusConfig):
 
     # Server configuration
@@ -60,7 +47,7 @@ class DispatcherConfig(BusConfig):
 
     # Plugins
     pluginDirs          = (CfgPathList, [])
-    pluginOption        = (CfgList(CfgPluginOption), [])
+    pluginOption        = (CfgDict(CfgList(CfgString)), {})
     usePlugin           = (CfgDict(CfgBool), {})
 
     # Calculated paths
