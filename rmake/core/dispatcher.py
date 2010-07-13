@@ -28,7 +28,7 @@ from rmake.core import constants as core_const
 from rmake.core.database import CoreDB
 from rmake.core.support import DispatcherBusService, WorkerChecker
 from rmake.core.handler import getHandlerClass
-from rmake.core.types import TaskCapability, FrozenObject
+from rmake.core.types import TaskCapability, FrozenObject, JobTimes, JobStatus
 from rmake.errors import RmakeError
 from rmake.lib import dbpool
 from rmake.lib import rpc_pickle
@@ -67,6 +67,7 @@ class Dispatcher(MultiService, RPCServer):
 
         self.jobs = {}
         self.workers = {}
+        self.tasks = {}
         self.taskQueue = []
 
         self.plugins.p.dispatcher.pre_setup(self)
@@ -185,11 +186,15 @@ class Dispatcher(MultiService, RPCServer):
 
         self._publish(job_uuid, 'self', 'finalized')
 
+        # Discard tasks that are out for processing
         handler = self.jobs[job_uuid]
-        tasks = set(handler.tasks)
-        for worker in self.workers.values():
-            worker.tasks -= tasks
+        for task_uuid in handler.tasks:
+            task_info = self.tasks.pop(task_uuid, None)
+            if task_info and task_info.worker:
+                log.debug("Discarding task %s from running set", task_uuid)
+                task_info.worker.tasks.pop(task_uuid, None)
 
+        # Discard tasks that never got assigned
         for task in self.taskQueue[:]:
             if task.job_uuid == job_uuid:
                 log.debug("Discarding task %s from queue", task.task_uuid)
@@ -213,12 +218,17 @@ class Dispatcher(MultiService, RPCServer):
     def createTask(self, task):
         d = self.db.createTask(task)
         def cb_post_create(newTask):
+            handler = self.jobs[newTask.job_uuid]
+            self.tasks[newTask.task_uuid] = TaskInfo(newTask, handler)
             self.taskQueue.append(newTask)
             self._assignTasks()
             return newTask
         d.addCallback(cb_post_create)
 
-        d.addCallback(self._taskUpdated)
+        # Notify handler of initial task status, but not if it already failed
+        # because the fail-ing entity will have done so already.
+        d.addCallback(self._taskUpdated, onlyIfRunning=True)
+
         d.addErrback(self._failJob, task.job_uuid)
         return d
 
@@ -236,39 +246,43 @@ class Dispatcher(MultiService, RPCServer):
         d.addErrback(self._failJob, task.job_uuid)
         d.addErrback(logFailure)
 
-    def _taskUpdated(self, newTask):
+    def _taskUpdated(self, newTask, onlyIfRunning=False):
         if not newTask:
             # Superceded
             return
         # If the task is finished, remove it from the assigned node and try to
         # assign more tasks.
         if newTask.status.final:
-            # Note that node_assigned is not used here because the update to
-            # set it might not have completed. It is easier and just as safe to
-            # scan from the worker side.
-            for worker in self.workers.values():
-                if newTask.task_uuid in worker.tasks:
-                    worker.tasks.discard(newTask.task_uuid)
-            from twisted.internet import reactor
-            reactor.callLater(0, self._assignTasks)
+            if onlyIfRunning:
+                return
+            info = self.tasks.pop(newTask.task_uuid, None)
+            if info and info.worker:
+                info.worker.tasks.pop(newTask.task_uuid, None)
+            self.clock.callLater(0, self._assignTasks)
         handler = self.jobs.get(newTask.job_uuid)
-        if not handler:
-            return
-        handler.taskUpdated(newTask)
+        if handler:
+            handler.taskUpdated(newTask)
 
-    def workerHeartbeat(self, jid, caps, tasks):
+    def workerHeartbeat(self, jid, caps, tasks, slots):
         worker = self.workers.get(jid)
         if worker is None:
             log.info("Worker %s connected", jid.full())
             worker = self.workers[jid] = WorkerInfo(jid)
-        worker.setCaps(caps)
+        worker.setCaps(caps, slots)
         self._assignTasks()
 
     def workerDown(self, jid):
-        if jid in self.workers:
-            # TODO: kill tasks
-            log.info("Worker %s disconnected", jid.full())
-            del self.workers[jid]
+        worker = self.workers.get(jid)
+        if worker is None:
+            return
+        log.info("Worker %s disconnected", jid.full())
+
+        for info in worker.tasks.itervalues():
+            task = info.taskForUpdate()
+            task.status = JobStatus(400,
+                    "The worker processing this task has gone offline.")
+            self.updateTask(task)
+        del self.workers[jid]
 
     ## Task assignment
 
@@ -328,7 +342,9 @@ class Dispatcher(MultiService, RPCServer):
         # Internal accounting
         task.node_assigned = jid.full()
         worker = self.workers[jid]
-        worker.tasks.add(task.task_uuid)
+        info = self.tasks[task.task_uuid]
+        info.worker = worker
+        worker.tasks[task.task_uuid] = info
 
         # Send the task to the worker node
         msg = message.StartTask(task)
@@ -337,6 +353,7 @@ class Dispatcher(MultiService, RPCServer):
     def _failTask(self, task, message):
         log.error("Task %s failed: %s", task.task_uuid, message)
         text = "Task failed: %s" % (message,)
+        task.times.ticks = JobTimes.TICK_OVERRIDE
         task.status.code = core_const.TASK_NOT_ASSIGNABLE
         task.status.text = "Task failed: %s" % (message,)
         self.updateTask(task)
@@ -347,15 +364,16 @@ class WorkerInfo(object):
     def __init__(self, jid):
         self.jid = jid
         self.caps = set()
-        self.tasks = set()
-        self.slots = 2
+        self.tasks = {}
+        self.slots = 0
         # expiring is incremented each time WorkerChecker runs and zeroed each
         # time the worker heartbeats. When it gets high enough, the worker is
         # assumed dead.
         self.expiring = 0
 
-    def setCaps(self, caps):
+    def setCaps(self, caps, slots):
         self.caps = caps
+        self.slots = slots
         self.expiring = 0
 
     def getScore(self, task):
@@ -373,10 +391,24 @@ class WorkerInfo(object):
             return core_const.A_NEVER, None
 
         # Are there slots available to run this task in?
-        # Note that not all task types will consume a slot.
         assigned = len(self.tasks)
         free = max(self.slots - assigned, 0)
         if free:
             return core_const.A_NOW, free
         else:
             return core_const.A_LATER, None
+
+
+class TaskInfo(object):
+
+    def __init__(self, task, handler):
+        self.task_uuid = task.task_uuid
+        self._task = task.freeze()
+        self.handler = handler
+        self.worker = None
+
+    def taskForUpdate(self):
+        task = self._task.thaw()
+        task.task_data = None
+        task.times.ticks = JobTimes.TICK_OVERRIDE
+        return task

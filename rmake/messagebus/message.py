@@ -154,4 +154,4 @@ class TaskStatus(Message):
 
 class Heartbeat(Message):
     messageType = 'heartbeat'
-    _payload_slots = ('caps', 'tasks')
+    _payload_slots = ('caps', 'tasks', 'slots')

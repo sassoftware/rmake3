@@ -84,10 +84,10 @@ class CoreDB(object):
         elif frozen_handler is not None:
             stmt += SQL(", frozen_handler = %s", frozen_handler)
 
-        stmt += SQL("""
-            WHERE job_uuid = %s AND time_ticks < %s
-            RETURNING jobs.jobs.*
-            """, job.job_uuid, job.times.ticks)
+        stmt += SQL(" WHERE job_uuid = %s", job.job_uuid)
+        if job.times.ticks != JobTimes.TICK_OVERRIDE:
+            stmt += SQL(" AND time_ticks < %s", job.times.ticks)
+        stmt += SQL(" RETURNING jobs.jobs.*")
 
         d = self.pool.runQuery(stmt)
         d.addCallback(_oneJob)
@@ -121,10 +121,10 @@ class CoreDB(object):
         if task.task_data is not None:
             stmt += SQL(", task_data = %s", task.task_data)
 
-        stmt += SQL("""
-            WHERE task_uuid = %s AND time_ticks < %s
-            RETURNING jobs.tasks.*
-            """, task.task_uuid, task.times.ticks)
+        stmt += SQL(" WHERE task_uuid = %s", task.task_uuid)
+        if task.times.ticks != JobTimes.TICK_OVERRIDE:
+            stmt += SQL(" AND time_ticks < %s", task.times.ticks)
+        stmt += SQL(" RETURNING jobs.tasks.*")
 
         d = self.pool.runQuery(stmt)
         d.addCallback(_oneTask)

@@ -132,7 +132,9 @@ class HeartbeatService(TimerService):
 
     def heartbeat(self):
         tasks = self.launcher.pool.getTaskList()
-        msg = message.Heartbeat(caps=self.launcher.caps, tasks=tasks)
+        slots = self.launcher.cfg.slots
+        msg = message.Heartbeat(caps=self.launcher.caps, tasks=tasks,
+                slots=slots)
         bus = self.launcher.bus
         self.launcher.bus.sendToTarget(msg)
         if not bus.isConnected() and time.time() - self.last_nag > 5:
@@ -162,6 +164,7 @@ class PoolService(pool.ProcessPool):
 class WorkerConfig(BusClientConfig):
     lockDir             = (cfgtypes.CfgPath, '/var/lock')
     logDir              = (cfgtypes.CfgPath, '/var/log/rmake')
+    slots               = (cfgtypes.CfgInt, 2)
 
     # Plugins
     pluginDirs          = (cfgtypes.CfgPathList, [])

@@ -208,6 +208,8 @@ FrozenJobStatus = freezify(JobStatus)
 class JobTimes(SlotCompare):
     __slots__ = ('started', 'updated', 'finished', 'expires_after', 'ticks')
 
+    TICK_OVERRIDE = 1000000
+
     def __init__(self, started=None, updated=None, finished=None,
             expires_after=None, ticks=-1):
         self.started = started

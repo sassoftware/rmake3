@@ -37,7 +37,7 @@ class DispatcherBusService(BusService):
             self.dispatcher.updateTask(msg.task)
         elif isinstance(msg, message.Heartbeat):
             self.dispatcher.workerHeartbeat(msg.info.sender, msg.caps,
-                    msg.tasks)
+                    msg.tasks, msg.slots)
         else:
             BusService.messageReceived(self, msg)
 
