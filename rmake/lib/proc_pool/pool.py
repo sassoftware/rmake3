@@ -127,15 +127,15 @@ class ProcessPool(service.Service):
         self.busy.add(child)
         self.calls[child] += 1
 
-        log_stream = kwargs.pop('log_stream', None)
-        child.setLogStream(log_stream)
+        logBase = kwargs.pop('logBase', None)
+        child.setLogBase(logBase)
 
         die = False
         if self.recycleAfter and self.calls[child] >= self.recycleAfter:
             die = True
 
         def cb_returned(result, child, is_error=False):
-            child.setLogStream(None)
+            child.setLogBase(None)
             self.busy.discard(child)
             if die:
                 self.stopAWorker(child).addCallback(lambda _: self.rebalance())

@@ -284,6 +284,14 @@ class Dispatcher(MultiService, RPCServer):
             self.updateTask(task)
         del self.workers[jid]
 
+    def workerLogging(self, records, task_uuid):
+        info = self.tasks.get(task_uuid)
+        if info is None:
+            log.warning("Discarding %d log record(s) from errant task %s",
+                    len(records), task_uuid.short)
+            return
+        log.info("%d record(s) for task %s", len(records), task_uuid.short)
+
     ## Task assignment
 
     def _assignTasks(self):

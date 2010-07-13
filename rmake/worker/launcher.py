@@ -33,6 +33,7 @@ from rmake.lib.proc_pool import pool
 from rmake.messagebus import message
 from rmake.messagebus.client import BusClientService
 from rmake.messagebus.config import BusClientConfig
+from rmake.messagebus.logger import createLogRelay
 from rmake.worker import executor
 
 log = logging.getLogger(__name__)
@@ -79,8 +80,23 @@ class LauncherService(MultiService):
         task = msg.task
         log.info("Task %s starting: job %s, task '%s'", task.task_uuid.short,
                 task.job_uuid.short, task.task_name)
-        d = self.pool.launch(task=task, launcher=self)
+
+        logBase = 'rmake.jobs.%s.tasks.%s' % (task.job_uuid, task.task_uuid)
+        taskLogger, taskRelay = createLogRelay(logBase, self.bus,
+                task.task_uuid)
+        d = self.pool.launch(
+                task=task,
+                launcher=self,
+                logBase=logBase,
+                )
         d.addErrback(self.failTask, task)
+        def bb_cleanup(result):
+            try:
+                taskRelay.close()
+            except:
+                pass
+            return result
+        d.addBoth(bb_cleanup)
 
     def failTask(self, reason, task):
         task = task.thaw()
@@ -147,8 +163,12 @@ class PoolService(pool.ProcessPool):
     childFactory = executor.WorkerChild
     parentFactory = executor.WorkerParent
 
-    def launch(self, task, launcher):
-        return self.doWork('launch', task=task, launcher=launcher)
+    def launch(self, task, launcher, logBase):
+        return self.doWork('launch',
+                task=task,
+                launcher=launcher,
+                logBase=logBase,
+                )
 
     def getTaskList(self):
         if self.finished:

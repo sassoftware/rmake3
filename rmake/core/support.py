@@ -38,6 +38,8 @@ class DispatcherBusService(BusService):
         elif isinstance(msg, message.Heartbeat):
             self.dispatcher.workerHeartbeat(msg.info.sender, msg.caps,
                     msg.tasks, msg.slots)
+        elif isinstance(msg, message.LogRecords):
+            self.dispatcher.workerLogging(msg.records, msg.task_uuid)
         else:
             BusService.messageReceived(self, msg)
 

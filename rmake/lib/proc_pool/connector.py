@@ -38,7 +38,7 @@ class ProcessConnector(protocol.ProcessProtocol):
         self.protocol = prot
         self.out_fd = out_fd
         self.in_fd = in_fd
-        self.log_stream = None
+        self.logBase = self.stdoutLog = self.stderrLog = None
         self.pid = None
 
     def __repr__(self):
@@ -54,17 +54,19 @@ class ProcessConnector(protocol.ProcessProtocol):
         self.pid = self.transport.pid
 
     def childDataReceived(self, childFD, data):
+        logobj = None
         if childFD == self.in_fd:
             self.protocol.dataReceived(data)
-        else:
-            self.errReceived(data)
+        elif childFD == 1:
+            logobj = self.stdoutLog
+        elif childFD == 2:
+            logobj = self.stderrLog
 
-    def errReceived(self, data):
-        if self.log_stream:
-            self.log_stream.write(data)
-        else:
-            for line in data.splitlines():
-                log.debug("Worker %s: %s", self.pid, line)
+        if not logobj:
+            return
+
+        for line in data.splitlines():
+            logobj.debug(line)
 
     def processEnded(self, status):
         self.protocol.connectionLost(status)
@@ -94,5 +96,10 @@ class ProcessConnector(protocol.ProcessProtocol):
     def callRemote(self, command, **kwargs):
         return self.protocol.callRemote(command, **kwargs)
 
-    def setLogStream(self, log_stream):
-        self.log_stream = log_stream
+    def setLogBase(self, logBase):
+        self.logBase = logBase
+        if logBase:
+            self.stdoutLog = logging.getLogger(logBase + '.stdout')
+            self.stderrLog = logging.getLogger(logBase + '.stderr')
+        else:
+            self.stdoutLog = self.stderrLog = None
