@@ -82,7 +82,7 @@ class LauncherService(MultiService):
                 task.job_uuid.short, task.task_name)
 
         logBase = 'rmake.jobs.%s.tasks.%s' % (task.job_uuid, task.task_uuid)
-        taskLogger, taskRelay = createLogRelay(logBase, self.bus,
+        taskLogger, taskRelay = createLogRelay('rmake.jobs', self.bus,
                 task.task_uuid)
         d = self.pool.launch(
                 task=task,

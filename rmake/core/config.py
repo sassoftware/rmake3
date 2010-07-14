@@ -32,6 +32,7 @@ class DispatcherConfig(BusConfig):
     listenAddress       = (CfgString, '::')
     listenPort          = (CfgInt, 9999)
     listenPath          = (CfgString, '/var/lib/rmake/socket')
+    dataDir             = (CfgPath, '/srv/rmake')
 
     # Ancilliary components
     proxyUrl            = (CfgString, 'http://LOCAL:7778/')

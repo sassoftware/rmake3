@@ -25,6 +25,7 @@ import os
 import random
 import stat
 from rmake.core import constants as core_const
+from rmake.core import file_store
 from rmake.core.database import CoreDB
 from rmake.core.support import DispatcherBusService, WorkerChecker
 from rmake.core.handler import getHandlerClass
@@ -72,6 +73,7 @@ class Dispatcher(MultiService, RPCServer):
 
         self.plugins.p.dispatcher.pre_setup(self)
         self._start_db()
+        self._start_filestore()
         self._start_bus()
         self._start_rpc()
         self.plugins.p.dispatcher.post_setup(self)
@@ -81,6 +83,10 @@ class Dispatcher(MultiService, RPCServer):
         d = self.pool.start()
         d.addErrback(logFailure, "Error connecting to database:")
         self.db = CoreDB(self.pool)
+
+    def _start_filestore(self):
+        self.fileStore = file_store.FileStore(self.cfg)
+        self.jobLogger = file_store.openJobLogger(self.fileStore)
 
     def _start_bus(self):
         self.bus = DispatcherBusService(self, self.cfg)
@@ -285,12 +291,11 @@ class Dispatcher(MultiService, RPCServer):
         del self.workers[jid]
 
     def workerLogging(self, records, task_uuid):
-        info = self.tasks.get(task_uuid)
-        if info is None:
+        if task_uuid not in self.tasks:
             log.warning("Discarding %d log record(s) from errant task %s",
                     len(records), task_uuid.short)
             return
-        log.info("%d record(s) for task %s", len(records), task_uuid.short)
+        self.jobLogger.emitMany(records)
 
     ## Task assignment
 

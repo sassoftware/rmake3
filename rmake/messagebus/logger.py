@@ -35,7 +35,15 @@ class LogRelay(logging.Handler):
         self.last_send = 0
         self.delayed_call = None
 
+    def _formatException(self, ei):
+        return logging._defaultFormatter.formatException(ei)
+
     def emit(self, record):
+        # Don't send traceback objects over the wire if it can be helped.
+        if record.exc_info and not record.exc_text:
+            record.exc_text = self._formatException(record.exc_info)
+        record.exc_info = None
+
         self.buffered.append(record)
         self.maybe_flush()
 
@@ -83,5 +91,5 @@ def createLogRelay(logBase, client, task_uuid, propagate=False):
     relay = LogRelay(client, task_uuid)
     logger = logging.getLogger(logBase)
     logger.propagate = propagate
-    logger.addHandler(relay)
+    logger.handlers = [relay]
     return logger, relay
