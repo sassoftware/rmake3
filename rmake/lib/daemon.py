@@ -22,10 +22,10 @@ import sys
 import time
 from conary.conarycfg import ConfigFile, CfgBool
 from conary.lib import options
-from twisted.application.service import MultiService
 
 from rmake.lib import pluginlib
 from rmake.lib import logger as rmake_log
+from rmake.lib.twisted_extras import deferred_service
 
 log = logging.getLogger(__name__)
 
@@ -317,27 +317,38 @@ class Daemon(options.MainHandler):
         return self.configClass()
 
 
-class DaemonService(Daemon, MultiService):
+class DaemonService(Daemon, deferred_service.MultiService):
     """
     Daemon implementation that acts as a Twisted multi-service.
     """
 
     def __init__(self):
         Daemon.__init__(self)
-        MultiService.__init__(self)
+        deferred_service.MultiService.__init__(self)
+        from twisted.internet import reactor
+        self.reactor = reactor
 
     def setup(self, **kwargs):
         super(DaemonService, self).setup(**kwargs)
         self.privilegedStartService()
 
+    def _runPostStart(self):
+        d = self.postStartService()
+        def start_success(dummy):
+            log.debug("Daemon is running")
+        def on_error(reason):
+            rmake_log.logFailure(reason, "Daemon startup failed:")
+            self.reactor.stop()
+        d.addCallbacks(start_success, on_error)
+
     def preFork(self):
-        from twisted.internet import reactor
         self.startService()
-        reactor.addSystemEventTrigger('before', 'shutdown', self.stopService)
+        self.reactor.addSystemEventTrigger('before', 'shutdown',
+                self.stopService)
 
     def doWork(self):
-        from twisted.internet import reactor
-        reactor.run()
+        self.reactor.callWhenRunning(self._runPostStart)
+        self.reactor.run()
 
 
 class LoggingMixin(Daemon):

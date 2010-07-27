@@ -63,6 +63,9 @@ class _BaseService(jclient.LinkClient):
         d.addErrback(lambda _: None)
         return defer.succeed(None)
 
+    def postStartService(self):
+        return self.deferUntilConnected()
+
     def messageReceived(self, message):
         pass
 

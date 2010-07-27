@@ -36,11 +36,11 @@ from rmake.lib import rpc_pickle
 from rmake.lib import uuid
 from rmake.lib.apirpc import RPCServer, expose
 from rmake.lib.logger import logFailure
+from rmake.lib.twisted_extras import deferred_service
 from rmake.lib.twisted_extras.firehose import FirehoseResource
 from rmake.lib.twisted_extras.ipv6 import TCP6Server
 from rmake.messagebus import message
 from twisted.application.internet import UNIXServer
-from twisted.application.service import MultiService
 from twisted.web.resource import Resource
 from twisted.web.server import Site
 
@@ -48,10 +48,10 @@ from twisted.web.server import Site
 log = logging.getLogger(__name__)
 
 
-class Dispatcher(MultiService, RPCServer):
+class Dispatcher(deferred_service.MultiService, RPCServer):
 
     def __init__(self, cfg, plugin_mgr, clock=None):
-        MultiService.__init__(self)
+        deferred_service.MultiService.__init__(self)
         RPCServer.__init__(self)
         self.cfg = cfg
 
@@ -80,8 +80,7 @@ class Dispatcher(MultiService, RPCServer):
 
     def _start_db(self):
         self.pool = dbpool.ConnectionPool(self.cfg.databaseUrl)
-        d = self.pool.start()
-        d.addErrback(logFailure, "Error connecting to database:")
+        self.pool.setServiceParent(self)
         self.db = CoreDB(self.pool)
 
     def _start_filestore(self):

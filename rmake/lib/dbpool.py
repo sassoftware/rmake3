@@ -15,6 +15,7 @@
 import logging
 from rmake.lib.ninamori.connection import ConnectString
 from rmake.lib.ninamori.types import Row, SQL
+from rmake.lib.twisted_extras import deferred_service
 from psycopg2 import extensions
 from rmake.lib.dbextensions import register_types
 from twisted.internet import defer
@@ -71,20 +72,8 @@ class Connection(txpostgres.Connection):
         d.addCallback(cb_connected)
         return d
 
-    def xasdf_runQuery(self, *args, **kwargs):
-        c = self.cursor()
-        d = c.execute(*args, **kwargs)
-        def cb_result(c):
-            if c.description:
-                fields = [x[0] for x in c.description]
-                return [Row(x, fields) for x in c.fetchall()]
-            else:
-                return c.fetchall()
-        d.addCallback(cb_result)
-        return d
 
-
-class ConnectionPool(object):
+class ConnectionPool(deferred_service.Service):
 
     min = 3
 
@@ -92,7 +81,7 @@ class ConnectionPool(object):
 
     def __init__(self, path, min=None):
         self.path = ConnectString.parse(path)
-        self.running = False
+        self.pool_running = False
         self.shutdownID = None
         self.cleanupTask = None
 
@@ -107,14 +96,21 @@ class ConnectionPool(object):
         from twisted.internet import reactor
         self.reactor = reactor
 
+    def postStartService(self):
+        return self.start()
+
+    def stopService(self):
+        deferred_service.Service.stopService(self)
+        self.close()
+
     # Pool control
 
     def start(self):
-        if self.running:
+        if self.pool_running:
             return
         self.shutdownID = self.reactor.addSystemEventTrigger('during',
                 'shutdown', self._finalClose)
-        self.running = True
+        self.pool_running = True
 
         d = self.rebalance()
         def cb_connected(result):
@@ -136,11 +132,11 @@ class ConnectionPool(object):
         self.shutdownID = None
         if self.cleanupTask:
             self.cleanupTask.stop()
-        self.running = False
+        self.pool_running = False
 
     def rebalance(self):
         dfrs = []
-        while len(self.connections) < self.min:
+        for x in range(self.min - len(self.connections)):
             dfrs.append(self._addOne())
 
         d = defer.DeferredList(dfrs, fireOnOneErrback=True, consumeErrors=True)
