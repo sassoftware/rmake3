@@ -74,8 +74,8 @@ class TestHandler(handler.JobHandler):
 
         # Collect results and move to the reduce state when both finish.
         def cb_gather(tasks):
-            self.a_result = tasks[0].task_data.thaw().out
-            self.b_result = tasks[1].task_data.thaw().out
+            self.a_result = tasks[0].task_data.getObject().out
+            self.b_result = tasks[1].task_data.getObject().out
             return 'reduce'
         return self.gatherTasks([a, b], cb_gather)
 
@@ -88,7 +88,7 @@ class TestHandler(handler.JobHandler):
                 ReduceData(params, self.a_result, self.b_result))
         def cb_gather(results):
             task, = results
-            result = task.task_data.thaw().out
+            result = task.task_data.getObject().out
             self.job.data = types.FrozenObject.fromObject(result)
             self.setStatus(200, "Done! pi = %s...%s" % (result[:7],
                 result[-5:]))

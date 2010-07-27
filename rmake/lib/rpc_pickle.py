@@ -13,10 +13,10 @@
 #
 
 
-import cPickle
 import logging
 import rmake.errors
 from rmake.lib import apirpc
+from rmake.lib import chutney
 from rmake.lib import logger
 from rmake.lib import rpcproxy
 from twisted.internet import defer
@@ -38,13 +38,13 @@ class PickleServerProxy(rpcproxy.GenericServerProxy):
             raise result
 
     def _marshal_call(self, method, args, kwargs):
-        request = cPickle.dumps((method, args, kwargs), 2)
+        request = chutney.dumps((method, args, kwargs))
         return self._transport.request(self._address, self.contentType,
                 request, self._filter_response)
 
     @staticmethod
     def _filter_response(response):
-        return cPickle.loads(response.read())
+        return chutney.loads(response.read())
 
 
 class PickleRPCResource(Resource):
@@ -59,7 +59,7 @@ class PickleRPCResource(Resource):
         callData = self._getCallData(request)
 
         def call_func():
-            funcName, args, kwargs = cPickle.loads(request.content.read())
+            funcName, args, kwargs = chutney.load(request.content)
             return self.methodstore._callMethod(funcName, callData, args,
                     kwargs)
         d = defer.maybeDeferred(call_func)
@@ -77,7 +77,7 @@ class PickleRPCResource(Resource):
 
         @d.addCallback
         def do_render(result):
-            request.write(cPickle.dumps(result, 2))
+            request.write(chutney.dumps(result))
             request.finish()
 
         @d.addErrback

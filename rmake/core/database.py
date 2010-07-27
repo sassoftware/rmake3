@@ -13,8 +13,7 @@
 #
 
 
-from rmake.core.types import (FrozenRmakeJob, RmakeTask, JobStatus, JobTimes,
-        FrozenObject)
+from rmake.core import types
 from rmake.lib.ninamori.types import SQL
 from rmake.lib.uuid import UUID
 
@@ -67,7 +66,7 @@ class CoreDB(object):
             """, (job.job_uuid, job.job_type, job.owner,
                 job.status.code, job.status.text, job.status.detail,
                 job.times.expires_after,
-                FrozenObject.fromObject(job.data), frozen_handler,
+                types.FrozenObject.fromObject(job.data), frozen_handler,
                 ))
         d.addCallback(_oneJob)
         return d
@@ -85,7 +84,7 @@ class CoreDB(object):
             stmt += SQL(", frozen_handler = %s", frozen_handler)
 
         stmt += SQL(" WHERE job_uuid = %s", job.job_uuid)
-        if job.times.ticks != JobTimes.TICK_OVERRIDE:
+        if job.times.ticks != types.JobTimes.TICK_OVERRIDE:
             stmt += SQL(" AND time_ticks < %s", job.times.ticks)
         stmt += SQL(" RETURNING jobs.jobs.*")
 
@@ -122,7 +121,7 @@ class CoreDB(object):
             stmt += SQL(", task_data = %s", task.task_data)
 
         stmt += SQL(" WHERE task_uuid = %s", task.task_uuid)
-        if task.times.ticks != JobTimes.TICK_OVERRIDE:
+        if task.times.ticks != types.JobTimes.TICK_OVERRIDE:
             stmt += SQL(" AND time_ticks < %s", task.times.ticks)
         stmt += SQL(" RETURNING jobs.tasks.*")
 
@@ -132,14 +131,21 @@ class CoreDB(object):
 
 
 def _popStatus(kwargs):
-    return JobStatus(kwargs.pop('status_code'), kwargs.pop('status_text'),
-            kwargs.pop('status_detail'))
+    return types.FrozenJobStatus(
+            kwargs.pop('status_code'),
+            kwargs.pop('status_text'),
+            kwargs.pop('status_detail'),
+            )
 
 
 def _popTimes(kwargs):
-    return JobTimes(kwargs.pop('time_started'), kwargs.pop('time_updated'),
-            kwargs.pop('time_finished'), kwargs.pop('expires_after', None),
-            kwargs.pop('time_ticks', None))
+    return types.FrozenJobTimes(
+            kwargs.pop('time_started'),
+            kwargs.pop('time_updated'),
+            kwargs.pop('time_finished'),
+            kwargs.pop('expires_after', None),
+            kwargs.pop('time_ticks', None),
+            )
 
 
 def _castUUIDS(raw_uuids):
@@ -157,9 +163,9 @@ def _oneJob(rows):
     kwargs = dict(rows[0])
     kwargs['status'] = _popStatus(kwargs)
     kwargs['times'] = _popTimes(kwargs)
-    kwargs['data'] = FrozenObject(str(kwargs.pop('frozen_data')))
+    kwargs['data'] = types.FrozenObject(str(kwargs.pop('frozen_data')))
     kwargs.pop('frozen_handler', None)
-    return FrozenRmakeJob(**kwargs)
+    return types.FrozenRmakeJob(**kwargs)
 
 
 def _oneTask(rows):
@@ -168,6 +174,6 @@ def _oneTask(rows):
     kwargs = dict(rows[0])
     kwargs['status'] = _popStatus(kwargs)
     kwargs['times'] = _popTimes(kwargs)
-    kwargs['task_data'] = FrozenObject(str(kwargs['task_data']))
-    return RmakeTask(**kwargs)
+    kwargs['task_data'] = types.FrozenObject(str(kwargs['task_data']))
+    return types.FrozenRmakeTask(**kwargs)
 

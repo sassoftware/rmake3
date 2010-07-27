@@ -13,9 +13,9 @@
 #
 
 import copy
-import cPickle
 import inspect
 import sys
+from rmake.lib import chutney
 from rmake.lib import uuid
 from rmake.lib.ninamori.types import namedtuple
 
@@ -45,6 +45,9 @@ def freezify(cls):
     # Stash forward and backward type references.
     cls._frozenType = frozenType
     frozenType._thawedType = cls
+
+    # Frozen types are always safe to unpickle.
+    chutney.register(frozenType, _force=True)
 
     return frozenType
 
@@ -130,10 +133,12 @@ class _Thawable(object):
 def slottype(name, attrs):
     attrs = attrs.replace(',', ' ').split()
     module = sys._getframe(1).f_globals.get('__name__', '__main__')
-    return type(name, (SlotCompare,), {
+    cls = type(name, (SlotCompare,), {
         '__slots__': attrs,
         '__module__': module,
         })
+    chutney.register(cls, _force=True)
+    return cls
 
 
 class RmakeJob(SlotCompare):
@@ -224,26 +229,72 @@ FrozenJobTimes = freezify(JobTimes)
 
 class TaskCapability(namedtuple('TaskCapability', 'taskType')):
     pass
+chutney.register(TaskCapability)
+
+
+class ThawedObject(namedtuple('ThawedObject', 'object')):
+    """Encapsulated object, which can be frozen into a FrozenObject."""
+
+    # Thawed API
+
+    @classmethod
+    def fromObject(cls, obj):
+        return cls(obj)
+
+    def getObject(self):
+        return self.object
+
+    # Frozen API
+
+    def asBuffer(self):
+        return self.freeze().asBuffer()
+
+    # Translation API
+
+    def freeze(self):
+        return FrozenObject.fromObject(self.object)
+
+    def thaw(self):
+        return self
+
+chutney.register(ThawedObject)
 
 
 class FrozenObject(namedtuple('FrozenObject', 'data')):
     """Encapsulated pickled object."""
 
+    # Thawed API
+
     @classmethod
     def fromObject(cls, obj):
-        return cls('pickle:' + cPickle.dumps(obj, 2))
+        return cls('pickle:' + chutney.dumps(obj))
 
-    def thaw(self):
+    def getObject(self):
+        return self._thaw()
+
+    def _thaw(self):
         idx = self.data.index(':')
         kind = self.data[:idx]
         if kind == 'pickle':
-            return cPickle.loads(self.data[idx+1:])
+            return chutney.loads(self.data[idx+1:])
         else:
             raise RuntimeError("Unrecognized serialization format %s" % kind)
+
+    # Frozen API
 
     def asBuffer(self):
         return buffer(self.data)
 
+    # Translation API
+
+    def freeze(self):
+        return self
+
+    def thaw(self):
+        return ThawedObject(self._thaw())
+
     def __deepcopy__(self, memo=None):
         return self
     __copy__ = __deepcopy__
+
+chutney.register(FrozenObject)

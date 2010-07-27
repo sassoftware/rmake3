@@ -50,7 +50,6 @@ def getHandlerClass(jobType):
 
 class JobHandler(object):
     __slots__ = ('dispatcher', 'job', 'state', 'tasks', 'clock')
-    _save = ('state',)
 
     jobType = None
     jobVersion = 1
@@ -87,7 +86,7 @@ class JobHandler(object):
         # Wait for the job status to be updated successfully before moving to
         # the next state.
         log.debug("Job %s changing state to %s", self.job.job_uuid, state)
-        d = self.dispatcher.updateJob(self.job, frozen_handler=self.freeze())
+        d = self.dispatcher.updateJob(self.job)
         d.addCallback(self._runState)
         def eb_failure(reason):
             # Try to fail a job; if it suceeds then change state to 'done'
@@ -241,24 +240,8 @@ class JobHandler(object):
 
     ## Freezer machinery
 
-    @classmethod
-    def _getVersion(cls):
-        return (JOB_STATE_VERSION, cls.jobVersion)
-
-    def freeze(self):
-        state_dict = {}
-        NOT_SET = object()
-        for cls in type(self).mro():
-            slots = cls.__dict__.get('_save', ())
-            for slot in sorted(slots):
-                value = getattr(self, slot, NOT_SET)
-                if value is not NOT_SET:
-                    state_dict[slot] = value
-        data = (self._getVersion(), state_dict)
-        return FrozenObject.fromObject(data)
-
     def getData(self):
-        return self.job.data.thaw()
+        return self.job.data.getObject()
 
     def setData(self, obj):
         if not isinstance(obj, FrozenObject):

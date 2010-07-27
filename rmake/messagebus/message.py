@@ -11,10 +11,10 @@
 # or fitness for a particular purpose. See the Common Public License for
 # full details.
 
-import cPickle
 import logging
 from jabberlink import message as jmessage
 
+from rmake.lib import chutney
 from rmake.messagebus.common import NS_RMAKE
 
 log = logging.getLogger(__name__)
@@ -74,7 +74,7 @@ class Message(object):
         if self.payload.__dict__:
             headers['content-type'] = 'application/python-pickle'
             headers['rmake-type'] = self.messageType
-            payload = cPickle.dumps(self.payload, 2)
+            payload = chutney.dumps(self.payload)
         else:
             payload = ''
         return jmessage.Message(NS_RMAKE, payload, headers)
@@ -95,7 +95,7 @@ class Message(object):
         else:
             if payloadType == 'application/python-pickle':
                 try:
-                    msg.payload = cPickle.loads(jmsg.payload)
+                    msg.payload = chutney.loads(jmsg.payload)
                 except:
                     log.warning("Failed to unpickle message from %s:", sender,
                             exc_info=1)
@@ -119,6 +119,7 @@ class Message(object):
 
 class MessagePayload(object):
     """Dummy object used as an attribute store for messages."""
+chutney.register(MessagePayload)
 
 
 class MessageInfo(object):

@@ -95,5 +95,5 @@ class BuildTask(_BuilderTask):
     def run_builder(self, job):
         from rmake.lib import logger
         logger.setupLogging(consoleLevel=logger.logging.DEBUG)
-        buildJob = self.task.task_data.thaw()
+        buildJob = self.task.task_data.getObject()
         self.log.info("Building trove %s", buildJob.trove.getTroveString())

@@ -97,7 +97,7 @@ class TaskHandler(object):
 
     # Helper methods
     def getData(self):
-        return self.task.task_data.thaw()
+        return self.task.task_data.getObject()
 
     def setData(self, obj):
         self.task.task_data = FrozenObject.fromObject(obj)

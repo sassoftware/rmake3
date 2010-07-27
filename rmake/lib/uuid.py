@@ -172,6 +172,10 @@ class UUID(long):
         return None, None, None, None, long(self), None
 
 
+from rmake.lib import chutney
+chutney.register(UUID)
+
+
 def _find_mac(command, args, hw_identifiers, get_index):
     import os
     for dir in ['', '/sbin/', '/usr/sbin']:

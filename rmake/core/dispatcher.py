@@ -138,6 +138,7 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
         @return: C{Deferred} fired with a reconstituted C{RmakeJob} upon
             completion.
         """
+        job = job.thaw()
         if not isinstance(job.data, FrozenObject):
             job.data = FrozenObject.fromObject(job.data)
         try:
@@ -153,7 +154,7 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
                 raise RmakeError("Invalid firehose session ID")
             self.firehose.subscribe(('job', str(job.job_uuid)), sid)
 
-        d = self.db.createJob(job, handler.freeze(), callbackInTrans)
+        d = self.db.createJob(job, None, callbackInTrans)
         @d.addCallback
         def post_create(newJob):
             log.info("Job %s of type '%s' started", newJob.job_uuid,
@@ -214,7 +215,7 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
             if not newJob:
                 # Superceded by another update
                 return None
-            self._publish(newJob, 'status', newJob.status)
+            self._publish(newJob, 'status', newJob.status.freeze())
             if newJob.status.final:
                 self.jobDone(newJob.job_uuid)
             return newJob
@@ -223,6 +224,7 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
     def createTask(self, task):
         d = self.db.createTask(task)
         def cb_post_create(newTask):
+            newTask = newTask.thaw()
             handler = self.jobs[newTask.job_uuid]
             self.tasks[newTask.task_uuid] = TaskInfo(newTask, handler)
             self.taskQueue.append(newTask)
@@ -345,7 +347,8 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
             return core_const.A_LATER
         else:
             # No worker can run this task.
-            self._failTask(task, "No workers are capable of running this task.")
+            self.clock.callLater(0, self._failTask, task,
+                    "No workers are capable of running this task.")
             return core_const.A_NEVER
 
     def _sendTask(self, task, jid):
@@ -359,7 +362,7 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
         worker.tasks[task.task_uuid] = info
 
         # Send the task to the worker node
-        msg = message.StartTask(task)
+        msg = message.StartTask(task.freeze())
         self.bus.sendTo(jid, msg)
 
     def _failTask(self, task, message):
