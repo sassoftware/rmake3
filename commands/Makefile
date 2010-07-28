@@ -30,9 +30,8 @@ generated_files = config.h chroothelper.h chroothelper
 
 all: chroothelper default-build
 	mkdir -p ../bin
-	install -m755 rmake-wrapper ../bin/rmake-wrapper
 	for f in $(bin_files) $(sbin_files); do \
-		ln -sf rmake-wrapper ../bin/$$f; \
+		ln -sf ../commands/rmake-wrapper ../bin/$$f; \
 	done
 
 config.h:

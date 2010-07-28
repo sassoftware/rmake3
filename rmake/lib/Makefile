@@ -15,6 +15,8 @@
 so_targets = osutil.so pycap.so
 install_files = $(wildcard *.py) $(so_targets)
 
+SUBDIRS = proc_pool twisted_extras
+
 
 all: $(so_targets) default-build
 
