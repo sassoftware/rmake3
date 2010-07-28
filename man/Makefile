@@ -23,7 +23,6 @@ all: default-build
 install: default-install
 	mkdir -p $(DESTDIR)$(mandir)/man{1,8}
 	install -m 644 rmake.1 $(DESTDIR)$(mandir)/man1/
-	install -m 644 rmake-server.8 rmake-node.8 $(DESTDIR)$(mandir)/man8/
 
 clean: default-clean
 
