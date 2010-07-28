@@ -18,7 +18,6 @@ class RmakeRecipe(CPackageRecipe):
         'libcap:devel',
         'm2crypto:python',
         'psycopg2:python',
-        'python-ctypes:python',
         'python:devel',
         'python-setuptools:python',
     ]
