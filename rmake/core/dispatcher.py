@@ -25,8 +25,8 @@ import os
 import random
 import stat
 from rmake.core import constants as core_const
+from rmake.core import database as coredb
 from rmake.core import file_store
-from rmake.core.database import CoreDB
 from rmake.core.support import DispatcherBusService, WorkerChecker
 from rmake.core.handler import getHandlerClass
 from rmake.core.types import TaskCapability, FrozenObject, JobTimes, JobStatus
@@ -79,9 +79,10 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
         self.plugins.p.dispatcher.post_setup(self)
 
     def _start_db(self):
+        coredb.populateDatabase(self.cfg.databaseUrl)
         self.pool = dbpool.ConnectionPool(self.cfg.databaseUrl)
         self.pool.setServiceParent(self)
-        self.db = CoreDB(self.pool)
+        self.db = coredb.CoreDB(self.pool)
 
     def _start_filestore(self):
         self.fileStore = file_store.FileStore(self.cfg)

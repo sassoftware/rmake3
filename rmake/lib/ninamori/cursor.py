@@ -50,7 +50,6 @@ class Cursor(object):
         """
         self._txn().ready()
         try:
-            # http://www.postgresql.org/docs/8.4/interactive/errcodes-appendix.html
             try:
                 return func(*args, **kwargs)
             except psycopg2.DatabaseError:
@@ -82,7 +81,7 @@ class Cursor(object):
                     % (command,), self._txn())
 
     # Protected pass-throughs for queries and inserts
-    def execute(self, statement, args=()):
+    def execute(self, statement, args=None):
         if isinstance(statement, SQL):
             assert not args
             statement, args = statement.statement, statement.args

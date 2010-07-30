@@ -1,8 +1,4 @@
-.*\.pyc$
-.*\.o$
-.*\.so$
-.*\.swp$
-.*\.orig$
+\.(py[co]|o|so|swp|swo|orig|rej)$
 
 ^bin/
 ^tmp/

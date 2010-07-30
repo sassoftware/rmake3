@@ -38,6 +38,7 @@ class InvalidTableError(DatabaseError):
 
 
 # SQL standard errors
+# http://www.postgresql.org/docs/8.4/interactive/errcodes-appendix.html
 
 class SQLError(DatabaseError):
     err_class = None
@@ -58,6 +59,22 @@ class UniqueViolationError(IntegrityError):
     err_code = '23505'
 class CheckViolationError(IntegrityError):
     err_code = '23514'
+
+## Class 42 - Syntax Error or Access Rule Violation
+
+class AccessViolationError(SQLError):
+    err_class = '42'
+    err_code = '42000'
+class SyntaxError(AccessViolationError):
+    err_code = '42601'
+class InsufficientPrivilegeError(AccessViolationError):
+    err_code = '42501'
+class UndefinedColumnError(AccessViolationError):
+    err_code = '42703'
+class UndefinedTableError(AccessViolationError):
+    err_code = '42P01'
+class DuplicateTableError(AccessViolationError):
+    err_code = '42P07'
 
 
 DATABASE_ERRORS = dict((x.err_code, x) for x in locals().values()

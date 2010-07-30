@@ -22,6 +22,7 @@ import sys
 import time
 from conary.conarycfg import ConfigFile, CfgBool
 from conary.lib import options
+from twisted.internet import error as twerror
 
 from rmake.lib import pluginlib
 from rmake.lib import logger as rmake_log
@@ -338,7 +339,10 @@ class DaemonService(Daemon, deferred_service.MultiService):
             log.debug("Daemon is running")
         def on_error(reason):
             rmake_log.logFailure(reason, "Daemon startup failed:")
-            self.reactor.stop()
+            try:
+                self.reactor.stop()
+            except twerror.ReactorNotRunning:
+                pass
         d.addCallbacks(start_success, on_error)
 
     def preFork(self):

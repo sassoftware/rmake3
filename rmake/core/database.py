@@ -13,9 +13,17 @@
 #
 
 
+import os
 from rmake.core import types
+from rmake.lib import ninamori
 from rmake.lib.ninamori.types import SQL
 from rmake.lib.uuid import UUID
+
+
+def populateDatabase(dburl):
+    db = ninamori.connect(dburl)
+    timeline = os.path.join(os.path.dirname(__file__), 'schema')
+    db.attach('rmake', timeline)
 
 
 class CoreDB(object):
@@ -176,4 +184,3 @@ def _oneTask(rows):
     kwargs['times'] = _popTimes(kwargs)
     kwargs['task_data'] = types.FrozenObject(str(kwargs['task_data']))
     return types.FrozenRmakeTask(**kwargs)
-

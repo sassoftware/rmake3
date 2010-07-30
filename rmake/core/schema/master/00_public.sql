@@ -1,13 +1,5 @@
 SET search_path = public, pg_catalog;
 
-
-CREATE TABLE database_metadata (
-    schema text,
-    name text,
-    value text
-);
-
-
 -- shorten_uuid
 --
 -- Returns the last 12 digits of a UUID.

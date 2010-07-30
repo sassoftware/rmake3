@@ -11,13 +11,17 @@
 # or fitness for a particular purpose. See the Common Public License for
 # full details.
 
+import logging
+
+from rmake.lib.ninamori import error
+from rmake.lib.ninamori import timeline
 from rmake.lib.ninamori.cursor import Cursor
-from rmake.lib.ninamori.decorators import helper, protected, readOnlyBlock, topLevel
+from rmake.lib.ninamori.decorators import protected, topLevel
 from rmake.lib.ninamori.error import TransactionError
-from rmake.lib.ninamori.schema.schema import SchemaVersion
-from rmake.lib.ninamori.schema.timeline import Timeline
 from rmake.lib.ninamori.transaction import Transaction
-from rmake.lib.ninamori.types import DependencyGraph, SQL
+from rmake.lib.ninamori.types import SQL
+
+log = logging.getLogger(__name__)
 
 
 class DatabaseConnection(object):
@@ -26,6 +30,7 @@ class DatabaseConnection(object):
             '_metadata', '_tables',
             )
     driver = None
+    meta_table = 'public.database_metadata'
 
     def __init__(self, conn):
         self._conn = conn
@@ -49,15 +54,8 @@ class DatabaseConnection(object):
         self._savepoint_counter = 0
 
         self._metadata = None
-        self._tables = None
 
     # Meta-information
-
-    @property
-    def tables(self):
-        if self._tables is None:
-            self.loadMeta()
-        return self._tables
 
     @property
     def metadata(self):
@@ -65,40 +63,43 @@ class DatabaseConnection(object):
             self.loadMeta()
         return self._metadata
 
-    @readOnlyBlock
-    def loadMeta(self, skipData=False):
-        """Load metadata and table listing from the database."""
-        self._loadMeta()
-        if not skipData:
-            self._loadMetaData()
+    def _makeMeta(self):
+        txn = self.begin()
+        try:
+            cu = txn.cursor()
+            cu.execute("""CREATE TABLE %s (
+                    schema text, name text, value text )"""
+                    % (self.meta_table))
+        except (error.InsufficientPrivilegeError, error.DuplicateTableError):
+            txn.rollback()
+        except:
+            txn.rollback()
+            raise
+        else:
+            txn.commit()
 
-    @helper
-    def _loadMetaData(self, cu):
+    def loadMeta(self):
+        """Load metadata from the database."""
         self._metadata = {}
-        if 'database_metadata' in self._tables:
-            cu.execute("SELECT schema, name, value FROM database_metadata")
-            for schema, name, value in cu:
-                schema = self._metadata.setdefault(schema, {})
-                if name == 'schema_version':
-                    try:
-                        value = SchemaVersion(value)
-                    except ValueError:
-                        continue
-                schema[name] = value
-
-    def _loadMeta(self):
-        raise NotImplementedError
+        txn = self.begin()
+        try:
+            try:
+                cu = txn.cursor()
+                cu.execute("SELECT schema, name, value FROM " + self.meta_table)
+                for schema, name, value in cu:
+                    schema = self._metadata.setdefault(schema, {})
+                    schema[name] = value
+            except error.UndefinedTableError:
+                pass
+        finally:
+            txn.rollback()
 
     @protected
     def saveMeta(self, cu, schemaName=None):
-        if self._metadata is None:
-            # The table list is probably missing too.
-            self.loadMeta()
-        if 'database_metadata' not in self._tables:
-            raise RuntimeError("Can't save metadata: "
-                    "table database_metadata not found")
+        """Save metadata to the database, creating the table if needed."""
+        self._makeMeta()
 
-        sql = SQL('DELETE FROM database_metadata')
+        sql = SQL("DELETE FROM " + self.meta_table)
         if schemaName:
             sql += SQL(' WHERE schema = %s', schemaName)
         cu.execute(sql)
@@ -107,56 +108,43 @@ class DatabaseConnection(object):
             if schemaName and schema != schemaName:
                 continue
             for key, value in meta.items():
-                if isinstance(value, SchemaVersion):
-                    value = value.asString()
-                cu.execute("""INSERT INTO database_metadata
-                        ( schema, name, value )
-                    VALUES ( %s, %s, %s )""", (schema, key, value))
+                cu.execute("INSERT INTO " + self.meta_table +
+                        " ( schema, name, value ) VALUES ( %s, %s, %s )",
+                        (schema, key, value))
 
     # Schema management
 
     @topLevel
-    def attach(self, cu, schemaName, path, version, allowMigrate=True):
-        if isinstance(version, basestring):
-            version = SchemaVersion(version)
-        timeline = Timeline(path)
-        schema = timeline.get(version)
+    def attach(self, cu, schemaName, timeLine, revision=None,
+            allowMigrate=True):
+        if isinstance(timeLine, basestring):
+            timeLine = timeline.Timeline(timeLine)
+        drev = timeLine.get(revision)
+        if drev is None:
+            raise RuntimeError("Tried to attach unknown revision %r" %
+                    (revision,))
 
-        # TODO: specific exceptions for schema version errors
         metadata = self.metadata.setdefault(schemaName, {})
         current = metadata.get('schema_version')
-        if current > version:
-            # Future schemas are always illegal (for now)
-            raise RuntimeError("Database schema %r is in the future"
-                    % (schemaName,))
-        if not allowMigrate:
-            if current is None:
-                raise RuntimeError("Database schema %r is not loaded"
-                    % (schemaName,))
-            elif current < version:
-                raise RuntimeError("Database schema %r is out of date"
-                    % (schemaName,))
-            assert current == version
-
-            # Everything is OK
+        if current == drev.rev:
+            # Up to date
+            log.debug("Attached schema %s revision %s", schemaName, drev.rev)
             return
-
-        assert current is None # migration not implemented yet
-
-        reflected = self.getSchema()
-        graph = DependencyGraph(schema.diff(reflected, newOnly=True))
-        for action in graph.iter_ordered():
-            cu.execute(action.asSQL())
-
-        # Reload table list so we can make sure the metatable was created.
-        self.loadMeta(skipData=True)
-
-        # Save metadata with new schema information.
-        metadata['schema_version'] = version
-        self.saveMeta(schemaName)
-
-    def getSchema(self):
-        raise NotImplementedError
+        elif current is None:
+            # Schema not loaded
+            log.info("Populating schema %s revision %s", schemaName, drev.rev)
+            drev.populate(cu)
+            metadata['schema_version'] = drev.rev
+            self.saveMeta(schemaName)
+        elif not allowMigrate:
+            raise RuntimeError("Database schema %r is at revision %r but "
+                    "revision %r is required." % (schemaName, current,
+                        drev.rev))
+        else:
+            # migration not implemented yet
+            log.info("Migrating schema %s from revision %s to revision %s",
+                    schemaName, current, drev.rev)
+            raise NotImplementedError
 
 
     # Transaction methods

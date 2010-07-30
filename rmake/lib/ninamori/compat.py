@@ -10,18 +10,9 @@
 # without any warranty; without even the implied warranty of merchantability
 # or fitness for a particular purpose. See the Common Public License for
 # full details.
+#
 
-import os
-from rmake.lib.ninamori.schema import parse_schema
-
-
-class Timeline(object):
-    def __init__(self, path):
-        self.path = path
-
-    def get(self, version):
-        vstr = version.asString()
-        path = os.path.join(self.path, vstr) + '.pys'
-        schema = parse_schema.parse(open(path))
-        schema.version = version
-        return schema
+try:
+    from hashlib import sha1
+except ImportError:
+    from sha import new as sha1
