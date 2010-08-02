@@ -14,7 +14,7 @@
 
 
 import logging
-import rmake.errors
+from rmake import errors
 from rmake.lib import apirpc
 from rmake.lib import chutney
 from rmake.lib import logger
@@ -67,12 +67,12 @@ class PickleRPCResource(Resource):
         def on_ok(result):
             return (True, result)
         def on_error(failure):
-            if failure.check(rmake.errors.RmakeError):
+            if failure.check(errors.RmakeError):
                 return (False, failure.value)
             else:
                 log.error("Unhandled exception in RPC method:\n%s",
                         failure.getTraceback())
-                return (False, rmake.errors.InternalServerError())
+                return (False, errors.InternalServerError())
         d.addCallbacks(on_ok, on_error)
 
         @d.addCallback

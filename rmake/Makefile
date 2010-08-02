@@ -15,9 +15,9 @@
 generated_files = constants.py
 install_files = $(wildcard *.py) $(generated_files)
 
-override DEST = $(sitedir)/rmake
+override DEST = $(rmakedir)
 
-SUBDIRS = build cmdline lib messagebus server worker
+SUBDIRS = build cmdline core lib messagebus server worker
 
 all: $(generated_files) default-build
 

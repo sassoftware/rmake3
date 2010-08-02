@@ -16,6 +16,7 @@ export VERSION=2.99.0
 
 # This can be overridden on the command line.
 export PYVER = $(shell python -c 'import sys; print sys.version[:3]')
+export PKGNAME = rmake
 
 # XVERSION can be overwritten by snapshot builds to force incompatible versions
 # NOTE: this affects the API version
@@ -28,8 +29,8 @@ export RMAKE_GROUP=rmake
 # These should not be the same as RMAKE_USER
 export CHROOT_USER=rmake-chroot
 export CHROOT_GROUP=rmake-chroot
-export CHROOT_RMAKE=/usr/share/rmake
-export CHROOT_SERVER=/rmake/worker/chroot/rootserver.py
+export CHROOT_RMAKE=/usr/share/$(PKGNAME)
+export CHROOT_SERVER=/$(PKGNAME)/worker/chroot/rootserver.py
 # used for making the ccs
 export DATE=$(shell date +'%Y_%m_%d_%H%M')
 export CCSVERSION=$(VERSION)_$(DATE)
@@ -42,12 +43,12 @@ export sbindir = $(prefix)/sbin
 export libdir = $(prefix)/$(lib)
 export libexecdir = $(prefix)/libexec
 export datadir = $(prefix)/share
-export plugindir = $(datadir)/rmake/plugins
+export plugindir = $(datadir)/$(PKGNAME)/plugins
 export mandir = $(datadir)/man
 export sitedir = $(libdir)/python$(PYVER)/site-packages
-export rmakedir = $(sitedir)/rmake
-export rmakelibdir = $(libdir)/rmake
-export rmakelibexecdir = $(libexecdir)/rmake
+export rmakedir = $(sitedir)/$(PKGNAME)
+export rmakelibdir = $(libdir)/$(PKGNAME)
+export rmakelibexecdir = $(libexecdir)/$(PKGNAME)
 export initdir = /etc/init.d
 export sysconfdir = /etc/sysconfig
 

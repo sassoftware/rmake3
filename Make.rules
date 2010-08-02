@@ -58,5 +58,7 @@ endif
 
 # NB: This only needs to be used at the top of an installed tree.
 compile-python:
+ifndef NO_COMPILE
 	$(PYTHON) -c 'import compileall; compileall.compile_dir("$(DESTDIR)$(DEST)", ddir="$(DEST)", quiet=1)'
 	$(PYTHON) -OO -c 'import compileall; compileall.compile_dir("$(DESTDIR)$(DEST)", ddir="$(DEST)", quiet=1)'
+endif

@@ -22,18 +22,21 @@ sbin_files = \
 	rmake-node \
 	gencert-rmake
 
+bin_targets = $(patsubst %,../bin/%,$(bin_files) $(sbin_files))
+
 libexec_files = chroothelper gen-cert.sh
 
 generated_files = config.h chroothelper.h chroothelper
 
 
-all: chroothelper default-build
+all: chroothelper default-build $(bin_targets)
 	mkdir -p ../bin
-	for f in $(bin_files) $(sbin_files); do \
-		ln -sf ../commands/rmake-wrapper ../bin/$$f; \
-	done
 
-config.h:
+
+$(bin_targets): ../bin/%: rmake-wrapper
+	ln -sfn ../commands/$< $@
+
+config.h: Makefile
 	if readelf -s /lib*/libcap.so | grep -q cap_set_file ; then \
 		echo '#define _HAVE_CAP_SET_FILE 1' > $@ ; \
 	else \

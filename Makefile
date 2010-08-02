@@ -13,13 +13,14 @@
 #
 
 SUBDIRS = commands extra man rmake
-#SUBDIRS = commands extra man rmake
 export CHANGESET = $(shell ./scripts/hg-version.sh)
 
 all: default-build
 clean: default-clean
 install: default-install
-
+	if [ "$(PKGNAME)" != "rmake" ]; then \
+		./scripts/rewrite_imports.py $(DESTDIR) $(PKGNAME); \
+	fi
 
 # Release instrumentation
 

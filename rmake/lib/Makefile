@@ -15,12 +15,15 @@
 so_targets = osutil.so pycap.so
 install_files = $(wildcard *.py) $(so_targets)
 
+LDFLAGS := $(LDFLAGS) -lcap
+
 SUBDIRS = proc_pool twisted_extras
 
 
 all: $(so_targets) default-build
 
 clean: default-clean
+	find ninamori -name \*.pyc -delete
 
 install: $(so_targets) default-install
 	cp -r ninamori $(DESTDIR)$(DEST)/
@@ -41,14 +44,12 @@ else
 endif
 
 
-.PHONY: -lcap
-
 # Source requirements (headers)
 pycapmodule.o osutil.o osutil_setproctitle.o: pycompat.h
 
 # Modules
 osutil.so: osutil_setproctitle.o
-pycap.so: -lcap
+pycap.so:
 
 
 include ../../Make.defs
