@@ -15,6 +15,7 @@
 
 import os
 import re
+import stat
 import sys
 
 IMPORT_RE = re.compile('^(\s*import\s+)rmake\s*($|[.,].*$)')
@@ -22,6 +23,7 @@ FROM_RE = re.compile('^(\s*from\s+)rmake([. ].*)$')
 
 
 def do_file(path, mod_base):
+    st = os.stat(path)
     fobj = open(path)
     n = 0
     first = None
@@ -52,6 +54,8 @@ def do_file(path, mod_base):
     fobj.close()
     fnew.close()
     os.rename(path + '.tmp', path)
+    os.utime(path, (st.st_atime, st.st_mtime))
+    os.chmod(path, stat.S_IMODE(st.st_mode))
 
 
 def main():
