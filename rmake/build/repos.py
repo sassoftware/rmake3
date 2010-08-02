@@ -184,7 +184,10 @@ class MonitorProtocol(protocol.ProcessProtocol):
                 "Check the logfile for details: %s", self.name, msg,
                 self.logPath)
         from twisted.internet import reactor
-        reactor.stop()
+        try:
+            reactor.stop()
+        except tw_err.ReactorNotRunning:
+            pass
 
     outReceived = errReceived = writeLog
 
