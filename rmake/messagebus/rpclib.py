@@ -3,7 +3,7 @@
 #
 
 import sys
-from rmake.messagebus import messages
+from rmake.messagebus import message_types
 
 from rmake.lib import apirpc
 from rmake.lib import rpclib
@@ -25,9 +25,9 @@ class MessageBusXMLRPCResponseHandler(rpclib.XMLRPCResponseHandler):
         isOk, response = response
 
         if isOk:
-            msg = messages.MethodResponse()
+            msg = message_types.MethodResponse()
         else:
-            msg = messages.MethodError()
+            msg = message_types.MethodError()
         msg.set(self.request, response)
         return msg
 

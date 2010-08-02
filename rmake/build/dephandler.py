@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2006-2008, 2010 rPath, Inc.
+# Copyright (c) 2010 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -21,15 +21,14 @@ import traceback
 
 from conary.deps import deps
 from conary.lib import graph
+from conary.trove import Trove
 from conary import display
-from conary import trove
 from conary import versions
 
 from rmake import errors
 from rmake import failure
 from rmake.build.buildstate import AbstractBuildState
 
-from rmake.lib.apiutils import freeze,thaw,register
 from rmake.lib import flavorutil
 
 FAILURE_REASON_FAILED = 0
@@ -65,23 +64,6 @@ class ResolveJob(object):
         # only important when cross compiling for your current arch.
         return self.crossTroves
 
-    def __freeze__(self):
-        d = dict(trove=freeze('BuildTrove', self.trove),
-                 buildCfg=freeze('BuildConfiguration', self.buildCfg),
-                 builtTroves=freeze('troveTupleList', self.builtTroves),
-                 crossTroves=freeze('troveTupleList', self.crossTroves),
-                 inCycle=self.inCycle)
-        return d
-
-    @classmethod
-    def __thaw__(class_, d):
-        self = class_(**d)
-        self.trove = thaw('BuildTrove', self.trove)
-        self.buildCfg = thaw('BuildConfiguration', self.buildCfg)
-        self.builtTroves = thaw('troveTupleList', self.builtTroves)
-        self.crossTroves = thaw('troveTupleList', self.crossTroves)
-        return self
-register(ResolveJob)
 
 class DependencyGraph(graph.DirectedGraph):
     # FIXME: remove with next release of conary
@@ -129,7 +111,7 @@ class DependencyBasedBuildState(AbstractBuildState):
         are buildable and also, there dependency relationships.
     """
 
-    def __init__(self, sourceTroves, specialTroves, logger):
+    def __init__(self, sourceTroves, logger):
         self.logger = logger
         self.trovesByPackage = {}
         self.buildReqTroves = {}
@@ -142,7 +124,7 @@ class DependencyBasedBuildState(AbstractBuildState):
         self.disallowed = set()
         self.hasPrimaryTroves = False
 
-        AbstractBuildState.__init__(self, sourceTroves + specialTroves)
+        AbstractBuildState.__init__(self, sourceTroves)
         self.addSourceTrovesToGraph(sourceTroves)
 
 
@@ -421,15 +403,10 @@ class DependencyHandler(object):
     """
         Updates what troves are buildable based on dependency information.
     """
-    def __init__(self, statusLog, logger, buildTroves, specialTroves,
-            logDir=None, dumbMode=False):
-        self.depState = DependencyBasedBuildState(buildTroves, specialTroves,
-                                                  logger)
+    def __init__(self, statusLog, logger, buildTroves, dumbMode=False):
+        self.depState = DependencyBasedBuildState(buildTroves, logger)
         self.logger = logger
-        self.logDir = logDir
         self.dumbMode = dumbMode
-        self.specialTroves = specialTroves
-        self.inactiveSpecial = list(specialTroves)
         self.graphCount = 0
         self._resolving = {}
         self.priorities = []
@@ -441,14 +418,14 @@ class DependencyHandler(object):
         self._prebuiltBinaries = set()
         self._hasPrimaryTroves = self.depState.hasPrimaryTroves
 
-        statusLog.subscribe(statusLog.TROVE_BUILT, self.troveBuilt)
-        statusLog.subscribe(statusLog.TROVE_PREPARED, self.trovePrepared)
-        statusLog.subscribe(statusLog.TROVE_DUPLICATE, self.troveDuplicate)
-        statusLog.subscribe(statusLog.TROVE_BUILDING, self.troveBuilding)
-        statusLog.subscribe(statusLog.TROVE_FAILED, self.troveFailed)
-        statusLog.subscribe(statusLog.TROVE_RESOLVED,
+        statusLog.addObserver(statusLog.TROVE_BUILT, self.troveBuilt)
+        statusLog.addObserver(statusLog.TROVE_PREPARED, self.trovePrepared)
+        statusLog.addObserver(statusLog.TROVE_DUPLICATE, self.troveDuplicate)
+        statusLog.addObserver(statusLog.TROVE_BUILDING, self.troveBuilding)
+        statusLog.addObserver(statusLog.TROVE_FAILED, self.troveFailed)
+        statusLog.addObserver(statusLog.TROVE_RESOLVED,
                             self.resolutionComplete)
-        statusLog.subscribe(statusLog.TROVE_STATE_UPDATED,
+        statusLog.addObserver(statusLog.TROVE_STATE_UPDATED,
                             self.troveStateUpdated)
 
     def troveStateUpdated(self, trove, state, status):
@@ -457,23 +434,15 @@ class DependencyHandler(object):
     def hasBuildableTroves(self):
         return self.depState.hasBuildableTroves()
 
-    def hasSpecialTroves(self):
-        return bool(self.inactiveSpecial)
-
-    def popSpecialTrove(self):
-        return self.inactiveSpecial.pop()
-
     def getBuildReqTroves(self, trove):
         return self.depState.getBuildReqTroves(trove)
 
     def troveFailed(self, trove, *args):
         publisher = trove.getPublisher()
-        publisher.unsubscribe(publisher.TROVE_FAILED, self.troveFailed)
-        publisher.cork()
+        publisher.delObserver(publisher.TROVE_FAILED, self.troveFailed)
         self._delayed.pop(trove, False)
         self._troveFailed(trove)
-        publisher.subscribe(publisher.TROVE_FAILED, self.troveFailed)
-        publisher.uncork()
+        publisher.addObserver(publisher.TROVE_FAILED, self.troveFailed)
 
     def _troveFailed(self, trove):
         depState = self.depState
@@ -1042,10 +1011,10 @@ class DependencyHandler(object):
 
 
     def _logDifferenceInPrebuiltReqs(self, trv, buildReqTups, preBuiltReqs):
-        existsTrv = trove.Trove('@update',  
+        existsTrv = Trove('@update',  
                                versions.NewVersion(),
                                deps.Flavor(), None)
-        availableTrv = trove.Trove('@update', 
+        availableTrv = Trove('@update', 
                                    versions.NewVersion(), 
                                    deps.Flavor(), None)
         for troveNVF in preBuiltReqs:

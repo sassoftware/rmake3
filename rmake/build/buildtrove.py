@@ -1,125 +1,107 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2006-2010 rPath, Inc.
 #
-import sys
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
+#
+
+
 import time
 
 from conary.build import recipe
 from conary.conaryclient import cmdline
 from conary.deps import deps
 from conary.repository import changeset
-from conary import trove
 
 from rmake import failure
-from rmake.build import publisher
-from rmake.build import trovesettings
-from rmake.lib import apiutils
-from rmake.lib.apiutils import freeze, thaw
 from rmake.lib import flavorutil
-
-troveStates = {
-    'TROVE_STATE_INIT'        : 0,
-    'TROVE_STATE_FAILED'      : 1,
-    'TROVE_STATE_RESOLVING'   : 2,
-    'TROVE_STATE_BUILDABLE'   : 3,
-    'TROVE_STATE_WAITING'     : 4,
-    'TROVE_STATE_PREPARING'   : 5,
-    'TROVE_STATE_BUILDING'    : 6,
-    'TROVE_STATE_BUILT'       : 7,
-    'TROVE_STATE_UNBUILDABLE' : 8,
-    'TROVE_STATE_PREBUILT'    : 9,
-    'TROVE_STATE_DUPLICATE'   : 10,
-    'TROVE_STATE_PREPARED'    : 11,
-}
-
-recipeTypes = {
-    'RECIPE_TYPE_UNKNOWN'      : 0,
-    'RECIPE_TYPE_PACKAGE'      : 1,
-    'RECIPE_TYPE_FILESET'      : 2,
-    'RECIPE_TYPE_GROUP'        : 3,
-    'RECIPE_TYPE_INFO'         : 4,
-    'RECIPE_TYPE_REDIRECT'     : 5,
-}
-
-buildTypes = {
-    'TROVE_BUILD_TYPE_NORMAL'        : 0,
-    'TROVE_BUILD_TYPE_PREP'          : 1,
-    'TROVE_BUILD_TYPE_SPECIAL'       : 2,
-}
+from rmake.lib.ninamori.types import constants
 
 
-# assign troveStates to this module's dict so that they can be referenced with
-# module 'getattribute' notation (eg; buildtrove.TROVE_STATE_INIT)
-sys.modules[__name__].__dict__.update(troveStates)
-sys.modules[__name__].__dict__.update(recipeTypes)
-sys.modules[__name__].__dict__.update(buildTypes)
+TroveState = constants('TroveState',
+        'INIT '         # = 0
+        'FAILED '       # = 1
+        'RESOLVING '    # = 2
+        'BUILDABLE '    # = 3
+        'WAITING '      # = 4
+        'PREPARING '    # = 5
+        'BUILDING '     # = 6
+        'BUILT '        # = 7
+        'UNBUILDABLE '  # = 8
+        'PREBUILT '     # = 9
+        'DUPLICATE '    # = 10
+        'PREPARED '     # = 11
+        )
 
-stateNames = dict([(x[1], x[0].rsplit('_', 1)[-1].capitalize()) \
-                   for x in troveStates.iteritems()])
-recipeTypeNames = dict([(x[1], x[0].rsplit('_', 1)[-1].capitalize()) \
-                       for x in recipeTypes.iteritems()])
+
+RecipeType = constants('RecipeType',
+        'UNKNOWN '      # = 0
+        'PACKAGE '      # = 1
+        'FILESET '      # = 2
+        'GROUP '        # = 3
+        'INFO '         # = 4
+        'REDIRECT '     # = 5
+        )
 
 
+BuildType = constants('BuildType',
+        'NORMAL '       # = 0
+        'PREP '         # = 1
+        'SPECIAL '      # = 2 (DEPRECATED)
+        )
+
+
+stateNames = dict([(val, str(name).capitalize())
+    for (val, name) in TroveState.by_value.items()])
 stateNames.update({
-    TROVE_STATE_INIT      : 'Initialized',
-    TROVE_STATE_PREPARING : 'Creating Chroot',
-    TROVE_STATE_WAITING   : 'Queued',
+    TroveState.INIT: 'Initialized',
+    TroveState.PREPARING: 'Creating Chroot',
+    TroveState.WAITING: 'Queued',
 })
 
-_troveClassesByType = {}
-def getClassForTroveType(troveType):
-    return _troveClassesByType[troveType]
-
-def _getStateName(state):
-    return stateNames[state]
-
-def _getRecipeTypeName(recipeType):
-    return recipeTypeNames[recipeType]
 
 def getRecipeType(recipeClass):
     if recipe.isPackageRecipe(recipeClass):
-        return RECIPE_TYPE_PACKAGE
+        return RecipeType.PACKAGE
     if recipe.isGroupRecipe(recipeClass):
-        return RECIPE_TYPE_GROUP
+        return RecipeType.GROUP
     if recipe.isInfoRecipe(recipeClass):
-        return RECIPE_TYPE_INFO
+        return RecipeType.INFO
     if recipe.isRedirectRecipe(recipeClass):
-        return RECIPE_TYPE_REDIRECT
+        return RecipeType.REDIRECT
     if recipe.isFileSetRecipe(recipeClass):
-        return RECIPE_TYPE_FILESET
-    return RECIPE_TYPE_UNKNOWN
+        return RecipeType.FILESET
+    return RecipeType.UNKNOWN
 
-TROVE_STATE_LIST = sorted(troveStates.values())
-
-class _BuildTroveRegister(type):
-    def __init__(class_, *args, **kw):
-        type.__init__(class_, *args, **kw)
-        _troveClassesByType[class_.troveType] = class_
-        apiutils.register_freezable_classmap('BuildTrove', class_)
 
 class _AbstractBuildTrove(object):
     """
         Base class for the trove object.
     """
-    __metaclass__ = _BuildTroveRegister
 
-    troveType = 'build'
-    settingsClass = trovesettings.TroveSettings
-
-
-    def __init__(self, jobId, name, version, flavor,
-                 state=TROVE_STATE_INIT, status='',
+    def __init__(self, jobUUID, name, version, flavor,
+                 state=TroveState.INIT, status='',
                  failureReason=None, logPath='', start=0, finish=0,
-                 pid=0, recipeType=RECIPE_TYPE_PACKAGE,
+                 pid=0, recipeType=RecipeType.PACKAGE,
                  chrootHost='', chrootPath='', 
                  preBuiltRequirements=None, preBuiltBinaries=None,
                  context='', flavorList=None, 
-                 buildType=TROVE_BUILD_TYPE_NORMAL):
-        self.jobId = jobId
+                 buildType=BuildType.NORMAL):
+        # These five fields uniquely identify the build trove.
+        self.jobUUID = jobUUID
         self.name = name
         self.version = version
         self.flavor = flavor
+        self.context = context
         assert(isinstance(flavor, deps.Flavor))
+
         self.buildRequirements = set()
         self.delayedRequirements = set()
         self.crossRequirements = set()
@@ -146,9 +128,7 @@ class _AbstractBuildTrove(object):
         self.preBuiltLog = ''
 
         self.isPrimary = False
-        self.context = context
         self.cfg = None
-        self.settings = self.settingsClass()
         if flavorList is None:
             self.flavorList = [flavor]
         else:
@@ -220,6 +200,10 @@ class _AbstractBuildTrove(object):
         else:
             return ''
 
+    def getTroveString(self, withContext=True):
+        return '%s=%s[%s]%s' % (self.name, self.version, self.flavor,
+                self.getContextStr())
+
     def setFlavor(self, flavor):
         self.flavor = flavor
         self.flavorList = [flavor]
@@ -243,7 +227,7 @@ class _AbstractBuildTrove(object):
         return self.state
 
     def isPrimaryFailure(self):
-        return self.state == TROVE_STATE_FAILED
+        return self.state == TroveState.FAILED
 
     def hasTargetArch(self):
         return flavorutil.hasTarget(self.flavor)
@@ -257,16 +241,16 @@ class _AbstractBuildTrove(object):
         return not isCrossTool
 
     def isFailed(self):
-        return self.state in (TROVE_STATE_FAILED, TROVE_STATE_UNBUILDABLE)
+        return self.state in (TroveState.FAILED, TroveState.UNBUILDABLE)
 
     def isPrebuilt(self):
-        return self.state == TROVE_STATE_PREBUILT
+        return self.state == TroveState.PREBUILT
 
     def isDuplicate(self):
-        return self.state == TROVE_STATE_DUPLICATE
+        return self.state == TroveState.DUPLICATE
 
     def isBuilt(self):
-        return self.state == TROVE_STATE_BUILT
+        return self.state == TroveState.BUILT
 
 
     def isFinished(self):
@@ -274,55 +258,52 @@ class _AbstractBuildTrove(object):
                 or self.isDuplicate() or self.isPrepared())
 
     def isPrepOnly(self):
-        return self.buildType == TROVE_BUILD_TYPE_PREP
-
-    def isSpecial(self):
-        return self.buildType == TROVE_BUILD_TYPE_SPECIAL
+        return self.buildType == BuildType.PREP
 
     def isPrepared(self):
-        return self.state == TROVE_STATE_PREPARED
+        return self.state == TroveState.PREPARED
 
     def isBuildable(self):
-        return self.state == TROVE_STATE_BUILDABLE
+        return self.state == TroveState.BUILDABLE
 
     def isResolving(self):
-        return self.state == TROVE_STATE_RESOLVING
+        return self.state == TroveState.RESOLVING
 
     def isBuilding(self):
-        return self.state == TROVE_STATE_BUILDING
+        return self.state == TroveState.BUILDING
 
     def isPreparing(self):
-        return self.state == TROVE_STATE_PREPARING
+        return self.state == TroveState.PREPARING
 
     def isWaiting(self):
-        return self.state == TROVE_STATE_WAITING
+        return self.state == TroveState.WAITING
 
     def isStarted(self):
         return (not self.isFinished()
-                and not self.state == TROVE_STATE_INIT)
+                and not self.state == TroveState.INIT)
 
     def isUnbuilt(self):
-        return self.state in (TROVE_STATE_INIT, TROVE_STATE_BUILDABLE,
-                              TROVE_STATE_WAITING, TROVE_STATE_RESOLVING,
-                              TROVE_STATE_PREPARING)
+        return self.state in (TroveState.INIT, TroveState.BUILDABLE,
+                              TroveState.WAITING, TroveState.RESOLVING,
+                              TroveState.PREPARING)
 
     def needsBuildreqs(self):
-        return self.state in (TROVE_STATE_INIT, TROVE_STATE_PREBUILT)
+        return self.state in (TroveState.INIT, TroveState.PREBUILT)
 
     def isPackageRecipe(self):
-        return self.recipeType == RECIPE_TYPE_PACKAGE
+        return self.recipeType == RecipeType.PACKAGE
 
     def isInfoRecipe(self):
-        return self.recipeType == RECIPE_TYPE_INFO
+        return self.recipeType == RecipeType.INFO
 
     def isGroupRecipe(self):
-        return self.recipeType == RECIPE_TYPE_GROUP
+        return self.recipeType == RecipeType.GROUP
 
     def isFilesetRecipe(self):
-        return self.recipeType == RECIPE_TYPE_FILESET
+        return self.recipeType == RecipeType.FILESET
 
     def isRedirectRecipe(self):
-        return self.recipeType == RECIPE_TYPE_REDIRECT
+        return self.recipeType == RecipeType.REDIRECT
 
     def setBuiltTroves(self, troveList):
         self.builtTroves = set(troveList)
@@ -399,7 +380,7 @@ class _AbstractBuildTrove(object):
         self.failureReason = failureReason
 
     def getStateName(self):
-        return _getStateName(self.state)
+        return stateNames[self.state]
 
     def getChrootHost(self):
         return self.chrootHost
@@ -419,62 +400,8 @@ class _AbstractBuildTrove(object):
     def __cmp__(self, other):
         return cmp(self.getNameVersionFlavor(), other.getNameVersionFlavor())
 
-class _FreezableBuildTrove(_AbstractBuildTrove):
-    """
-        "Freezable" build trove can be frozen and unfrozen into a dictionary
-        of low-level objects in order to be sent via xmlrpc.
-    """
-    attrTypes = {'jobId'             : 'int',
-                 'name'              : 'str',
-                 'version'           : 'version',
-                 'flavor'            : 'flavor',
-                 'context'           : 'str',
-                 'crossRequirements' : 'set',
-                 'buildRequirements' : 'set',
-                 'builtTroves'       : 'troveTupleList',
-                 'failureReason'     : 'FailureReason',
-                 'packages'          : None,
-                 'pid'               : 'int',
-                 'state'             : 'int',
-                 'status'            : 'str',
-                 'logPath'           : 'str',
-                 'start'             : 'float',
-                 'finish'            : 'float',
-                 'chrootHost'        : 'str',
-                 'chrootPath'        : 'str',
-                 'loadedSpecsList'   : 'LoadSpecsList',
-                 'flavorList'        : 'flavorList',
-                 'buildType'         : 'int',
-                 'settings'          : 'TroveSettings',
-                 }
 
-    def __freeze__(self):
-        d = {}
-        for attr, attrType in self.attrTypes.iteritems():
-            d[attr] = freeze(attrType, getattr(self, attr))
-        d['packages'] = list(d['packages'])
-        if self.jobId is None:
-            d['jobId'] = ''
-        return d
-
-    @classmethod
-    def __thaw__(class_, d):
-        types = class_.attrTypes
-        new = class_(thaw(types['jobId'], d.pop('jobId')),
-                     thaw(types['name'], d.pop('name')),
-                     thaw(types['version'], d.pop('version')),
-                     thaw(types['flavor'], d.pop('flavor')),
-                     thaw(types['state'], d.pop('state')))
-        d['packages'] = set(d['packages'])
-        if new.jobId == '':
-            new.jobId = None
-
-        for attr, value in d.iteritems():
-            setattr(new, attr, thaw(types[attr], value))
-        return new
-
-
-class BuildTrove(_FreezableBuildTrove):
+class BuildTrove(_AbstractBuildTrove):
     """
         BuildTrove object with "publisher" methods.  The methods below
         are used to make state changes to the trove and then publish 
@@ -482,25 +409,9 @@ class BuildTrove(_FreezableBuildTrove):
     """
 
     def __init__(self, *args, **kwargs):
-        self._publisher = publisher.JobStatusPublisher()
-        self._amOwner = False
-        _FreezableBuildTrove.__init__(self, *args, **kwargs)
+        _AbstractBuildTrove.__init__(self, *args, **kwargs)
+        self._publisher = None
 
-    def amOwner(self):
-        """
-            Returns True if this process owns this trove, otherwise
-            returns False.  Processes that don't own troves are not allowed
-            to update other processes about the trove's status (this avoids
-            message loops).
-        """
-        return self._amOwner
-
-    def own(self):
-        self._amOwner = True
-
-    def disown(self):
-        self._amOwner = False
- 
     def setPublisher(self, publisher):
         """
             Set the publisher for all events emitted from this trove.
@@ -512,13 +423,6 @@ class BuildTrove(_FreezableBuildTrove):
             Get the publisher for all events emitted from this trove.
         """
         return self._publisher
-
-    def log(self, message):
-        """
-            Publish log message "message" to trove subscribers.
-        """
-        if self._publisher:
-            self._publisher.troveLogUpdated(self, message)
 
     def troveLoaded(self, results):
         self.setFlavor(results.flavor)
@@ -536,7 +440,7 @@ class BuildTrove(_FreezableBuildTrove):
 
             Publishes state change.
         """
-        self._setState(TROVE_STATE_BUILDABLE, status='')
+        self._setState(TroveState.BUILDABLE, status='')
 
     def troveResolvingBuildReqs(self, host='_local_', pid=0):
         """
@@ -547,7 +451,7 @@ class BuildTrove(_FreezableBuildTrove):
         self.finish = 0
         self.start = time.time()
         self.pid = pid
-        self._setState(TROVE_STATE_RESOLVING,
+        self._setState(TroveState.RESOLVING,
                        'Resolving build requirements', host, pid)
 
     def trovePrebuilt(self, buildReqs, binaryTroves, preBuiltTime=0,
@@ -555,7 +459,7 @@ class BuildTrove(_FreezableBuildTrove):
                       sourceMatches=True):
         self.finish = time.time()
         self.pid = 0
-        self._setState(TROVE_STATE_PREBUILT, '', buildReqs, binaryTroves)
+        self._setState(TroveState.PREBUILT, '', buildReqs, binaryTroves)
         self.preBuiltRequirements = buildReqs
         self.preBuiltBinaries = binaryTroves
         if preBuiltTime is None:
@@ -591,7 +495,7 @@ class BuildTrove(_FreezableBuildTrove):
         self.finish = time.time()
         self.pid = 0
         trovesToDelayFor = [ '%s=%s[%s]{%s}' % x.getNameVersionFlavor(True) for x in newDeps ]
-        self._setState(TROVE_STATE_INIT,
+        self._setState(TroveState.INIT,
                       'Resolved buildreqs include %s other troves scheduled to be built - delaying: \n%s' % (len(newDeps), '\n'.join(trovesToDelayFor)))
 
     def troveInCycleUnresolvableBuildReqs(self, missingBuildReqs):
@@ -616,17 +520,17 @@ class BuildTrove(_FreezableBuildTrove):
                     f = '[%s]' % f
                 strings.append('%s%s%s' % (n,v,f))
             errMsg.append('Trove in cycle could not resolve %s: %s' % (type, ', '.join(strings)))
-        self._setState(TROVE_STATE_INIT, '\n'.join(errMsg))
+        self._setState(TroveState.INIT, '\n'.join(errMsg))
 
     def troveUnresolvableDepsReset(self, missingDeps):
         self.finish = time.time()
         self.pid = 0
-        self._setState(TROVE_STATE_INIT,
+        self._setState(TroveState.INIT,
            'Trove could not resolve dependencies, waiting until troves are built: %s' % (
                                                                 missingDeps,))
 
     def troveQueued(self, message):
-        self._setState(TROVE_STATE_WAITING, message)
+        self._setState(TroveState.WAITING, message)
 
     def creatingChroot(self, hostname, path):
         """
@@ -636,7 +540,7 @@ class BuildTrove(_FreezableBuildTrove):
         """
         self.chrootHost = hostname
         self.chrootPath = path
-        self._setState(TROVE_STATE_PREPARING, '', hostname, path)
+        self._setState(TroveState.PREPARING, '', hostname, path)
 
     def chrootFailed(self, err, traceback=''):
         f = failure.ChrootFailed(str(err), traceback)
@@ -656,13 +560,13 @@ class BuildTrove(_FreezableBuildTrove):
         self.pid = pid
         self.finish = 0
         self.start = time.time()
-        self._setState(TROVE_STATE_BUILDING, '', pid, settings)
+        self._setState(TroveState.BUILDING, '', pid, settings)
 
     def troveAlreadyCommitted(self, troveList):
         self.setBuiltTroves(troveList)
         self.finish = time.time()
         self.setBuiltTroves(troveList)
-        self._setState(TROVE_STATE_BUILT, '', troveList)
+        self._setState(TroveState.BUILT, '', troveList)
 
     def troveBuilt(self, troveList, prebuilt=False):
         """
@@ -678,17 +582,17 @@ class BuildTrove(_FreezableBuildTrove):
         self.finish = time.time()
         self.pid = 0
         self.setBuiltTroves(troveList)
-        self._setState(TROVE_STATE_BUILT, '', troveList)
+        self._setState(TroveState.BUILT, '', troveList)
         if prebuilt and self.preBuiltLog:
             self.logPath = self.preBuiltLog
 
     def trovePrepared(self):
         self.finish = time.time()
         self.pid = 0
-        self._setState(TROVE_STATE_PREPARED, '')
+        self._setState(TroveState.PREPARED, '')
 
     def troveDuplicate(self, troveList):
-        self._setState(TROVE_STATE_DUPLICATE, '', troveList)
+        self._setState(TroveState.DUPLICATE, '', troveList)
 
     def troveFailed(self, failureReason, isPrimaryFailure=True):
         """
@@ -705,7 +609,7 @@ class BuildTrove(_FreezableBuildTrove):
             failureReason = failure.BuildFailed(failureReason)
         self.setFailureReason(failureReason)
         if isPrimaryFailure:
-            state = TROVE_STATE_FAILED
+            state = TroveState.FAILED
         else:
             # primary failures are those failures that are directly caused
             # by something wrong.  Secondary failures are those that are due
@@ -713,7 +617,7 @@ class BuildTrove(_FreezableBuildTrove):
             # E.g. a trove missing build reqs that are not part of the job
             # would be a primary failure.  A trove that could not build
             # because of another trove missing build reqs would be secondary.
-            state = TROVE_STATE_UNBUILDABLE
+            state = TroveState.UNBUILDABLE
         self._setState(state, str(failureReason), failureReason)
 
     def troveMissingBuildReqs(self, buildReqs, isPrimaryFailure=True):
@@ -749,85 +653,3 @@ class BuildTrove(_FreezableBuildTrove):
             self.status = status
         if self._publisher:
             self._publisher.troveStateUpdated(self, state, oldState, *args)
-
-class LoadSpecs(object):
-
-    @staticmethod
-    def __freeze__(loadSpecs):
-        d = {}
-        stack = [(loadSpecs, d)]
-        while stack:
-            loadDict, frozenDict = stack.pop()
-            for spec, (troveTup, subLoadDict) in loadDict.iteritems():
-                newFrzDict = {}
-                frozenDict[spec] = (freeze('troveTuple', troveTup), newFrzDict)
-                if subLoadDict:
-                    stack.append((subLoadDict, newFrzDict))
-        return d
-
-    @staticmethod
-    def __thaw__(frzLoaded):
-        d = {}
-        stack = [(d, frzLoaded)]
-        while stack:
-            loadDict, frozenDict = stack.pop()
-            for spec, (frzTroveTup, newFrzDict) in frozenDict.iteritems():
-                subLoadDict = {}
-                loadDict[spec] = (thaw('troveTuple', frzTroveTup), subLoadDict)
-                if newFrzDict:
-                    stack.append((subLoadDict, newFrzDict))
-        return d
-
-apiutils.register(LoadSpecs)
-class LoadSpecsList(object):
-
-    @staticmethod
-    def __freeze__(loadSpecsList):
-        return [ apiutils.freeze('LoadSpecs', x) for x in loadSpecsList]
-
-    @staticmethod
-    def __thaw__(frzLoadSpecsList):
-        return [ apiutils.thaw('LoadSpecs', x) for x in frzLoadSpecsList ]
-apiutils.register(LoadSpecsList)
-
-
-class LoadTroveResult(object):
-    """
-    Container used to pass data from the recipe loader back to
-    the build trove.
-    """
-
-    attrTypes = {
-        'flavor'                : 'flavor',
-        'recipeType'            : 'int',
-        'loadedSpecsList'       : 'LoadSpecsList',
-        'loadedTroves'          : 'troveTupleList',
-        'packages'              : 'set',
-        'delayedRequirements'   : 'troveTupleList',
-        'buildRequirements'     : 'set',
-        'crossRequirements'     : 'set',
-      }
-
-    def __init__(self):
-        self.flavor = deps.Flavor()
-        self.recipeType = None
-        self.loadedSpecsList = []
-        self.loadedTroves = []
-        self.packages = set()
-        self.delayedRequirements = set()
-        self.buildRequirements = set()
-        self.crossRequirements = set()
-
-    def __freeze__(self):
-        blob = {}
-        for attr, attrType in self.attrTypes.items():
-            blob[attr] = freeze(attrType, getattr(self, attr))
-        return blob
-
-    @classmethod
-    def __thaw__(cls, blob):
-        new = cls()
-        for attr, value in blob.items():
-            setattr(new, attr, thaw(cls.attrTypes[attr], value))
-        return new
-apiutils.register(LoadTroveResult)

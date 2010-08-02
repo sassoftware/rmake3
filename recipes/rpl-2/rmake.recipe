@@ -1,0 +1,79 @@
+#
+# Copyright (c) 2010 rPath, Inc.
+# This file is distributed under the terms of the MIT License.
+# A copy is available at http://www.rpath.com/permanent/mit-license.html
+#
+
+class RmakeRecipe(CPackageRecipe):
+    name = 'rmake'
+    version = '3.0'
+
+    buildRequires = [
+        'chkconfig:runtime',
+        'conary:python',
+        'conary-repository:python',
+        'desktop-file-utils:runtime',
+        'info-rmake-chroot:user',
+        'info-rmake:user',
+        'libcap:devel',
+        'm2crypto:python',
+        'psycopg2:python',
+        'python:devel',
+        'python-setuptools:python',
+    ]
+
+    def setup(r):
+        r.addMercurialSnapshot('/home/gxti/code/products/rmake/trunk/rmake')
+        #http://hg.rpath.com/rmake')
+        r.Make()
+        r.MakeInstall()
+
+        r.MakeDirs('/var/{lib,log}/rmake')
+        r.MakeDirs('/srv/rmake', mode=0700)
+        r.MakeDirs('/etc/rmake/{server,client}.d')
+        r.Ownership('rmake', 'rmake',
+                '/srv/rmake',
+                '/var/rmake',
+                '/var/lib/rmake',
+                '/var/log/rmake',
+                '/var/run/rmake',
+                )
+        r.ExcludeDirectories(exceptions='/var/(lib|log)/rmake')
+        r.ExcludeDirectories(exceptions='/srv/rmake')
+        r.ExcludeDirectories(exceptions='/etc/rmake/client.d')
+        r.ExcludeDirectories(exceptions='/etc/rmake/server.d')
+
+        r.Doc('CPL')
+
+        # library
+        r.Requires('iproute:runtime', 'procutil.py')
+        r.Requires(exceptDeps='python: (epdb|rmake.cmdline.password)')
+        r.ComponentProvides('%(version)s')
+
+        # chroothelper
+        chpath = '/usr/libexec/rmake/chroothelper'
+        r.SetModes(chpath, 04755)
+        r.Provides('file', chpath)
+        r.Requires(chpath, 'rootfactory.py')
+        r.Requires('busybox:runtime', chpath)
+        r.UtilizeUser('rmake-chroot', chpath)
+        r.UtilizeGroup('rmake-chroot', chpath)
+
+        ## package rmake-node
+        # This package has files required on individual build nodes
+        # controlled by a head node
+        r.PackageSpec('rmake-node',
+                '%(initdir)s/rmake-node',
+                '%(sbindir)s/rmake-node',
+                '%(mandir)s/.*rmake-node.*',
+                )
+        r.Requires('rmake:python(%(version)s)', '%(sbindir)s/rmake-node')
+
+
+        ## package rmake-multinode-server
+        # This package has files required on the head node that controls
+        # all the individual build nodes that are connected to it
+        r.PackageSpec('rmake-multinode-server',
+                '%(initdir)s/rmake-dispatcher',
+                '%(sbindir)s/rmake-dispatcher',
+                )

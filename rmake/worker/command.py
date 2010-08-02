@@ -27,8 +27,6 @@ from rmake.lib import repocache
 from rmake.lib import recipeutil
 from rmake.lib import server
 
-from rmake.lib.apiutils import thaw, freeze
-
 
 class Command(server.Server):
     """

@@ -3,6 +3,7 @@ import sys
 
 from conary import conarycfg
 from conary import cvc
+from conary import state
 from conary.deps import deps
 from conary.lib import log
 from conary.lib import options
@@ -68,8 +69,8 @@ class rMakeCommand(options.AbstractCommand):
         if buildConfig.context:
             context = buildConfig.context
         if os.path.exists('CONARY'):
-            conaryState = compat.ConaryVersion().ConaryStateFromFile('CONARY',
-                                                           parseSource=False)
+            conaryState = state.ConaryStateFromFile('CONARY',
+                    parseSource=False)
             if conaryState.hasContext():
                 context = conaryState.getContext()
 
@@ -283,11 +284,6 @@ class BuildCommand(rMakeCommand):
         if recurseGroups:
             if argSet.pop('binary-search', False):
                 recurseGroups = client.BUILD_RECURSE_GROUPS_BINARY
-            elif not compat.ConaryVersion().supportsFindGroupSources():
-                log.warning('Your conary does not support recursing a group'
-                            ' source component, defaulting to searching the'
-                            ' binary version')
-                recurseGroups = client.BUILD_RECURSE_GROUPS_BINARY
             else:
                 recurseGroups = client.BUILD_RECURSE_GROUPS_SOURCE
 
@@ -341,9 +337,10 @@ class BuildCommand(rMakeCommand):
             if quiet:
                 if not client.waitForJob(jobId):
                     return 1
-            elif not client.watch(jobId, showTroveLogs=not quiet,
-                               showBuildLogs=not quiet,
-                               commit=commit, message=message):
+            else:
+                client.watchJob(job)
+                #elif not client.watch(jobId, showTroveLogs=not quiet,
+                #showBuildLogs=not quiet, #commit=commit, message=message):
                 return 1
         elif commit:
             if not client.commitJob(jobId, commitWithFailures=False,
