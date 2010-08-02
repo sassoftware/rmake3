@@ -30,10 +30,10 @@ generated_files = config.h chroothelper.h chroothelper
 
 
 all: chroothelper default-build $(bin_targets)
-	mkdir -p ../bin
 
 
 $(bin_targets): ../bin/%: rmake-wrapper
+	mkdir -p ../bin
 	ln -sfn ../commands/$< $@
 
 config.h: Makefile

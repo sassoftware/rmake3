@@ -5,7 +5,7 @@
 #
 
 class RmakeRecipe(CPackageRecipe):
-    name = 'rmake'
+    name = 'rmake3'
     version = '3.0'
 
     buildRequires = [
@@ -20,38 +20,42 @@ class RmakeRecipe(CPackageRecipe):
         'psycopg2:python',
         'python:devel',
         'python-setuptools:python',
+        'python-twisted:python',
+        'python-txpostgres:python',
+        'python-wokkel:python',
     ]
 
     def setup(r):
         r.addMercurialSnapshot('/home/gxti/code/products/rmake/trunk/rmake')
         #http://hg.rpath.com/rmake')
         r.Make()
-        r.MakeInstall()
+        r.MakeInstall('PKGNAME=%(name)s NO_COMPILE=1')
+        r.CompilePython()
 
-        r.MakeDirs('/var/{lib,log}/rmake')
-        r.MakeDirs('/srv/rmake', mode=0700)
-        r.MakeDirs('/etc/rmake/{server,client}.d')
+        r.MakeDirs('/var/{lib,log}/%(name)s')
+        r.MakeDirs('/srv/%(name)s', mode=0700)
+        r.MakeDirs('/etc/%(name)s/{server,client}.d')
         r.Ownership('rmake', 'rmake',
-                '/srv/rmake',
-                '/var/rmake',
-                '/var/lib/rmake',
-                '/var/log/rmake',
-                '/var/run/rmake',
+                '/srv/%(name)s',
+                '/var/%(name)s',
+                '/var/lib/%(name)s',
+                '/var/log/%(name)s',
+                '/var/run/%(name)s',
                 )
-        r.ExcludeDirectories(exceptions='/var/(lib|log)/rmake')
-        r.ExcludeDirectories(exceptions='/srv/rmake')
-        r.ExcludeDirectories(exceptions='/etc/rmake/client.d')
-        r.ExcludeDirectories(exceptions='/etc/rmake/server.d')
+        r.ExcludeDirectories(exceptions='/var/(lib|log)/%(name)s')
+        r.ExcludeDirectories(exceptions='/srv/%(name)s')
+        r.ExcludeDirectories(exceptions='/etc/%(name)s/client.d')
+        r.ExcludeDirectories(exceptions='/etc/%(name)s/server.d')
 
         r.Doc('CPL')
 
         # library
         r.Requires('iproute:runtime', 'procutil.py')
-        r.Requires(exceptDeps='python: (epdb|rmake.cmdline.password)')
+        r.Requires(exceptDeps='python: (epdb|%(name)s.cmdline.password)')
         r.ComponentProvides('%(version)s')
 
         # chroothelper
-        chpath = '/usr/libexec/rmake/chroothelper'
+        chpath = '/usr/libexec/%(name)s/chroothelper'
         r.SetModes(chpath, 04755)
         r.Provides('file', chpath)
         r.Requires(chpath, 'rootfactory.py')
@@ -63,11 +67,11 @@ class RmakeRecipe(CPackageRecipe):
         # This package has files required on individual build nodes
         # controlled by a head node
         r.PackageSpec('rmake-node',
-                '%(initdir)s/rmake-node',
-                '%(sbindir)s/rmake-node',
-                '%(mandir)s/.*rmake-node.*',
+                '%(initdir)s/%(name)s-node',
+                '%(sbindir)s/%(name)s-node',
+                '%(mandir)s/.*%(name)s-node.*',
                 )
-        r.Requires('rmake:python(%(version)s)', '%(sbindir)s/rmake-node')
+        r.Requires('%(name)s:python(%(version)s)', '%(sbindir)s/%(name)s-node')
 
 
         ## package rmake-multinode-server
