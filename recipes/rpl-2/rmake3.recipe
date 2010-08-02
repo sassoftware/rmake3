@@ -26,10 +26,15 @@ class RmakeRecipe(CPackageRecipe):
     ]
 
     def setup(r):
+        r.macros.prefix = '/opt/%(name)s'
         r.addMercurialSnapshot('/home/gxti/code/products/rmake/trunk/rmake')
         #http://hg.rpath.com/rmake')
-        r.Make()
-        r.MakeInstall('PKGNAME=%(name)s NO_COMPILE=1')
+        r.MakeInstall(
+            'PKGNAME=%(name)s '
+            'NO_COMPILE=1 '
+            'prefix=%(prefix)s '
+            'libdir=%(libdir)s '
+            )
         r.CompilePython()
 
         r.MakeDirs('/var/{lib,log}/%(name)s')

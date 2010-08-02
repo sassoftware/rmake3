@@ -15,14 +15,13 @@
 
 import os
 from conary.conarycfg import CfgUserInfo
-from conary.lib.cfgtypes import CfgType, ParseError
 from conary.lib.cfgtypes import (CfgBool, CfgDict, CfgInt, CfgPath,
         CfgPathList, CfgString, CfgList)
 from rmake.messagebus.config import BusConfig
 
 
-def _logPath(fileName):
-    return property(lambda self: os.path.join(self.logDir, fileName))
+def _path(attr, fileName):
+    return property(lambda self: os.path.join(getattr(self, attr), fileName))
 
 
 class DispatcherConfig(BusConfig):
@@ -41,7 +40,6 @@ class DispatcherConfig(BusConfig):
     reposName           = (CfgString, None)
 
     # Other configuration
-    lockDir             = (CfgPath, '/var/lock')
     logDir              = (CfgPath, '/var/log/rmake')
     caCertPath          = (CfgPath, None)
     sslCertPath         = (CfgPath, '/srv/rmake/certs/rmake-server-cert.pem')
@@ -52,5 +50,6 @@ class DispatcherConfig(BusConfig):
     usePlugin           = (CfgDict(CfgBool), {})
 
     # Calculated paths
-    logPath_http = _logPath('access.log')
-    logPath_server = _logPath('server.log')
+    logPath_http = _path('logDir', 'access.log')
+    logPath_server = _path('logDir', 'server.log')
+    lockDir = _path('dataDir', 'lock')

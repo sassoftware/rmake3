@@ -57,8 +57,8 @@ chroothelper: chroothelper.c chroothelper.h config.h
 	gcc -Wall -O2 -g -o chroothelper chroothelper.c -lcap
 
 install: chroothelper
-	for f in $(bin_files); do install -D -m755 $$f $(DESTDIR)$(bindir)/$$f; done
-	for f in $(sbin_files); do install -D -m755 $$f $(DESTDIR)$(sbindir)/$$f; done
+	for f in $(bin_files); do install -D -m755 $$f $(DESTDIR)$(bindir)/$(subst rmake,$(PKGNAME),$$f); done
+	for f in $(sbin_files); do install -D -m755 $$f $(DESTDIR)$(sbindir)/$(subst rmake,$(PKGNAME),$$f); done
 	for f in $(libexec_files); do install -D -m755 $$f $(DESTDIR)$(libexecdir)/rmake/$$f; done
 	chmod 4755 $(DESTDIR)$(libexecdir)/rmake/chroothelper
 

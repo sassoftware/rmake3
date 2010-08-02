@@ -146,6 +146,8 @@ class Daemon(options.MainHandler):
             return None
 
     def writeLockFile(self):
+        if not os.path.isdir(self.cfg.lockDir):
+            os.makedirs(self.cfg.lockDir)
         path = self._lock_path()
         open(path, 'w').write('%s\n' % os.getpid())
 

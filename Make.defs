@@ -29,7 +29,7 @@ export RMAKE_GROUP=rmake
 # These should not be the same as RMAKE_USER
 export CHROOT_USER=rmake-chroot
 export CHROOT_GROUP=rmake-chroot
-export CHROOT_RMAKE=/usr/share/$(PKGNAME)
+export CHROOT_RMAKE=/usr/share/rmake
 export CHROOT_SERVER=/$(PKGNAME)/worker/chroot/rootserver.py
 # used for making the ccs
 export DATE=$(shell date +'%Y_%m_%d_%H%M')
@@ -37,20 +37,25 @@ export CCSVERSION=$(VERSION)_$(DATE)
 
 # Paths
 export prefix = /usr
-export lib = $(shell uname -m | sed -r '/x86_64|ppc64|s390x|sparc64/{s/.*/lib64/;q};s/.*/lib/')
+
 export bindir = $(prefix)/bin
 export sbindir = $(prefix)/sbin
-export libdir = $(prefix)/$(lib)
 export libexecdir = $(prefix)/libexec
-export datadir = $(prefix)/share
-export plugindir = $(datadir)/$(PKGNAME)/plugins
-export mandir = $(datadir)/man
+
+export lib = $(shell uname -m | sed -r '/x86_64|ppc64|s390x|sparc64/{s/.*/lib64/;q};s/.*/lib/')
+export libdir = $(prefix)/$(lib)
 export sitedir = $(libdir)/python$(PYVER)/site-packages
+export plugindir = $(libdir)/$(PKGNAME)
+
 export rmakedir = $(sitedir)/$(PKGNAME)
-export rmakelibdir = $(libdir)/$(PKGNAME)
-export rmakelibexecdir = $(libexecdir)/$(PKGNAME)
+export rmakelibexecdir = $(libexecdir)/rmake
+
+export mandir = $(prefix)/share/man
+export rmakelibdir = $(libdir)/rmake
 export initdir = /etc/init.d
 export sysconfdir = /etc/sysconfig
+export confdir = /etc/$(PKGNAME)
+export servicedir = /srv/$(PKGNAME)
 
 # Programs
 export PYTHON = /usr/bin/python$(PYVER)

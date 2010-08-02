@@ -8,50 +8,49 @@
 # Source function library.
 . /etc/init.d/functions
 
-if [ -e @sysconfdir@/rmake ] ; then
-    . @sysconfdir@/rmake
+prog=rmake-dispatcher
+desc="rMake Server and Repository"
+
+name=`basename $0`
+if [ ${name:0:1} = "S" -o ${name:0:1} = "K" ]
+then
+    name=${name:3}
+fi
+
+PRE_OPTS="-c @confdir@/serverrc"
+
+if [ -e /etc/sysconfig/${name} ] ; then
+    . /etc/sysconfig/${name}
 fi
 
 config() {
-    cd /etc/rmake;
-    @sbindir@/rmake-server config
+    cd @confdir@;
+    @sbindir@/${prog} config
     return $?
 }
 
 
 start() {
-    echo -n $"Starting rMake Server and Repository:"
-    cd /etc/rmake;
+    echo -n $"Starting ${desc}: "
+    cd @confdir@;
     ulimit -n 65536
-    @sbindir@/rmake-server start
+    @sbindir@/${prog} start ${PRE_OPTS} ${RMAKE_OPTS}
     RETVAL=$?
-    [ $RETVAL = 0 ] && touch /var/lock/subsys/rmake && success || failure
+    [ $RETVAL = 0 ] && touch /var/lock/subsys/${name} && success || failure
     echo
     if [ $RETVAL != 0 ]; then
-        echo "rMake: Please check /var/log/rmake/rmake-server.log for details"
+        echo "rMake: Please check @logdir@/${prog}.log for details"
     fi
     return $RETVAL
 }
 
-startdebug() {
-    echo -n $"Starting rMake Server and Repository:"
-    cd /etc/rmake;
-    ulimit -n 65536
-    @sbindir@/rmake-server start -n -d
-    RETVAL=$?
-    [ $RETVAL = 0 ] && success || failure
-    echo
-    return $RETVAL
-}
-
-
 
 stop() {
-    echo -n $"Shutting down rMake Server and Repository: "
-    cd /etc/rmake;
-    @sbindir@/rmake-server stop
+    echo -n $"Shutting down ${desc}: "
+    cd @confdir@;
+    @sbindir@/${prog} stop
     RETVAL=$?
-    [ $RETVAL = 0 ] && rm -f /var/lock/subsys/rmake && success || failure
+    [ $RETVAL = 0 ] && rm -f /var/lock/subsys/${name} && success || failure
     echo
     return $RETVAL
 }
@@ -62,7 +61,7 @@ restart() {
 }
 
 reset() {
-    status rmake-server > /dev/null
+    status ${prog} > /dev/null
     RUNNING=$?
     if [ $RUNNING -eq 0 ] ; then
         stop
@@ -74,9 +73,9 @@ reset() {
 }
 
 resetinternal() {
-    echo $"Flushing rMake internal repository and database"
-    cd /etc/rmake;
-    @sbindir@/rmake-server reset
+    echo $"Flushing ${desc}: "
+    cd @confdir@;
+    @sbindir@/${prog} reset
     RETVAL=$?
     echo
     return $RETVAL
@@ -99,7 +98,7 @@ case "$1" in
         startdebug
         ;;
     status)
-        status rmake-server
+        status ${prog}
         ;;
     restart|reload)
         restart
