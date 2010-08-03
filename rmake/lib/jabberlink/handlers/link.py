@@ -22,9 +22,9 @@ from wokkel import iwokkel
 from zope.interface import implements
 
 from rmake.lib.jabberlink import constants
-from rmake.lib.jabberlink.logger import logFailure
 from rmake.lib.jabberlink.message import Frame, Message
 from rmake.lib.jabberlink.xutil import toJID
+from rmake.lib.logger import logFailure
 
 log = logging.getLogger(__name__)
 

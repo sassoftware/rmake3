@@ -12,9 +12,9 @@
 # full details.
 
 import logging
-from jabberlink import message as jmessage
 
 from rmake.lib import chutney
+from rmake.lib.jabberlink import message as jmessage
 from rmake.messagebus.common import NS_RMAKE
 
 log = logging.getLogger(__name__)

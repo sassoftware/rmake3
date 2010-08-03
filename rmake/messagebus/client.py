@@ -19,12 +19,12 @@ This includes a client protocol, factory, and XMLRPC proxy.
 """
 
 
-from jabberlink import cred as jcred
-from jabberlink import client as jclient
-from jabberlink import message as jmessage
-from jabberlink.handlers import link as jlink
 from twisted.internet import defer
 
+from rmake.lib.jabberlink import cred as jcred
+from rmake.lib.jabberlink import client as jclient
+from rmake.lib.jabberlink import message as jmessage
+from rmake.lib.jabberlink.handlers import link as jlink
 from rmake.messagebus.common import NS_RMAKE
 from rmake.messagebus import message as rmessage
 
