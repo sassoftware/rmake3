@@ -1,4 +1,4 @@
-\.(py[co]|o|so|swp|swo|orig|rej)$
+\.(py[co]|o|so|ccs|swp|swo|orig|rej)$
 
 ^bin/
 ^tmp/

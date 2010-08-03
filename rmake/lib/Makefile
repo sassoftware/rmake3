@@ -23,10 +23,10 @@ SUBDIRS = proc_pool twisted_extras
 all: $(so_targets) default-build
 
 clean: default-clean
-	find ninamori -name \*.pyc -delete
+	find jabberlink ninamori -name \*.pyc -delete
 
 install: $(so_targets) default-install
-	cp -r ninamori $(DESTDIR)$(DEST)/
+	cp -a jabberlink ninamori $(DESTDIR)$(DEST)/
 
 # Use this to regenerate the embedded ninamori implementation.
 # See http://bitbucket.org/gxti/ninamori/
