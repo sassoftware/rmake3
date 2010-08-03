@@ -56,6 +56,8 @@ export initdir = /etc/init.d
 export sysconfdir = /etc/sysconfig
 export confdir = /etc/$(PKGNAME)
 export servicedir = /srv/$(PKGNAME)
+export logdir = /var/log/$(PKGNAME)
+export sockdir = /var/lib/$(PKGNAME)
 
 # Programs
 export PYTHON = /usr/bin/python$(PYVER)

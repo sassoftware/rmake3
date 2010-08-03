@@ -25,6 +25,8 @@ install: $(generated_files) default-install
 	echo "includeConfigFile node.d/*.conf" >$(DESTDIR)$(confdir)/noderc
 	install -D server_defaults.conf $(DESTDIR)$(confdir)/server.d/05_defaults.conf
 	install -D node_defaults.conf $(DESTDIR)$(confdir)/node.d/05_defaults.conf
+	for x in $(logdir) $(sockdir) $(servicedir); do \
+		mkdir -p $(DESTDIR)$$x; done
 
 rmake.init: rmake.init.in ../Make.defs ../Makefile
 	sed \
