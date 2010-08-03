@@ -5,7 +5,7 @@
 #
 
 class RmakeRecipe(CPackageRecipe):
-    name = 'rmake3'
+    name = 'rmake'
     version = '3.0'
 
     buildRequires = [
