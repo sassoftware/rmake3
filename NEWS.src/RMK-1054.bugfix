@@ -1,0 +1,3 @@
+Since Conary now de-duplicates proxy requests using file locking
+on individual changesets, rMake now defaults to increasing the open
+file limit for rMake itself.

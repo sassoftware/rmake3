@@ -137,7 +137,7 @@ class RmakeBuildContext(cfg.ConfigSection):
             "INTERNAL USE ONLY: Troves to be installed before the remaining "
             "chroot contents.")
     copyInConary         = (CfgBool, False)
-    copyInConfig         = (CfgBool, True)
+    copyInConfig         = (CfgBool, False) # RMK-1052
     rbuilderUrl          = (cfgtypes.CfgString, 'https://localhost/')
     rmakeUser            = (CfgUser, None)
     if not compat.ConaryVersion().supportsDefaultBuildReqs():
