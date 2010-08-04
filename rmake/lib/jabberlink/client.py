@@ -104,10 +104,12 @@ class XmlStreamFactory(xmlstream.XmlStreamFactory):
         return xish_stream.XmlStreamFactoryMixin.buildProtocol(self, addr)
 
     def clientConnectionLost(self, connector, reason):
-        log.error("XMPP connection lost: %s", reason.getErrorMessage())
+        if self.continueTrying:
+            log.error("XMPP connection lost: %s", reason.getErrorMessage())
         xmlstream.XmlStreamFactory.clientConnectionLost(self, connector, reason)
 
     def clientConnectionFailed(self, connector, reason):
-        log.error("XMPP connection failed: %s", reason.getErrorMessage())
+        if self.continueTrying:
+            log.error("XMPP connection failed: %s", reason.getErrorMessage())
         xmlstream.XmlStreamFactory.clientConnectionFailed(self, connector,
                 reason)
