@@ -76,7 +76,8 @@ class BusService(_BaseService):
         self.cfg = cfg
         creds = jcred.XmppServerCredentials(cfg.xmppIdentFile)
         name = self.cfg.xmppJID.user, self.cfg.xmppJID.host
-        _BaseService.__init__(self, name, creds, handlers=other_handlers)
+        _BaseService.__init__(self, name, creds, handlers=other_handlers,
+                host=cfg.xmppHost)
 
         self.link.addMessageHandler(MessageHandler(self))
 

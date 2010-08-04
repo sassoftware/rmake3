@@ -13,8 +13,9 @@
 #
 
 import logging
+from twisted.words.protocols.jabber import xmlstream
 from twisted.words.protocols.jabber.jid import JID
-from twisted.words.protocols.jabber.xmlstream import XmlStreamFactory
+from twisted.words.xish import xmlstream as xish_stream
 from wokkel import disco
 from wokkel import generic
 from wokkel import subprotocols
@@ -38,15 +39,15 @@ class LinkClient(XMPPClient):
 
     initialDelay = 0.1  # faster restart after registration
 
-    def __init__(self, domain, creds, handlers=None):
+    def __init__(self, domain, creds, handlers=None, host=None, port=5222):
         # Note that this partly duplicates XMPPClient.__init__, so that method
         # should not be called.
         user, domain, password = creds.get(domain)
         self.jid = JID(tuple=(user, domain, self.resource))
         self.creds = creds
         self.domain = domain
-        self.host = None
-        self.port = 5222
+        self.host = host
+        self.port = port
 
         auth = self.authClass(self.jid, password, self._writeCreds)
         factory = XmlStreamFactory(auth)
@@ -55,6 +56,10 @@ class LinkClient(XMPPClient):
         self._handlers = {}
 
         self._configureHandlers(handlers)
+
+        def post_connect(dummy):
+            self.factory.resetDelay()
+        self.deferUntilConnected().addCallback(post_connect)
 
     def _configureHandlers(self, other_handlers=None):
         self.link = self.handlerClass()
@@ -89,3 +94,20 @@ class LinkClient(XMPPClient):
 
     def onNeighborDown(self, jid):
         pass
+
+
+class XmlStreamFactory(xmlstream.XmlStreamFactory):
+
+    def buildProtocol(self, addr):
+        # Override to prevent resetDelay() from being called until we actually
+        # authenticate.
+        return xish_stream.XmlStreamFactoryMixin.buildProtocol(self, addr)
+
+    def clientConnectionLost(self, connector, reason):
+        log.error("XMPP connection lost: %s", reason.getErrorMessage())
+        xmlstream.XmlStreamFactory.clientConnectionLost(self, connector, reason)
+
+    def clientConnectionFailed(self, connector, reason):
+        log.error("XMPP connection failed: %s", reason.getErrorMessage())
+        xmlstream.XmlStreamFactory.clientConnectionFailed(self, connector,
+                reason)

@@ -44,6 +44,8 @@ class CfgFullJID(CfgJID):
 class BusConfig(ConfigFile):
 
     # XMPP
+    xmppHost            = (cfgtypes.CfgString, None,
+            "Override the host to connect to.")
     xmppJID             = (CfgFullJID, None,
             "Full JID that the component will identify as. (optional)")
     xmppIdentFile       = (cfgtypes.CfgPath, None,

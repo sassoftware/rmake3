@@ -122,7 +122,7 @@ class RmakeBuildContext(cfg.ConfigSection):
     rbuilderUrl          = (cfgtypes.CfgString, 'https://localhost/')
     rmakeUser            = (CfgUser, None)
     rmakeUrl             = (CfgString, 'unix:///var/lib/rmake/socket')
-    clientCert           = (CfgPath, None)
+    clientCert           = (cfgtypes.CfgPath, None)
     defaultBuildReqs     = (CfgList(CfgString), [])
     resolveTroves        = (CfgList(CfgQuotedLineList(CfgTroveSpec)),
                             [[('group-dist', None, None)]])
