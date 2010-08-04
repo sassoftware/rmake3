@@ -251,7 +251,7 @@ class BuildConfiguration(conarycfg.ConaryConfiguration, FreezableConfigMixin):
                        'installLabelPath', 'repositoryMap', 'root',
                        'user', 'name', 'contact', 'signatureKey', 'dbPath',
                        'proxy', 'conaryProxy', 'lookaside', 'entitlement',
-                       'autoLoadRecipes' ]
+                       'autoLoadRecipes', 'proxyMap']
 
     _dirsToCopy = ['archDirs', 'mirrorDirs', 'siteConfigPath', 'useDirs', 
                    'componentDirs']

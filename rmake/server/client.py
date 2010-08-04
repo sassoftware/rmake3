@@ -312,9 +312,9 @@ class rMakeClient(object):
         for info in reversed(userInfo):
             cfg.user.append(info)
         cfg.reposName = reposName
-        if conaryProxy and not cfg.conaryProxy:
-            cfg.conaryProxy['http'] = conaryProxy
-            cfg.conaryProxy['https'] = conaryProxy
+        if conaryProxy and not cfg.proxyMap:
+            cfg.proxyMap.update('conary:http*', '*', [conaryProxy])
+
 
     def listenToEvents(self, uri, jobId, listener, showTroveDetails=False,
                        serve=True):
