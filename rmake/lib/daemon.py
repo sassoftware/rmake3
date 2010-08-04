@@ -178,7 +178,7 @@ class Daemon(options.MainHandler):
                 sys.exit("You must mount /proc to use this program.")
             return None
 
-        cmdline = fObj.read().split('\0')
+        cmdline = fObj.read().replace('\0', ' ').split()
         exe = os.path.basename(cmdline[0])
         if exe.startswith('python'):
             exe = os.path.basename(cmdline[1])
