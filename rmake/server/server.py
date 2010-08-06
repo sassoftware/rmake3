@@ -348,8 +348,14 @@ class rMakeServer(apirpc.XMLApiServer):
         for serverName, user, password in self.cfg.getUserGlobs():
             buildConfig.user.addServerGlob(serverName, user, password)
         proxyUrl = self.cfg.getProxyUrl()
-        if proxyUrl and not buildConfig.proxyMap:
-            buildConfig.proxyMap.update('conary:http*', '*', [proxyUrl])
+        if proxyUrl:
+            if hasattr(buildConfig,'proxyMap'):
+                if not buildConfig.proxyMap:
+                    buildConfig.proxyMap.update('conary:http*', '*', [proxyUrl])
+            else:
+                if not buildConfig.conaryProxy:
+                    buildConfig.conaryProxy['http'] = proxyUrl
+                    buildConfig.conaryProxy['https'] = proxyUrl
 
     def _serveLoopHook(self):
         if not self._initialized and hasattr(self, 'worker'):

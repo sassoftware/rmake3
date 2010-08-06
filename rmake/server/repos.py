@@ -204,9 +204,12 @@ def pingServer(cfg, proxyUrl=None):
     conaryCfg.repositoryMap = cfg.getRepositoryMap()
     conaryCfg.user = cfg.reposUser
     if proxyUrl:
-        conaryCfg.proxyMap.update('conary:http*', '*', [proxyUrl])
-    else:
-        proxy = None
+        if hasattr(conaryCfg,'proxyMap'):
+            conaryCfg.proxyMap.update('conary:http*', '*', [proxyUrl])
+        else:
+            conaryCfg.conaryProxy['http'] = proxyUrl
+            conaryCfg.conaryProxy['https'] = proxyUrl
+
     repos = conaryclient.ConaryClient(conaryCfg).getRepos()
     for i in range(0,20000):
         try:
