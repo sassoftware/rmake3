@@ -121,7 +121,7 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
 
     @expose
     def getJobs(self, job_uuids):
-        return self.pool.runWithTransaction(self.db.core.getJobs, job_uuids)
+        return self.db.getJobs(job_uuids)
 
     @expose
     def createJob(self, job, callbackInTrans=None, firehose=None):

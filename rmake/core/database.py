@@ -40,8 +40,8 @@ class CoreDB(object):
                 status_detail, time_started, time_updated, time_finished,
                 expires_after, time_ticks, frozen_data
             FROM jobs.jobs WHERE job_uuid IN %s
-            """, tuple(uuids),)
-        d.addCallback(self._resultToJobs)
+            """, (tuple(uuids),))
+        d.addCallback(_mergeThings, pkeys=job_uuids, func=_oneJob)
         return d
 
     def createJob(self, job, frozen_handler, callback=None):
@@ -76,7 +76,7 @@ class CoreDB(object):
                 job.times.expires_after,
                 types.FrozenObject.fromObject(job.data), frozen_handler,
                 ))
-        d.addCallback(_oneJob)
+        d.addCallback(_grabOne, func=_oneJob)
         return d
 
     def updateJob(self, job, frozen_handler=None):
@@ -97,7 +97,7 @@ class CoreDB(object):
         stmt += SQL(" RETURNING jobs.jobs.*")
 
         d = self.pool.runQuery(stmt)
-        d.addCallback(_oneJob)
+        d.addCallback(_grabOne, func=_oneJob)
         return d
 
     ## Tasks
@@ -113,7 +113,7 @@ class CoreDB(object):
                 task.task_type, task.task_data,
                 task.status.code, task.status.text, task.status.detail,
                 task.node_assigned))
-        d.addCallback(_oneTask)
+        d.addCallback(_grabOne, func=_oneTask)
         return d
 
     def updateTask(self, task):
@@ -134,7 +134,7 @@ class CoreDB(object):
         stmt += SQL(" RETURNING jobs.tasks.*")
 
         d = self.pool.runQuery(stmt)
-        d.addCallback(_oneTask)
+        d.addCallback(_grabOne, func=_oneTask)
         return d
 
 
@@ -165,10 +165,28 @@ def _castUUIDS(raw_uuids):
     return uuids
 
 
-def _oneJob(rows):
+def _mergeThings(rows, pkeys, func):
+    """Zip a list of primary keys with a non-sorted list of rows where the
+    first column is the primary key and return the list of sorted objects.
+    """
+    mapping = dict((x[0], x) for x in rows)
+    out = []
+    for pkey in pkeys:
+        row = mapping.get(pkey)
+        if row is not None:
+            row = func(row)
+        out.append(row)
+    return out
+
+
+def _grabOne(rows, func):
     if not rows:
         return None
-    kwargs = dict(rows[0])
+    return func(rows[0])
+
+
+def _oneJob(row):
+    kwargs = dict(row)
     kwargs['status'] = _popStatus(kwargs)
     kwargs['times'] = _popTimes(kwargs)
     kwargs['data'] = types.FrozenObject(str(kwargs.pop('frozen_data')))
@@ -176,10 +194,8 @@ def _oneJob(rows):
     return types.FrozenRmakeJob(**kwargs)
 
 
-def _oneTask(rows):
-    if not rows:
-        return None
-    kwargs = dict(rows[0])
+def _oneTask(row):
+    kwargs = dict(row)
     kwargs['status'] = _popStatus(kwargs)
     kwargs['times'] = _popTimes(kwargs)
     kwargs['task_data'] = types.FrozenObject(str(kwargs['task_data']))
