@@ -47,7 +47,6 @@ rmake-node.init: rmake.init
 	    $< > $@
 
 server_defaults.conf: Makefile ../Make.defs
-	echo "lockDir $(servicedir)/lock" > $@
 	echo "logDir $(logdir)" >> $@
 	echo "pluginDirs $(plugindir)" >> $@
 	echo "dataDir $(servicedir)" >> $@
