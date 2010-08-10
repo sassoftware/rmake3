@@ -16,6 +16,7 @@
 from psycopg2 import extensions as _ext
 from rmake.core import types as core_types
 from rmake.lib import uuid
+from rmake.lib import logger
 from rmake.lib.ninamori import error as nerror
 
 
@@ -56,7 +57,7 @@ _ext.register_adapter(core_types.FrozenObject, adapt_FrozenObject)
 def register_types(conn):
     cu = conn.cursor()
     # Look up OID for UUID type
-    d = cu.query("SELECT 'pants'::regtype::oid")
+    d = cu.query("SELECT 'uuid'::regtype::oid")
     def got_oids(result):
         if not result:
             return
@@ -67,4 +68,5 @@ def register_types(conn):
         # If there isn't a UUID type, do nothing.
         reason.trap(nerror.UndefinedObjectError)
     d.addCallbacks(got_oids, no_oids)
+    d.addErrback(logger.logFailure)
     return d
