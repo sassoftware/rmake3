@@ -11,8 +11,10 @@
 # or fitness for a particular purpose. See the Common Public License for
 # full details.
 
+import inspect
 import os
 from rmake.lib.ninamori.compat import sha1
+from rmake.lib.ninamori.decorators import protected
 
 
 def _read_meta(path):
@@ -77,15 +79,30 @@ class Timeline(object):
         self.read_meta()
 
         master = self._path('master')
+        ctx = sha1()
+
         contents = ''
         for name in sorted(os.listdir(master)):
             if not name.endswith('.sql'):
                 continue
             contents += open(os.path.join(master, name)).read()
+        ctx.update(contents)
+
+        code = None
+        master_path = os.path.join(master, 'master.py')
+        if os.path.exists(master_path):
+            code = open(master_path, 'rU').read()
+            tmp_globals = {}
+            exec code in tmp_globals
+            cls = tmp_globals.get('Migration')
+            if not inspect.isclass(cls) or not issubclass(cls, Migration):
+                raise RuntimeError("master.py must define a class 'Migration' "
+                        "that subclasses ninamori.timeline.Migration")
+            ctx.update(code)
 
         # Check if the new revision would be identical to the previous one.
         # It's fine if it's identical to an older revision, though.
-        digest = sha1(contents).hexdigest()
+        digest = ctx.hexdigest()
         if 'latest' in self.meta:
             latest = self.get()
             if latest.digest == digest:
@@ -106,13 +123,21 @@ class Timeline(object):
         base = self._snap(rev)
 
         # Write out the new revision and move the "latest" pointer.
+        meta = {
+                'digest': digest,
+                }
+
         fobj = open(base + '.sql', 'w')
         fobj.write(contents)
         fobj.close()
 
-        _write_meta(base + '.txt', {
-            'digest': digest,
-            })
+        if code:
+            fobj = open(base + '.py', 'w')
+            fobj.write(code)
+            fobj.close()
+            meta['has_code'] = 'True'
+
+        _write_meta(base + '.txt', meta)
 
         self.meta['latest'] = rev
         self.write_meta()
@@ -129,8 +154,35 @@ class Revision(object):
 
     digest = property(lambda self: self.meta['digest'])
 
-    def read(self):
-        return open(self.base + '.sql').read()
+    def populate(self, db):
+        sql = open(self.base + '.sql').read()
 
-    def populate(self, cu):
-        cu.execute(self.read())
+        if 'has_code' in self.meta:
+            mod = {}
+            execfile(self.base + '.py', mod)
+            mig_class = mod['Migration']
+        else:
+            mig_class = Migration
+
+        migration = mig_class(db, sql)
+        migration.run()
+
+
+class Migration(object):
+
+    def __init__(self, db, sql):
+        self.db = db
+        self.sql = sql
+
+    @protected
+    def run(self, cu):
+        self.before()
+        if self.sql:
+            cu.execute(self.sql)
+        self.after()
+
+    def before(self):
+        pass
+
+    def after(self):
+        pass

@@ -13,6 +13,8 @@
 #
 
 import logging
+import psycopg2
+from rmake.lib.ninamori import error as nerror
 from rmake.lib.ninamori.connection import ConnectString
 from rmake.lib.ninamori.types import Row, SQL
 from rmake.lib.twisted_extras import deferred_service
@@ -20,6 +22,7 @@ from psycopg2 import extensions
 from rmake.lib.dbextensions import register_types
 from twisted.internet import defer
 from twisted.internet import task
+from twisted.python import failure
 from txpostgres import txpostgres
 
 log = logging.getLogger(__name__)
@@ -31,12 +34,28 @@ class Cursor(txpostgres.Cursor):
         if isinstance(statement, SQL):
             assert not args
             statement, args = statement.statement, statement.args
-        return txpostgres.Cursor.execute(self, statement, args)
+        d = txpostgres.Cursor.execute(self, statement, args)
+        d.addErrback(self._convertErrors)
+        return d
 
     def query(self, statement, args=None):
         d = self.execute(statement, args)
         d.addCallback(lambda cu: cu.fetchall())
         return d
+
+    @staticmethod
+    def _convertErrors(reason):
+        reason.trap(psycopg2.DatabaseError)
+        exc_value = reason.value
+        if getattr(exc_value, 'pgcode', None):
+            exc_type = nerror.getExceptionFromCode(reason.value.pgcode)
+            exc_value = exc_type(*exc_value.args)
+            exc_value.err_code = reason.value.pgcode
+            new = failure.Failure(exc_value, exc_type)
+            new.frames = reason.frames
+            new.stack = reason.stack
+            return new
+        return reason
 
     def fields(self):
         desc = self.description
@@ -67,8 +86,7 @@ class Connection(txpostgres.Connection):
         d = txpostgres.Connection.connect(self, **params)
         def cb_connected(result):
             extensions.register_type(extensions.UNICODE, self._connection)
-            register_types(self._connection)
-            return result
+            return register_types(self)
         d.addCallback(cb_connected)
         return d
 

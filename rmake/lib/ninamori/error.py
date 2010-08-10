@@ -73,9 +73,24 @@ class UndefinedColumnError(AccessViolationError):
     err_code = '42703'
 class UndefinedTableError(AccessViolationError):
     err_code = '42P01'
+class UndefinedObjectError(AccessViolationError):
+    err_code = '42704'
+class DuplicateObjectError(AccessViolationError):
+    err_code = '42710'
 class DuplicateTableError(AccessViolationError):
     err_code = '42P07'
 
 
 DATABASE_ERRORS = dict((x.err_code, x) for x in locals().values()
         if getattr(x, 'err_code', None))
+
+
+def getExceptionFromCode(pgcode):
+    cls = DATABASE_ERRORS.get(pgcode, None)
+    if cls:
+        return cls
+    pgclass = pgcode[:2] + '000'
+    cls = DATABASE_ERRORS.get(pgclass, None)
+    if cls:
+        return cls
+    return SQLError

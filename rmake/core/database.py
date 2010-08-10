@@ -23,7 +23,7 @@ from rmake.lib.uuid import UUID
 def populateDatabase(dburl):
     db = ninamori.connect(dburl)
     timeline = os.path.join(os.path.dirname(__file__), 'schema')
-    db.attach('rmake', timeline)
+    db.attach(timeline)
 
 
 class CoreDB(object):

@@ -55,16 +55,14 @@ class Cursor(object):
             except psycopg2.DatabaseError:
                 e_type, e_value, e_tb = sys.exc_info()
                 # Re-throw with our more specific types
-                if getattr(e_value, 'pgcode', None):
-                    exc_type = error.DATABASE_ERRORS.get(e_value.pgcode, None)
-                    if not exc_type:
-                        generic = e_value.pgcode[:2] + '000'
-                        exc_type = error.DATABASE_ERRORS.get(generic, None)
-                    if not exc_type:
-                        exc_type = error.SQLError
+                pgcode = getattr(e_value, 'pgcode', None)
+                if pgcode:
+                    new_type = error.getExceptionFromCode(e_value.pgcode)
                 else:
-                    exc_type = error.DatabaseError
-                raise exc_type, exc_type(*e_value.args), e_tb
+                    new_type = error.DatabaseError
+                new_value = new_type(*e_value.args)
+                new_value.err_code = pgcode
+                raise new_type, new_value, e_tb
         except:
             self._txn().setInError()
             raise

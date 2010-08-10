@@ -115,7 +115,7 @@ class DatabaseConnection(object):
     # Schema management
 
     @topLevel
-    def attach(self, cu, schemaName, timeLine, revision=None,
+    def attach(self, cu, timeLine, schemaName='default', revision=None,
             allowMigrate=True):
         if isinstance(timeLine, basestring):
             timeLine = timeline.Timeline(timeLine)
@@ -133,7 +133,7 @@ class DatabaseConnection(object):
         elif current is None:
             # Schema not loaded
             log.info("Populating schema %s revision %s", schemaName, drev.rev)
-            drev.populate(cu)
+            drev.populate(self)
             metadata['schema_version'] = drev.rev
             self.saveMeta(schemaName)
         elif not allowMigrate:

@@ -1,4 +1,4 @@
-SET search_path = jobs, pg_catalog;
+SET search_path = jobs, public, pg_catalog;
 
 -- rmake_set_task
 --

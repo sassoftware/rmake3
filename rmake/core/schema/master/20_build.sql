@@ -1,5 +1,5 @@
 CREATE SCHEMA build;
-SET search_path = build, pg_catalog;
+SET search_path = build, public, pg_catalog;
 
 
 -- build.binary_troves

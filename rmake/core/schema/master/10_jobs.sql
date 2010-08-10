@@ -1,6 +1,6 @@
 CREATE SCHEMA jobs;
 COMMENT ON SCHEMA jobs IS 'rMake jobs core';
-SET search_path = jobs, pg_catalog;
+SET search_path = jobs, public, pg_catalog;
 
 
 -- jobs.jobs
