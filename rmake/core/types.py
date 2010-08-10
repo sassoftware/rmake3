@@ -47,6 +47,8 @@ def freezify(cls):
     frozenType._thawedType = cls
 
     # Frozen types are always safe to unpickle.
+    module = sys._getframe(1).f_globals.get('__name__', '__main__')
+    frozenType.__module__ = module
     chutney.register(frozenType, _force=True)
 
     return frozenType
