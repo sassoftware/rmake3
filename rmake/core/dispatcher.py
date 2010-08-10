@@ -139,9 +139,14 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
         @return: C{Deferred} fired with a reconstituted C{RmakeJob} upon
             completion.
         """
-        job = job.thaw()
+        # This dance makes sure that if the job data is a frozen object, it
+        # doesn't get replaced with a thawed version unintentionally.
         if not isinstance(job.data, FrozenObject):
-            job.data = FrozenObject.fromObject(job.data)
+            data = FrozenObject.fromObject(job.data)
+            job = job._replace(data=data)
+
+        job = job.thaw()
+
         try:
             handlerClass = getHandlerClass(job.job_type)
         except KeyError:
