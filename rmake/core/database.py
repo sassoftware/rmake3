@@ -74,7 +74,7 @@ class CoreDB(object):
             """, (job.job_uuid, job.job_type, job.owner,
                 job.status.code, job.status.text, job.status.detail,
                 job.times.expires_after,
-                types.FrozenObject.fromObject(job.data), frozen_handler,
+                job.data, frozen_handler,
                 ))
         d.addCallback(_grabOne, func=_oneJob)
         return d
