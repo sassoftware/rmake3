@@ -47,6 +47,7 @@ rmake-node.init: rmake.init
 	    $< > $@
 
 server_defaults.conf: Makefile ../Make.defs
+	> $@
 	echo "logDir $(logdir)" >> $@
 	echo "pluginDirs $(plugindir)" >> $@
 	echo "dataDir $(servicedir)" >> $@
@@ -54,7 +55,8 @@ server_defaults.conf: Makefile ../Make.defs
 	echo "listenPath /var/lib/$(PKGNAME)/socket" >> $@
 
 node_defaults.conf: Makefile ../Make.defs
-	echo "lockDir $(servicedir)/lock" > $@
+	> $@
+	echo "lockDir $(servicedir)/lock" >> $@
 	echo "logDir $(logdir)" >> $@
 	echo "pluginDirs $(plugindir)" >> $@
 	echo "slots 2" >> $@

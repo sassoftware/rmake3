@@ -25,7 +25,7 @@ fi
 
 config() {
     cd @confdir@;
-    @sbindir@/${prog} config
+    @sbindir@/${prog} config ${PRE_OPTS}
     return $?
 }
 
@@ -48,7 +48,7 @@ start() {
 stop() {
     echo -n $"Shutting down ${desc}: "
     cd @confdir@;
-    @sbindir@/${prog} stop
+    @sbindir@/${prog} stop ${PRE_OPTS}
     RETVAL=$?
     [ $RETVAL = 0 ] && rm -f /var/lock/subsys/${name} && success || failure
     echo
@@ -75,7 +75,7 @@ reset() {
 resetinternal() {
     echo $"Flushing ${desc}: "
     cd @confdir@;
-    @sbindir@/${prog} reset
+    @sbindir@/${prog} reset ${PRE_OPTS}
     RETVAL=$?
     echo
     return $RETVAL
