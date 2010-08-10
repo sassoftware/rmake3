@@ -39,11 +39,12 @@ class RmakeRecipe(CPackageRecipe):
         r.CompilePython('/')
 
         r.Ownership('rmake', 'rmake',
-                '%(srvdir)s',
+                '%(srvdir)s.*',
                 '/var/lib/%(name)s',
                 '/var/log/%(name)s',
                 '/var/run/%(name)s',
                 )
+        r.ExcludeDirectories(exceptions='%(srvdir)s.*')
 
         r.Doc('CPL')
 
