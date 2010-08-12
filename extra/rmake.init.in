@@ -17,7 +17,7 @@ then
     name=${name:3}
 fi
 
-PRE_OPTS="-c @confdir@/serverrc"
+PRE_OPTS="--config-file @confdir@/serverrc"
 
 if [ -e /etc/sysconfig/${name} ] ; then
     . /etc/sysconfig/${name}
