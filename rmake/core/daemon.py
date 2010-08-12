@@ -23,7 +23,6 @@ from rmake import compat
 from rmake.core.config import DispatcherConfig
 from rmake.core.dispatcher import Dispatcher
 from rmake.lib import daemon
-from rmake.lib import osutil
 
 
 class DispatcherDaemon(daemon.DaemonService, daemon.LoggingMixin,
@@ -40,8 +39,6 @@ class DispatcherDaemon(daemon.DaemonService, daemon.LoggingMixin,
         for name in ('xmppJID', 'xmppIdentFile'):
             if self.cfg[name] is None:
                 sys.exit("error: Configuration option %r must be set." % name)
-        osutil.setproctitle('rmake-dispatcher ' +
-                self.cfg.xmppJID.full().encode('utf-8'))
 
         srv = Dispatcher(self.cfg, self.plugins)
         srv.setServiceParent(self)
