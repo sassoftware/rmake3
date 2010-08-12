@@ -19,13 +19,16 @@ class RbuilderClient(object):
     def getBuild(self, buildId):
         error, result = self.server.getBuild(buildId)
         if error:
-            raise RuntimError(*productId)
+            raise RuntimeError(*result)
         return result
 
     def newBuildWithOptions(self, productName, groupName, groupVersion,
                             groupFlavor, buildType, buildName, options):
         error, productId = self.server.getProjectIdByHostname(productName)
         if error:
+            if productId == ['ItemNotFound', ['item']]:
+                raise RuntimeError("Project with short name %r not found" %
+                        (productName,))
             raise RuntimeError(*productId)
 
         if not buildName:
