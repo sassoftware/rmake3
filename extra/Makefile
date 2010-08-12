@@ -23,8 +23,8 @@ install: $(generated_files) default-install
 	mkdir -p $(DESTDIR)$(confdir)
 	echo "includeConfigFile server.d/*.conf" >$(DESTDIR)$(confdir)/serverrc
 	echo "includeConfigFile node.d/*.conf" >$(DESTDIR)$(confdir)/noderc
-	install -D server_defaults.conf $(DESTDIR)$(confdir)/server.d/05_defaults.conf
-	install -D node_defaults.conf $(DESTDIR)$(confdir)/node.d/05_defaults.conf
+	install -D -m0644 server_defaults.conf $(DESTDIR)$(confdir)/server.d/05_defaults.conf
+	install -D -m0644 node_defaults.conf $(DESTDIR)$(confdir)/node.d/05_defaults.conf
 	mkdir -p $(DESTDIR)$(logdir)
 	mkdir -p $(DESTDIR)$(sockdir)
 	mkdir -p $(DESTDIR)$(servicedir)
