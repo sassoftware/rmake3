@@ -95,6 +95,15 @@ class LinkClient(XMPPClient):
     def onNeighborDown(self, jid):
         pass
 
+    def getNeighborList(self):
+        """Return a list of JIDs of authenticated neighbors."""
+        out = []
+        for neighbor in self.link.neighbors.itervalues():
+            if not neighbor.isAuthenticated:
+                continue
+            out.append(neighbor.jid)
+        return out
+
 
 class XmlStreamFactory(xmlstream.XmlStreamFactory):
 
