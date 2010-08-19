@@ -181,7 +181,12 @@ class LinkHandler(XMPPHandler):
     def onMessage(self, neighbor, message):
         handler = self._messageHandlers.get(message.message_type)
         if handler:
-            handler.onMessage(neighbor, message)
+            try:
+                handler.onMessage(neighbor, message)
+            except:
+                log.traceback("Unhandled exception while handling message "
+                        "from %s of type '%s':",
+                        neighbor.jid.full(), message.message_type)
         else:
             log.warning("Discarding message from %s with unknown type '%s'",
                     neighbor.jid.full(), message.message_type)
