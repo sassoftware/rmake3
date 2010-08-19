@@ -91,7 +91,7 @@ class BusClientService(_BaseService):
         creds = jcred.XmppClientCredentials(cfg.xmppIdentFile)
         self.targetJID = self.cfg.dispatcherJID
         _BaseService.__init__(self, self.targetJID.host, creds,
-                handlers=other_handlers)
+                handlers=other_handlers, host=cfg.xmppHost)
 
         self.link.addMessageHandler(MessageHandler(self))
         self.connectNeighbor(self.cfg.dispatcherJID)
