@@ -107,13 +107,16 @@ class LinkClient(XMPPClient):
 
 class XmlStreamFactory(xmlstream.XmlStreamFactory):
 
+    reconnecting = False
+
     def buildProtocol(self, addr):
         # Override to prevent resetDelay() from being called until we actually
         # authenticate.
+        self.reconnecting = False
         return xish_stream.XmlStreamFactoryMixin.buildProtocol(self, addr)
 
     def clientConnectionLost(self, connector, reason):
-        if self.continueTrying:
+        if self.continueTrying and not self.reconnecting:
             log.error("XMPP connection lost: %s", reason.getErrorMessage())
         xmlstream.XmlStreamFactory.clientConnectionLost(self, connector, reason)
 
@@ -122,3 +125,6 @@ class XmlStreamFactory(xmlstream.XmlStreamFactory):
             log.error("XMPP connection failed: %s", reason.getErrorMessage())
         xmlstream.XmlStreamFactory.clientConnectionFailed(self, connector,
                 reason)
+
+    def setReconnecting(self):
+        self.reconnecting = True

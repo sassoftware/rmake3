@@ -62,6 +62,8 @@ class RegisteringInitializer(object):
             # Now that we're registered, reconnect so we can identify.
             @d.addCallback
             def after_callback(dummy):
+                log.info("Successfully registered account %s", jid.userhost())
+                self.xmlstream.factory.setReconnecting()
                 self.xmlstream.transport.loseConnection()
                 return xmlstream.Reset
             d.chainDeferred(init_d)
