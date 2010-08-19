@@ -1,3 +1,15 @@
+Changes in 2.0.5:
+  o New Features:
+    * rMake is now compatible with versions of Conary that implement the
+      proxyMap configuration item. (CNY-3427)
+
+  o Bug Fixes:
+    * The copyInConfig configuration item now defaults to False
+      (RMK-1052)
+    * Since Conary now de-duplicates proxy requests using file locking
+      on individual changesets, rMake now defaults to increasing the
+      open file limit for rMake itself. (RMK-1054)
+
 Changes in 2.0.4:
  o New Features:
     * constants.changeset now contains the hg changeset of this version of 
