@@ -1,10 +1,23 @@
 #!/usr/bin/python
+#
+# Copyright (c) 2010 rPath, Inc.
+#
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
+#
 import optparse
 import os
 import random
 import sys
-import tempfile
 import time
+from conary.lib import util as conary_util
 from M2Crypto import ASN1, EVP, RSA, X509
 from M2Crypto import threading as m2threading
 
@@ -13,7 +26,8 @@ E_VALUE = 65537
 
 
 def new_cert(keySize, subject, expiry, issuer=None, issuer_evp=None,
-  isCA=None, serial=None, extensions=None, e_value=E_VALUE):
+  isCA=None, serial=None, extensions=None, e_value=E_VALUE,
+  timestamp_offset=0):
     """
     Generate a new X509 certificate and RSA key.
 
@@ -23,16 +37,18 @@ def new_cert(keySize, subject, expiry, issuer=None, issuer_evp=None,
     @param subject: X509 subject for new certificate
     @param expiry: Number of days after which the new certificate
                    will expire
-    @param issuer: X509 object giving the CA to which the new
-                   certificate will be a client
+    @param issuer: X509 name of the CA to which the new certificate will be a
+                    client
     @param issuer_evp: EVP matching the issuer CA, for signing the new
-                       certificate
+                    certificate
     @param isCA: If C{True}, the new certificate will be a CA. If
                  C{False}, it will explicitly be a non-CA. If C{None},
                  no C{basicConstraints} extension will be attached.
     @param serial: Serial number of the new certificate.
     @param extensions: List of X509 extensions to add
     @param e_value: Value of C{e} to use when generating the new key.
+    @param timestamp_offset: Add this many seconds to the 'not before' and
+                'not after' attributes.
     """
 
     # Generate RSA key and a matching EVP (signing helper).
@@ -41,7 +57,7 @@ def new_cert(keySize, subject, expiry, issuer=None, issuer_evp=None,
     evp.assign_rsa(rsa, capture=False)
 
     # Create X509 object and assign parameters.
-    now = long(time.time())
+    now = long(time.time() + timestamp_offset)
     not_before = ASN1.ASN1_UTCTIME()
     not_before.set_time(now)
     not_after = ASN1.ASN1_UTCTIME()
@@ -163,44 +179,28 @@ def loadCA(options):
     return ca_evp, ca_x509
 
 
-def open_safe(path):
-    """
-    Securely create a non-world-readable file at C{path}, deleting
-    any existing file at that path.
-
-    Returns an open file object to the new file.
-    """
-    path = os.path.abspath(path)
-    tmpFd, tmpPath = tempfile.mkstemp(dir=os.path.dirname(path))
-    try:
-        if os.path.exists(path):
-            os.unlink(path)
-        os.rename(tmpPath, path)
-    except:
-        os.close(tmpFd)
-        os.unlink(tmpPath)
-        raise
-
-    return os.fdopen(tmpFd, 'w')
-
-
 def writeCert(options, rsa, x509):
     """
     Write a new certificate C{x509} and private key C{rsa} as
     prescribed by the command-line C{options}.
     """
     if options.output:
-        certOut = open_safe(options.output)
+        certOut = conary_util.AtomicFile(options.output, chmod=0600)
     else:
         certOut = sys.stdout
 
     if options.output_key and options.output_key != options.output:
-        keyOut = open_safe(options.output_key)
+        keyOut = conary_util.AtomicFile(options.output_key, chmod=0600)
     else:
         keyOut = certOut
 
     keyOut.write(rsa.as_pem(None))
     certOut.write(x509.as_pem())
+
+    if hasattr(certOut, 'commit'):
+        certOut.commit()
+    if keyOut is not certOut and hasattr(keyOut, 'commit'):
+        keyOut.commit()
 
     return 0
 
