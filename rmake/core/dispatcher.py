@@ -175,6 +175,13 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
             return newJob
         return d
 
+    @expose
+    def getWorkerList(self):
+        # In the future, this will return some information about each worker,
+        # but for now it's just the JID.
+        return dict((x.full(), None)
+                for x in self.bus.getNeighborList())
+
     def _publish(self, job, category, data):
         if not isinstance(job, uuid.UUID):
             job = job.job_uuid

@@ -44,3 +44,6 @@ class RmakeClient(object):
     def createJob(self, job, subscribe=False):
         sid = subscribe and self.firehose.sid or None
         return self.proxy.createJob(job, firehose=sid)
+
+    def getWorkerList(self):
+        return self.proxy.listWorkers()
