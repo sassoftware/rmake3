@@ -28,6 +28,7 @@ from conary.lib import cfgtypes
 from twisted.application.internet import TimerService
 from twisted.application.service import MultiService
 
+from rmake.core import types
 from rmake.core.types import JobStatus, TaskCapability
 from rmake.lib.proc_pool import pool
 from rmake.messagebus import message
@@ -58,6 +59,8 @@ class LauncherService(MultiService):
         for plugin, tasks in self.plugins.p.worker.get_task_types().items():
             for task in tasks:
                 self.caps.add(TaskCapability(task))
+        for zone in self.cfg.zone:
+            self.caps.add(types.ZoneCapability(zone))
 
     def _start_bus(self):
         self.bus = LauncherBusService(self.cfg)
@@ -185,6 +188,7 @@ class WorkerConfig(BusClientConfig):
     lockDir             = (cfgtypes.CfgPath, '/var/lock')
     logDir              = (cfgtypes.CfgPath, '/var/log/rmake')
     slots               = (cfgtypes.CfgInt, 2)
+    zone                = (cfgtypes.CfgList(cfgtypes.CfgString), [])
 
     # Plugins
     pluginDirs          = (cfgtypes.CfgPathList, [])
