@@ -39,6 +39,7 @@ ifdef NINAMORI_PATH
 	python ninamori-tmp/embed.py ninamori-tmp/ninamori/ ninamori/ rmake.lib
 	hg addremove ninamori
 	rm -Rf ninamori-tmp
+	hg log -R $(NINAMORI_PATH) -r `cat ninamori/.hgnode`
 else
 	@echo "Please set NINAMORI_PATH" && exit 1
 endif

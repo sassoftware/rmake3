@@ -105,12 +105,12 @@ class CoreDB(object):
     def createTask(self, task):
         d = self.pool.runQuery("""
             INSERT INTO jobs.tasks ( task_uuid, job_uuid, task_name, task_type,
-                task_data, status_code, status_text, status_detail,
+                task_zone, task_data, status_code, status_text, status_detail,
                 node_assigned )
-            VALUES ( %s, %s, %s, %s, %s, %s, %s, %s, %s )
+            VALUES ( %s, %s, %s, %s, %s, %s, %s, %s, %s, %s )
             RETURNING jobs.tasks.*
             """, (task.task_uuid, task.job_uuid, task.task_name,
-                task.task_type, task.task_data,
+                task.task_type, task.task_zone, task.task_data,
                 task.status.code, task.status.text, task.status.detail,
                 task.node_assigned))
         d.addCallback(_grabOne, func=_oneTask)

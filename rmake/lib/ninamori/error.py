@@ -29,11 +29,11 @@ class TransactionError(DatabaseError):
         return msg
 
 
-class DatabaseLockedError(DatabaseError):
+class SchemaError(DatabaseError):
     pass
 
 
-class InvalidTableError(DatabaseError):
+class MigrationError(SchemaError):
     pass
 
 

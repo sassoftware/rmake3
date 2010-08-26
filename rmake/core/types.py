@@ -161,10 +161,12 @@ FrozenRmakeJob = freezify(RmakeJob)
 
 class RmakeTask(SlotCompare):
     __slots__ = ('task_uuid', 'job_uuid', 'task_name', 'task_type',
-            'task_data', 'node_assigned', 'status', 'times')
+            'task_zone', 'task_data', 'node_assigned', 'status', 'times',
+            )
 
     def __init__(self, task_uuid, job_uuid, task_name, task_type,
-            task_data=None, node_assigned=None, status=None, times=None):
+            task_data=None, node_assigned=None, status=None, times=None,
+            task_zone=None):
         if not task_uuid:
             task_uuid = uuid.uuid5(NAMESPACE_TASK,
                     str(job_uuid) + str(task_name))
@@ -172,6 +174,7 @@ class RmakeTask(SlotCompare):
         self.job_uuid = job_uuid
         self.task_name = task_name
         self.task_type = task_type
+        self.task_zone = task_zone
         self.task_data = task_data
         self.node_assigned = node_assigned
         self.status = status or JobStatus()
@@ -232,6 +235,11 @@ FrozenJobTimes = freezify(JobTimes)
 class TaskCapability(namedtuple('TaskCapability', 'taskType')):
     pass
 chutney.register(TaskCapability)
+
+
+class ZoneCapability(namedtuple('ZoneCapability', 'zoneName')):
+    pass
+chutney.register(ZoneCapability)
 
 
 class ThawedObject(namedtuple('ThawedObject', 'object')):

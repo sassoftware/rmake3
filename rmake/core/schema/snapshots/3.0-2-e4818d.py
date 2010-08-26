@@ -16,7 +16,8 @@ from rmake.lib.ninamori import error as nerror
 from rmake.lib.ninamori import timeline
 from rmake.lib.ninamori.decorators import protected
 
-class Migration(timeline.Migration):
+
+class Script(timeline.ScriptBase):
 
     def before(self):
         # Create plpgsql if it doesn't exist. It might be there due to being in

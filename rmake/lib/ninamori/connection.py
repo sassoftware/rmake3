@@ -121,7 +121,7 @@ class DatabaseConnection(object):
             timeLine = timeline.Timeline(timeLine)
         drev = timeLine.get(revision)
         if drev is None:
-            raise RuntimeError("Tried to attach unknown revision %r" %
+            raise error.SchemaError("Tried to attach unknown revision %r" %
                     (revision,))
 
         metadata = self.metadata.setdefault(schemaName, {})
@@ -132,19 +132,27 @@ class DatabaseConnection(object):
             return
         elif current is None:
             # Schema not loaded
-            log.info("Populating schema %s revision %s", schemaName, drev.rev)
-            drev.populate(self)
+            log.info("Populating schema %s with revision %s", schemaName,
+                    drev.rev)
+            drev.apply(self)
             metadata['schema_version'] = drev.rev
             self.saveMeta(schemaName)
         elif not allowMigrate:
-            raise RuntimeError("Database schema %r is at revision %r but "
-                    "revision %r is required." % (schemaName, current,
+            raise RuntimeError("Database schema %r is at revision %s but "
+                    "revision %s is required." % (schemaName, current,
                         drev.rev))
         else:
             # migration not implemented yet
             log.info("Migrating schema %s from revision %s to revision %s",
                     schemaName, current, drev.rev)
-            raise NotImplementedError
+            crev = timeLine.get(current)
+            if crev is None:
+                raise error.MigrationError("Current schema version %s is "
+                        "unknown -- is the correct timeline loaded?" %
+                        (current,))
+            timeLine.migrate(self, crev, drev)
+            metadata['schema_version'] = drev.rev
+            self.saveMeta(schemaName)
 
 
     # Transaction methods

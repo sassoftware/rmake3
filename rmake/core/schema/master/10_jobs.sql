@@ -29,6 +29,7 @@ CREATE TABLE tasks (
     job_uuid uuid NOT NULL REFERENCES jobs ON UPDATE CASCADE ON DELETE CASCADE,
     task_name text NOT NULL,
     task_type text NOT NULL,
+    task_zone text,
     task_data bytea,
     time_started timestamp with time zone,
     time_finished timestamp with time zone,

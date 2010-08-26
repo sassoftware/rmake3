@@ -12,9 +12,14 @@
 # full details.
 
 import inspect
+import logging
 import os
+from rmake.lib.ninamori import error
+from rmake.lib.ninamori import graph
 from rmake.lib.ninamori.compat import sha1
 from rmake.lib.ninamori.decorators import protected
+
+log = logging.getLogger(__name__)
 
 
 def _read_meta(path):
@@ -35,6 +40,10 @@ def _write_meta(path, meta):
 
 
 class Timeline(object):
+    """
+    Collection of snapshotted schema revisions and migration steps.
+    """
+
     def __init__(self, path):
         self.root = path
         self.meta = {}
@@ -44,6 +53,9 @@ class Timeline(object):
 
     def _snap(self, rev):
         return self._path('snapshots', rev)
+
+    def _migration(self, old_rev, new_rev):
+        return self._path('migrations', '%s--%s' % (old_rev, new_rev))
 
     def _init(self):
         for subdir in ('master', 'snapshots', 'migrations'):
@@ -94,10 +106,10 @@ class Timeline(object):
             code = open(master_path, 'rU').read()
             tmp_globals = {}
             exec code in tmp_globals
-            cls = tmp_globals.get('Migration')
-            if not inspect.isclass(cls) or not issubclass(cls, Migration):
-                raise RuntimeError("master.py must define a class 'Migration' "
-                        "that subclasses ninamori.timeline.Migration")
+            cls = tmp_globals.get('Script')
+            if not inspect.isclass(cls) or not issubclass(cls, ScriptBase):
+                raise RuntimeError("master.py must define a class 'Script' "
+                        "that subclasses ninamori.timeline.ScriptBase")
             ctx.update(code)
 
         # Check if the new revision would be identical to the previous one.
@@ -119,7 +131,8 @@ class Timeline(object):
                 continue
             idx = max(idx, int(b))
         idx += 1
-        rev = '%s-%s-%s' % (rev_base, idx, digest[:6])
+        noise = os.urandom(3).encode('hex')
+        rev = '%s-%s-%s' % (rev_base, idx, noise)
         base = self._snap(rev)
 
         # Write out the new revision and move the "latest" pointer.
@@ -144,31 +157,94 @@ class Timeline(object):
 
         return rev
 
+    def _migration_graph(self):
+        g = graph.DirectedGraph()
+        for edge in os.listdir(self._path('migrations')):
+            if '--' not in edge or not edge.endswith('.txt'):
+                continue
+            one, two = edge[:-4].split('--')
+            g.addEdge(one, two)
+        return g
 
-class Revision(object):
+    def migrate(self, db, old_rev, new_rev):
+        if old_rev == new_rev:
+            return
+        g = self._migration_graph()
+        path = g.shortestPath(old_rev.rev, new_rev.rev)
+        if path is None:
+            raise error.MigrationError("No migration path between current "
+                    "revision '%s' and desired revision '%s'" % (old_rev.rev,
+                        new_rev.rev))
+        log.debug("Migration path: %s", " -> ".join(path))
 
-    def __init__(self, timeline, rev):
-        self.rev = rev
-        self.base = timeline._snap(rev)
-        self.meta = _read_meta(self.base + '.txt')
+        old = path.pop(0)
+        while path:
+            new = path.pop(0)
 
-    digest = property(lambda self: self.meta['digest'])
+            log.debug("Migrating from %s to %s", old, new)
+            step = Migration(self, old, new)
+            step.apply(db)
 
-    def populate(self, db):
+            old = new
+
+
+class Step(object):
+    """
+    Base class for revision and migration objects.
+    """
+
+    def __init__(self, base):
+        self.base = base
+        self.meta = _read_meta(base + '.txt')
+
+    def _read(self):
         sql = open(self.base + '.sql').read()
 
         if 'has_code' in self.meta:
             mod = {}
             execfile(self.base + '.py', mod)
-            mig_class = mod['Migration']
+            mig_class = mod['Script']
         else:
-            mig_class = Migration
+            mig_class = ScriptBase
 
+        return sql, mig_class
+
+    def apply(self, db):
+        sql, mig_class = self._read()
         migration = mig_class(db, sql)
         migration.run()
 
 
-class Migration(object):
+class Revision(Step):
+    """
+    Info about a single revision snapshot.
+    """
+
+    def __init__(self, timeline, rev):
+        Step.__init__(self, timeline._snap(rev))
+        self.rev = rev
+
+    digest = property(lambda self: self.meta['digest'])
+
+
+class Migration(Step):
+    """
+    Info about a migration from one revision to another.
+    """
+
+    def __init__(self, timeline, old_rev, new_rev):
+        Step.__init__(self, timeline._migration(old_rev, new_rev))
+        self.old_rev = old_rev
+        self.new_rev = new_rev
+
+
+class ScriptBase(object):
+    """
+    Base class for snapshot and migration script overrides.
+
+    This is used as-is for pure SQL steps, and subclassed by population and
+    migration scripts.
+    """
 
     def __init__(self, db, sql):
         self.db = db

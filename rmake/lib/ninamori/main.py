@@ -14,6 +14,7 @@
 #
 
 
+import logging
 import optparse
 import os
 import sys
@@ -26,10 +27,17 @@ def main():
     parser = optparse.OptionParser()
     parser.add_option('-d', '--schema-dir', default='.',
             help="Schema directory")
+    parser.add_option('-v', '--verbose', action='store_true')
     options, args = parser.parse_args()
     if not args:
         parser.error("Expected a command: populate, migrate, snapshot")
     mode = args.pop(0)
+
+    handler = logging.StreamHandler(sys.stderr)
+    handler.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
+    log = logging.getLogger()
+    log.handlers = [handler]
+    log.setLevel(options.verbose and logging.DEBUG or logging.INFO)
 
     dtl = timeline.Timeline(os.path.realpath(options.schema_dir))
     dtl.read_meta()
@@ -46,8 +54,9 @@ def main():
             sys.exit("Usage: migrate <dburl> [<rev>]")
         dburl = args.pop(0)
         rev = args and args[0] or None
-        timeline.connect(dburl)
-        timeline.migrate(rev)
+        db = ninamori.connect(dburl)
+        db.attach(dtl, revision=rev, allowMigrate=True)
+
     elif mode == 'snapshot':
         if len(args) > 1:
             sys.exit("Usage: snapshot [<rev>]")
