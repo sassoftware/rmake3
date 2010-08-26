@@ -180,10 +180,11 @@ class JobHandler(object):
 
     ## Creating/monitoring tasks
 
-    def newTask(self, taskName, taskType, data):
+    def newTask(self, taskName, taskType, data, zone=None):
         if not isinstance(data, FrozenObject):
             data = FrozenObject.fromObject(data)
-        task = RmakeTask(None, self.job.job_uuid, taskName, taskType, data)
+        task = RmakeTask(None, self.job.job_uuid, taskName, taskType, data,
+                task_zone=zone)
 
         d = defer.Deferred()
         self.tasks[task.task_uuid] = (d, [])

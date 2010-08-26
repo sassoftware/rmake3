@@ -27,6 +27,7 @@ import stat
 from rmake.core import constants as core_const
 from rmake.core import database as coredb
 from rmake.core import file_store
+from rmake.core import types
 from rmake.core.support import DispatcherBusService, WorkerChecker
 from rmake.core.handler import getHandlerClass
 from rmake.core.types import TaskCapability, FrozenObject, JobTimes, JobStatus
@@ -409,13 +410,12 @@ class WorkerInfo(object):
 
         Returns a tuple of an A_* constant and a number. Higher is better.
         """
-        # Does the worker support the given task type?
-        for cap in self.caps:
-            if not isinstance(cap, TaskCapability):
-                continue
-            if cap.taskType == task.task_type:
-                break
-        else:
+        # Task must be supported
+        if types.TaskCapability(task.task_type) not in self.caps:
+            return core_const.A_NEVER, None
+        # Task must be in no zone or this zone
+        if (task.task_zone is not None
+                and types.TaskCapability(task.task_zone) not in self.caps):
             return core_const.A_NEVER, None
 
         # Are there slots available to run this task in?
