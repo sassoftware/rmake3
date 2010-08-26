@@ -426,17 +426,22 @@ def getPluginManager(argv, configClass, supportedTypes=(), readFiles=False):
     cfg = configClass(**kwargs)
     cfg.ignoreUrlIncludes()
     cfg.setIgnoreErrors()
-    readNext = False
-    for item in argv:
-        if readNext:
-            cfg.read(item)
-            readNext = False
-            continue
-        if item.startswith('--config-file='):
-            file = item.split('=', 1)[1]
-            cfg.read(file)
+    idx = 0
+    while idx < len(argv):
+        item = argv[idx]
+        idx += 1
+
+        if item[:14] == '--config-file=':
+            cfg.read(item[14:])
         elif item == '--config-file':
-            readNext = True
+            cfg.read(argv[idx])
+            idx += 1
+        elif item[:9] == '--config=':
+            cfg.configLine(item[9:])
+        elif item == '--config':
+            cfg.configLine(argv[idx])
+            idx += 1
+
     if not getattr(cfg, 'usePlugins', True):
         return PluginManager([])
 
