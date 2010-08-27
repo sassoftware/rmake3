@@ -40,7 +40,7 @@ class DirectedGraph(object):
 
         while unfinished:
             # Pop the nearest unfinished node
-            node = min(unfinished, key=lambda x: (distances[x], x))
+            node = min((distances[x], x) for x in unfinished)[1]
             if distances[node] is INF:
                 # No paths left to follow
                 break
