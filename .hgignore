@@ -2,6 +2,7 @@
 
 ^bin/
 ^tmp/
+^_trial_temp/
 
 ^commands/chroothelper$
 ^commands/chroothelper.h$

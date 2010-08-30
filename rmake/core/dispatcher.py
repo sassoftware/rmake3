@@ -30,7 +30,6 @@ from rmake.core import file_store
 from rmake.core import types
 from rmake.core.support import DispatcherBusService, WorkerChecker
 from rmake.core.handler import getHandlerClass
-from rmake.core.types import TaskCapability, FrozenObject, JobTimes, JobStatus
 from rmake.errors import RmakeError
 from rmake.lib import dbpool
 from rmake.lib import rpc_pickle
@@ -142,8 +141,8 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
         """
         # This dance makes sure that if the job data is a frozen object, it
         # doesn't get replaced with a thawed version unintentionally.
-        if not isinstance(job.data, FrozenObject):
-            data = FrozenObject.fromObject(job.data)
+        if not isinstance(job.data, types.FrozenObject):
+            data = types.FrozenObject.fromObject(job.data)
             job = job._replace(data=data)
 
         job = job.thaw()
@@ -300,7 +299,7 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
 
         for info in worker.tasks.itervalues():
             task = info.taskForUpdate()
-            task.status = JobStatus(400,
+            task.status = types.JobStatus(400,
                     "The worker processing this task has gone offline.")
             self.updateTask(task)
         del self.workers[jid]
@@ -382,7 +381,7 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
     def _failTask(self, task, message):
         log.error("Task %s failed: %s", task.task_uuid, message)
         text = "Task failed: %s" % (message,)
-        task.times.ticks = JobTimes.TICK_OVERRIDE
+        task.times.ticks = types.JobTimes.TICK_OVERRIDE
         task.status.code = core_const.TASK_NOT_ASSIGNABLE
         task.status.text = "Task failed: %s" % (message,)
         self.updateTask(task)
@@ -438,5 +437,5 @@ class TaskInfo(object):
     def taskForUpdate(self):
         task = self._task.thaw()
         task.task_data = None
-        task.times.ticks = JobTimes.TICK_OVERRIDE
+        task.times.ticks = types.JobTimes.TICK_OVERRIDE
         return task
