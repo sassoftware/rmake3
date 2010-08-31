@@ -56,7 +56,7 @@ class BuildPlugin(plug_dispatcher.DispatcherPlugin, plug_worker.WorkerPlugin):
             if not self.cfg.isExternalProxy():
                 repos.startProxy(self.cfg)
         except:
-            log.traceback("Error starting server:")
+            log.exception("Error starting server:")
             reactor.stop()
 
     # Worker
