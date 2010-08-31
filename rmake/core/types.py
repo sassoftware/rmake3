@@ -62,12 +62,12 @@ class SlotCompare(object):
     __slots__ = ()
     _frozenType = None
 
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
         for n, name in enumerate(self.__slots__):
             if n < len(args):
                 value = args[n]
             else:
-                value = None
+                value = kwargs.get(name, None)
             setattr(self, name, value)
 
     def __eq__(self, other):
