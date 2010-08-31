@@ -184,7 +184,7 @@ class LinkHandler(XMPPHandler):
             try:
                 handler.onMessage(neighbor, message)
             except:
-                log.traceback("Unhandled exception while handling message "
+                log.exception("Unhandled exception while handling message "
                         "from %s of type '%s':",
                         neighbor.jid.full(), message.message_type)
         else:
