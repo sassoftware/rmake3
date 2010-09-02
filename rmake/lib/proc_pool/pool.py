@@ -43,9 +43,10 @@ class ProcessPool(service.Service):
 
     pool = None
 
-    def __init__(self, starter=None, args=()):
+    def __init__(self, starter=None, args=(), debug=False):
         if starter is None:
-            starter = ProcessStarter(packages=('twisted', 'rmake'))
+            starter = ProcessStarter(packages=('twisted', 'rmake'),
+                    debug=debug)
         self.starter = starter
         self.args = dict(args)
 
@@ -152,8 +153,9 @@ class ProcessStarter(object):
 
     connectorFactory = connector.ProcessConnector
 
-    def __init__(self, packages=()):
+    def __init__(self, packages=(), debug=False):
         self.packages = packages
+        self.debug = debug
 
     @staticmethod
     def _checkRoundTrip(obj):
@@ -188,7 +190,10 @@ class ProcessStarter(object):
         env['PYTHONPATH'] = os.pathsep.join(pythonPath)
 
         args = (sys.executable, bootstrapPath, childClassPath)
-        reactor.spawnProcess(prot, sys.executable, args, env,
-                childFDs={0: 'w', 1: 'r', 2: 'r',
-                    connector.TO_CHILD: 'w', connector.FROM_CHILD: 'r'})
+        fds = {connector.TO_CHILD: 'w', connector.FROM_CHILD: 'r'}
+        if self.debug:
+            fds.update({0: 0, 1: 1, 2: 2})
+        else:
+            fds.update({0: 'w', 1: 'r', 2: 'r'})
+        reactor.spawnProcess(prot, sys.executable, args, env, childFDs=fds)
         return prot

@@ -42,9 +42,10 @@ log = logging.getLogger(__name__)
 
 class LauncherService(MultiService):
 
-    def __init__(self, cfg, plugin_mgr):
+    def __init__(self, cfg, plugin_mgr, debug=False):
         MultiService.__init__(self)
         self.cfg = cfg
+        self.debug = debug
         self.bus = None
         self.caps = set()
         self.pool = None
@@ -71,12 +72,14 @@ class LauncherService(MultiService):
         # The elusive double pickle: even though parent-child communication
         # is transparently pickled, the config object needs special handling
         # because the worker must load plugins before unpickling.
-        self.pool = PoolService(args=dict(
-            pluginDirs=self.plugins.pluginDirs,
-            disabledPlugins=self.plugins.disabledPlugins,
-            pluginOptions=self.cfg.pluginOption,
-            cfgBlob=cPickle.dumps(self.cfg, 2),
-            ))
+        self.pool = PoolService(
+                args=dict(
+                    pluginDirs=self.plugins.pluginDirs,
+                    disabledPlugins=self.plugins.disabledPlugins,
+                    pluginOptions=self.cfg.pluginOption,
+                    cfgBlob=cPickle.dumps(self.cfg, 2),
+                    ),
+                debug=self.debug)
         self.pool.setServiceParent(self)
 
     def launch(self, msg):

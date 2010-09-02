@@ -57,10 +57,13 @@ class ProcessConnector(protocol.ProcessProtocol):
         logobj = None
         if childFD == self.in_fd:
             self.protocol.dataReceived(data)
+            return
         elif childFD == 1:
             logobj = self.stdoutLog
         elif childFD == 2:
             logobj = self.stderrLog
+        else:
+            return
 
         if not logobj:
             return

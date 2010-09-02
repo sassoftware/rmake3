@@ -36,7 +36,8 @@ class WorkerDaemon(daemon.DaemonService, daemon.LoggingMixin,
             if self.cfg[name] is None:
                 sys.exit("error: Configuration option %r must be set." % name)
 
-        srv = launcher.LauncherService(self.cfg, self.plugins)
+        srv = launcher.LauncherService(self.cfg, self.plugins,
+                debug=kwargs['debug'])
         srv.setServiceParent(self)
         if self.cfg.xmppDebug:
             srv.bus.logTraffic = True
