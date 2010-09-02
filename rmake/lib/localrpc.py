@@ -13,7 +13,6 @@ import SocketServer
 import SimpleXMLRPCServer
 import urllib
 import IN
-import struct
 import sys
 
 BUFSIZE = 1024 * 2

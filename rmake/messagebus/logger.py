@@ -1,77 +1,95 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2010 rPath, Inc.
 #
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
+#
+
 import logging
-from logging import handlers
-import os
-import traceback
+import time
 
-from conary.lib import util
+from rmake.messagebus.message import LogRecords
 
-from rmake.lib import logger
 
-LOGSIZE = 10 * 1024 * 1024
-BACKUPS = 3
+class LogRelay(logging.Handler):
+    """
+    Relay log records to a message bus server.
 
-class MessageBusLogger(logger.ServerLogger):
-    name = 'messagebus'
-    messageFormat = '%(asctime)s - %(message)s'
+    Records will be sent at most once every 0.25 seconds.
+    """
 
-    def __init__(self, name=None, logPath=None):
-        logger.ServerLogger.__init__(self, name, logPath)
-        self.messageLogger = logging.getLogger(self.name + '-transcript')
-        self.messageLogger.setLevel(logging.WARNING)
-        self.messageLogger.parent = None
-        self._loggers.append(self.messageLogger)
-        self.messageFileHandler = None
-        self.messageConsole = logging.StreamHandler()
-        self.messageConsole.setFormatter(
-                                     self.formatterClass(self.messageFormat,
-                                                      self.consoleDateFormat))
-        self.messageConsole.setLevel(logging.INFO)
-        self.messageHandler = None
+    DEADLINE = 0.25
 
-    def _getTraceback(self):
-        return traceback.format_exc()
+    def __init__(self, client, task_uuid):
+        logging.Handler.__init__(self)
+        self.client = client
+        self.task_uuid = task_uuid
+        self.buffered = []
+        self.last_send = 0
+        self.delayed_call = None
 
-    def logMessagesToFile(self, logPath):
-        if self.messageHandler:
-            self.messageLogger.removeHandler(self.messageHandler)
-        util.mkdirChain(os.path.dirname(logPath))
-        fileHandler = handlers.RotatingFileHandler(logPath, 
-                                                  maxBytes=LOGSIZE,
-                                                  backupCount=BACKUPS)
-        fileHandler.setFormatter(self.formatterClass(self.messageFormat,
-                                                     self.dateFormat))
-        self.messageHandler = fileHandler
-        self.messageLogger.addHandler(self.messageHandler)
-        self.messageLogger.setLevel(logging.INFO)
+    def _formatException(self, ei):
+        return logging._defaultFormatter.formatException(ei)
 
-    def enableMessageConsole(self):
-        self.messageLogger.setLevel(logging.INFO)
-        self.messageLogger.addHandler(self.messageConsole)
+    def emit(self, record):
+        # Don't send traceback objects over the wire if it can be helped.
+        if record.exc_info and not record.exc_text:
+            record.exc_text = self._formatException(record.exc_info)
+        record.exc_info = None
 
-    def disableMessageConsole(self):
-        if not self.messageHandler:
-            self.messageLogger.setLevel(logging.WARNING)
-        self.messageLogger.removeHandler(self.messageConsole)
+        self.buffered.append(record)
+        self.maybe_flush()
 
-    def connectionFailed(self, caddr):
-        self.error("Connection failed from address %s:%s - %s" % 
-                   (caddr[0], caddr[1], self._getTraceback()))
+    def maybe_flush(self):
+        if self.delayed_call or not self.buffered:
+            # Nothing to do, or there's already a delayed call scheduled.
+            return
+        deadline = self.last_send + self.DEADLINE
+        now = time.time()
+        if now > deadline:
+            # It's been long enough so go ahead and send it immediately.
+            self.flush()
+            return
 
-    def readFailed(self, session):
-        self.error("Reading from sessionId %s failed: %s" %
-                   (session.sessionId, self._getTraceback()))
+        # Not long enough to send immediately, so schedule a call. A small
+        # constant is added to the delay to prevent fibrillation if callLater
+        # returns sooner than expected.
+        from twisted.internet import reactor
+        delay = deadline - now + 0.05
+        self.delayed_call = reactor.callLater(delay, self.flush)
 
-    def writeFailed(self, session):
-        self.error("Writing to sessionId %s failed: %s" %
-                   (session.sessionId, self._getTraceback()))
+    def flush(self):
+        if not self.buffered or not self.client:
+            return
 
-    def logMessage(self, m, fromSession=None):
-        if fromSession:
-            m.headers.sessionId = fromSession.sessionId
-        txt = ' '*4 + '\n    '.join(str(m).split('\n'))
-        txt += ' '*4 + '\n    '.join(m.getPayloadStream().read().split('\n'))
-        txt = 'Received Message:\n' + txt
-        self.messageLogger.info(txt)
+        # If there's a delayed flush in-flight (or if this *is* the delayed
+        # flush) then cancel and clear it.
+        if self.delayed_call:
+            if self.delayed_call.active():
+                self.delayed_call.cancel()
+            self.delayed_call = None
+
+        records, self.buffered = self.buffered, []
+        msg = LogRecords(records, self.task_uuid)
+        self.client.sendToTarget(msg)
+        self.last_send = time.time()
+
+    def close(self):
+        self.flush()
+        self.client = None
+        logging.Handler.close(self)
+
+
+def createLogRelay(logBase, client, task_uuid, propagate=False):
+    relay = LogRelay(client, task_uuid)
+    logger = logging.getLogger(logBase)
+    logger.propagate = propagate
+    logger.handlers = [relay]
+    return logger, relay

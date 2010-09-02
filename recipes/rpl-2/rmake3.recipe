@@ -1,0 +1,88 @@
+#
+# Copyright (c) 2010 rPath, Inc.
+# This file is distributed under the terms of the MIT License.
+# A copy is available at http://www.rpath.com/permanent/mit-license.html
+#
+
+class RmakeRecipe(CPackageRecipe):
+    name = 'rmake3'
+    version = '3.0'
+
+    buildRequires = [
+        'chkconfig:runtime',
+        'conary:python',
+        'conary-repository:python',
+        'desktop-file-utils:runtime',
+        'libcap:devel',
+        'm2crypto:python',
+        'psycopg2:python',
+        'python:devel',
+        'python-setuptools:python',
+        'python-twisted:python',
+        'python-txpostgres:python',
+        'python-wokkel:python',
+    ]
+
+    def setup(r):
+        if r.name != 'rmake':
+            r.macros.prefix = '/opt/%(name)s'
+        r.macros.confdir = '/etc/%(name)s'
+        r.macros.srvdir = '/srv/%(name)s'
+        r.addMercurialSnapshot('http://hg.rpath.com/rmake')
+        r.MakeInstall(
+            'PKGNAME=%(name)s '
+            'NO_COMPILE=1 '
+            'prefix=%(prefix)s '
+            # Use regular prefix for python code so things are importable
+            'libdir=/usr/%(lib)s '
+            )
+        r.CompilePython('/')
+
+        r.Ownership('rmake', 'rmake',
+                '%(srvdir)s.*',
+                '/var/lib/%(name)s',
+                '/var/log/%(name)s',
+                '/var/run/%(name)s',
+                )
+        r.ExcludeDirectories(exceptions='%(srvdir)s.*')
+
+        r.Doc('CPL')
+
+        # library
+        r.Requires(exceptDeps='python: epdb')
+        r.ComponentProvides('%(version)s')
+
+        # chroothelper
+        chpath = '%(prefix)s/libexec/rmake/chroothelper'
+        r.SetModes(chpath, 04755)
+        r.Provides('file', chpath)
+        r.Requires(chpath, 'rootfactory.py')
+        r.Requires('busybox:runtime', chpath)
+        r.UtilizeUser('rmake-chroot', chpath)
+        r.UtilizeGroup('rmake-chroot', chpath)
+
+        ## package rmake-node
+        # This package has files required on individual build nodes
+        # controlled by a head node
+        r.macros.binpath = '%(prefix)s/sbin'
+        r.PackageSpec('%(name)s-node',
+                '%(initdir)s/%(name)s-node',
+                '%(binpath)s/rmake-node',
+                '%(confdir)s/noderc',
+                '%(confdir)s/node.d/',
+                )
+        r.Provides('file', '%(binpath)s/rmake-node')
+        r.Requires('%(name)s:python(%(version)s)', '%(binpath)s/rmake-node')
+
+
+        ## package rmake-multinode-server
+        # This package has files required on the head node that controls
+        # all the individual build nodes that are connected to it
+        r.PackageSpec('%(name)s-multinode-server',
+                '%(initdir)s/%(name)s',
+                '%(sbindir)s/rmake-dispatcher',
+                '%(confdir)s/serverrc',
+                '%(confdir)s/server.d/',
+                )
+        r.Provides('file', '%(binpath)s/rmake-dispatcher')
+        r.Requires('%(name)s:python(%(version)s)', '%(binpath)s/rmake-dispatcher')

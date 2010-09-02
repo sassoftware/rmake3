@@ -15,7 +15,6 @@ from rmake.lib import server
 from rmake import errors
 from rmake import failure
 from rmake.worker import command
-from rmake.worker import imagecommand
 from rmake.worker.chroot import rootmanager
 
 class Worker(server.Server):
@@ -30,7 +29,8 @@ class Worker(server.Server):
                        'resolve'  : command.ResolveCommand,
                        'stop'     : command.StopCommand,
                        'session'  : command.SessionCommand,
-                       'image'    : imagecommand.ImageCommand }
+                       #'image'    : imagecommand.ImageCommand }
+                       }
 
     def __init__(self, serverCfg, logger, slots=1):
         """

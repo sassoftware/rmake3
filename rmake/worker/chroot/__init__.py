@@ -1,8 +1,6 @@
 #
 # Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
 #
-from rmake.lib import apiutils
-from rmake.lib.apiutils import freeze, thaw
 
 
 class Chroot(object):
@@ -32,4 +30,3 @@ class Chroot(object):
         else:
             self.troveTuple = None
         return self
-apiutils.register(Chroot)

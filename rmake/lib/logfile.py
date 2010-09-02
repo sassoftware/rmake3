@@ -3,10 +3,8 @@
 #
 import os
 import select
-import signal
 import socket
 import sys
-import time
 
 from conary.lib import util
 from rmake import errors

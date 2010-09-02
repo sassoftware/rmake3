@@ -16,13 +16,16 @@
 Describes a BuildConfiguration, which is close to, but neither a subset nor
 a superset of a conarycfg file.
 """
+
 import os
 import re
+import urllib
 
 from conary import conarycfg
 from conary import versions
 from conary.deps import deps
 from conary.lib import cfg,cfgtypes
+from conary.lib import log as clog
 from conary.conarycfg import CfgLabel
 from conary.conarycfg import ParseError
 from conary.conaryclient import cmdline
@@ -31,8 +34,7 @@ from conary.lib.cfgtypes import (CfgBool, CfgList, CfgDict, CfgString,
                                  CfgPathList)
 
 from rmake.cmdline import cmdutil
-from rmake.lib import apiutils, logger
-from rmake import compat, errors, subscribers
+
 
 
 class CfgDependency(CfgType):
@@ -77,27 +79,6 @@ class CfgTroveTupleWithContext(CfgType):
         return '%s=%s[%s]{%s}' % val
 
 
-class CfgSubscriberDict(CfgDict):
-    def parseValueString(self, key, value):
-        return self.valueType.parseString(key, value)
-
-class CfgSubscriber(CfgType):
-
-    def parseString(self, name, val):
-        protocol, uri = val.split(None, 1)
-        try:
-            s = subscribers.SubscriberFactory(name, protocol, uri)
-        except errors.RmakeError, err:
-            raise ParseError(err)
-        return s
-
-    def updateFromString(self, s, str):
-        s.parse(*str.split(None, 1))
-        return s
-
-    def toStrings(self, s, displayOptions):
-        return s.freezeData()
-
 class CfgUUID(CfgType):
 
     def parseString(self, val):
@@ -140,14 +121,9 @@ class RmakeBuildContext(cfg.ConfigSection):
     copyInConfig         = (CfgBool, False) # RMK-1052
     rbuilderUrl          = (cfgtypes.CfgString, 'https://localhost/')
     rmakeUser            = (CfgUser, None)
-    if not compat.ConaryVersion().supportsDefaultBuildReqs():
-        defaultBuildReqs     = (CfgList(CfgString), [ 'bash:runtime',
-            'coreutils:runtime', 'filesystem', 'conary:runtime',
-            'conary-build:runtime', 'dev:runtime', 'grep:runtime',
-            'sed:runtime', 'findutils:runtime', 'gawk:runtime',
-            ] )
-    else:
-        defaultBuildReqs     = (CfgList(CfgString), [])
+    rmakeUrl             = (CfgString, 'unix:///var/lib/rmake/socket')
+    clientCert           = (cfgtypes.CfgPath, None)
+    defaultBuildReqs     = (CfgList(CfgString), [])
     resolveTroves        = (CfgList(CfgQuotedLineList(CfgTroveSpec)),
                             [[('group-dist', None, None)]])
     matchTroveRule       = (CfgList(CfgString), [])
@@ -157,7 +133,6 @@ class RmakeBuildContext(cfg.ConfigSection):
             "INTERNAL USE ONLY: Dep provided by the RPM to be used for "
             "installation of the chroot.")
     strictMode           = (CfgBool, False)
-    subscribe            = (CfgSubscriberDict(CfgSubscriber), {})
     targetLabel          = (CfgLabel, versions.Label('NONE@local:NONE'))
     uuid                 = (CfgUUID, '')
 
@@ -168,56 +143,8 @@ class RmakeBuildContext(cfg.ConfigSection):
             if info[0] not in self:
                 self.addConfigOption(*info)
 
-class FreezableConfigMixin(object):
 
-    def __freeze__(self):
-        """
-            Support the freeze mechanism to allow a build config to be 
-            sent via xmlrpc.  Basically converts to a set of strings
-            that can be read in on the other side.
-        """
-        configOptions = dict(prettyPrint=False, expandPaths=True)
-        d = {}
-        for name, cfgItem in self._options.iteritems():
-            val = self[name]
-            # _Path objects may change even when there at the default.
-            if (val == cfgItem.default and not isinstance(val, cfgtypes._Path)
-                and not (isinstance(val, list)
-                         and val and isinstance(val[0], cfgtypes._Path))):
-                continue
-            if val is None:
-                continue
-            else:
-                d[name] = list(cfgItem.valueType.toStrings(val, configOptions))
-        return d
-
-    @classmethod
-    def __thaw__(class_, d):
-        """ 
-            Support the thaw mechanism to allow a build config to be 
-            read from xmlrpc.  Converts back from a set of strings.
-        """
-        obj = class_()
-        for name, cfgItem in obj._options.iteritems():
-            if name in d:
-                lines = d[name]
-                if not lines and obj[name] is None:
-                    obj[name] = lines
-
-                for line in d.get(name, []):
-                    value = obj._options[name].parseString(obj[name], line)
-                    if name in obj: # it could be a hidden attribute,
-                                    # in which case we can't use setitem.
-                                    # but if we can we want to trigger the 
-                                    # default handling...
-                        obj[name] = value
-                    else:
-                        setattr(obj, name, value)
-        return obj
-
-
-
-class BuildConfiguration(conarycfg.ConaryConfiguration, FreezableConfigMixin):
+class BuildConfiguration(conarycfg.ConaryConfiguration):
 
     buildTroveSpecs      = CfgList(CfgTroveSpec)
     isolateTroves        = (CfgBool, False, "Ignore the results of other "
@@ -263,9 +190,6 @@ class BuildConfiguration(conarycfg.ConaryConfiguration, FreezableConfigMixin):
                  strictMode=None):
         # we default the value of these items to whatever they
         # are set to on the local system's conaryrc.
-        if log is None:
-            log = logger.Logger('buildcfg')
-
         conarycfg.ConaryConfiguration.__init__(self, readConfigFiles=False)
         if hasattr(self, 'setIgnoreErrors'):
             self.setIgnoreErrors(ignoreErrors)
@@ -281,7 +205,7 @@ class BuildConfiguration(conarycfg.ConaryConfiguration, FreezableConfigMixin):
 
         if readConfigFiles:
             if os.path.exists(root + '/etc/rmake/clientrc'):
-                log.warning(root + '/etc/rmake/clientrc should be renamed'
+                clog.warning(root + '/etc/rmake/clientrc should be renamed'
                                    ' to /etc/rmake/rmakerc')
                 self.read(root + '/etc/rmake/clientrc', exception=False)
             self.read(root + '/etc/rmake/rmakerc', exception=False)
@@ -314,16 +238,10 @@ class BuildConfiguration(conarycfg.ConaryConfiguration, FreezableConfigMixin):
         def _shouldOverwrite(key, current, new):
             if key not in new:
                 return False
-            if compat.ConaryVersion().supportsConfigIsDefault():
-                if (current.isDefault(key) and
-                    current[key] == current.getDefaultValue(key) and
-                   (not new.isDefault(key) or
-                    new[key] != new.getDefaultValue(key))):
-                    return True
-            elif (current[key] is current.getDefaultValue(key) or
-                  current[key] == current.getDefaultValue(key)
-                  and (not new[key] is new.getDefaultValue(key)
-                       and not new[key] == new.getDefaultValue(key))):
+            if (current.isDefault(key)
+                    and current[key] == current.getDefaultValue(key)
+                    and (not new.isDefault(key) or
+                        new[key] != new.getDefaultValue(key))):
                 return True
             return False
         if self.strictMode:
@@ -364,9 +282,20 @@ class BuildConfiguration(conarycfg.ConaryConfiguration, FreezableConfigMixin):
                 self.resetToDefault(option)
 
     def getServerUri(self):
-        if self.rmakeUrl:
+        schema, rest = urllib.splittype(self.rmakeUrl)
+        if schema == 'unix':
             return self.rmakeUrl
-        return 'unix:///var/lib/rmake/socket'
+        else:
+            host, path = urllib.splithost(rest)
+            user, host = urllib.splituser(host)
+            host, port = urllib.splitport(host)
+            if not port:
+                port = 9999
+            if self.rmakeUser:
+                user = '%s:%s@' % self.rmakeUser
+            else:
+                user = ''
+            return '%s://%s%s:%s%s' % (schema, user, host, port, path)
 
     def limitToHosts(self, hosts):
         if isinstance(hosts, str):
@@ -465,21 +394,3 @@ class BuildConfiguration(conarycfg.ConaryConfiguration, FreezableConfigMixin):
                 return
         conarycfg.ConaryConfiguration._writeKey(self, out, cfgItem,
                                                 self[cfgItem.name], options)
-
-
-apiutils.register(apiutils.api_freezable(BuildConfiguration),
-                  'BuildConfiguration')
-
-class SanitizedBuildConfiguration(object):
-
-    @staticmethod
-    def __freeze__(cfg):
-        cfg = apiutils.freeze('BuildConfiguration', cfg)
-        cfg['user'] = []
-        cfg['entitlement'] = []
-        return cfg
-
-    @staticmethod
-    def __thaw__(cfg):
-        return apiutils.thaw('BuildConfiguration', cfg)
-apiutils.register(SanitizedBuildConfiguration)

@@ -1,6 +1,16 @@
 #
-# Copyright (c) 2008 rPath, Inc.  All rights reserved.
+# Copyright (c) 2008-2010 rPath, Inc.
 #
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
+
 
 """
 A (hopefully) smarter and (definitely) more extensible XMLRPC proxy
@@ -8,10 +18,13 @@ framework.
 """
 
 import base64
+import socket
 import urlparse
 import xmlrpclib
+from conary.lib.util import rethrow
 from httplib import HTTPConnection
 
+from rmake import errors
 from rmake.lib.localrpc import UnixDomainHTTPConnection
 
 VERSION = 0.1
@@ -62,6 +75,11 @@ class Address(object):
 
     def __cmp__(self, other):
         return cmp(self.__dict__, other.__dict__)
+
+    def copy(self):
+        params = set(self.fields) & set(self.__dict__)
+        params = dict((key, self.__dict__[key]) for key in params)
+        return type(self)(**params)
 
     def asString(self, withPassword=True):
         return '<%s object (schema=%r)>' % (self.__class__.__name__,
@@ -253,62 +271,38 @@ class Transport(object):
         """
         pass
 
-    def request(self, address, request_body):
+    def request(self, address, contentType, request_body, response_filter):
         raise NotImplementedError
-
-    @staticmethod
-    def getparser():
-        return xmlrpclib.getparser()
-
-    def parse_request(self, data):
-        parser, unmarshaller = self.getparser()
-        parser.feed(data)
-        parser.close()
-        return unmarshaller.close(), unmarshaller.getmethodname()
-
-    def parse_response(self, response):
-        parser, unmarshaller = self.getparser()
-
-        while True:
-            data = response.read(1024)
-            if not data:
-                break
-            parser.feed(data)
-
-        response.close()
-        parser.close()
-        return unmarshaller.close()
 
 
 class HTTPTransport(Transport):
     connectionClass = HTTPConnection
     userAgent = "rpath_xmlrpclib/%s (www.rpath.com)" % VERSION
-    contentType = 'text/xml'
 
     def __init__(self, connectionClass=None, **kwargs):
         super(HTTPTransport, self).__init__(**kwargs)
         if connectionClass:
             self.connectionClass = connectionClass
 
-    def request(self, address, request_body):
-        conn = self.make_connection(address)
-        self.send_request(conn, address)
-        self.send_host(conn, address)
-        self.send_user_agent(conn)
-        self.send_authorization(conn, address)
-        self.send_content(conn, request_body)
+    def request(self, address, contentType, request_body, response_filter):
+        try:
+            conn = self.make_connection(address)
+            self.send_request(conn, address)
+            self.send_host(conn, address)
+            self.send_user_agent(conn)
+            self.send_authorization(conn, address)
+            self.send_content(conn, contentType, request_body)
+        except socket.error, err:
+            rethrow(errors.OpenError("Error contacting server at %s: %s" %
+                (address, err)))
 
         response = conn.getresponse()
         if response.status != 200:
             raise ProtocolError(address, response.status, response.reason)
 
-        ret = self.parse_response(response)
+        ret = response_filter(response)
         self.close_connection(conn)
-
-        if len(ret) == 1:
-            return ret[0]
-        else:
-            return ret
+        return ret
 
     def make_connection(self, address):
         return self.connectionClass(address.host, address.port)
@@ -331,8 +325,8 @@ class HTTPTransport(Transport):
         if auth is not None:
             conn.putheader('Authorization', auth)
 
-    def send_content(self, conn, request_body):
-        conn.putheader('Content-type', self.contentType)
+    def send_content(self, conn, contentType, request_body):
+        conn.putheader('Content-type', contentType)
         conn.putheader('Content-length', str(len(request_body)))
         conn.endheaders()
         if request_body:
@@ -345,6 +339,7 @@ class HTTPTransport(Transport):
 
 class ShimTransport(Transport):
     def __init__(self, **kwargs):
+        raise NotImplementedError
         self._response = None
 
     def request(self, address, request_body):
@@ -352,22 +347,16 @@ class ShimTransport(Transport):
         address.server._dispatch(method, (None, self, params))
         return self._response
 
-    # Callbacks from server dispatcher
-    def forkResponseFn(self, _forkFn, fn, *args, **kwargs):
-        self._response = fn(*args, **kwargs)
 
-    def callResponseFn(self, fn, *args, **kwargs):
-        self._response = fn(*args, **kwargs)
-
-    def sendResponse(self, response):
-        self._response = response
-
-
-class UnixDomainHTTPTransport(HTTPTransport):
+class UnixDomainMixin(object):
     connectionClass = UnixDomainHTTPConnection
 
     def make_connection(self, address):
         return self.connectionClass(address.path)
+
+
+class UnixDomainHTTPTransport(UnixDomainMixin, HTTPTransport):
+    pass
 
 
 # SSL transport is available when M2Crypto is installed
@@ -425,8 +414,8 @@ class Method(object):
         return '%s(%r, %r)' % (self.__class__.__name__,
             self._send, self._name)
 
-    def __call__(self, *args):
-        return self._send(self._name, args)
+    def __call__(self, *args, **kwargs):
+        return self._send(self._name, args, kwargs)
 
     def __getattr__(self, name):
         # Allow calls like proxy.foo.bar(), passed as method "foo.bar"
@@ -434,7 +423,7 @@ class Method(object):
         if name.startswith('_'):
             raise AttributeError(
                 "Cannot marshal private method %s" % fullName, name)
-        return type(self)(self._request, fullName)
+        return type(self)(self._send, fullName)
 
 
 class BaseServerProxy(object):
@@ -443,16 +432,16 @@ class BaseServerProxy(object):
     def __init__(self):
         pass
 
-    def _request(self, method, params):
+    def _request(self, method, args, kwargs):
         """
         Pre-marshalling -- determine which method is to be called, do
         API version checks, etc. This is typically independent of how
         the call is to be sent and received. This is the place to turn
         failure return values into an exception.
         """
-        return self._marshal_call(method, params)
+        return self._marshal_call(method, args, kwargs)
 
-    def _marshal_call(self, method, params):
+    def _marshal_call(self, method, args, kwargs):
         """
         Actually marshal the call (e.g. to XMLRPC), feed it to the
         transport, and demarshal the raw response.
@@ -474,6 +463,8 @@ class GenericServerProxy(BaseServerProxy):
         'shim': ShimTransport,
         'unix': UnixDomainHTTPTransport,
       }
+
+    contentType = 'text/xml'
 
     def __init__(self, address, transport=None, encoding=None, **kwargs):
         if isinstance(address, basestring):
@@ -497,16 +488,33 @@ class GenericServerProxy(BaseServerProxy):
             raise ValueError("No default transport available for schema %r"
                 % schema)
 
-    def _request(self, method, params):
-        return self._marshal_call(method, params)
+    def _request(self, method, args, kwargs):
+        if kwargs:
+            raise TypeError("XMLRPC does not support keyword arguments.")
+        return self._marshal_call(method, args)
 
     def _marshal_call(self, method, params):
         request = self._dumps(params, method, encoding=self._encoding)
-        return self._transport.request(self._address, request)
+        return self._transport.request(self._address, self.contentType,
+                request, self._filter_response)
 
     @staticmethod
     def _dumps(params, method, encoding):
         return xmlrpclib.dumps(tuple(params), method, encoding=encoding)
+
+    @staticmethod
+    def _filter_response(response):
+        parser, unmarshaller = xmlrpclib.getparser()
+
+        while True:
+            data = response.read(1024)
+            if not data:
+                break
+            parser.feed(data)
+
+        response.close()
+        parser.close()
+        return unmarshaller.close()
 
     def __repr__(self):
         return '<GenericServerProxy for %s>' % self._address

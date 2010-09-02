@@ -193,11 +193,10 @@ def commitJobs(conaryclient, jobList, reposName, message=None,
 
     # only update build info if we'll be okay if some buildreqs are not 
     # updated
-    updateBuildInfo = compat.ConaryVersion().acceptsPartialBuildReqCloning()
     callback = callbacks.CloneCallback(conaryclient.cfg, message)
     passed, cs = conaryclient.createTargetedCloneChangeSet(
                                         branchMap, trovesToClone,
-                                        updateBuildInfo=updateBuildInfo,
+                                        updateBuildInfo=True,
                                         cloneSources=False,
                                         trackClone=False,
                                         callback=callback, fullRecurse=False)
@@ -233,8 +232,6 @@ def commitJobs(conaryclient, jobList, reposName, message=None,
         return False, 'Creating clone failed'
 
     signatureKey = conaryclient.cfg.signatureKey
-    if signatureKey and compat.ConaryVersion().signAfterPromote():
-        finalCs = signAbsoluteChangeset(cs, signatureKey)
     if writeToFile:
         cs.writeToFile(writeToFile)
     else:
@@ -305,23 +302,15 @@ def updateRecipes(repos, cfg, recipeList, committedSources):
         newVersion = committedSourcesByNB[troveName, branch]
         if stateVersion != versions.NewVersion():
             log.info('Updating %s after commit' % recipeDir)
-            if compat.ConaryVersion().updateSrcTakesMultipleVersions():
-                try:
-                    # Added in CNY-3035
-                    checkin.nologUpdateSrc(repos, [recipeDir])
-                except checkin.builderrors.UpToDate:
-                    pass # Don't mention if the source is already up to date
-                except checkin.builderrors.CheckinError, e:
-                    e.logError()
-                except AttributeError:
-                    checkin.updateSrc(repos, [recipeDir])
-            else:
-                curDir = os.getcwd()
-                try:
-                    os.chdir(recipeDir)
-                    checkin.updateSrc(repos)
-                finally:
-                    os.chdir(curDir)
+            try:
+                # Added in CNY-3035
+                checkin.nologUpdateSrc(repos, [recipeDir])
+            except checkin.builderrors.UpToDate:
+                pass # Don't mention if the source is already up to date
+            except checkin.builderrors.CheckinError, e:
+                e.logError()
+            except AttributeError:
+                checkin.updateSrc(repos, [recipeDir])
         else:
             log.info('Replacing CONARY file %s after initial commit' % recipeDir)
             d = tempfile.mkdtemp(dir='/var/tmp',

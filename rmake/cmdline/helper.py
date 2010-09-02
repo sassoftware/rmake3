@@ -29,16 +29,14 @@ from conary.repository import trovesource
 
 from rmake import compat
 from rmake import errors
-from rmake import plugins
 from rmake.build import buildcfg
 from rmake.build import buildjob
-from rmake.build import imagetrove
+from rmake.build.client import rMakeClient
 from rmake.cmdline import buildcmd
 from rmake.cmdline import cmdutil
 from rmake.cmdline import commit
 from rmake.cmdline import monitor
 from rmake.cmdline import query
-from rmake.server import client
 
 class rMakeHelper(object):
     """
@@ -85,7 +83,7 @@ class rMakeHelper(object):
             if clientCert is None:
                 clientCert = buildConfig.clientCert
 
-            self.client = client.rMakeClient(uri, clientCert)
+            self.client = rMakeClient(uri, clientCert)
 
         if guiPassword:
             try:
@@ -586,6 +584,8 @@ class rMakeHelper(object):
         return not self.client.getJob(jobId, withTroves=False).isFailed()
     poll = watch # backwards compatibility
 
+    def watchJob(self, job):
+        return self.client.watchJob(job)
 
     def buildTroves(self, *args, **kw):
         """
@@ -632,6 +632,7 @@ class rMakeHelper(object):
                              out=out)
 
     def createImageJob(self, productName, imageList):
+        raise NotImplementedError # XXX
         allTroveSpecs = {}
         finalImageList = []
         for image in imageList:

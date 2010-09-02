@@ -12,8 +12,7 @@ from conary.lib import log
 from conary.local import database
 from conary.repository import trovesource
 
-from rmake.lib import apiutils, flavorutil, recipeutil
-from rmake.lib.apiutils import register, freeze, thaw
+from rmake.lib import flavorutil, recipeutil
 from rmake.worker import resolvesource
 
 class ResolveResult(object):
@@ -86,7 +85,6 @@ class ResolveResult(object):
         self.missingBuildReqs = [(x[0], thaw('troveSpec', x[1])) 
                                  for x in self.missingBuildReqs]
         return self
-register(ResolveResult)
 
 
 class DependencyResolver(object):
