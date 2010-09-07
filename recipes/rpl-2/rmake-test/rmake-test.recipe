@@ -1,0 +1,19 @@
+#
+# Copyright (c) 2010 rPath, Inc.
+# This file is distributed under the terms of the MIT License.
+# A copy is available at http://www.rpath.com/permanent/mit-license.html
+#
+
+loadSuperClass('trialpackage=testbits.rb.rpath.com@rpl:1')
+class RmakeTestRecipe(CPackageRecipe):
+    name = 'rmake-test'
+    version = '3.0'
+
+    buildRequires = [
+        'python-twisted:runtime',
+        'rmake:python',
+    ]
+
+    suites = ['rmake_test']
+
+    # Installed tests are used, so there's no source archive required.

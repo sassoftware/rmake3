@@ -21,6 +21,7 @@ from twisted.words.protocols.jabber import jid
 
 from rmake.core import config
 from rmake.core import dispatcher
+from rmake.core import support
 from rmake.core import types
 from rmake.lib import pluginlib
 from rmake.lib import uuid
@@ -160,12 +161,26 @@ class DispatcherTest(unittest.TestCase):
     def test_workerHeartbeat_assignTasks(self):
         """Tasks are assigned to a new worker, and failed on a dead worker."""
 
-    @skipTest("Not done yet.")
     def test_workerHeartbeat_timeout(self):
         """A worker fails to heartbeat for a given interval."""
+        w = jid.JID('ham@spam/eggs')
+        self.disp.workerHeartbeat(w, set(), {}, 0)
+        self.assertEqual(self.disp.workers[w].jid, w)
+
+        checker = support.WorkerChecker(self.disp)
+        for x in range(4):
+            checker.checkWorkers()
+        self.assertEqual(self.disp.workers[w].jid, w)
+
+        checker.checkWorkers()
+        self.assertEqual(self.disp.workers, {})
 
     def test_workerLogging(self):
         task_uuid = uuid.uuid4()
+        records = ['log records go here']
+        self.disp.tasks[task_uuid] = None
+        self.disp.workerLogging(records, task_uuid)
+        self.disp.jobLogger.emitMany._mock.assertCalled(records)
 
 
 class MockHandler(object):

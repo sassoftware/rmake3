@@ -61,6 +61,11 @@ class RmakeRecipe(CPackageRecipe):
         r.UtilizeUser('rmake-chroot', chpath)
         r.UtilizeGroup('rmake-chroot', chpath)
 
+        ## package rmake-tests
+        r.PackageSpec('%(name)s-tests',
+                '%(libdir)s/.*/rmake_test/',
+                )
+
         ## package rmake-node
         # This package has files required on individual build nodes
         # controlled by a head node

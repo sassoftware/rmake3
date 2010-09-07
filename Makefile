@@ -12,7 +12,7 @@
 # full details.
 #
 
-SUBDIRS = commands extra man rmake
+SUBDIRS = commands extra man rmake rmake_test
 export CHANGESET = $(shell ./scripts/hg-version.sh)
 
 all: default-build
