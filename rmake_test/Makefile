@@ -12,6 +12,9 @@
 # full details.
 #
 
+
+install_files = $(wildcard *.py)
+
 override DEST = $(sitedir)/rmake_test
 
 SUBDIRS = unit_test
