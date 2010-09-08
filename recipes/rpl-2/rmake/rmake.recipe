@@ -60,6 +60,7 @@ class RmakeRecipe(CPackageRecipe):
         r.Requires('busybox:runtime', chpath)
         r.UtilizeUser('rmake-chroot', chpath)
         r.UtilizeGroup('rmake-chroot', chpath)
+        r.ResolveFileDependencies(exceptions=chpath) # HACK until CNP-198
 
         ## package rmake-tests
         r.PackageSpec('%(name)s-tests',
