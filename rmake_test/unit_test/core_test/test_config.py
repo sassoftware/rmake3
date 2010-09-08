@@ -29,6 +29,3 @@ class ConfigTest(unittest.TestCase):
         cfg.logDir = '/tmp/logs'
         self.assertEquals(cfg.logPath_http, '/tmp/logs/access.log')
         self.assertEquals(cfg.logPath_server, '/tmp/logs/server.log')
-
-    def test_fails(self):
-        self.fail("oh nooo")
