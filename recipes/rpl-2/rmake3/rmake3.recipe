@@ -56,10 +56,16 @@ class RmakeRecipe(CPackageRecipe):
         chpath = '%(prefix)s/libexec/rmake/chroothelper'
         r.SetModes(chpath, 04755)
         r.Provides('file', chpath)
-        r.Requires(chpath, 'rootfactory.py')
+        r.Requires('file: ' + chpath, 'rootfactory.py')
         r.Requires('busybox:runtime', chpath)
         r.UtilizeUser('rmake-chroot', chpath)
         r.UtilizeGroup('rmake-chroot', chpath)
+        r.ResolveFileDependencies(exceptions=chpath) # HACK until CNP-198
+
+        ## package rmake-tests
+        r.PackageSpec('%(name)s-tests',
+                '%(libdir)s/.*/rmake_test/',
+                )
 
         ## package rmake-node
         # This package has files required on individual build nodes
