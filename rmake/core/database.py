@@ -41,7 +41,7 @@ class CoreDB(object):
                 expires_after, time_ticks, frozen_data
             FROM jobs.jobs WHERE job_uuid IN %s
             """, (tuple(uuids),))
-        d.addCallback(_mergeThings, pkeys=job_uuids, func=_oneJob)
+        d.addCallback(_mergeThings, pkeys=uuids, func=_oneJob)
         return d
 
     def createJob(self, job, frozen_handler, callback=None):
