@@ -45,8 +45,9 @@ class ProcessPool(service.Service):
 
     def __init__(self, starter=None, args=(), debug=False):
         if starter is None:
-            starter = ProcessStarter(packages=('twisted', 'rmake'),
-                    debug=debug)
+            # Current package might be rmake or rmake3, so use __name__.
+            packages = ['twisted', __name__.split('.')[0]]
+            starter = ProcessStarter(packages=packages, debug=debug)
         self.starter = starter
         self.args = dict(args)
 
