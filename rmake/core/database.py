@@ -16,6 +16,7 @@
 import os
 from rmake.core import types
 from rmake.lib import ninamori
+from rmake.lib.ninamori import error as sql_error
 from rmake.lib.ninamori.types import SQL
 from rmake.lib.uuid import UUID
 
@@ -136,6 +137,25 @@ class CoreDB(object):
         d = self.pool.runQuery(stmt)
         d.addCallback(_grabOne, func=_oneTask)
         return d
+
+    ## Administration
+
+    def registerWorker(self, jid):
+        d = self.pool.runOperation("""
+            INSERT INTO admin.permitted_workers ( worker_jid ) VALUES ( %s )
+            """, (jid,))
+        d.addErrback(lambda reason:
+                reason.trap(sql_error.UniqueViolationError))
+        return d
+
+    def deregisterWorker(self, jid):
+        return self.pool.runOperation("""
+            DELETE FROM admin.permitted_workers WHERE worker_jid = %s
+            """, (jid,))
+
+    def listRegisteredWorkers(self):
+        return self.pool.runQuery("""
+            SELECT worker_jid FROM admin.permitted_workers""")
 
 
 def _popStatus(kwargs):

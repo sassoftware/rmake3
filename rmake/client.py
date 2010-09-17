@@ -47,3 +47,9 @@ class RmakeClient(object):
 
     def getWorkerList(self):
         return self.proxy.getWorkerList()
+
+    def registerWorker(self, jid):
+        return self.proxy.admin.registerWorker(jid)
+
+    def deregisterWorker(self, jid):
+        return self.proxy.admin.deregisterWorker(jid)

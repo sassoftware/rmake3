@@ -24,6 +24,7 @@ import logging
 import os
 import random
 import stat
+from rmake.core import admin
 from rmake.core import constants as core_const
 from rmake.core import database as coredb
 from rmake.core import file_store
@@ -95,6 +96,9 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
         WorkerChecker(self).setServiceParent(self)
 
     def _start_rpc(self):
+        # Child controllers
+        admin.AdminController(self).setServiceParent(self)
+
         root = Resource()
         root.putChild('picklerpc', rpc_pickle.PickleRPCResource(self))
         self.firehose = FirehoseResource()

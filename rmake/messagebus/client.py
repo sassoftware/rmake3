@@ -31,7 +31,7 @@ from rmake.messagebus import message as rmessage
 
 class RmakeHandler(jlink.LinkHandler):
 
-    permissive = True
+    pass
 
 
 class MessageHandler(jmessage.MessageHandler):
@@ -53,6 +53,11 @@ class _BaseService(jclient.LinkClient):
     resource = 'rmake'
 
     handlerClass = RmakeHandler
+
+    def __init__(self, *args, **kwargs):
+        jclient.LinkClient.__init__(self, *args, **kwargs)
+        self.link.permissive = self.cfg.xmppPermissive
+        self.link.addMessageHandler(MessageHandler(self))
 
     def sendTo(self, jid, message, wait=False):
         jmsg = message.to_jmessage()
@@ -79,8 +84,6 @@ class BusService(_BaseService):
         _BaseService.__init__(self, name, creds, handlers=other_handlers,
                 host=cfg.xmppHost)
 
-        self.link.addMessageHandler(MessageHandler(self))
-
 
 class BusClientService(_BaseService):
 
@@ -93,7 +96,6 @@ class BusClientService(_BaseService):
         _BaseService.__init__(self, self.targetJID.host, creds,
                 handlers=other_handlers, host=cfg.xmppHost)
 
-        self.link.addMessageHandler(MessageHandler(self))
         self.connectNeighbor(self.cfg.dispatcherJID)
 
     def sendToTarget(self, message, wait=False):

@@ -52,6 +52,8 @@ class BusConfig(ConfigFile):
             "File in which the component will store its JID and password.")
     xmppDebug           = (cfgtypes.CfgBool, False,
             "Log XMPP traffic")
+    xmppPermissive      = (cfgtypes.CfgBool, False,
+            "Allow any node to connect to this one without authentication.")
 
 
 class BusClientConfig(BusConfig):
