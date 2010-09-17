@@ -30,7 +30,8 @@ from rmake.lib.logger import logFailure
 log = logging.getLogger(__name__)
 
 
-XPATH_AUTHENTICATE = "/iq/authenticate[@xmlns='%s']" % constants.NS_JABBERLINK
+XPATH_AUTHENTICATE = ("/iq[@type='set']/authenticate[@xmlns='%s']" %
+        constants.NS_JABBERLINK)
 XPATH_FRAME = "/iq[@type='set']/frame[@xmlns='%s']" % constants.NS_JABBERLINK
 
 
@@ -165,12 +166,12 @@ class LinkHandler(XMPPHandler):
     def onAuthenticate(self, iq):
         jid = toJID(iq['from'])
         neighbor = self._findNeighbor(jid)
-        if not neighbor:
+        if neighbor:
+            neighbor.onAuthenticate(iq)
+        else:
             iq.handled = True
             error = StanzaError('not-authorized')
             self.send(error.toResponse(iq))
-        elif not neighbor.initiating:
-            neighbor.onAuthenticate(iq)
 
     def onFrame(self, iq):
         jid = toJID(iq['from'])
