@@ -132,14 +132,14 @@ class LauncherBusService(BusClientService):
             BusClientService.messageReceived(self, msg)
 
     def onNeighborUp(self, jid):
-        if jid != self.cfg.dispatcherJID:
+        if jid.userhost() != self.cfg.dispatcherJID.userhost():
             return
         log.info("Connected to dispatcher")
         # Call up to the daemon instance so it can set the process title.
         self.parent.parent.targetConnected(self.jid, jid)
 
     def onNeighborDown(self, jid):
-        if jid != self.cfg.dispatcherJID:
+        if jid.userhost() != self.cfg.dispatcherJID.userhost():
             return
         log.error("Lost connection to dispatcher")
 

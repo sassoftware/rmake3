@@ -62,9 +62,6 @@ class LinkHandler(XMPPHandler):
         callbacks[:] = []
 
     def _findNeighbor(self, jid):
-        if not jid.resource:
-            # Can't magically create a neighbor with a userhost-only JID
-            return None
         neighbor = self.neighbors.get(jid.userhost())
         if neighbor is None and self.permissive:
             neighbor = self._addNeighbor(jid, initiating=False)
@@ -139,7 +136,7 @@ class LinkHandler(XMPPHandler):
             return
         neighbor.inRoster = True
         if presence.available:
-            neighbor.neighborUp()
+            neighbor.neighborUp(presence.sender)
         else:
             neighbor.neighborDown()
 
@@ -212,7 +209,6 @@ class Neighbor(object):
     window_size = 4
 
     def __init__(self, link, jid, initiating):
-        assert jid.resource
         self.link = link
         self.jid = jid
         self.initiating = initiating
@@ -230,10 +226,9 @@ class Neighbor(object):
 
         self.callbacks = {}
 
-    def neighborUp(self):
+    def neighborUp(self, fullJID):
         if not self.isAvailable:
-            self.isAvailable = True
-            log.debug("Neighbor %s is present", self.jid.full())
+            self._setAvailable(fullJID)
             if self.initiating:
                 self._do_authenticate()
 
@@ -255,6 +250,23 @@ class Neighbor(object):
 
     # Authentication
 
+    def _updateJID(self, fullJID):
+        # Update a userhost-only JID with a full JID from a presence
+        # notification.
+        assert fullJID.userhost() == self.jid.userhost()
+        self.jid = fullJID
+
+    def _setAvailable(self, fullJID):
+        log.debug("Neighbor %s is present", fullJID.full())
+        self._updateJID(fullJID)
+        self.isAvailable = True
+
+    def _setAuthenticated(self, fullJID):
+        log.debug("Neighbor %s is authenticated", fullJID.full())
+        self._updateJID(fullJID)
+        self.isAuthenticated = True
+        self.link.onNeighborUp(self.jid)
+
     def _do_authenticate(self):
         iq = IQ(self.link.xmlstream, 'set')
         iq.addElement('authenticate', constants.NS_JABBERLINK)
@@ -262,15 +274,14 @@ class Neighbor(object):
         d = iq.send(self.jid.full())
 
         def auth_ok(resp):
-            log.debug("Successfully authenticated to %s", self.jid.full())
-            self.isAuthenticated = True
-            self.link.onNeighborUp(self.jid)
+            self._setAuthenticated(toJID(resp['from']))
             self._do_send()
 
         def auth_fail(failure):
             failure.trap(StanzaError)
             if failure.value.condition == 'service-unavailable':
                 # They either disappeared or don't support jabberlink
+                log.debug("Auth failed with service-unavailable")
                 self.neighborDown()
             else:
                 return failure
@@ -280,8 +291,7 @@ class Neighbor(object):
                 self.jid.full())
 
     def onAuthenticate(self, iq):
-        self.isAuthenticated = True
-        self.link.onNeighborUp(self.jid)
+        self._setAuthenticated(toJID(iq['from']))
         iq.handled = True
         reply = toResponse(iq, 'result')
         self.link.send(reply)

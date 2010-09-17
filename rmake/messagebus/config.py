@@ -57,6 +57,5 @@ class BusConfig(ConfigFile):
 class BusClientConfig(BusConfig):
 
     # XMPP
-    dispatcherJID       = (CfgFullJID, None,
-            "Full JID of the dispatcher to which this "
-            "component should connect.")
+    dispatcherJID       = (CfgJID, None,
+            "JID of the dispatcher to which this component should connect.")
