@@ -263,6 +263,10 @@ class Neighbor(object):
         self.isAvailable = True
 
     def _setAuthenticated(self, fullJID):
+        if self.isAuthenticated:
+            # Ships that pass in the night, and speak each other in passing...
+            #   (probably both sides initiated authentication)
+            return
         log.debug("Neighbor %s is authenticated", fullJID.full())
         self._updateJID(fullJID)
         self.isAuthenticated = True
