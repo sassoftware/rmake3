@@ -149,7 +149,6 @@ class HeartbeatService(TimerService):
     def __init__(self, launcher, interval=5):
         self.launcher = launcher
         TimerService.__init__(self, interval, self.heartbeat)
-        self.last_nag = time.time()
         self.sent_hello = False
 
     def heartbeat(self):
@@ -159,9 +158,6 @@ class HeartbeatService(TimerService):
                 slots=slots)
         bus = self.launcher.bus
         self.launcher.bus.sendToTarget(msg)
-        if not bus.isConnected() and time.time() - self.last_nag > 5:
-            log.error("Dispatcher is not online")
-            self.last_nag = time.time()
 
 
 class PoolService(pool.ProcessPool):
