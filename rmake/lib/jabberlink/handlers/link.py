@@ -14,6 +14,7 @@
 
 import logging
 from twisted.internet import defer
+from twisted.python import failure as tw_fail
 from twisted.words.protocols.jabber.error import StanzaError
 from twisted.words.protocols.jabber.xmlstream import (IQ, XMPPHandler,
         toResponse)
@@ -54,7 +55,7 @@ class LinkHandler(XMPPHandler):
     def _fireCallback(self, event, result=None):
         callbacks = self._callbacks.get(event, [])
         for d in callbacks:
-            if isinstance(result, defer.Deferred):
+            if isinstance(result, tw_fail.Failure):
                 d.errback(result)
             else:
                 d.callback(result)
