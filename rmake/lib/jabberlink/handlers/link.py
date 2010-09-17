@@ -233,8 +233,7 @@ class Neighbor(object):
     def neighborUp(self):
         if not self.isAvailable:
             self.isAvailable = True
-            log.debug("Neighbor %s is up", self.jid.full())
-            self.link.onNeighborUp(self.jid)
+            log.debug("Neighbor %s is present", self.jid.full())
             if self.initiating:
                 self._do_authenticate()
 
@@ -265,6 +264,7 @@ class Neighbor(object):
         def auth_ok(resp):
             log.debug("Successfully authenticated to %s", self.jid.full())
             self.isAuthenticated = True
+            self.link.onNeighborUp(self.jid)
             self._do_send()
 
         def auth_fail(failure):
@@ -281,6 +281,7 @@ class Neighbor(object):
 
     def onAuthenticate(self, iq):
         self.isAuthenticated = True
+        self.link.onNeighborUp(self.jid)
         iq.handled = True
         reply = toResponse(iq, 'result')
         self.link.send(reply)
