@@ -168,7 +168,11 @@ class LinkHandler(XMPPHandler):
     def onAuthenticate(self, iq):
         jid = toJID(iq['from'])
         neighbor = self._findNeighbor(jid)
-        if neighbor and not neighbor.initiating:
+        if not neighbor:
+            iq.handled = True
+            error = StanzaError('not-authorized')
+            self.send(error.toResponse(iq))
+        elif not neighbor.initiating:
             neighbor.onAuthenticate(iq)
 
     def onFrame(self, iq):
@@ -176,6 +180,10 @@ class LinkHandler(XMPPHandler):
         neighbor = self._findNeighbor(jid)
         if neighbor:
             neighbor.onFrame(iq)
+        else:
+            iq.handled = True
+            error = StanzaError('not-authorized')
+            self.send(error.toResponse(iq))
 
     # API for Neighbor
 
