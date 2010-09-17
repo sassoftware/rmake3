@@ -26,6 +26,9 @@ if 'RMAKE_PATH' in os.environ:
 from twisted.internet import epollreactor
 epollreactor.install()
 
+import warnings
+warnings.filterwarnings('ignore', category=DeprecationWarning)
+
 from rmake.core import daemon
 
 if __name__ == "__main__":
