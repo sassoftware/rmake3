@@ -194,7 +194,7 @@ class ConnectionPool(deferred_service.Service):
 
     def runOperation(self, statement, args=None):
         """Execute a statement and callback C{None} when done."""
-        return self.semaphore.run(self._runQuery, statement, args)
+        return self.semaphore.run(self._runOperation, statement, args)
 
     def runInteraction(self, func, *args, **kwargs):
         """Run function in a transaction and callback the result."""
