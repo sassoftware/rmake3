@@ -57,6 +57,8 @@ class _BaseService(jclient.LinkClient):
     def __init__(self, *args, **kwargs):
         jclient.LinkClient.__init__(self, *args, **kwargs)
         self.link.permissive = self.cfg.xmppPermissive
+        for jid in self.cfg.xmppPermit:
+            self.listenNeighbor(jid)
         self.link.addMessageHandler(MessageHandler(self))
 
     def sendTo(self, jid, message, wait=False):

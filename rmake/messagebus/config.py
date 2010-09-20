@@ -54,6 +54,8 @@ class BusConfig(ConfigFile):
             "Log XMPP traffic")
     xmppPermissive      = (cfgtypes.CfgBool, False,
             "Allow any node to connect to this one without authentication.")
+    xmppPermit          = (cfgtypes.CfgList(CfgJID), [],
+            "List of nodes permitted to connect to this one.")
 
 
 class BusClientConfig(BusConfig):

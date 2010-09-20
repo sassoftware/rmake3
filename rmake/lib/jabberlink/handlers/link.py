@@ -72,6 +72,8 @@ class LinkHandler(XMPPHandler):
 
     def addNeighbor(self, jid, initiating):
         jid = toJID(jid)
+        if jid.userhost() in self.neighbors:
+            return
         self._addNeighbor(jid, initiating)
         if self._rosterReceived:
             self.presence.subscribe(jid)
