@@ -177,7 +177,7 @@ CREATE TABLE jobs (
     job_name text UNIQUE
 );
 CREATE SCHEMA admin;
-SET schema = admin;
+SET search_path = admin;
 
 
 -- admin.workers
