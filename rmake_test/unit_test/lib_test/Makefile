@@ -14,8 +14,6 @@
 
 install_files = $(wildcard *.py)
 
-SUBDIRS = core_test lib_test
-
 
 all: default-build
 
@@ -24,7 +22,7 @@ install: default-install
 clean: default-clean
 
 
-include ../../Make.rules
-include ../../Make.defs
+include ../../../Make.rules
+include ../../../Make.defs
 
 # vim: set sts=8 sw=8 noexpandtab filetype=make :
