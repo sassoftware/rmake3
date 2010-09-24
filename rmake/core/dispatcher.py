@@ -435,6 +435,10 @@ class WorkerInfo(object):
         else:
             return core_const.A_LATER, None
 
+    def supports(self, caps):
+        """Return C{True} if the worker supports all of C{caps}."""
+        return not (set(caps) - self.caps)
+
 
 class TaskInfo(object):
 

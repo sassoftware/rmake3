@@ -193,6 +193,16 @@ class DispatcherTest(unittest.TestCase):
         self.disp.jobLogger.emitMany._mock.assertCalled(records)
 
 
+class WorkerTest(unittest.TestCase):
+
+    def test_supports(self):
+        worker = dispatcher.WorkerInfo(None)
+        worker.caps = set(['a', 'b', 'c'])
+        assert worker.supports(['a', 'b'])
+        assert not worker.supports(['a', 'd'])
+
+
+
 class MockHandler(object):
 
     def __init__(self, disp, job):

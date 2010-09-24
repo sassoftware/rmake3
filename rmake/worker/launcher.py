@@ -158,7 +158,6 @@ class HeartbeatService(TimerService):
         addresses = set(x[1] for x in self.netlink.getAllAddresses())
         msg = message.Heartbeat(caps=self.launcher.caps, tasks=tasks,
                 slots=slots, addresses=addresses)
-        bus = self.launcher.bus
         self.launcher.bus.sendToTarget(msg)
 
 
