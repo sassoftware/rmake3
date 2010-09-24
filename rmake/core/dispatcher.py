@@ -292,6 +292,7 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
         if worker is None:
             log.info("Worker %s connected", jid.full())
             worker = self.workers[jid] = WorkerInfo(jid)
+            self.plugins.p.dispatcher.worker_up(self, worker)
         worker.setCaps(caps, slots)
         self._assignTasks()
 
@@ -307,6 +308,8 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
                     "The worker processing this task has gone offline.")
             self.updateTask(task)
         del self.workers[jid]
+
+        self.plugins.p.dispatcher.worker_down(self, worker)
 
     def workerLogging(self, records, task_uuid):
         if task_uuid not in self.tasks:

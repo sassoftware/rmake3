@@ -28,7 +28,16 @@ class DispatcherPlugin(pluginlib.Plugin):
     _plugin_type = 'dispatcher'
 
     def dispatcher_pre_setup(self, dispatcher):
-        pass
+        """Called before the dispatcher initializes its services.
+
+        Use this to register job types and RPC controllers.
+        """
 
     def dispatcher_post_setup(self, dispatcher):
-        pass
+        """Called after the dispatcher initializes its services."""
+
+    def dispatcher_worker_up(self, dispatcher, worker):
+        """Called when a worker connects to the dispatcher."""
+
+    def dispatcher_worker_down(self, dispatcher, worker):
+        """Called when a worker disconnects from the dispatcher."""

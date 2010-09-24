@@ -233,12 +233,12 @@ FrozenJobTimes = freezify(JobTimes)
 
 
 class TaskCapability(namedtuple('TaskCapability', 'taskType')):
-    pass
+    """Worker is capable of running the given task type."""
 chutney.register(TaskCapability)
 
 
 class ZoneCapability(namedtuple('ZoneCapability', 'zoneName')):
-    pass
+    """Worker participates in the given zone."""
 chutney.register(ZoneCapability)
 
 
