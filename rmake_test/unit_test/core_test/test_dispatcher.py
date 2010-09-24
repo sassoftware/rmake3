@@ -143,7 +143,12 @@ class DispatcherTest(unittest.TestCase):
 
     def test_workerHeartbeat(self):
         w = jid.JID('ham@spam/eggs')
-        heartbeat = dict(jid=w, caps=set(), tasks={}, slots=0)
+        class h_msg(object):
+            caps = set()
+            tasks = {}
+            slots = 0
+            addresses = set()
+        heartbeat = dict(jid=w, msg=h_msg())
 
         self.assertEqual(self.disp.workers, {})
 
@@ -164,7 +169,12 @@ class DispatcherTest(unittest.TestCase):
     def test_workerHeartbeat_timeout(self):
         """A worker fails to heartbeat for a given interval."""
         w = jid.JID('ham@spam/eggs')
-        self.disp.workerHeartbeat(w, set(), {}, 0)
+        class h_msg(object):
+            caps = set()
+            tasks = {}
+            slots = 0
+            addresses = set()
+        self.disp.workerHeartbeat(w, h_msg())
         self.assertEqual(self.disp.workers[w].jid, w)
 
         checker = support.WorkerChecker(self.disp)

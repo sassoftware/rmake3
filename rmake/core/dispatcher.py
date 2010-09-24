@@ -287,13 +287,13 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
         if handler:
             handler.taskUpdated(newTask)
 
-    def workerHeartbeat(self, jid, caps, tasks, slots):
+    def workerHeartbeat(self, jid, msg):
         worker = self.workers.get(jid)
         if worker is None:
             log.info("Worker %s connected", jid.full())
             worker = self.workers[jid] = WorkerInfo(jid)
             self.plugins.p.dispatcher.worker_up(self, worker)
-        worker.setCaps(caps, slots)
+        worker.setCaps(msg)
         self._assignTasks()
 
     def workerDown(self, jid):
@@ -401,14 +401,17 @@ class WorkerInfo(object):
         self.caps = set()
         self.tasks = {}
         self.slots = 0
+        self.addresses = set()
         # expiring is incremented each time WorkerChecker runs and zeroed each
         # time the worker heartbeats. When it gets high enough, the worker is
         # assumed dead.
         self.expiring = 0
 
-    def setCaps(self, caps, slots):
-        self.caps = caps
-        self.slots = slots
+    def setCaps(self, msg):
+        log.debug("%s addresses = %s", self.jid, msg.addresses)
+        self.caps = msg.caps
+        self.slots = msg.slots
+        self.addresses = msg.addresses
         self.expiring = 0
 
     def getScore(self, task):

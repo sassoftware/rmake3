@@ -36,8 +36,7 @@ class DispatcherBusService(BusService):
         if isinstance(msg, message.TaskStatus):
             self.dispatcher.updateTask(msg.task)
         elif isinstance(msg, message.Heartbeat):
-            self.dispatcher.workerHeartbeat(msg.info.sender, msg.caps,
-                    msg.tasks, msg.slots)
+            self.dispatcher.workerHeartbeat(msg.info.sender, msg)
         elif isinstance(msg, message.LogRecords):
             self.dispatcher.workerLogging(msg.records, msg.task_uuid)
         else:
