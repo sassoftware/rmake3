@@ -408,7 +408,6 @@ class WorkerInfo(object):
         self.expiring = 0
 
     def setCaps(self, msg):
-        log.debug("%s addresses = %s", self.jid, msg.addresses)
         self.caps = msg.caps
         self.slots = msg.slots
         self.addresses = msg.addresses
