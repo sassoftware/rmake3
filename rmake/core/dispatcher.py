@@ -342,6 +342,7 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
                 task.job_uuid)
         scores = {}
         laters = 0
+        wrong_zone = 0
         for worker in self.workers.values():
             result, score = worker.getScore(task)
             if result == core_const.A_NOW:
@@ -353,6 +354,8 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
                         task.task_uuid)
                 laters += 1
             else:
+                if result == core_const.A_WRONG_ZONE:
+                    wrong_zone += 1
                 log.debug("Worker %s cannot run task %s", worker.jid,
                         task.task_uuid)
 
@@ -367,8 +370,11 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
             return core_const.A_LATER
         else:
             # No worker can run this task.
-            self.clock.callLater(0, self._failTask, task,
-                    "No workers are capable of running this task.")
+            if wrong_zone:
+                error = "No capable workers are in the requested zone."
+            else:
+                error = "No workers are capable of running this task."
+            self.clock.callLater(0, self._failTask, task, error)
             return core_const.A_NEVER
 
     def _sendTask(self, task, jid):
@@ -424,7 +430,7 @@ class WorkerInfo(object):
         # Task must be in no zone or this zone
         if (task.task_zone is not None
                 and types.TaskCapability(task.task_zone) not in self.caps):
-            return core_const.A_NEVER, None
+            return core_const.A_WRONG_ZONE, None
 
         # Are there slots available to run this task in?
         assigned = len(self.tasks)

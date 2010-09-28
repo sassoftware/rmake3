@@ -26,3 +26,4 @@ TASK_NOT_ASSIGNABLE         = 401
 A_NOW                       = 0
 A_LATER                     = 1
 A_NEVER                     = 2
+A_WRONG_ZONE                = 3
