@@ -100,13 +100,12 @@ int switch_to_uid_gid(int uid, int gid) {
 }
 
 
-int mount_dir(const char * chrootDir, const char * fromDir,
-              const char * toDir,     const char * mountType) {
+int mount_dir(const char *chrootDir, struct mount_t opts) {
     int rc;
     struct stat st;
     char tempPath[PATH_MAX];
 
-    rc = snprintf(tempPath, PATH_MAX, "%s%s", chrootDir, toDir);
+    rc = snprintf(tempPath, PATH_MAX, "%s%s", chrootDir, opts.to);
     if (rc > PATH_MAX) {
         fprintf(stderr, "mount: path too long\n");
         return 1;
@@ -115,14 +114,14 @@ int mount_dir(const char * chrootDir, const char * fromDir,
         return 1;
     }
     if (opt_verbose)
-        printf("mount %s -> %s (type %s)\n", fromDir, tempPath, mountType);
+        printf("mount %s -> %s (type %s)\n", opts.from, tempPath, opts.type);
     /* check destination directory exists */
     rc = stat(tempPath, &st);
     if (rc == -1 || !S_ISDIR(st.st_mode)) {
         fprintf(stderr, "ERROR: %s should be an existing directory\n", tempPath);
         return 1;
     }
-    if (-1 == mount(fromDir, tempPath, mountType, 0, NULL)) {
+    if (-1 == mount(opts.from, tempPath, opts.type, 0, opts.data)) {
         perror("mount");
         /* don't error out on mount errors - if it's already mounted - great!*/
     }
@@ -487,12 +486,12 @@ int enter_chroot(const char * chrootDir, const char * socketPath, int useTmpfs,
 
     /* do the mounting here, since there is no mount capability */
     for(i=0; i < (sizeof(mounts) / sizeof(mounts[0])); i++) {
-        if ((rc = mount_dir(chrootDir, mounts[i].from,
-                           mounts[i].to, mounts[i].type)))
+        if ( (rc = mount_dir(chrootDir, mounts[i])) )
             return rc;
     }
     if (useTmpfs) {
-        if ((rc = mount_dir(chrootDir, "/tmp", "/tmp", "tmpfs")))
+        struct mount_t opts = { "tmpfs", "/tmp", "tmpfs", NULL };
+        if ( (rc = mount_dir(chrootDir, opts)) )
             return rc;
     }
 
