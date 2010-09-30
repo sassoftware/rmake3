@@ -19,6 +19,7 @@ from rmake.lib import ninamori
 from rmake.lib.ninamori import error as sql_error
 from rmake.lib.ninamori.types import SQL
 from rmake.lib.uuid import UUID
+from twisted.internet import defer
 
 
 def populateDatabase(dburl):
@@ -35,6 +36,8 @@ class CoreDB(object):
     ## Jobs
 
     def getJobs(self, job_uuids):
+        if not job_uuids:
+            return defer.succeed([])
         uuids = _castUUIDS(job_uuids)
         d = self.pool.runQuery("""
             SELECT job_uuid, job_type, owner, status_code, status_text,
