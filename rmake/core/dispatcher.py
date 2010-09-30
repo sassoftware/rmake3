@@ -302,7 +302,7 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
             return
         log.info("Worker %s disconnected", jid.full())
 
-        for info in worker.tasks.itervalues():
+        for info in worker.tasks.values():
             task = info.taskForUpdate()
             task.status = types.JobStatus(400,
                     "The worker processing this task has gone offline.")
