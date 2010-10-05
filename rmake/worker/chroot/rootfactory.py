@@ -541,6 +541,7 @@ class FullRmakeChroot(rMakeChroot):
         rMakeChroot.__init__(self, *args, **kw)
         self.addMount('/proc', '/proc', type='proc')
         self.addMount('/dev/pts', '/dev/pts', type='devpts')
+        self.addMount('tmpfs', '/dev/shm', type='tmpfs')
         self.addDeviceNode('urandom') # needed for ssl and signing
         self.addDeviceNode('ptmx') # needed for pty use
 
