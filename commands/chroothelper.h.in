@@ -64,6 +64,7 @@ struct mount_t mounts[] = {
     /* See RMK-1062 for explanation of devpts modes. */
     { "/dev/pts", "/dev/pts", "devpts", "mode=620,gid=5" },
     { "/proc", "/proc", "proc", NULL },
+    { "tmpfs", "/dev/shm", "tmpfs", NULL },
 };
 
 char *env[] = { "HOME=/tmp/rmake", (char *)0 };
