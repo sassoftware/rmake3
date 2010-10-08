@@ -275,6 +275,16 @@ class DispatcherNodeClient(nodeclient.NodeClient):
     def getNamesByIds(self, callData, idList):
         return self.server.getNamesByIds(idList)
 
+    @api(version=1)
+    @api_parameters(1, None, None)
+    @api_return(1, None)
+    def suspendNodes(self, callData, idList, suspend):
+        for nodeId in idList:
+            if suspend:
+                self.server._nodes.suspend(nodeId)
+            else:
+                self.server._nodes.resume(nodeId)
+
     def messageReceived(self, m):
         """
             Handles messages from the messagebus.
@@ -330,6 +340,10 @@ class DispatcherRPCClient(object):
     def getNamesByIds(self, idList):
         return self.proxy.getNamesByIds(idList)
 
+    def suspendNodes(self, idList, suspend=True):
+        return self.proxy.suspendNodes(idList, suspend)
+
+
 class NodeList(object):
     def __init__(self, nodeDb, logger=None):
         self._nodes = {}
@@ -338,6 +352,7 @@ class NodeList(object):
         self._openSlots = {}
         self._openChroots = {}
         self._commandsByJob = {}
+        self._suspended = set()
         self.nodeDb = nodeDb
         self.logger = logger
 
@@ -357,6 +372,19 @@ class NodeList(object):
             self._commands.pop(command.getCommandId())
         self._openSlots.pop(sessionId, None)
         self._openChroots.pop(sessionId, None)
+        self._suspended.discard(sessionId)
+
+    def suspend(self, sessionId):
+        if sessionId not in self._nodes:
+            raise KeyError("Unknown node %r" % (sessionId,))
+        self.logger.info("Suspending jobs to node %s", sessionId)
+        self._suspended.add(sessionId)
+
+    def resume(self, sessionId):
+        if sessionId not in self._nodes:
+            raise KeyError("Unknown node %r" % (sessionId,))
+        self.logger.info("Resuming jobs to node %s", sessionId)
+        self._suspended.discard(sessionId)
 
     def getNodeForCommand(self, commandId):
         if commandId in self._commands:
@@ -391,7 +419,9 @@ class NodeList(object):
 
     def getOpenNodes(self, requiresChroot=False):
         availNodes = [ self._nodes[x[0]]
-                       for x in self._openSlots.iteritems() if x[1] > 0 ]
+                       for x in self._openSlots.iteritems()
+                       if x[1] > 0 and x[0] not in self._suspended
+                       ]
         if requiresChroot:
             availNodes = [ x for x in availNodes
                            if self._openChroots[x.sessionId] > 0 ]

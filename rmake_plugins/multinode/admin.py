@@ -102,6 +102,9 @@ class MessageBusAdminClient(object):
         nodeId = self.getDispatcher().getNodeByName(nodeName)
         return self.getNode(nodeId).archiveChroot(chrootPath, newPath)
 
+    def suspendNodes(self, nodeList, suspend):
+        return self.getDispatcher().suspendNodes(nodeList, suspend)
+
     def ping(self, seconds=5, hook=None, sleep=0.1):
         """
             Check for availability of server.
