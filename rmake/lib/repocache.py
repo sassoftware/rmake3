@@ -1,25 +1,36 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2010 rPath, Inc.
 #
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
+#
+
 """
 Cache of changesets.
 """
 from StringIO import StringIO
-import errno
 import os
 import itertools
-import tempfile
 
 from conary import trove
 
+from conary import files as cny_files
 from conary.deps import deps
+from conary.lib import digestlib
 from conary.lib import sha1helper
 from conary.lib import util
 from conary.repository import changeset
 from conary.repository import datastore
 from conary.repository import errors
 from conary.repository import filecontents
-from conary.repository import trovesource
+
 
 class CachingTroveSource:
     def __init__(self, troveSource, cacheDir, readOnly=False, depsOnly=False):
@@ -79,6 +90,8 @@ class RepositoryCache(object):
         We cache changeset files by component.  When conary is fixed, we'll
         be able to combine the download of these troves.
     """
+    batchSize = 20
+
     def __init__(self, cacheDir, readOnly=False, depsOnly=False):
         self.root = cacheDir
         self.store = DataStore(cacheDir)
@@ -108,6 +121,13 @@ class RepositoryCache(object):
         # will result in a unique string for each n,v,f
         return sha1helper.sha1ToString(
                 sha1helper.sha1String('%s=%s[%s]%s%s' % (name, version, flavor, withFiles, withFileContents)))
+
+    def hashTroveList(self, nvfList, withFiles, withFileContents):
+        ctx = digestlib.sha1()
+        ctx.update('%s %s\n\n' % (withFiles, withFileContents))
+        for name, version, flavor in nvfList:
+            ctx.update('%s\n%s\n%s\n\n' % (name, version, flavor))
+        return ctx.hexdigest()
 
     def getChangeSetsForTroves(self, repos, troveList, withFiles=True,
                                withFileContents=True, callback=None):
@@ -225,35 +245,44 @@ class RepositoryCache(object):
             else:
                 needed.append((job, csHash, idx))
 
-
         total = len(needed)
-        for idx, (job, csHash, csIndex) in enumerate(needed):
+        completed = 0
+        while needed:
             if callback:
-                callback.setChangesetHunk(idx + 1, total)
+                callback.setChangesetHunk(completed + 1, total)
+            batch, needed = needed[:self.batchSize], needed[self.batchSize:]
 
-            cs = repos.createChangeSet([job], recurse=False,
-                                       callback=callback, withFiles=withFiles,
-                                       withFileContents=withFileContents)
-            if self.readOnly:
-                changesets[csIndex] = cs
-                continue
+            # Grab a handful of troves at once.
+            batchJob = [x[0] for x in batch]
+            batchSet = repos.createChangeSet(batchJob,
+                    recurse=False, callback=callback, withFiles=withFiles,
+                    withFileContents=withFileContents)
 
-            hashPath = self.store.hashToPath(csHash)
-            self.store.makeDir(hashPath)
-            dirPath = os.path.dirname(hashPath)
-            fileName = os.path.basename(hashPath)
-            tmpFd, tmpName = tempfile.mkstemp(prefix=fileName, dir=dirPath)
-            os.close(tmpFd)
-            cs.writeToFile(tmpName)
-            del cs
-            # we could use this changeset, but 
-            # cs.reset() is not necessarily reliable,
-            # so instead we re-read from disk
-            self.store.addFileFromTemp(csHash, tmpName)
+            # Break the batch into individual troves and cache those.
+            splitSets = splitChangeSet(batchJob, batchSet, withFiles,
+                    withFileContents)
+            for (job, csHash, csIndex), oneSet in zip(batch, splitSets):
+                if self.readOnly:
+                    changesets[csIndex] = oneSet
+                    continue
 
-            outFile = self.fileCache.open(self.store.hashToPath(csHash))
-            #outFile = self.store.openRawFile(csHash)
-            changesets[csIndex] = changeset.ChangeSetFromFile(outFile)
+                hashPath = self.store.hashToPath(csHash)
+                self.store.makeDir(hashPath)
+
+                fobj = util.AtomicFile(hashPath)
+                oneSet.appendToFile(fobj)
+                fobj.commit()
+
+                # we could use this changeset, but 
+                # cs.reset() is not necessarily reliable,
+                # so instead we re-read from disk
+                outFile = self.fileCache.open(self.store.hashToPath(csHash))
+                changesets[csIndex] = changeset.ChangeSetFromFile(outFile)
+
+            completed += len(batch)
+
+        if callback:
+            callback.setChangesetHunk(total, total)
 
         return changesets
 
@@ -316,3 +345,35 @@ class LazyFileCache(util.LazyFileCache):
 
     def _getFdCount(self):
         return len([ x for x in self._fdMap.values() if x._realFd is not None])
+
+
+def splitChangeSet(jobList, changeSet, withFiles=True, withFileContents=True):
+    """Return a list of separate changesets for each job in C{jobList}."""
+    out = []
+    for name, (oldV, oldF), (newV, newF), absolute in jobList:
+        assert oldV is oldF is None
+        troveCs = changeSet.getNewTroveVersion(name, newV, newF)
+        oneSet = changeset.ChangeSet()
+        oneSet.newTrove(troveCs)
+        if withFiles or withFileContents:
+            _copyFiles(troveCs, changeSet, oneSet, withFiles, withFileContents)
+        out.append(oneSet)
+    return out
+
+
+def _copyFiles(troveCs, fromSet, toSet, withFiles, withFileContents):
+    for pathId, path, fileId, fileVer in sorted(troveCs.getNewFileList()):
+        fileStream = fromSet.getFileChange(None, fileId)
+        if withFiles:
+            toSet.files.update(fromSet.files)
+            #toSet.addFile(None, fileId, fileStream)
+        if withFileContents:
+            fileObj = cny_files.ThawFile(fileStream, pathId)
+            if not fileObj.hasContents:
+                continue
+            isConfig = fileObj.flags.isConfig()
+            tag, contents = fromSet.getFileContents(pathId, fileId,
+                    compressed=isConfig)
+            toSet.addFileContents(pathId, fileId, tag, contents,
+                    cfgFile=isConfig, compressed=isConfig)
+    fromSet.reset()
