@@ -14,13 +14,17 @@
 
 
 # Status codes for a job
+# Generic success
 JOB_OK                      = 200
-JOB_FAILED                  = 400
+# Generic failure. Core failure codes will be in the range 450-499 and 550-599.
+# All others are reserved for plugins.
+JOB_FAILED                  = 450
 
 # Status codes for a task
 TASK_OK                     = 200
-TASK_FAILED                 = 400
-TASK_NOT_ASSIGNABLE         = 401
+# See above note about core failure codes.
+TASK_FAILED                 = 450
+TASK_NOT_ASSIGNABLE         = 451
 
 # "ok" code for WorkerInfo.getScore() -- when can this task be assigned?
 A_NOW                       = 0
