@@ -29,7 +29,10 @@ restart tasks that were already failed at recovery time.
 
 import logging
 from rmake.core.types import RmakeTask, FrozenObject, JobStatus
+from rmake.lib import logger
+from rmake.lib.ninamori.types import namedtuple
 from twisted.internet import defer
+from twisted.python import failure as tw_failure
 from twisted.python import reflect
 
 log = logging.getLogger(__name__)
@@ -187,7 +190,7 @@ class JobHandler(object):
                 task_zone=zone)
 
         d = defer.Deferred()
-        self.tasks[task.task_uuid] = (d, [])
+        self.tasks[task.task_uuid] = TaskCallbacks(d, [])
 
         d2 = self.dispatcher.createTask(task)
         def eb_create_failed(reason):
@@ -200,13 +203,31 @@ class JobHandler(object):
     def taskUpdated(self, task):
         d, callbacks = self.tasks[task.task_uuid]
         for func, args, kwargs in callbacks:
-            func(task, *args, **kwargs)
+            try:
+                func(task, *args, **kwargs)
+            except:
+                log.exception("Unhandled error in taskUpdated callback:")
         if task.status.final:
             d.callback(task)
             del self.tasks[task.task_uuid]
 
     def waitForTask(self, task):
-        return self.tasks[task.task_uuid][0]
+        """Defer until the given task has completed."""
+        d = defer.Deferred()
+        def call_passthrough(result):
+            if isinstance(result, tw_failure.Failure):
+                d.errback(result)
+            else:
+                d.callback(result)
+            d.addErrback(logger.logFailure,
+                    "Unhandled error in waitForTask callback:")
+            return result
+        self.tasks[task.task_uuid].deferred.addBoth(call_passthrough)
+        return d
+
+    def watchTask(self, task, func, *args, **kwargs):
+        """Register C{func} to be called each time C{task} is updated."""
+        self.tasks[task.task_uuid].callbacks.append((func, args, kwargs))
 
     def gatherTasks(self, tasks, callback):
         """Wait for tasks to complete then invoke a callback."""
@@ -248,6 +269,9 @@ class JobHandler(object):
         if not isinstance(obj, FrozenObject):
             obj = FrozenObject.fromObject(obj)
         self.job.data = obj
+
+
+TaskCallbacks = namedtuple('TaskCallbacks', 'deferred callbacks')
 
 
 try:
