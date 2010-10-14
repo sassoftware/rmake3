@@ -2,7 +2,7 @@ import os
 import sys
 
 from conary import conarycfg
-from conary import cvc
+from conary.cmds import cvccmd as cvc
 from conary.deps import deps
 from conary.lib import log
 from conary.lib import options
@@ -856,7 +856,6 @@ class CleanCommand(rMakeCommand):
             client.deleteChroot(*self._getChroot(chroot))
 register(CleanCommand)
 
-from conary import cvc
 class CheckoutCommand(cvc.CheckoutCommand,rMakeCommand):
     # Move this to the same section as NewPkg
     commandGroup = 'Setup Commands'
