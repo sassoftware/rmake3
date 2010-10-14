@@ -368,10 +368,14 @@ def _copyFiles(troveCs, fromSet, toSet, withFiles, withFileContents):
             toSet.files.update(fromSet.files)
             #toSet.addFile(None, fileId, fileStream)
         if withFileContents:
-            fileObj = cny_files.ThawFile(fileStream, pathId)
-            if not fileObj.hasContents:
+            if not cny_files.frozenFileHasContents(fileStream):
+                # Not a regular file, so no contents.
                 continue
-            isConfig = fileObj.flags.isConfig()
+            flags = cny_files.frozenFileFlags(fileStream)
+            if flags.isEncapsulatedContent() and not flags.isCapsuleOverride():
+                # Encapsulated files also have no contents in the changeset.
+                continue
+            isConfig = flags.isConfig()
             tag, contents = fromSet.getFileContents(pathId, fileId,
                     compressed=isConfig)
             toSet.addFileContents(pathId, fileId, tag, contents,
