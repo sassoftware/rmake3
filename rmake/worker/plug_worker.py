@@ -85,6 +85,9 @@ class TaskHandler(object):
 
     def sendStatus(self, code, text, detail=None):
         self.task.status = JobStatus(code, text, detail)
+        return self._sendStatus()
+
+    def _sendStatus(self):
         from twisted.internet import reactor
         reactor.callFromThread(self._wchild.sendTask, self.task.freeze())
 
