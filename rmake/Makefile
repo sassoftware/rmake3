@@ -21,7 +21,7 @@ SUBDIRS = build cmdline core lib messagebus server worker
 
 all: $(generated_files) default-build
 
-install: $(generated_files) default-install compile-python
+install: $(generated_files) default-install
 
 clean: default-clean
 

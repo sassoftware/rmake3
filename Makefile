@@ -21,6 +21,7 @@ install: default-install
 	if [ "$(PKGNAME)" != "rmake" ]; then \
 		./scripts/rewrite_imports.py $(DESTDIR) $(PKGNAME); \
 	fi
+	$(MAKE) compile-python DEST=$(sitedir)/$(PKGNAME)
 
 # Release instrumentation
 
