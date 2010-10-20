@@ -514,6 +514,7 @@ class ExistingChroot(rMakeChroot):
         self.root = rootPath
         self.logger = logger
         self.chrootHelperPath = chrootHelperPath
+        self.chrootFingerprint = None
         rootfactory.BasicChroot.__init__(self)
         self._copyInRmake()
 

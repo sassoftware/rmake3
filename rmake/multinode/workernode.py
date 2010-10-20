@@ -59,16 +59,8 @@ class rMakeWorkerNodeServer(worker.Worker):
                                    traceback.format_exc())
             raise
 
-        try:
-            osutil.setproctitle("rmake node [not registered]")
-        except:
-            pass
-
     def busConnected(self, sessionId):
-        try:
-            osutil.setproctitle('rmake node %s' % (sessionId,))
-        except:
-            pass
+        pass
 
     def receivedResolveCommand(self, info):
         eventHandler = DirectRmakeBusPublisher(info.getJobId(), self.client)
