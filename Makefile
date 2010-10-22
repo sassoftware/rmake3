@@ -12,6 +12,13 @@
 # full details.
 #
 
+export VERSION=2.99.0
+
+# This can be overridden on the command line.
+export PYVER = $(shell python -c 'import sys; print sys.version[:3]')
+export PKGNAME = rmake
+
+
 SUBDIRS = commands extra man rmake rmake_test
 export CHANGESET = $(shell ./scripts/hg-version.sh)
 

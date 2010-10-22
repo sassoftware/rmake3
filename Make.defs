@@ -12,12 +12,6 @@
 # full details.
 #
 
-export VERSION=2.99.0
-
-# This can be overridden on the command line.
-export PYVER = $(shell python -c 'import sys; print sys.version[:3]')
-export PKGNAME = rmake
-
 # XVERSION can be overwritten by snapshot builds to force incompatible versions
 # NOTE: this affects the API version
 # DO NOT INCREMENT unless you are trying to make this version's

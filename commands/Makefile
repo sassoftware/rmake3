@@ -18,7 +18,6 @@ bin_files = \
 
 sbin_files = \
 	rmake-dispatcher \
-	rmake-server \
 	rmake-node \
 	gencert-rmake
 
