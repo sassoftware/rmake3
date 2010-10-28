@@ -1,0 +1,62 @@
+#!/usr/bin/python2.4
+import os
+import pwd
+import random
+import sys
+
+from conary import dbstore
+from conary.repository import errors
+from conary.repository.netrepos import netauth
+from conary.server import schema
+
+def main(argv):
+    if len(argv) < 2:
+        dbPath = '%(reposdir)s/db/sqldb'
+    else:
+        dbPath = sys.argv[1]
+
+    db = getDb(path=dbPath)
+    addUser(db, 'anonymous', 'anonymous')
+    newPassword = ''.join([chr(random.randint(ord('A'), ord('z'))) for x in range(10)])
+    newPassword = 'rmake'
+
+    passwordPath = '/etc/rmake/server.d/repospassword'
+    open(passwordPath, 'w').write('')
+    os.chmod(passwordPath, 0700)
+    os.chown(passwordPath, pwd.getpwnam('rmake').pw_uid,
+                           pwd.getpwnam('rmake').pw_gid)
+    open(passwordPath, 'w').write('user localhost rmake %%s\n' %% newPassword)
+    addUser(db, 'rmake', newPassword, write=True)
+
+    print "New password stored in database and at %%s" %% passwordPath
+    return 0
+
+def getDb(path):
+    if os.path.exists(path):
+        print "Deleting database"
+        os.remove(path)
+    if os.listdir("%(reposdir)s/contents/"):
+        print "Deleting contents..."
+        os.system("rm -rf %(reposdir)s/contents/*")
+    open(path, 'w')
+    os.chown(path, pwd.getpwnam('apache').pw_uid,
+                   pwd.getpwnam('apache').pw_gid)
+
+    db = dbstore.connect(path, driver='sqlite')
+    schema.loadSchema(db, True)
+    return db
+
+def addUser(db, name, password=None, write=False):
+    auth = netauth.NetworkAuthorization(db, [])
+    try:
+        auth.userAuth.getUserIdByName(name)
+    except errors.UserNotFound: # yuck, we need a hasUser interface
+        pass
+    else:
+        auth.deleteUserByName(name)
+
+    auth.addUser(name, password)
+    auth.addAcl(name, None, None, write, False, False)
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv))
