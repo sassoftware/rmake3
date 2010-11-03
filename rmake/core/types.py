@@ -198,7 +198,7 @@ class JobStatus(SlotCompare):
 
     @property
     def failed(self):
-        return 400 <= self.code < 500
+        return 400 <= self.code < 600
 
     @property
     def final(self):
