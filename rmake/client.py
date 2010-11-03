@@ -21,7 +21,10 @@ from rmake.lib.twisted_extras import firehose
 class RmakeClient(object):
 
     def __init__(self, address):
-        if not isinstance(address, rpcproxy.Address):
+        if isinstance(address, RmakeClient):
+            # Copy an existing client's address
+            address = address.address
+        elif not isinstance(address, rpcproxy.Address):
             address = rpcproxy.parseAddress(address)
         self.address = address
         if hasattr(address, 'handler') and address.handler in ('', '/'):
