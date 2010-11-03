@@ -18,7 +18,7 @@ from rmake.lib import rpcproxy
 from rmake.lib.twisted_extras import firehose
 
 
-class RmakeClient(object):
+class BaseClient(object):
 
     def __init__(self, address):
         if isinstance(address, RmakeClient):
@@ -37,6 +37,9 @@ class RmakeClient(object):
         else:
             self.firehose = None
         self.proxy = rpc_pickle.PickleServerProxy(address)
+
+
+class RmakeClient(BaseClient):
 
     def getJobs(self, job_uuids):
         return self.proxy.getJobs(job_uuids)
