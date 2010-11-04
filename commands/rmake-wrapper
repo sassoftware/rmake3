@@ -27,4 +27,4 @@ if [ "$bin" = "rmake-node" ]; then
             )
 fi
 
-exec $importdir/commands/$bin "$@" ${config:+"${config[@]}"}
+exec $importdir/commands/$bin ${config:+"${config[@]}"} "$@"
