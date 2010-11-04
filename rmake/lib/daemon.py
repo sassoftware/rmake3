@@ -366,8 +366,6 @@ class LoggingMixin(Daemon):
         return os.path.join(self.cfg.logDir, self.logFileName)
 
     def setup(self, **kwargs):
-        super(LoggingMixin, self).setup(**kwargs)
-
         if kwargs['fork']:
             consoleLevel = None
         elif kwargs['debug']:
@@ -378,6 +376,7 @@ class LoggingMixin(Daemon):
                 fileLevel=logging.INFO, consoleLevel=consoleLevel,
                 fileFormat='file', consoleFormat='file',
                 withTwisted=True)
+        super(LoggingMixin, self).setup(**kwargs)
 
 
 class PluginsMixin(Daemon):
@@ -389,6 +388,12 @@ class PluginsMixin(Daemon):
         self.plugins = pluginlib.getPluginManager(argv, self.configClass,
                 self.pluginTypes)
         return Daemon.getConfigFile(self, argv)
+
+    def setup(self, **kwargs):
+        log.debug("Plugins loaded:")
+        for plugin in self.plugins.plugins:
+            log.debug("  %s from %s", plugin.name, plugin.path)
+        super(PluginsMixin, self).setup(**kwargs)
 
 
 def debugHook(signum, sigtb):
