@@ -24,18 +24,6 @@ TEST_TASK_ARCCOT = PREFIX + '.arccot'
 TEST_TASK_REDUCE = PREFIX + '.reduce'
 
 
-class TestPlugin(plug_dispatcher.DispatcherPlugin, plug_worker.WorkerPlugin):
-
-    def dispatcher_pre_setup(self, dispatcher):
-        handler.registerHandler(TestHandler)
-
-    def worker_get_task_types(self):
-        return {
-                TEST_TASK_ARCCOT: ArcCotTask,
-                TEST_TASK_REDUCE: ReduceTask,
-                }
-
-
 class TestHandler(handler.JobHandler):
     __slots__ = ('a_result', 'b_result')
     _save = __slots__
@@ -103,6 +91,8 @@ ReduceData = types.slottype('ReduceData', 'p a b x out')
 
 class ArcCotTask(plug_worker.TaskHandler):
 
+    taskType = TEST_TASK_ARCCOT
+
     def run(self):
         data = self.getData()
         self.sendStatus(101, "Calculating arccot(%d) to %d digits" % (
@@ -119,6 +109,8 @@ class ArcCotTask(plug_worker.TaskHandler):
 
 class ReduceTask(plug_worker.TaskHandler):
 
+    taskType = TEST_TASK_REDUCE
+
     def run(self):
         data = self.getData()
         self.sendStatus(101, "Reducing pi to %d digits" % data.p.digits)
@@ -128,6 +120,12 @@ class ReduceTask(plug_worker.TaskHandler):
 
         self.setData(data)
         self.sendStatus(200, "Calculated pi")
+
+
+class TestPlugin(plug_dispatcher.DispatcherPlugin, plug_worker.WorkerPlugin):
+
+    handlerClasses = (TestHandler,)
+    taskClasses = (ArcCotTask, ReduceTask)
 
 
 def arccot(x, unity):

@@ -45,12 +45,14 @@ class WorkerPlugin(pluginlib.Plugin):
 
     _plugin_type = 'worker'
 
+    taskClasses = ()
+
     def worker_get_task_types(self):
         """Return a mapping of task types to task handler.
 
         Handlers should be a subclass of L{TaskHandler}.
         """
-        return {}
+        return dict((cls.taskType, cls) for cls in self.taskClasses)
 
     def worker_pre_build(self, handler):
         pass
@@ -67,6 +69,8 @@ class TaskHandler(object):
     Handlers that are purely non-blocking may choose to override start()
     instead and integrate with the reactor directly.
     """
+
+    taskType = None
 
     def __init__(self, wchild, task):
         self._wchild = wchild
