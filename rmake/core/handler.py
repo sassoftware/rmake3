@@ -28,7 +28,7 @@ restart tasks that were already failed at recovery time.
 """
 
 import logging
-from rmake.core.types import RmakeTask, FrozenObject, JobStatus
+from rmake.core import types as rmk_types
 from rmake.lib import logger
 from rmake.lib.ninamori.types import namedtuple
 from twisted.internet import defer
@@ -130,7 +130,9 @@ class JobHandler(object):
         Either pass a code, text, and optional details, or pass a L{JobStatus}
         object as the first argument.
         """
-        if isinstance(codeOrStatus, JobStatus):
+        if isinstance(codeOrStatus, rmk_types.FrozenJobStatus):
+            self.job.status = codeOrStatus.thaw()
+        elif isinstance(codeOrStatus, rmk_types.JobStatus):
             self.job.status = codeOrStatus
         else:
             assert text is not None
@@ -167,7 +169,7 @@ class JobHandler(object):
             self.state = 'done'
             return defer.succeed('done')
 
-        status = JobStatus.from_failure(failure, "Job failed")
+        status = rmk_types.JobStatus.from_failure(failure, "Job failed")
         d = self.setStatus(status)
         # If setting status fails we'll have to forget about the job and hope
         # for the best. Perhaps in the future we can handle short-term database
@@ -184,10 +186,10 @@ class JobHandler(object):
     ## Creating/monitoring tasks
 
     def newTask(self, taskName, taskType, data, zone=None):
-        if not isinstance(data, FrozenObject):
-            data = FrozenObject.fromObject(data)
-        task = RmakeTask(None, self.job.job_uuid, taskName, taskType, data,
-                task_zone=zone)
+        if not isinstance(data, rmk_types.FrozenObject):
+            data = rmk_types.FrozenObject.fromObject(data)
+        task = rmk_types.RmakeTask(None, self.job.job_uuid, taskName, taskType,
+                data, task_zone=zone)
 
         d = defer.Deferred()
         self.tasks[task.task_uuid] = TaskCallbacks(d, [])
@@ -266,8 +268,8 @@ class JobHandler(object):
         return self.job.data.getObject()
 
     def setData(self, obj):
-        if not isinstance(obj, FrozenObject):
-            obj = FrozenObject.fromObject(obj)
+        if not isinstance(obj, rmk_types.FrozenObject):
+            obj = rmk_types.FrozenObject.fromObject(obj)
         self.job.data = obj
 
 
