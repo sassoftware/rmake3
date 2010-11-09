@@ -117,7 +117,7 @@ class LauncherService(MultiService):
             log.info("Task %s %s: %s %s", task.task_uuid.short,
                     status.completed and 'complete' or 'failed', status.code,
                     status.text)
-        msg = message.TaskStatus(task)
+        msg = message.TaskStatus(task.freeze())
         self.bus.sendToTarget(msg)
 
 
