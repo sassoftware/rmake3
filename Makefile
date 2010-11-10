@@ -76,6 +76,18 @@ test: all
 	$${SUDO} 'chown root.root commands/chroothelper; \
 		  chmod 4755 commands/chroothelper'
 
+rmake3:
+	# for testing only -- create a 'rmake3' directory with all the modules
+	# mangled to refer to rmake3. This is similar to how the 'rmake3'
+	# recipe works.
+	rm -rf altroot rmake3
+	$(MAKE) install DESTDIR=`pwd`/altroot PKGNAME=rmake3 NO_COMPILE=1 prefix=/opt/rmake3 libdir=/usr/lib64
+	mv altroot/usr/lib64/python2.6/site-packages/rmake3 .
+	python -mcompileall -f `pwd`/rmake3
+
+
+.PHONY: rmake3
+
 include Make.rules
 include Make.defs
 

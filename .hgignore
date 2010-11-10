@@ -1,6 +1,8 @@
 \.(py[co]|o|so|ccs|swp|swo|orig|rej)$
 
+^altroot/
 ^bin/
+^rmake3/
 ^tmp/
 ^_trial_temp/
 
