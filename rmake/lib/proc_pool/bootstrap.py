@@ -12,6 +12,7 @@
 # full details.
 #
 
+import logging
 import os
 import sys
 from twisted.internet import stdio
@@ -23,7 +24,7 @@ from rmake.lib.proc_pool import connector
 def main(childClassName):
     from twisted.internet import reactor
 
-    logger.setupLogging(withTwisted=True)
+    logger.setupLogging(withTwisted=True, consoleLevel=logging.INFO)
 
     # setpgrp prevents Ctrl-C at the command line from killing workers
     # directly.  Instead, the parent process catches the signal, flags all the
