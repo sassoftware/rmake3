@@ -292,8 +292,12 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
         if worker is None:
             log.info("Worker %s connected", jid.full())
             worker = self.workers[jid] = WorkerInfo(jid)
+            # We need to fully initialize the worker before the worker_up hook
+            # is called
+            worker.setCaps(msg)
             self.plugins.p.dispatcher.worker_up(self, worker)
-        worker.setCaps(msg)
+        else:
+            worker.setCaps(msg)
         self._assignTasks()
 
     def workerDown(self, jid):
@@ -444,6 +448,11 @@ class WorkerInfo(object):
         """Return C{True} if the worker supports all of C{caps}."""
         return not (set(caps) - self.caps)
 
+    @property
+    def zoneNames(self):
+        zoneNames = [ x.zoneName for x in self.caps
+            if isinstance(x, types.ZoneCapability) ]
+        return zoneNames
 
 class TaskInfo(object):
 
