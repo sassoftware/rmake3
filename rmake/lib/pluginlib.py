@@ -49,11 +49,7 @@ class Plugin(object):
     def unload(self):
         pass
 
-    def configFromOptions(self, configClass):
-        if not self.options:
-            return configClass(True)
-
-        cfg = configClass(False)
+    def populateConfigFromOptions(self, cfg):
         for line in self.options:
             cfg.configLine(line)
         return cfg
@@ -250,10 +246,8 @@ class PluginManager(object):
     def setOptions(self, options):
         for name, lines in options.iteritems():
             plugin = self.pluginsByName.get(name)
-            if not plugin:
-                log.warning("Ignoring option for unknown plugin %s", name)
-                continue
-            plugin.options = lines
+            if plugin:
+                plugin.options = lines
 
     def callHook(self, type_, hookName, *args, **kw):
         attr = '%s_%s' % (type_, hookName)
