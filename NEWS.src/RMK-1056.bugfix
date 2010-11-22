@@ -1,1 +1,1 @@
-`rmake chroot` no longer crashes with a "connection refused" error when the chroot system differs substantially from the host system.
+The 'rmake chroot' command no longer crashes with a "connection refused" error when the chroot system differs substantially from the host system.

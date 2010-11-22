@@ -1,1 +1,1 @@
-devpts is now mounted with the correct ownership, fixing an issue with SLES 11 chroots.
+The devpts filesystem is now mounted with the correct ownership, fixing an issue with newer glibc versions in chroots, such as the version included in SLES 11.
