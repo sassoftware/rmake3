@@ -247,13 +247,15 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
 
         # Search those troves for the python import root.
         targetRoot = '/python%s.%s/site-packages' % sys.version_info[:2]
-        targetPath = targetRoot + '/rpm/__init__.py'
+        targetPaths = [ targetRoot + '/rpm/__init__.py',
+                        targetRoot + '/rpmmodule.so' ]
         roots = set()
         for trove in cli.db.getTroves(tups, pristine=False):
             for pathId, path, fileId, fileVer in trove.iterFileList():
-                if path.endswith(targetPath):
-                    root = path[:-len(targetPath)] + targetRoot
-                    roots.add(root)
+                for targetPath in targetPaths:
+                    if path.endswith(targetPath):
+                        root = path[:-len(targetPath)] + targetRoot
+                        roots.add(root)
 
         # Insert into the search path and do a test import.
         if not roots:
