@@ -1,3 +1,9 @@
+Changes in 2.0.7:
+  o Bug Fixes:
+    * The chroot building enhancement in version 2.0.6 has been reverted
+      as it causes sporadic failures. A corrected version will be
+      released in the future. (RMK-1070)
+
 Changes in 2.0.6:
   o New Features:
     * Fetching changesets for chroot building is now significantly
