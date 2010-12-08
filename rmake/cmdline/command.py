@@ -2,15 +2,13 @@ import os
 import sys
 
 from conary import conarycfg
-from conary.cmds import cvccmd as cvc
 from conary.deps import deps
 from conary.lib import log
 from conary.lib import options
 
 from rmake import compat, errors
-from rmake.build import buildcfg
+from rmake.compat import cvccmd as cvc
 from rmake.cmdline import query
-from rmake.lib import flavorutil
 
 
 (NO_PARAM,  ONE_PARAM)  = (options.NO_PARAM, options.ONE_PARAM)

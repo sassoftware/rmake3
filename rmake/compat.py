@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2006-2009 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2010 rPath, Inc.  All Rights Reserved.
 #
 """
 Tracks compatibility with versions of integrated software for backwards
@@ -10,6 +10,11 @@ from conary import state
 from conary.lib import log
 
 from rmake import errors
+
+try:
+    from conary.cmds import cvccmd
+except ImportError:
+    from conary import cvc as cvccmd
 
 minimumSupportedConaryVersion = '1.1.19'
 testing = False

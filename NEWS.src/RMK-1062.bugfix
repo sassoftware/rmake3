@@ -1,1 +1,0 @@
-devpts is now mounted with the correct ownership, fixing an issue with SLES 11 chroots.

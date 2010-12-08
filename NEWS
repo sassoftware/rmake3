@@ -1,3 +1,35 @@
+Changes in 2.0.8:
+  o Bug Fixes:
+    * A bug introduced in rMake 2.0.6 that prevented use with Conary 2.1
+      has been fixed. (RMK-1072)
+
+Changes in 2.0.7:
+  o Bug Fixes:
+    * The chroot building enhancement in version 2.0.6 has been reverted
+      as it causes sporadic failures. A corrected version will be
+      released in the future. (RMK-1070)
+
+Changes in 2.0.6:
+  o New Features:
+    * Fetching changesets for chroot building is now significantly
+      faster as the requests are sent in batches instead of
+      individually. (RMK-1065)
+    * Multi-node installations now have a 'rmake-server suspend' command
+      which will block sending of new jobs to specific nodes so they can
+      be gracefully shut down or reconfigured. A corresponding 'rmake-
+      server resume' is also available. (RMK-504)
+
+  o Bug Fixes:
+    * A more informative error is now produced if `rbuild build images`
+      is used with a nonexistent or hidden rBuilder project.
+    * /dev/shm is now mounted in chroots. (RMK-1064)
+    * The 'rmake chroot' command no longer crashes with a "connection
+      refused" error when the chroot system differs substantially from
+      the host system. (RMK-1056)
+    * The devpts filesystem is now mounted with the correct ownership,
+      fixing an issue with newer glibc versions in chroots, such as the
+      version included in SLES 11. (RMK-1062)
+
 Changes in 2.0.5:
   o New Features:
     * rMake is now compatible with versions of Conary that implement the

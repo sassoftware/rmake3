@@ -1,1 +1,0 @@
-Multi-node installations now have a `rmake-server suspend` command which will block sending of new jobs to specific nodes so they can be gracefully shut down or reconfigured. A corresponding `rmake-server resume` is also available.
