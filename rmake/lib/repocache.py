@@ -5,7 +5,6 @@
 Cache of changesets.
 """
 from StringIO import StringIO
-import errno
 import os
 import itertools
 import tempfile
@@ -19,7 +18,7 @@ from conary.repository import changeset
 from conary.repository import datastore
 from conary.repository import errors
 from conary.repository import filecontents
-from conary.repository import trovesource
+
 
 class CachingTroveSource:
     def __init__(self, troveSource, cacheDir, readOnly=False, depsOnly=False):

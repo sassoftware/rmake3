@@ -14,6 +14,7 @@ from rmake import errors
 try:
     from conary.cmds import cvccmd
 except ImportError:
+    # pyflakes=ignore
     from conary import cvc as cvccmd
 
 minimumSupportedConaryVersion = '1.1.19'
