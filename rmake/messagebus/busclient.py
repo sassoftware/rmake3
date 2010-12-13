@@ -279,7 +279,8 @@ class _SessionClient(asyncore.dispatcher):
             try:
                 m.thawPayloadStream()
             except:
-                self.logger.error("Corrupt message payload received; ignoring.")
+                self.logger.exception(
+                        "Failed to parse message payload; discarding:")
             else:
                 self.handle_message(m)
 
