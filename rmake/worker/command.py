@@ -466,7 +466,7 @@ class SessionCommand(Command):
         self.chrootFactory.create()
         self.chroot = self.chrootFactory.start(
                                         lambda: self._fork('Chroot Server'))
-        port = self.chroot.startSession(self.command)
+        port = self.chroot.startSession(self.command, self.cfg.chrootServerPorts)
         self.writePipe.send((procutil.getNetName(), port))
         self.writePipe.flush()
         self.serve_forever()

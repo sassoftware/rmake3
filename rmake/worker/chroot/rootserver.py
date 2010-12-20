@@ -1,6 +1,16 @@
 #!/usr/bin/python
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All rights reserved.
+# Copyright (c) 2010 rPath, Inc.
+#
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
 #
 import errno
 import os
@@ -9,7 +19,6 @@ import signal
 import socket
 import sys
 import time
-import traceback
 
 if __name__ == '__main__':
     rootPath = os.environ.get('RMAKE_ROOT', '/')
@@ -17,7 +26,7 @@ if __name__ == '__main__':
 from conary.lib import coveragehook
 coveragehook.install()
 
-from conary.lib import options, util
+from conary.lib import util
 from conary import checkin
 from conary import conarycfg
 from conary import conaryclient
@@ -25,10 +34,8 @@ from conary import conaryclient
 
 from rmake.worker.chroot import cook
 
-from rmake import compat
 from rmake import constants
-from rmake.build import buildcfg
-from rmake.lib.apiutils import *
+from rmake.lib.apiutils import api, api_parameters, api_return, freeze, thaw
 from rmake.lib import apirpc, daemon, logger, repocache, telnetserver
 
 class ChrootServer(apirpc.XMLApiServer):
@@ -170,13 +177,17 @@ class ChrootServer(apirpc.XMLApiServer):
         return
 
     @api(version=1)
-    @api_parameters(1, 'str')
+    @api_parameters(1, 'str', 'str')
     @api_return(1, 'int')
-    def startSession(self, callData, command=['/bin/bash', '-l']):
-        s = socket.socket()
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.bind(('', 0))
-        port = s.getsockname()[1]
+    def startSession(self, callData, command, ports):
+        if os.path.exists('/tmp/rmake'):
+            workDir = '/tmp/rmake'
+        else:
+            workDir = '/'
+        ports = tuple(ports)
+        t = telnetserver.TelnetServerForCommand(('', ports), command,
+                workDir=workDir)
+        port = t.server_address[1]
         pid = self._fork('Telnet session')
         if pid:
             # Note that when this session dies, the server will die.
@@ -185,15 +196,10 @@ class ChrootServer(apirpc.XMLApiServer):
             # receives one command and then dies when it finishes.
             # Perhaps we should get rid of this daemon and instead
             # make it a simple program?
+            t.server_close()
             self._sessionPid = pid
             return port
         try:
-            if os.path.exists('/tmp/rmake'):
-                workDir = '/tmp/rmake'
-            else:
-                workDir = '/'
-            t = telnetserver.TelnetServerForCommand(('', port), command,
-                                                    workDir=workDir)
             self._try('Telnet session', t.handle_request)
         finally:
             os._exit(1)
@@ -265,8 +271,8 @@ class ChrootClient(object):
         self.proxy = apirpc.XMLApiProxy(ChrootServer, uri)
         self.resultsReadySocket = None
 
-    def startSession(self, command=['/bin/sh']):
-        return self.proxy.startSession(command)
+    def startSession(self, command=['/bin/sh'], ports=None):
+        return self.proxy.startSession(command, ports)
 
     def subscribeToBuild(self, name, version, flavorList):
         port = self.proxy.subscribeToBuild(name, version, flavorList)

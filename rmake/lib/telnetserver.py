@@ -1,6 +1,16 @@
 #!/usr/bin/python
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All rights reserved.
+# Copyright (c) 2010 rPath, Inc.
+#
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
 #
 """
 Telnet Server implementation.
@@ -14,9 +24,11 @@ to talk to this server using the standard telnet client, you'll need to first
 type "CTRL-] mode char\n"
 """
 from SocketServer import TCPServer, BaseRequestHandler
+import errno
 import fcntl
 import os
 import pty
+import random
 import select
 import signal
 import socket
@@ -24,8 +36,8 @@ import struct
 import sys
 import telnetlib
 import termios
-import tty
-from telnetlib import IAC, IP, SB, SE, DO, DONT, WILL, WONT, TM, LINEMODE, NAWS
+from telnetlib import IAC, IP, SB, SE, DO, DONT, WILL, TM, NAWS
+
 
 class TelnetServerProtocolHandler(telnetlib.Telnet):
     """
@@ -134,6 +146,30 @@ class TelnetServer(TCPServer):
         if not server_address:
             server_address = ('', 23)
         TCPServer.__init__(self, server_address, requestHandlerClass)
+
+    def server_bind(self):
+        host, port = self.server_address
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if isinstance(port, tuple):
+            # Bind a random port in a particular range
+            start, end = port
+            ports = range(start, end + 1)
+            random.shuffle(ports)
+            for port in ports:
+                try:
+                    self.socket.bind((host, port))
+                    break
+                except socket.error, err:
+                    if err.args[0] == errno.EADDRINUSE:
+                        continue
+                    raise
+            else:
+                raise
+        else:
+            # Bind a specific port (or, if zero, let the kernel choose)
+            self.socket.bind((host, port))
+        self.server_address = self.socket.getsockname()
+
 
 class TelnetServerForCommand(TelnetServer):
     def __init__(self, server_address=None, command=['/bin/sh'],

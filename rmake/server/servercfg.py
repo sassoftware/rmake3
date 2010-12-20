@@ -1,5 +1,15 @@
 #
-# Copyright (c) 2006-2009 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2010 rPath, Inc.
+#
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
 #
 """
 Local configuration for rMake.
@@ -10,20 +20,19 @@ local setup needed to use rMake.
 import os
 import pwd
 import socket
-import stat
 import sys
 import subprocess
 import urllib
 
 from conary import dbstore
 from conary.lib import log, cfg, util
-from conary.lib.cfgtypes import CfgPath, CfgList, CfgString, CfgInt, CfgType
+from conary.lib.cfgtypes import CfgPath, CfgString, CfgInt
 from conary.lib.cfgtypes import CfgBool, CfgPathList, CfgDict, ParseError
-from conary.conarycfg import CfgLabel, CfgUserInfo
+from conary.conarycfg import CfgUserInfo
 
 from rmake import constants
 from rmake import errors
-from rmake.lib import daemon, chrootcache, procutil
+from rmake.lib import daemon, chrootcache
 
 
 class CfgChrootCache(cfg.CfgType):
@@ -34,6 +43,30 @@ class CfgChrootCache(cfg.CfgType):
         return tuple(s)
 
     def format(self, val, displayOptions = None):
+        return "%s %s" % val
+
+
+class CfgPortRange(cfg.CfgType):
+
+    def parseString(self, val):
+        parts = val.replace('-', ' ').split()
+        if len(parts) == 1:
+            raise ParseError("Expected two port numbers for range")
+        start, end = parts
+        try:
+            start = int(start)
+            end = int(end)
+        except ValueError:
+            raise ParseError("Port is not a number")
+        if not 1024 < start < 65535:
+            raise ParseError("Starting port is out of range 1024-65535")
+        if not 1024 < end < 65535:
+            raise ParseError("Ending port is out of range 1024-65535")
+        if end < start:
+            start, end = end, start
+        return (start, end)
+
+    def format(self, val, displayOptions=None):
         return "%s %s" % val
 
 
@@ -51,6 +84,8 @@ class rMakeBuilderConfiguration(daemon.DaemonConfig):
     chrootCaps        = (CfgBool, False,
             "Set capability masks as directed by chroot contents. "
             "This has the potential to be unsafe.")
+    chrootServerPorts = (CfgPortRange, (63000, 64000),
+            "Port range to be used for 'rmake chroot' sessions.")
     hostName          = (CfgString, 'localhost')
     verbose           = False
 
