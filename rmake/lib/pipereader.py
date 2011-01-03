@@ -180,6 +180,7 @@ def makePipes():
                 fcntl.fcntl(inF, fcntl.F_GETFD) | fcntl.FD_CLOEXEC)
     fcntl.fcntl(outF, fcntl.F_SETFD,
                 fcntl.fcntl(outF, fcntl.F_GETFD) | fcntl.FD_CLOEXEC)
+    return inF, outF
 
 
 def makeMarshalPipes():
