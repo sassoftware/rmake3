@@ -1,32 +1,44 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2011 rPath, Inc.
 #
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
+#
+
+
 import errno
 import fcntl
 import itertools
 import os
 import resource
 import signal
-import sys
 import tempfile
 import time
 import traceback
 
 from conary.build import cook,macros,use
 from conary.deps import deps
-from conary.lib import epdb
 from conary.lib import log,util
 from conary.local import database
 from conary import versions
 from conary.deps.deps import ThawFlavor
 
 from rmake import compat
-from rmake.failure import BuildFailed, FailureReason
+from rmake.failure import BuildFailed
 from rmake.lib import flavorutil
 from rmake.lib import logfile
+from rmake.lib import pipereader
 from rmake.lib import recipeutil
 from rmake.lib.apiutils import thaw, freeze
 from rmake.worker import resolvesource
+
 
 class CookResults(object):
     def __init__(self, name, version, flavorList):
@@ -112,9 +124,7 @@ def cookTrove(cfg, repos, logger, name, version, flavorList, targetLabel,
     # ignore child output problems
     signal.signal(signal.SIGTTOU, signal.SIG_IGN)
 
-    inF, outF = os.pipe()
-    fcntl.fcntl(inF, fcntl.FD_CLOEXEC)
-    fcntl.fcntl(outF, fcntl.FD_CLOEXEC)
+    inF, outF = pipereader.makePipes()
     pid = os.fork()
     if not pid:
         try:

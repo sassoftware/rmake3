@@ -368,7 +368,9 @@ class DelayableXMLRPCServer(DelayableXMLRPCDispatcher, SimpleXMLRPCServer):
 
     def server_bind(self):
         self.allow_reuse_address = True
-        fcntl.fcntl(self.socket.fileno(), fcntl.FD_CLOEXEC)
+        fcntl.fcntl(self.socket.fileno(), fcntl.F_SETFD,
+                fcntl.fcntl(self.socket.fileno(), fcntl.F_GETFD)
+                | fcntl.FD_CLOEXEC)
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,1)
         SimpleXMLRPCServer.server_bind(self)
         self.port = self.socket.getsockname()[1]
