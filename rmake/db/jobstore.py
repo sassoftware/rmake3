@@ -463,7 +463,7 @@ class JobStore(object):
                                       failureData = ?
                        WHERE jobId = ?""",
                    (job.pid, job.state, job.status, job.start, job.finish, 
-                    failureTup[0], failureTup[1], job.jobId))
+                    failureTup[0], cu.binary(failureTup[1]), job.jobId))
 
     def updateTrove(self, trove):
         cu = self.db.cursor()
@@ -483,7 +483,7 @@ class JobStore(object):
                   status=trove.status,
                   state=trove.state,
                   failureReason=failureTup[0],
-                  failureData=failureTup[1],
+                  failureData=cu.binary(failureTup[1]),
                   recipeType=trove.recipeType,
                   buildType=trove.buildType,
                   chrootId=chrootId)
@@ -539,7 +539,7 @@ class JobStore(object):
                   status=trove.status,
                   state=trove.state,
                   failureReason=failureTup[0],
-                  failureData=failureTup[1],
+                  failureData=cu.binary(failureTup[1]),
                   buildType=trove.buildType,
                   troveType=trove.troveType,
                   context=trove.getContext())
