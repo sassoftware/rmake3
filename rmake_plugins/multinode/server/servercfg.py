@@ -51,9 +51,20 @@ def sanityCheckForStart(self):
         self.hostName = procutil.getNetName()
     self.oldSanityCheck()
     try:
-        urllib2.urlopen(self.rbuilderUrl).read(1024)
+        try:
+            urllib2.urlopen(self.rbuilderUrl).read(1024)
+        except urllib2.HTTPError, err:
+            if 200 <= err.code < 400:
+                # Something benign like a redirect
+                pass
+            else:
+                raise
     except Exception, err:
-        raise errors.RmakeError('Could not access rbuilder at %s.  Please ensure you have a line "rbuilderUrl https://<yourRbuilder>" set correctly in your serverrc file.  Error: %s' % (self.rbuilderUrl, err))
+        raise errors.RmakeError('Could not access rbuilder at %s.  '
+                'Please ensure you have a line "rbuilderUrl '
+                'https://<yourRbuilder>" set correctly in your serverrc '
+                'file.  Error: %s' % (self.rbuilderUrl, err))
+
 
 def updateConfig():
     mainConfig = servercfg.rMakeConfiguration
