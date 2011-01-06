@@ -14,7 +14,6 @@
 
 
 import errno
-import fcntl
 import itertools
 import os
 import resource
