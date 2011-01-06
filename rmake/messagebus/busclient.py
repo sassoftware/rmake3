@@ -1,5 +1,15 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2011 rPath, Inc.
+#
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
 #
 """
     MessageBus Client.
@@ -8,13 +18,12 @@
 """
 import asyncore
 import errno
+import fcntl
 import logging
 import os
 import socket
 import sys
 import time
-
-from rmake import errors
 
 from rmake.messagebus import logger
 from rmake.messagebus import messages
@@ -209,7 +218,10 @@ class _SessionClient(asyncore.dispatcher):
         if self.connectionStart is None:
             self.connectionStart = time.time()
         if self.socket is None:
-            self.set_socket(socket.socket())
+            self.set_socket(socket.socket(socket.AF_INET, socket.SOCK_STREAM))
+            fcntl.fcntl(self.socket.fileno(), fcntl.F_SETFD,
+                    fcntl.fcntl(self.socket.fileno(), fcntl.F_GETFD)
+                    | fcntl.FD_CLOEXEC)
         try:
            asyncore.dispatcher.connect(self, (self.host, self.port))
            self.connected = True
