@@ -73,6 +73,7 @@ class JobStore(object):
         CREATE TEMPORARY TABLE tjobIdList(
             jobId integer
         )""", start_transaction=False)
+        self.db.db.analyze('tjobIdList')
 
         try:
             for jobId in jobIdList:
@@ -247,6 +248,7 @@ class JobStore(object):
                           flavor text,
                           context text
                       )''', start_transaction=False)
+        self.db.db.analyze('tTroveInfo')
         try:
 
             for jobId, troveName, version, flavor, context in troveList:
