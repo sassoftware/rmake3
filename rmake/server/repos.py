@@ -205,7 +205,8 @@ def pingServer(cfg, proxyUrl=None):
     conaryCfg.user = cfg.reposUser
     if proxyUrl:
         if hasattr(conaryCfg,'proxyMap'):
-            conaryCfg.proxyMap.update('conary:http*', '*', [proxyUrl])
+            conaryCfg.proxyMap.addStrategy('*', [proxyUrl],
+                    replaceScheme='conary')
         else:
             conaryCfg.conaryProxy['http'] = proxyUrl
             conaryCfg.conaryProxy['https'] = proxyUrl
