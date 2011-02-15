@@ -350,7 +350,8 @@ class rMakeServer(apirpc.XMLApiServer):
         if proxyUrl:
             if hasattr(buildConfig,'proxyMap'):
                 if not buildConfig.proxyMap:
-                    buildConfig.proxyMap.update('conary:http*', '*', [proxyUrl])
+                    buildConfig.proxyMap.addStrategy('*', [proxyUrl],
+                            replaceScheme='conary')
             else:
                 if not buildConfig.conaryProxy:
                     buildConfig.conaryProxy['http'] = proxyUrl

@@ -15,6 +15,7 @@
 
 import codecs
 import os
+import re
 import sys
 import textwrap
 import time
@@ -24,11 +25,15 @@ from mercurial import hg, ui
 PRODUCT_NAME = "rMake"
 HEADINGS = [
         ('feature', 'New Features'),
+        ('api', 'API Changes'),
         ('bugfix', 'Bug Fixes'),
         ('internal', 'Internal Changes'),
         ]
 KINDS = set(x[0] for x in HEADINGS)
 NEWSDIR = 'NEWS.src'
+
+RE_ISSUE = re.compile('^[A-Z0-9]+-\d+')
+
 
 def main():
     rootdir = os.path.realpath(__file__ + '/../..')
@@ -115,7 +120,7 @@ def preview(repo, modifiedOK=True):
         htmlOut.append("<ul>")
         for _, issue, _, entry in sorted(entries):
             htmlEntry = '    <li>' + entry
-            if not issue.startswith('misc-'):
+            if RE_ISSUE.match(issue):
                 entry += ' (%s)' % issue
                 htmlEntry += ' (<a href="https://issues.rpath.com/browse/%s">%s</a>)' % (issue,issue)
             lines = textwrap.wrap(entry, 66)
@@ -131,7 +136,7 @@ def preview(repo, modifiedOK=True):
 
 def generate(repo):
     version = _getVersion()
-    old = codecs.open('NEWS','r','utf8').read()
+    old = open('NEWS').read()
     if '@NEW@' in old:
         sys.exit("error: NEWS contains a @NEW@ section")
     elif ('Changes in %s:' % version) in old:
@@ -142,8 +147,8 @@ def generate(repo):
     newHtml = '\n'.join(htmlLines) + '\n'
 
     doc = new + old
-    codecs.open('NEWS', 'w','utf8').write(doc)
-    codecs.open('NEWS.html', 'w','utf8').write(newHtml)
+    open('NEWS', 'w').write(doc)
+    open('NEWS.html', 'w').write(newHtml)
 
     sys.stdout.write(new)
     print >> sys.stderr, "Updated NEWS"
@@ -172,7 +177,7 @@ def _lastModified(repo, path):
 
 
 def _getVersion():
-    f = os.popen("make -s show-version")
+    f = os.popen("make show-version")
     return f.read().strip()
 
 
