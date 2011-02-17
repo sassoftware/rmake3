@@ -315,8 +315,8 @@ class rMakeClient(object):
         if conaryProxy:
             if hasattr(cfg,'proxyMap'):
                 if not cfg.proxyMap:
-                    cfg.proxyMap.update('conary:http*', '*',
-                                                [conaryProxy])
+                    cfg.proxyMap.addStrategy('*', [conaryProxy],
+                            replaceScheme='conary')
             else:
                 if not cfg.conaryProxy:
                     cfg.conaryProxy['http'] = conaryProxy

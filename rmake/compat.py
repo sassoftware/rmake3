@@ -32,6 +32,9 @@ class ConaryVersion(object):
                 conaryVersion = [9999,9999,9999]
 
         try:
+            # first, remove any changeset id (RMK-1077)
+            conaryVersion = conaryVersion.split('_', 1)[0]
+            # then convert to integers
             self.conaryVersion = [int(x) for x in conaryVersion.split('.')]
         except ValueError, err:
             if not self._warnedUser:
