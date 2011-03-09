@@ -19,9 +19,6 @@ export CHROOT_USER=rmake-chroot
 export CHROOT_GROUP=rmake-chroot
 export CHROOT_RMAKE=/usr/share/rmake
 export CHROOT_SERVER=/rmake/worker/chroot/rootserver.py
-# used for making the ccs
-export DATE=$(shell date +'%Y_%m_%d_%H%M')
-export CCSVERSION=$(VERSION)_$(DATE)
 
 export prefix = /usr
 export lib = $(shell uname -m | sed -r '/x86_64|ppc64|s390x|sparc64/{s/.*/lib64/;q};s/.*/lib/')
