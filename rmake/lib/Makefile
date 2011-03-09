@@ -5,7 +5,7 @@
 python_files = *.py
 dist_files = Makefile $(python_files) osutil.c pycap.c pycompat.h
 so_targets = osutil.so pycap.so
-PY_CFLAGS = $(CFLAGS) -I/usr/include/python$(PYVERSION) -g -Wall -fPIC
+PY_CFLAGS = $(CFLAGS) -I/usr/include/python$(PYVER) -g -Wall -fPIC
 PY_LDFLAGS = $(LDFLAGS) -shared -rdynamic
 
 all: default-all $(so_targets)
