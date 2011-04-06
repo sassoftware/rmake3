@@ -1,4 +1,0 @@
-tmpDir %(reposdir)s/tmp
-serverName localhost
-contentsDir %(reposdir)s/contents
-repositoryDb sqlite %(reposdir)s/db/sqldb

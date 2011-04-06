@@ -1,11 +1,10 @@
-.*\.pyc$
-.*\.o$
-.*\.so$
-.*\.swp$
-.*\.orig$
+\.(py[co]|o|so|ccs|swp|swo|orig|rej)$
 
+^altroot/
 ^bin/
+^rmake3/
 ^tmp/
+^_trial_temp/
 
 ^commands/chroothelper$
 ^commands/chroothelper.h$
@@ -13,5 +12,7 @@
 ^extra/rmake(|-node).init$
 ^extra/rmake.recipe$
 ^extra/rmake.spec$
+^extra/node_defaults.conf$
+^extra/server_defaults.conf$
 ^rmake/constants.py$
 NEWS.html

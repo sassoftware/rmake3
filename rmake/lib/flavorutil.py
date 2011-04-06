@@ -1,5 +1,15 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2006-2007, 2010 rPath, Inc.
+#
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
 #
 
 # flavor manipulations
@@ -8,11 +18,9 @@
 from conary.deps import arch
 from conary.deps import deps
 from conary.build import use
-from conary.build.use import Flag, Arch, Use, LocalFlags
-try:
-    from conary.deps.deps import Flavor
-except ImportError:
-    from conary.deps.deps import DependencySet as Flavor
+from conary.build.use import LocalFlags
+from conary.deps.deps import Flavor
+
 
 def getFlavorUseFlags(flavor):
     """ Convert a flavor-as-dependency set to flavor-as-use-flags.
@@ -125,50 +133,22 @@ setArchOk = {'x86_64'  : ['x86'],
 
 def getTargetArch(flavor, currentArch = None):
     if currentArch is None:
-        currentArch = Flavor()
-        currentArch.addDep(deps.InstructionSetDependency,
-                           arch.currentArch[0][0])
+        currentArchName = arch.getMajorArch(arch.currentArch[0]).name
+    else:
+        currentArchName = arch.getMajorArch(currentArch.iterDepsByClass(
+                                    deps.InstructionSetDependency)).name
     setArch = False
-
-    currentArchName = [ x.name for x in 
-                  currentArch.iterDepsByClass(deps.InstructionSetDependency) ]
-    assert(len(currentArchName) == 1)
-    currentArchName = currentArchName[0]
-
-    archNames = [ x.name for x in
-                  flavor.iterDepsByClass(deps.InstructionSetDependency) ]
-    if len(archNames) > 1:
-        raise RuntimeError, 'Cannot build trove with two architectures'
-    if not archNames:
+    targetArch = arch.getMajorArch(flavor.iterDepsByClass(
+                                   deps.InstructionSetDependency))
+    if not targetArch:
         return False, None
-    targetArch = archNames[0]
-
-    if targetArch != currentArchName:
-        if targetArch in setArchOk.get(currentArchName, []):
+    targetArchName = targetArch.name
+    if targetArchName != currentArchName:
+        if targetArchName in setArchOk.get(currentArchName, []):
             setArch = True
-        return setArch, targetArch
+        return setArch, targetArchName
     else:
         return False, None
-
-if hasattr(arch, 'getMajorArch'):
-    def getTargetArch(flavor, currentArch = None):
-        if currentArch is None:
-            currentArchName = arch.getMajorArch(arch.currentArch[0]).name
-        else:
-            currentArchName = arch.getMajorArch(currentArch.iterDepsByClass(
-                                        deps.InstructionSetDependency)).name
-        setArch = False
-        targetArch = arch.getMajorArch(flavor.iterDepsByClass(
-                                       deps.InstructionSetDependency))
-        if not targetArch:
-            return False, None
-        targetArchName = targetArch.name
-        if targetArchName != currentArchName:
-            if targetArchName in setArchOk.get(currentArchName, []):
-                setArch = True
-            return setArch, targetArchName
-        else:
-            return False, None
 
 
 def removeDepClasses(depSet, classes):

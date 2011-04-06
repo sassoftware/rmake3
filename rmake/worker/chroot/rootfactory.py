@@ -373,9 +373,12 @@ class rMakeChroot(ConaryBasedChroot):
             if job[0] == 'conary:python':
                 version = job[2][0].trailingRevision().getVersion()
                 try:
-                    compat.ConaryVersion(version).checkRequiredVersion()
+                    compat.ConaryVersion(version).checkRequiredVersion(
+                            minVer=compat.minimumBuildVersion)
                 except errors.RmakeError, error:
-                    errorMsg = str(error) + (' - tried to install version %s in chroot' % version)
+                    errorMsg = str(error) + (
+                            ' - tried to install version %s in chroot' %
+                            version)
                     raise error.__class__(errorMsg)
 
     def useStandardRoot(self):

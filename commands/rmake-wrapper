@@ -1,38 +1,30 @@
 #!/bin/sh
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All rights reserved.
+# Copyright (c) 2010 rPath, Inc.
+#
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
 #
 
 bindir=$(dirname $0)
 bin=$(basename $0)
 importdir=$(cd $bindir/.. 2> /dev/null && pwd -P;)
-export PYTHONPATH=$importdir:$CONARY_PATH
+export PYTHONPATH=$importdir:$CONARY_PATH:$PYTHONPATH
 declare -a config
-config=
+config=("--config=pluginDirs $importdir/rmake_plugins")
 
-if [ "$bin" = "rmake-server" ]; then
-    # single-node local rmake server
-    modes=$(stat -c '%a %u %g' $importdir/commands/chroothelper)
-    if [ "$modes" != "4755 0 0" ]; then
-        echo "run make test to make chroothelper setuid root"
-        exit 1;
-    fi
-    certfile=/tmp/rmake-server-cert.pem
-    # Force the generation of a new SSL certificate
-    rm -f $certfile
-    config=("--config=helperDir $importdir/commands"
-            "--config=sslCertPath $certfile")
-
-elif [ "$bin" = "rmake-node" ]; then
+if [ "$bin" = "rmake-node" ]; then
     # multi-node rmake worker
-    modes=$(stat -c '%a %u %g' $importdir/commands/chroothelper)
-    if [ "$modes" != "4755 0 0" ]; then
-        echo "run make test to make chroothelper setuid root"
-        exit 1;
-    else
-        config=("--config=helperDir $importdir/commands"
-                )
-    fi
+    config=("$config"
+            "--config=pluginOption build helperDir $importdir/commands"
+            )
 fi
 
-exec $importdir/commands/$bin "$@" ${config:+"${config[@]}"}
+exec $importdir/commands/$bin ${config:+"${config[@]}"} "$@"

@@ -1,5 +1,15 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2006-2010 rPath, Inc.
+#
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
 #
 """
 Generic plugin library.  Loads plugins from the given paths, unless they
@@ -11,26 +21,39 @@ hook will find other plugins in whatever directory they are installed.
 TODO: add support for a requires syntax for plugins, and versioning of
 plugin APIs.
 """
+import logging
 import imp
 import os
 import sys
 import traceback
 
-from conary.lib import log
+log = logging.getLogger(__name__)
+
 
 class Plugin(object):
     """
         Basic plugin.  Should be derived from by plugins.
     """
-    types = []
     def __init__(self, name, path, pluginManager):
         self.name = name
         self.path = path
         self.pluginManager = pluginManager
         self.enabled = True
+        self.types = []
+        self.options = []
+        for cls in self.__class__.mro():
+            ptype = vars(cls).get('_plugin_type')
+            if ptype:
+                self.types.append(ptype)
 
     def unload(self):
         pass
+
+    def populateConfigFromOptions(self, cfg):
+        for line in self.options:
+            cfg.configLine(line)
+        return cfg
+
 
 class PluginManager(object):
     """
@@ -56,12 +79,13 @@ class PluginManager(object):
             plugin module.
 
         @param supportedTypes: the different types which plugins 
-            are allowed to be.  Defaults to empty, effectively disabling
+            are allowed to be.  Defaults to empty, which allows all plugin
             types.
     """
 
     def __init__(self, pluginDirs=None, disabledPlugins=None,
-                 pluginPrefix='__plugins__', pluginClass=Plugin):
+            pluginPrefix='__plugins__', pluginClass=Plugin,
+            supportedTypes=()):
         if pluginDirs is None:
             pluginDirs = []
         if disabledPlugins is None:
@@ -75,6 +99,8 @@ class PluginManager(object):
         self.pluginsByType = {}
         self.pluginsByName = {}
         self.disabledPlugins = disabledPlugins
+        self.supportedTypes = frozenset(supportedTypes)
+        self.p = _PluginProxy(self)
 
         self.loader = PluginImporter(self.pluginDirs, self.pluginPrefix,
                                      logger=self)
@@ -157,6 +183,9 @@ class PluginManager(object):
             self.pluginsByType[type].remove(plugin)
 
     def storePlugin(self, plugin):
+        if self.supportedTypes and not (
+                set(plugin.types) & self.supportedTypes):
+            return
         if plugin.name in self.pluginsByName:
             oldPlugin = self.pluginsByName[plugin.name]
             self.plugins.remove(oldPlugin)
@@ -202,8 +231,8 @@ class PluginManager(object):
         """
         plugins = []
         for class_ in pluginModule.__dict__.itervalues():
-            if (isinstance(class_, type)
-                and issubclass(class_, self.pluginClass)):
+            if (isinstance(class_, type) and
+                    issubclass(class_, self.pluginClass)):
                 plugin = class_(name, pluginModule.__file__, self)
                 plugins.append(plugin)
         if len(plugins) > 1:
@@ -214,13 +243,22 @@ class PluginManager(object):
             return None
         return plugins[0]
 
-    def callHook(self, type, hookName, *args, **kw):
+    def setOptions(self, options):
+        for name, lines in options.iteritems():
+            plugin = self.pluginsByName.get(name)
+            if plugin:
+                plugin.options = lines
+
+    def callHook(self, type_, hookName, *args, **kw):
+        attr = '%s_%s' % (type_, hookName)
         self.loader.install()
-        for plugin in self.getPluginsByType(type):
+        results = {}
+        for plugin in self.getPluginsByType(type_):
             if not getattr(plugin, 'enabled', True):
                 continue
-            getattr(plugin, hookName)(*args, **kw)
+            results[plugin.name] = getattr(plugin, attr)(*args, **kw)
         self.loader.uninstall()
+        return results
 
 
 class PluginImporter(object):
@@ -332,3 +370,87 @@ class PluginImporter(object):
 
     def uninstall(self):
         sys.meta_path.remove(self)
+
+
+class _PluginProxy(object):
+
+    def __init__(self, mgr, pluginType=None, methodName=None):
+        self.mgr = mgr
+        self.pluginType = pluginType
+        self.methodName = methodName
+
+    def __getattr__(self, key):
+        if not self.pluginType:
+            return _PluginProxy(self.mgr, key)
+        elif not self.methodName:
+            return _PluginProxy(self.mgr, self.pluginType, key)
+        else:
+            raise AttributeError(key)
+
+    def __call__(self, *args, **kwargs):
+        if not self.pluginType or not self.methodName:
+            raise TypeError("You must supply a plugin type and hook name")
+        return self.mgr.callHook(self.pluginType, self.methodName,
+                *args, **kwargs)
+
+
+def getPluginManager(argv, configClass, supportedTypes=(), readFiles=False):
+    """
+        Handles plugin parameter parsing.  Unfortunately, plugin
+        parameter parsing must happen very early on in the command-line parsing
+        -- loading or not loading a plugin may change what parameters are 
+        valid, for example.  For that reason, we have to do some hand
+        parsing.
+
+        Limitations: in order to reduce the complexity of this hand-parsing,
+        plugin parameters are not allowed in contexts, and they cannot
+        be specified as --config options.
+
+        Suggestions on removing these limitations are welcome.
+    """
+    if '--no-plugins' in argv:
+        argv.remove('--no-plugins')
+        return PluginManager([])
+
+    # create an instance of our configuration file.  Ingore errors
+    # that might arise due to unknown options or changed option types,
+    # e.g. - we are only interested in the plugin dirs and usePlugins
+    # options.
+    kwargs = readFiles and dict(readConfigFiles=True) or {}
+    cfg = configClass(**kwargs)
+    cfg.ignoreUrlIncludes()
+    cfg.setIgnoreErrors()
+    idx = 0
+    while idx < len(argv):
+        item = argv[idx]
+        idx += 1
+
+        if item[:14] == '--config-file=':
+            cfg.read(item[14:])
+        elif item == '--config-file':
+            cfg.read(argv[idx])
+            idx += 1
+        elif item[:9] == '--config=':
+            cfg.configLine(item[9:])
+        elif item == '--config':
+            cfg.configLine(argv[idx])
+            idx += 1
+
+    if not getattr(cfg, 'usePlugins', True):
+        return PluginManager([])
+
+    pluginDirInfo = [ x for x in argv if x.startswith('--plugin-dirs=')]
+
+    if pluginDirInfo:
+        pluginDirs = pluginDirInfo[-1].split('=', 1)[1].split(',')
+        [ argv.remove(x) for x in pluginDirInfo ]
+    else:
+        pluginDirs = cfg.pluginDirs
+
+    disabledPlugins = [ x[0] for x in cfg.usePlugin.items() if not x[1] ]
+    p = PluginManager(pluginDirs, disabledPlugins,
+            supportedTypes=supportedTypes)
+    p.loadPlugins()
+    p.setOptions(cfg.pluginOption)
+
+    return p

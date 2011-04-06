@@ -1,34 +1,32 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2006-2010 rPath, Inc.
 #
-import bz2
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
+#
+
+
 import itertools
 import sys
 import time
 
-from conary.lib import log
-from conary.repository import trovesource
-
-from rmake import errors
 from rmake import failure
-from rmake.lib import apiutils
-from rmake.lib.apiutils import thaw, freeze
 from rmake.build import buildtrove
-from rmake.build import publisher
-
-from xmlrpclib import dumps, loads
+from rmake.lib import uuid
 
 jobStates = {
     'JOB_STATE_INIT'        : 0,
-    'JOB_STATE_FAILED'      : 1,
-    'JOB_STATE_QUEUED'      : 2,
-    'JOB_STATE_STARTED'     : 3,
-    'JOB_STATE_BUILD'       : 4,
-    'JOB_STATE_BUILT'       : 5,
-    'JOB_STATE_COMMITTING'  : 6,
-    'JOB_STATE_COMMITTED'   : 7,
-    'JOB_STATE_LOADING'     : 8,
-    'JOB_STATE_LOADED'      : 9,
+    'JOB_STATE_LOADING'     : 100,
+    'JOB_STATE_BUILD'       : 101,
+    'JOB_STATE_BUILT'       : 200,
+    'JOB_STATE_FAILED'      : 400,
     }
 
 
@@ -46,13 +44,13 @@ stateNames.update({
     JOB_STATE_BUILD      : 'Building',
 })
 
-ACTIVE_STATES = [ JOB_STATE_BUILD, JOB_STATE_QUEUED, JOB_STATE_STARTED,
-                  JOB_STATE_LOADING, JOB_STATE_LOADED ]
+ACTIVE_STATES = [ JOB_STATE_INIT, JOB_STATE_BUILD, JOB_STATE_LOADING ]
 
 def _getStateName(state):
     return stateNames[state]
 
-class _AbstractBuildJob(trovesource.SearchableTroveSource):
+
+class _AbstractBuildJob(object):
     """
         Abstract BuildJob.
 
@@ -60,44 +58,27 @@ class _AbstractBuildJob(trovesource.SearchableTroveSource):
         data.  Most setting of this data (after creation) should be through 
         methods that are defined in BuildJob subclass.
     """
-    def __init__(self, jobId=None, troveList=[], state=JOB_STATE_INIT,
-                 start=0, status='', finish=0, failureReason=None,
-                 uuid='', pid=0, configs=None, owner=''):
-        trovesource.SearchableTroveSource.__init__(self)
+    def __init__(self, jobUUID=None, jobId=None, jobName=None, troveList=(),
+            state=JOB_STATE_INIT, status='', owner=None, failure=None,
+            configs=(), timeStarted=None, timeUpdated=None, timeFinished=None):
+        self.jobUUID = jobUUID or uuid.uuid4()
         self.jobId = jobId
-        self.uuid = uuid
-        self.pid = pid
-        self.owner = owner
+        self.jobName = jobName
+
         self.state = state
         self.status = status
+        self.owner = owner
+        self.failure = failure
+
+        self.timeStarted = timeStarted
+        self.timeUpdated = timeUpdated
+        self.timeFinished = timeFinished
+
         self.troveContexts = {}
         self.troves = {}
-        self.start = start
-        self.finish = finish
-        self.failureReason = failureReason
-        self.searchAsDatabase()
-        if not configs:
-            configs = {}
-        self.configs = configs
+        self.configs = dict(configs)
         for troveTup in troveList:
             self.addTrove(*troveTup)
-
-    def trovesByName(self, name):
-        """
-            Method required for Searchable trovesource.
-
-            Takes a name and returns sources or binaries associated
-            with this job.
-        """
-        if name.endswith(':source'):
-            return [ x for x in self.troveContexts if x[0] == name ]
-        else:
-            troveTups = []
-            for trove in self.iterTroves():
-                for troveTup in trove.getBinaryTroves():
-                    if troveTup[0] == name:
-                        troveTups.append(troveTup)
-            return troveTups
 
     def hasTrove(self, name, version, flavor, context=''):
         return (name, version, flavor, context) in self.troves
@@ -159,13 +140,10 @@ class _AbstractBuildJob(trovesource.SearchableTroveSource):
             return self.troveContexts.iterkeys()
 
     def iterLoadableTroveList(self):
-        return (x[0] for x in self.troves.iteritems() if not x[1].isSpecial())
+        return (x[0] for x in self.troves.iteritems())
 
     def iterLoadableTroves(self):
-        return (x for x in self.troves.itervalues() if not x.isSpecial())
-
-    def getSpecialTroves(self):
-        return [ x for x in self.troves.itervalues() if x.isSpecial() ]
+        return (x for x in self.troves.itervalues())
 
     def getTrove(self, name, version, flavor, context=''):
         return self.troves[name, version, flavor, context]
@@ -183,37 +161,23 @@ class _AbstractBuildJob(trovesource.SearchableTroveSource):
     def getFailureReason(self):
         return self.failureReason
 
-    def isQueued(self):
-        return self.state == JOB_STATE_QUEUED
-
     def isBuilding(self):
-        return self.state in (JOB_STATE_STARTED, JOB_STATE_BUILD)
+        return self.state == JOB_STATE_BUILD
 
     def isBuilt(self):
-        return self.state in (JOB_STATE_BUILT,)
+        return self.state == JOB_STATE_BUILT
 
     def isFailed(self):
-        return self.state in (JOB_STATE_FAILED,)
+        return self.state == JOB_STATE_FAILED
 
     def isFinished(self):
-        return self.state in (JOB_STATE_FAILED, JOB_STATE_BUILT,
-                              JOB_STATE_COMMITTED)
+        return self.state in (JOB_STATE_FAILED, JOB_STATE_BUILT)
 
     def isRunning(self):
-        return self.state in (JOB_STATE_LOADING, JOB_STATE_LOADED,
-            JOB_STATE_STARTED, JOB_STATE_BUILD)
-
-    def isCommitted(self):
-        return self.state == JOB_STATE_COMMITTED
-
-    def isCommitting(self):
-        return self.state == JOB_STATE_COMMITTING
+        return self.state in ACTIVE_STATES
 
     def isLoading(self):
         return self.state == JOB_STATE_LOADING
-
-    def isLoaded(self):
-        return self.state == JOB_STATE_LOADED
 
     def trovesInProgress(self):
         for trove in self.iterTroves():
@@ -297,81 +261,8 @@ class _AbstractBuildJob(trovesource.SearchableTroveSource):
     def getTroveConfig(self, buildTrove):
         return self.configs[buildTrove.getContext()]
 
-class _FreezableBuildJob(_AbstractBuildJob):
-    """
-        Adds freeze methods to build job.  Allows the build job
-        to be sent over xmlrpc.
-    """
 
-    attrTypes = {'jobId'          : 'int',
-                 'pid'            : 'int',
-                 'uuid'           : 'str',
-                 'state'          : 'int',
-                 'status'         : 'str',
-                 'start'          : 'float',
-                 'finish'         : 'float',
-                 'failureReason'  : 'FailureReason',
-                 'troves'         : 'manual',
-                 'configs'        : 'manual'}
-
-
-    def __freeze__(self, sanitize=False):
-        d = {}
-        for attr, attrType in self.attrTypes.iteritems():
-            d[attr] = freeze(attrType, getattr(self, attr))
-        if self.jobId is None:
-            d['jobId'] = ''
-
-        d['troves'] = [ (freeze('troveContextTuple', x[0]),
-                         x[1] and freeze('BuildTrove', x[1]) or '')
-                        for x in self.troves.iteritems() ]
-        if sanitize:
-            freezeClass = 'SanitizedBuildConfiguration'
-        else:
-            freezeClass = 'BuildConfiguration'
-        d['configs'] = [ (x[0], freeze(freezeClass, x[1]))
-                              for x in self.configs.items() ]
-        return d
-
-    def writeToFile(self, path, sanitize=False):
-        jobStr = dumps((self.__freeze__(sanitize=sanitize),))
-        outFile = bz2.BZ2File(path, 'w')
-        outFile.write(jobStr)
-        outFile.close()
-
-    @classmethod
-    def loadFromFile(class_, path):
-        jobStr = bz2.BZ2File(path).read()
-        jobDict, = loads(jobStr)[0]
-        return class_.__thaw__(jobDict)
-
-    @classmethod
-    def __thaw__(class_, d):
-        types = class_.attrTypes
-
-        new = class_(thaw(types['jobId'], d.pop('jobId')), [],
-                     thaw(types['state'], d.pop('state')))
-        if new.jobId is '':
-            new.jobId = None
-
-        for attr, value in d.iteritems():
-            setattr(new, attr, thaw(types[attr], value))
-
-        new.troves = dict((thaw('troveContextTuple', x[0]),
-                           x[1] and thaw('BuildTrove', x[1] or None))
-                            for x in new.troves)
-        for (n,v,f,c) in new.troves:
-            new.troveContexts.setdefault((n,v,f), []).append(c)
-        configs = dict((x[0], thaw('BuildConfiguration', x[1]))
-                       for x in d['configs'])
-        if configs:
-            new.setConfigs(configs)
-        else:
-            new.configs = {}
-        return new
-
-
-class BuildJob(_FreezableBuildJob):
+class BuildJob(_AbstractBuildJob):
     """
         Buildjob object with "publisher" methods.  The methods below
         are used to make state changes to the job and then publish 
@@ -379,44 +270,30 @@ class BuildJob(_FreezableBuildJob):
     """
 
     def __init__(self, *args, **kwargs):
-        self._publisher = publisher.JobStatusPublisher()
-        _FreezableBuildJob.__init__(self, *args, **kwargs)
-        self._amOwner = False
-
-    def amOwner(self):
-        """
-            Returns True if this process owns this job, otherwise
-            returns False.  Processes that don't own jobs are not allowed
-            to update other processes about the job's status (this avoids
-            message loops).
-        """
-        return self._amOwner
-
-    def own(self):
-        self._amOwner = True
-
-    def disown(self):
-        self._amOwner = False
+        _AbstractBuildJob.__init__(self, *args, **kwargs)
+        self._publisher = None
+        self._log = None
 
     def getPublisher(self):
         return self._publisher
 
-    def log(self, message):
-        """
-            Publish log message "message" to trove subscribers.
-        """
-        self._publisher.jobLogUpdated(self, message)
+    def setPublisher(self, publisher):
+        self._publisher = publisher
+
+    def log(self, format, *args, **kwargs):
+        if self._log:
+            self._log.info(format, *args, **kwargs)
+        else:
+            raise RuntimeError("Build job has no logger set")
 
     def setBuildTroves(self, buildTroves):
         """
             Sets the give 
         """
-        _FreezableBuildJob.setBuildTroves(self, buildTroves)
+        _AbstractBuildJob.setBuildTroves(self, buildTroves)
         publisher = self.getPublisher()
         for trove in buildTroves:
             trove.setPublisher(publisher)
-            trove.own()
-        self._publisher.buildTrovesSet(self)
 
     def jobQueued(self, message=''):
         if not message:
@@ -451,13 +328,11 @@ class BuildJob(_FreezableBuildJob):
         if isinstance(failureReason, str):
             failureReason = failure.BuildFailed(failureReason)
         self.failureReason = failureReason
-        self.getPublisher().cork()
 
         self._setState(JOB_STATE_FAILED, str(failureReason), failureReason)
         for trove in self.iterTroves():
             if trove.isStarted():
                 trove.troveFailed(failureReason)
-        self.getPublisher().uncork()
 
     def jobStopped(self, failureReason=''):
         # right now jobStopped is an alias for job failed.
@@ -485,20 +360,3 @@ class BuildJob(_FreezableBuildJob):
     def _setState(self, state, status='', *args):
         self.state = state
         self.status = status
-        self._publisher.jobStateUpdated(self, state, status, *args)
-
-apiutils.register(apiutils.api_freezable(BuildJob))
-
-def NewBuildJob(db, troveTups, jobConfig=None, state=JOB_STATE_INIT, uuid=''):
-    """
-        Create a new build job that is attached to the database - i.e.
-        that will send notifications to the database when it is updated.
-
-        Note this is the preferred way to create a BuildJob, since it gives
-        the job a jobId.
-    """
-    job = BuildJob(None, troveTups, state=state, uuid=uuid)
-    if jobConfig:
-        job.setMainConfig(jobConfig)
-    db.addJob(job)
-    return job

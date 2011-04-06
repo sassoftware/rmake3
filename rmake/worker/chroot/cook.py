@@ -35,7 +35,6 @@ from rmake.lib import flavorutil
 from rmake.lib import logfile
 from rmake.lib import pipereader
 from rmake.lib import recipeutil
-from rmake.lib.apiutils import thaw, freeze
 from rmake.worker import resolvesource
 
 

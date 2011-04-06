@@ -12,20 +12,11 @@
 # full details.
 #
 
-VERSION=2.0.8
-
-export PYVER ?= $(shell python -c 'import sys; print sys.version[0:3]')
-export PYTHON ?= /usr/bin/python${PYVER}
-export PYINCLUDE ?= $(shell $(PYTHON) -c 'import os, sys; print os.sep.join((sys.prefix, "include", "python" + sys.version[:3]))')
-
 # XVERSION can be overwritten by snapshot builds to force incompatible versions
 # NOTE: this affects the API version
 # DO NOT INCREMENT unless you are trying to make this version's
 # API incompatible with previous versions.
-export XVERSION=1.0.26
-# API_MAJOR_VERSION has to match between the client and the server
-export API_MAJOR_VERSION=$(XVERSION)-1
-export API_MINOR_VERSION=1
+export XVERSION=2.99.0
 # the uid/gid the rmake server runs as
 export RMAKE_USER=rmake
 export RMAKE_GROUP=rmake
@@ -33,22 +24,38 @@ export RMAKE_GROUP=rmake
 export CHROOT_USER=rmake-chroot
 export CHROOT_GROUP=rmake-chroot
 export CHROOT_RMAKE=/usr/share/rmake
-export CHROOT_SERVER=/rmake/worker/chroot/rootserver.py
+export CHROOT_SERVER=/$(PKGNAME)/worker/chroot/rootserver.py
 
+# Paths
 export prefix = /usr
-export lib ?= $(shell uname -m | sed -r '/x86_64|ppc64|s390x|sparc64/{s/.*/lib64/;q};s/.*/lib/')
+
 export bindir = $(prefix)/bin
 export sbindir = $(prefix)/sbin
-export libdir = $(prefix)/$(lib)
 export libexecdir = $(prefix)/libexec
-export datadir = $(prefix)/share
-export plugindir = $(datadir)/rmake/plugins
-export mandir = $(datadir)/man
-export sitedir = $(libdir)/python$(PYVER)/site-packages/
-export rmakedir = $(sitedir)/rmake
-export rmakelibdir = $(libdir)/rmake
+
+export lib = $(shell uname -m | sed -r '/x86_64|ppc64|s390x|sparc64/{s/.*/lib64/;q};s/.*/lib/')
+export libdir = $(prefix)/$(lib)
+export sitedir = $(libdir)/python$(PYVER)/site-packages
+export plugindir = $(libdir)/$(PKGNAME)
+
+export rmakedir = $(sitedir)/$(PKGNAME)
 export rmakelibexecdir = $(libexecdir)/rmake
+
+export mandir = $(prefix)/share/man
+export rmakelibdir = $(libdir)/rmake
 export initdir = /etc/init.d
 export sysconfdir = /etc/sysconfig
+export confdir = /etc/$(PKGNAME)
+export servicedir = /srv/$(PKGNAME)
+export logdir = /var/log/$(PKGNAME)
+export sockdir = /var/lib/$(PKGNAME)
 
-export VERSION
+# Programs
+export PYTHON = /usr/bin/python$(PYVER)
+export PYINCLUDE = /usr/include/python$(PYVER)
+
+# Flags
+PY_CFLAGS = $(CFLAGS) -I$(PYINCLUDE) -g -Wall -fPIC
+PY_LDFLAGS = $(LDFLAGS) -shared -rdynamic
+
+# vim: set sts=8 sw=8 noexpandtab filetype=make :

@@ -1,12 +1,28 @@
+#
+# Copyright (c) 2011 rPath, Inc.
+#
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
+#
+
+
 import os
 import sys
 
 from conary import conarycfg
+from conary import state
 from conary.deps import deps
 from conary.lib import log
 from conary.lib import options
 
-from rmake import compat, errors
+from rmake import errors
 from rmake.compat import cvccmd as cvc
 from rmake.cmdline import query
 
@@ -66,8 +82,8 @@ class rMakeCommand(options.AbstractCommand):
         if buildConfig.context:
             context = buildConfig.context
         if os.path.exists('CONARY'):
-            conaryState = compat.ConaryVersion().ConaryStateFromFile('CONARY',
-                                                           parseSource=False)
+            conaryState = state.ConaryStateFromFile('CONARY',
+                    parseSource=False)
             if conaryState.hasContext():
                 context = conaryState.getContext()
 
@@ -281,11 +297,6 @@ class BuildCommand(rMakeCommand):
         if recurseGroups:
             if argSet.pop('binary-search', False):
                 recurseGroups = client.BUILD_RECURSE_GROUPS_BINARY
-            elif not compat.ConaryVersion().supportsFindGroupSources():
-                log.warning('Your conary does not support recursing a group'
-                            ' source component, defaulting to searching the'
-                            ' binary version')
-                recurseGroups = client.BUILD_RECURSE_GROUPS_BINARY
             else:
                 recurseGroups = client.BUILD_RECURSE_GROUPS_SOURCE
 
@@ -339,9 +350,10 @@ class BuildCommand(rMakeCommand):
             if quiet:
                 if not client.waitForJob(jobId):
                     return 1
-            elif not client.watch(jobId, showTroveLogs=not quiet,
-                               showBuildLogs=not quiet,
-                               commit=commit, message=message):
+            else:
+                client.watchJob(job)
+                #elif not client.watch(jobId, showTroveLogs=not quiet,
+                #showBuildLogs=not quiet, #commit=commit, message=message):
                 return 1
         elif commit:
             if not client.commitJob(jobId, commitWithFailures=False,

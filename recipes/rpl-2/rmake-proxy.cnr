@@ -1,3 +1,0 @@
-changesetCacheDir %(proxydir)s/cscache
-proxyContentsDir %(proxydir)s/contents
-tmpDir %(proxydir)s/tmp
