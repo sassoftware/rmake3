@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2011 rPath, Inc.
 #
 """
 Builder controls the process of building a set of troves.
@@ -16,18 +16,16 @@ from conary import conaryclient
 from conary import trove
 from conary.deps import deps
 from conary.lib import util
-from conary.repository import changeset
 
 from rmake import failure
 from rmake.build import buildtrove
-from rmake.build import buildjob
 from rmake.build import dephandler
 from rmake.lib import logfile
 from rmake.lib import logger
-from rmake.lib import recipeutil
 from rmake.lib import repocache
 from rmake.worker import recorder
 from rmake.worker import worker
+
 
 class Builder(object):
     """
@@ -464,10 +462,9 @@ class Builder(object):
         packageSourceCount = len(set(x.getName() for x in buildTroves
             if not x.isGroupRecipe()))
         if (groupSourceCount and packageSourceCount) or groupSourceCount > 1:
-            self.job.log("WARNING: Combining group troves with other troves "
-                "is NOT SUPPORTED and will be removed in a future "
-                "version of rMake.")
-            time.sleep(3)
+            self.job.jobFailed(failure.FailureReason("Combining group troves "
+                    "with other troves is deprecated."))
+            return False
         return True
 
     def startTroveLogger(self, trove):
