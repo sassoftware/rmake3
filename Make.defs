@@ -1,7 +1,22 @@
 #
-# Copyright (c) 2006-2010 rPath, Inc.  All Rights Reserved.
+# Copyright (c) 2011 rPath, Inc.
 #
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
+#
+
 VERSION=2.0.8
+
+export PYVER ?= $(shell python -c 'import sys; print sys.version[0:3]')
+export PYTHON ?= /usr/bin/python${PYVER}
+export PYINCLUDE ?= $(shell $(PYTHON) -c 'import os, sys; print os.sep.join((sys.prefix, "include", "python" + sys.version[:3]))')
 
 # XVERSION can be overwritten by snapshot builds to force incompatible versions
 # NOTE: this affects the API version
@@ -19,12 +34,9 @@ export CHROOT_USER=rmake-chroot
 export CHROOT_GROUP=rmake-chroot
 export CHROOT_RMAKE=/usr/share/rmake
 export CHROOT_SERVER=/rmake/worker/chroot/rootserver.py
-# used for making the ccs
-export DATE=$(shell date +'%Y_%m_%d_%H%M')
-export CCSVERSION=$(VERSION)_$(DATE)
 
 export prefix = /usr
-export lib = $(shell uname -m | sed -r '/x86_64|ppc64|s390x|sparc64/{s/.*/lib64/;q};s/.*/lib/')
+export lib ?= $(shell uname -m | sed -r '/x86_64|ppc64|s390x|sparc64/{s/.*/lib64/;q};s/.*/lib/')
 export bindir = $(prefix)/bin
 export sbindir = $(prefix)/sbin
 export libdir = $(prefix)/$(lib)
@@ -32,7 +44,7 @@ export libexecdir = $(prefix)/libexec
 export datadir = $(prefix)/share
 export plugindir = $(datadir)/rmake/plugins
 export mandir = $(datadir)/man
-export sitedir = $(libdir)/python$(PYVERSION)/site-packages/
+export sitedir = $(libdir)/python$(PYVER)/site-packages/
 export rmakedir = $(sitedir)/rmake
 export rmakelibdir = $(libdir)/rmake
 export rmakelibexecdir = $(libexecdir)/rmake

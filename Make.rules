@@ -2,11 +2,6 @@
 # Copyright (c) 2006-2009 rPath, Inc.  All Rights Reserved.
 #
 
-PYVER=`python -c 'import sys; print sys.version[0:3]'`
-PYTHON = /usr/bin/python${PYVER}
-PYVERSION = $(shell $(PYTHON) -c 'import os, sys; print sys.version[:3]')
-PYINCLUDE = $(shell $(PYTHON) -c 'import os, sys; print os.sep.join((sys.prefix, "include", "python" + sys.version[:3]))')
-
 pyfiles-install:
 	mkdir -p $(DESTDIR)$(rmakedir)
 	for f in $(python_files); do \

@@ -5,7 +5,7 @@
 python_files = *.py
 dist_files = Makefile $(python_files) osutil.c pycap.c pycompat.h
 so_targets = osutil.so pycap.so
-PY_CFLAGS = $(CFLAGS) -I/usr/include/python$(PYVERSION) -g -Wall -fPIC
+PY_CFLAGS = $(CFLAGS) -I/usr/include/python$(PYVER) -g -Wall -fPIC
 PY_LDFLAGS = $(LDFLAGS) -shared -rdynamic
 
 all: default-all $(so_targets)
@@ -21,16 +21,15 @@ install: all pyfiles-install $(so_targets)
 %.o : %.c
 	gcc $(PY_CFLAGS) -c -o $@ $<
 %.so : %.o
-	gcc $(PY_LDFLAGS) -o $@ $+
-
-.PHONY: -lcap -ldl
+	gcc $(PY_LDFLAGS) -o $@ $^ $(LIBS)
 
 # Source requirements (headers)
 pycapmodule.o osutil.o osutil_setproctitle.o: pycompat.h
 
 # Modules
-osutil.so: osutil_setproctitle.o -ldl
-pycap.so: -lcap
+osutil.so: osutil_setproctitle.o
+osutil.so: LIBS = -ldl
+pycap.so: LIBS = -lcap
 
 
 

@@ -161,6 +161,7 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
                                    tagScript=self.cfg.root + '/root/tagscripts')
 
         self._installRPM()
+        self._touchShadow()
 
         if self.bootstrapJobList:
             self.logger.info("Installing initial chroot bootstrap requirements")
@@ -279,6 +280,15 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
         for name in sys.modules.keys():
             if name.split('.')[0] == 'rpm':
                 del sys.modules[name]
+
+    def _touchShadow(self):
+        # Create shadow files with owner-writable permissions before RPM can
+        # create them with no permissions. (RMK-1079)
+        etc = os.path.join(self.root, 'etc')
+        util.mkdirChain(etc)
+        for name in (etc + '/shadow', etc + '/gshadow'):
+            open(name, 'a').close()
+            os.chmod(name, 0600)
 
     def _getChrootFingerprint(self, client):
         job = (sorted(self.jobList) + sorted(self.crossJobList) +
