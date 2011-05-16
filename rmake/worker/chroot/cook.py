@@ -403,6 +403,10 @@ def setupEnvironment():
         if key not in skipenv:
             del os.environ[key]
     for line in os.popen('/bin/bash -l -c env'):
+        if '=' not in line:
+            # Continuation of a multi-line value. Maybe parse these correctly
+            # in the future, but env --zero is not portable.
+            continue
         key, val = line.split('=', 1)
         if key not in skipenv:
             os.environ[key] = val[:-1]

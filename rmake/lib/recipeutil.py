@@ -61,7 +61,6 @@ def loadRecipe(repos, name, version, flavor, trv,
                                        loadInstalledSource=loadInstalledSource,
                                        installLabelPath=installLabelPath,
                                        buildLabel=buildLabel,
-                                       groupRecipeSource=groupRecipeSource,
                                        cfg=cfg)
         relevantFlavor = use.usedFlagsToFlavor(recipeObj.name)
         relevantFlavor = flavorutil.removeInstructionSetFlavor(relevantFlavor)
@@ -146,10 +145,6 @@ def getRecipeObj(repos, name, version, flavor, trv,
             recipeObj.sourceVersion = version
             recipeObj.loadPolicy()
             recipeObj.setup()
-            if groupRecipeSource:
-                recipeObj.troveSource = groupRecipeSource
-                sourceComponents = recipeObj._findSources(groupRecipeSource)
-                recipeObj.delayedRequires = sourceComponents
         elif (recipe.isPackageRecipe(recipeClass) or
               recipe.isFactoryRecipe(recipeClass) or
               recipe.isCapsuleRecipe(recipeClass)):
@@ -279,7 +274,6 @@ def loadSourceTroves(job, repos, buildFlavor, troveList,
                                  loadInstalledSource=loadInstalledSource,
                                  installLabelPath=installLabelPath,
                                  buildLabel=buildLabel,
-                                 groupRecipeSource=groupRecipeSource,
                                  cfg=job.getTroveConfig(buildTrove))
             result = buildtrove.LoadTroveResult()
             result.flavor = relevantFlavor
@@ -346,9 +340,6 @@ def getSourceTrovesFromJob(job, troveList=None, repos=None, reposName=None):
         # sources - they may be a part of some bogus build.
         repos = RemoveHostRepos(repos, reposName)
 
-        groupRecipeSource = RemoveHostSource(trovesource.SimpleTroveSource(
-            tupList), reposName)
-
         trovesByConfig = {}
         for trove in troveList:
             trovesByConfig.setdefault(trove.getContext(), []).append(trove)
@@ -383,7 +374,6 @@ def getSourceTrovesFromJob(job, troveList=None, repos=None, reposName=None):
                 buildCfg.buildFlavor, contextTroves, total=total, count=count,
                 loadInstalledSource=loadInstalledSource,
                 installLabelPath=buildCfg.installLabelPath,
-                groupRecipeSource=groupRecipeSource,
                 internalHostName=reposName))
             count = len(resultSet)
     finally:

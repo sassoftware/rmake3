@@ -30,23 +30,6 @@ install-client: install-client-subdirs
 
 clean: clean-subdirs default-clean
 
-extra/rmake.recipe:
-	cd extra; $(MAKE) rmake.recipe
-
-infoccs: info-rmake-1.ccs info-rmake-chroot-1.ccs
-
-info-rmake-1.ccs:
-	cvc cook extra/info-rmake.recipe
-
-info-rmake-chroot-1.ccs:
-	cvc cook extra/info-rmake-chroot.recipe
-
-ccs: dist extra/rmake.recipe infoccs
-	rm -f rmake*.ccs
-	rm -f extra/rmake.recipe
-	cd extra;  $(MAKE) rmake.recipe
-	cvc cook extra/rmake.recipe
-
 version:
 	sed -i 's/@NEW@/$(VERSION)/g' NEWS
 
