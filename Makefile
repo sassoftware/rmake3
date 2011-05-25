@@ -82,7 +82,7 @@ rmake3:
 	# recipe works.
 	rm -rf altroot rmake3
 	$(MAKE) install DESTDIR=`pwd`/altroot PKGNAME=rmake3 NO_COMPILE=1 prefix=/opt/rmake3 libdir=/usr/lib64
-	mv altroot/usr/lib64/python2.6/site-packages/rmake3 .
+	mv altroot/usr/lib64/python*/site-packages/rmake3 .
 	python -mcompileall -f `pwd`/rmake3
 
 
