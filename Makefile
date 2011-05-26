@@ -34,7 +34,7 @@ version:
 	sed -i 's/@NEW@/$(VERSION)/g' NEWS
 
 show-version:
-	echo $(VERSION)
+	@echo $(VERSION)
 
 dist:
 	if ! grep "^Changes in $(VERSION)" NEWS > /dev/null 2>&1; then \

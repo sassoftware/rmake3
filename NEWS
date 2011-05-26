@@ -1,3 +1,21 @@
+Changes in 2.0.9:
+  o New Features:
+    * Added the "chrootServerPorts" configuration option to control the
+      port range used when invoking "rmake chroot". (RMK-986)
+    * Added support for Conary 2.3
+
+  o Bug Fixes:
+    * Daemonized processes spawned by a cooked recipe will no longer
+      block the cook from completing. (RMK-1073)
+    * Messagebus client sockets are now set close-on-exec, fixing an
+      issue that could result in "ghost worker nodes".
+    * The conary version check is no longer confused by the
+      "_changesetid" convention. (RMK-1077)
+
+  o Internal Changes:
+    * The getJobs() and getTroves() calls are now significantly faster
+      on servers with tens of thousands of jobs.
+
 Changes in 2.0.8:
   o Bug Fixes:
     * A bug introduced in rMake 2.0.6 that prevented use with Conary 2.1

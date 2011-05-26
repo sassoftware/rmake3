@@ -1,1 +1,0 @@
-Messagebus client sockets are now set close-on-exec, fixing an issue that could result in "ghost worker nodes".
