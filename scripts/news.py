@@ -98,7 +98,7 @@ def preview(repo, modifiedOK=True):
                         "committed first." % (path,))
         else:
             files.add(path)
-            modified = _lastModified(repo, path)
+            modified = _firstModified(repo, path)
 
         entries = [x.replace('\n', ' ') for x in
                    codecs.open(path, 'r', 'utf8').read().split('\n\n')]
@@ -109,7 +109,7 @@ def preview(repo, modifiedOK=True):
                     entry))
 
     out = ['Changes in %s:' % _getVersion()]
-    htmlOut = ['<p>%s %s is a maintainence release</p>' % (PRODUCT_NAME,
+    htmlOut = ['<p>%s %s is a maintenance release</p>' % (PRODUCT_NAME,
                                                            _getVersion())]
     for kind, heading in HEADINGS:
         entries = kind_map.get(kind, ())
@@ -164,15 +164,9 @@ def generate(repo):
     print >> sys.stderr, "Deleted %s news fragments" % len(files)
 
 
-def _lastModified(repo, path):
-    filenodes = []
-    for cp in repo[None].parents():
-        if not cp:
-            continue
-        filenodes.append(cp.filenode(path))
-    assert len(filenodes) == 1
+def _firstModified(repo, path):
     fl = repo.file(path)
-    ctx = repo[fl.linkrev(fl.rev(filenodes[0]))]
+    ctx = repo[fl.linkrev(0)]
     return ctx.date()[0]
 
 
