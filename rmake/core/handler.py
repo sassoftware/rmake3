@@ -71,6 +71,9 @@ class JobHandler(object):
     def setup(self):
         pass
 
+    def close(self):
+        pass
+
     def start(self):
         """Start running a job."""
         assert not self.state
@@ -102,6 +105,7 @@ class JobHandler(object):
         """Run the function for handling a particular state."""
         log.debug("Job %s running state %s", self.job.job_uuid, self.state)
         if self.state == 'done':
+            self.close()
             return
         func = getattr(self, self.state, None)
         if func is None:
