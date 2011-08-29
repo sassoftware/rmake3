@@ -26,7 +26,7 @@ NAMESPACE_TASK = uuid.UUID('14dfcf54-40e4-11df-b434-33d2b616adec')
 IMMUTABLE_TYPES = (int, long, basestring, uuid.UUID, tuple, frozenset)
 
 
-def freezify(cls):
+def freezify(cls, frameCount=1):
     """Returns a 'frozen' namedtuple type of the given SlotCompare subclass."""
     assert issubclass(cls, SlotCompare)
     frozenName = 'Frozen' + cls.__name__
@@ -47,7 +47,7 @@ def freezify(cls):
     frozenType._thawedType = cls
 
     # Frozen types are always safe to unpickle.
-    module = sys._getframe(1).f_globals.get('__name__', '__main__')
+    module = sys._getframe(frameCount).f_globals.get('__name__', '__main__')
     frozenType.__module__ = module
     chutney.register(frozenType, _force=True)
 

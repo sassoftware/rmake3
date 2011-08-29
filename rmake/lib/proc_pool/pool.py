@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2010 rPath, Inc.
+# Copyright (c) 2011 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -20,6 +20,7 @@ import imp
 import logging
 import os
 import random
+import signal
 import sys
 from twisted.application import service
 from twisted.internet import defer
@@ -103,16 +104,39 @@ class ProcessPool(service.Service):
 
     def stopAWorker(self, child=None):
         """Stop one worker, preferring idle workers if there are any."""
+        from twisted.internet import reactor
         if child is None:
             if self.ready:
                 child = self.ready.pop()
             else:
                 child = random.choice(list(self.processes))
         log.debug("Stopping worker %r", child)
+        # First instruct the worker to shut down gracefully.
         child.callRemote('shutdown'
-                ).addErrback(
-                lambda reason: reason.trap(error.ProcessTerminated))
-        return child.finished
+                ).addErrback(lambda reason: reason.trap(
+                    error.ProcessTerminated, error.ProcessDone))
+
+        # Schedule the process to be killed if it doesn't exit on its own.
+        signals = [signal.SIGTERM] * 3 + [signal.SIGKILL]
+        def _killProcess():
+            signum = signals.pop(0)
+            log.info("Terminating worker %r with signal %d", child, signum)
+            child.signalProcess(signum)
+            if signals:
+                delayCall[0] = reactor.callLater(1, _killProcess)
+            else:
+                delayCall[0] = None
+        delayCall = [reactor.callLater(1, _killProcess)]
+
+        # Stop the kill cycle once the process has exited.
+        onExit = child.finished
+        def _exited(result):
+            if delayCall[0] and delayCall[0].active():
+                delayCall[0].cancel()
+            delayCall[0] = None
+            return result
+        onExit.addBoth(_exited)
+        return onExit
 
     def _pruneProcess(self, _, child):
         log.debug("Removing worker %r", child)
