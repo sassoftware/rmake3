@@ -12,21 +12,27 @@
 # full details.
 #
 
+SUBDIRS = proc_pool twisted_extras
+
 so_targets = osutil.so pycap.so
 install_files = $(wildcard *.py) $(so_targets)
 
-LDFLAGS := $(LDFLAGS) -lcap
-
-SUBDIRS = proc_pool twisted_extras
+PY_CFLAGS = $(CFLAGS) -I/usr/include/python$(PYVER) -g -Wall -fPIC
+PY_LDFLAGS := $(LDFLAGS) -lcap
 
 
 all: $(so_targets) default-build
 
+install: $(so_targets) default-install
+	cp -a jabberlink ninamori $(DESTDIR)$(DEST)/
+
 clean: default-clean
 	find jabberlink ninamori -name \*.pyc -delete
 
-install: $(so_targets) default-install
-	cp -a jabberlink ninamori $(DESTDIR)$(DEST)/
+%.o : %.c
+	gcc $(PY_CFLAGS) -c -o $@ $<
+%.so : %.o
+	gcc $(PY_LDFLAGS) -o $@ $^ $(LIBS)
 
 # Use this to regenerate the embedded ninamori implementation.
 # See http://bitbucket.org/gxti/ninamori/
@@ -50,7 +56,8 @@ pycapmodule.o osutil.o osutil_setproctitle.o: pycompat.h
 
 # Modules
 osutil.so: osutil_setproctitle.o
-pycap.so:
+osutil.so: LIBS = -ldl
+pycap.so: LIBS = -lcap
 
 
 include ../../Make.defs

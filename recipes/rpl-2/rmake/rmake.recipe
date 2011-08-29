@@ -56,7 +56,7 @@ class RmakeRecipe(CPackageRecipe):
         chpath = '%(prefix)s/libexec/rmake/chroothelper'
         r.SetModes(chpath, 04755)
         r.Provides('file', chpath)
-        r.Requires('file: ' + chpath, 'rootfactory.py')
+        #r.Requires('file: ' + chpath, 'rootfactory.py')
         r.Requires('busybox:runtime', chpath)
         r.UtilizeUser('rmake-chroot', chpath)
         r.UtilizeGroup('rmake-chroot', chpath)

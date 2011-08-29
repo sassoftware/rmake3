@@ -1,1 +1,0 @@
-A more informative error is now produced if `rbuild build images` is used with a nonexistent or hidden rBuilder project.

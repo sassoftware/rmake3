@@ -35,7 +35,6 @@ from rmake.build import database
 from rmake.server import auth
 from rmake.lib.apirpc import RPCServer, expose
 from rmake.lib import logger
-from rmake.lib import osutil
 from rmake.lib.rpcproxy import ShimAddress
 
 
@@ -231,7 +230,8 @@ class BuildServer_UNPORTED(object):
         if proxyUrl:
             if hasattr(buildConfig,'proxyMap'):
                 if not buildConfig.proxyMap:
-                    buildConfig.proxyMap.update('conary:http*', '*', [proxyUrl])
+                    buildConfig.proxyMap.addStrategy('*', [proxyUrl],
+                            replaceScheme='conary')
             else:
                 if not buildConfig.conaryProxy:
                     buildConfig.conaryProxy['http'] = proxyUrl
@@ -518,10 +518,6 @@ class BuildServer_UNPORTED(object):
                 logLevel = logging.INFO
             serverLogger.enableConsole(logLevel)
         serverLogger.info('*** Started rMake Server at pid %s (serving at %s)' % (os.getpid(), uri))
-        try:
-            osutil.setproctitle('rmake server %s' % (uri,))
-        except:
-            pass
         try:
             self._initialized = False
             self.db = None

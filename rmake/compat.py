@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2006-2010 rPath, Inc.
+# Copyright (c) 2010 rPath, Inc.  All Rights Reserved.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -17,6 +17,12 @@ compatibility checks.
 """
 from conary import constants
 from rmake import errors
+
+try:
+    from conary.cmds import cvccmd
+except ImportError:
+    # pyflakes=ignore
+    from conary import cvc as cvccmd
 
 minimumSupportedConaryVersion = '2.1.12'
 minimumBuildVersion = '1.1.19'
@@ -38,6 +44,10 @@ class ConaryVersion(object):
     def __init__(self, conaryVersion=None):
         if conaryVersion is None:
             conaryVersion = parseVersion(constants.version)
+            # first, remove any changeset id (RMK-1077)
+            conaryVersion = conaryVersion.split('_', 1)[0]
+            # then convert to integers
+            conaryVersion = parseVersion(conaryVersion)
         self.conaryVersion = conaryVersion
 
         self.majorVersion = self.conaryVersion[0:2]

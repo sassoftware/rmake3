@@ -22,7 +22,36 @@ import urllib
 from conary import dbstore
 from conary.lib import log, cfg, util
 from conary.lib.cfgtypes import CfgPath, CfgString
+from conary.lib.cfgtypes import ParseError
 from conary.conarycfg import CfgUserInfo
+
+
+class CfgPortRange(cfg.CfgType):
+
+    def parseString(self, val):
+        parts = val.replace('-', ' ').split()
+        if len(parts) == 1:
+            raise ParseError("Expected two port numbers for range")
+        start, end = parts
+        try:
+            start = int(start)
+            end = int(end)
+        except ValueError:
+            raise ParseError("Port is not a number")
+        if not 1024 < start < 65535:
+            raise ParseError("Starting port is out of range 1024-65535")
+        if not 1024 < end < 65535:
+            raise ParseError("Ending port is out of range 1024-65535")
+        if end < start:
+            start, end = end, start
+        return (start, end)
+
+    def format(self, val, displayOptions=None):
+        return "%s %s" % val
+
+
+    chrootServerPorts = (CfgPortRange, (63000, 64000),
+            "Port range to be used for 'rmake chroot' sessions.")
 
 
 class rMakeConfiguration(cfg.ConfigFile):

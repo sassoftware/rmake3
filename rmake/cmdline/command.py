@@ -1,17 +1,30 @@
+#
+# Copyright (c) 2011 rPath, Inc.
+#
+# This program is distributed under the terms of the Common Public License,
+# version 1.0. A copy of this license should have been distributed with this
+# source file in a file called LICENSE. If it is not present, the license
+# is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+#
+# This program is distributed in the hope that it will be useful, but
+# without any warranty; without even the implied warranty of merchantability
+# or fitness for a particular purpose. See the Common Public License for
+# full details.
+#
+
+
 import os
 import sys
 
 from conary import conarycfg
-from conary import cvc
 from conary import state
 from conary.deps import deps
 from conary.lib import log
 from conary.lib import options
 
-from rmake import compat, errors
-from rmake.build import buildcfg
+from rmake import errors
+from rmake.compat import cvccmd as cvc
 from rmake.cmdline import query
-from rmake.lib import flavorutil
 
 
 (NO_PARAM,  ONE_PARAM)  = (options.NO_PARAM, options.ONE_PARAM)
@@ -853,7 +866,6 @@ class CleanCommand(rMakeCommand):
             client.deleteChroot(*self._getChroot(chroot))
 register(CleanCommand)
 
-from conary import cvc
 class CheckoutCommand(cvc.CheckoutCommand,rMakeCommand):
     # Move this to the same section as NewPkg
     commandGroup = 'Setup Commands'

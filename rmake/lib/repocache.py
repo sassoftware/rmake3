@@ -19,6 +19,7 @@ from conary.repository import datastore
 from conary.repository import errors
 from conary.repository import filecontents
 
+
 class CachingTroveSource:
     def __init__(self, troveSource, cacheDir, readOnly=False, depsOnly=False):
         self._troveSource = troveSource
