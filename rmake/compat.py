@@ -43,7 +43,7 @@ class ConaryVersion(object):
 
     def __init__(self, conaryVersion=None):
         if conaryVersion is None:
-            conaryVersion = parseVersion(constants.version)
+            conaryVersion = constants.version
             # first, remove any changeset id (RMK-1077)
             conaryVersion = conaryVersion.split('_', 1)[0]
             # then convert to integers
