@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2010 rPath, Inc.
+# Copyright (c) 2011 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -408,7 +408,7 @@ class WorkerInfo(object):
 
     def __init__(self, jid):
         self.jid = jid
-        self.caps = set()
+        self.caps = types.CapabilitySet()
         self.tasks = {}
         self.slots = 0
         self.addresses = set()
@@ -418,7 +418,7 @@ class WorkerInfo(object):
         self.expiring = 0
 
     def setCaps(self, msg):
-        self.caps = msg.caps
+        self.caps = types.CapabilitySet(msg.caps)
         self.slots = msg.slots
         self.addresses = msg.addresses
         self.expiring = 0
@@ -433,7 +433,7 @@ class WorkerInfo(object):
             return core_const.A_NEVER, None
         # Task must be in no zone or this zone
         if (task.task_zone is not None
-                and types.TaskCapability(task.task_zone) not in self.caps):
+                and types.ZoneCapability(task.task_zone) not in self.caps):
             return core_const.A_WRONG_ZONE, None
 
         # Are there slots available to run this task in?
@@ -446,13 +446,14 @@ class WorkerInfo(object):
 
     def supports(self, caps):
         """Return C{True} if the worker supports all of C{caps}."""
-        return not (set(caps) - self.caps)
+        for cap in caps:
+            if cap not in self.caps:
+                return False
+        return True
 
     @property
     def zoneNames(self):
-        zoneNames = [ x.zoneName for x in self.caps
-            if isinstance(x, types.ZoneCapability) ]
-        return zoneNames
+        return [ x.zoneName for x in self.caps[types.ZoneCapability] ]
 
 class TaskInfo(object):
 

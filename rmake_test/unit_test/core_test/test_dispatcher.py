@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2010 rPath, Inc.
+# Copyright (c) 2011 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -20,11 +20,13 @@ from twisted.trial import unittest
 from twisted.words.protocols.jabber import jid
 
 from rmake.core import config
+from rmake.core import constants as core_const
 from rmake.core import dispatcher
 from rmake.core import support
 from rmake.core import types
 from rmake.lib import pluginlib
 from rmake.lib import uuid
+from rmake.messagebus import message
 
 
 class DispatcherTest(unittest.TestCase):
@@ -191,6 +193,60 @@ class DispatcherTest(unittest.TestCase):
         self.disp.tasks[task_uuid] = None
         self.disp.workerLogging(records, task_uuid)
         self.disp.jobLogger.emitMany._mock.assertCalled(records)
+
+    def test_taskScore(self):
+        w = dispatcher.WorkerInfo(jid.JID('ham@spam/eggs'))
+        msg = message.Heartbeat(caps=[
+            types.TaskCapability('task.1'),
+            types.ZoneCapability('zone.1'),
+            ], tasks=[], addresses=[], slots=1)
+        # Assignable
+        w.setCaps(msg)
+        result, score = w.getScore(types.RmakeTask('task', 'job', 'name',
+            'task.1', task_zone='zone.1'))
+        assert result == core_const.A_NOW
+        assert score == 1
+        # Busy
+        w.tasks['bogus'] = 1
+        result, score = w.getScore(types.RmakeTask('task', 'job', 'name',
+            'task.1', task_zone='zone.1'))
+        assert result == core_const.A_LATER
+        del w.tasks['bogus']
+        # No task
+        result, score = w.getScore(types.RmakeTask('task', 'job', 'name',
+            'task.2', task_zone='zone.1'))
+        assert result == core_const.A_NEVER
+        # No zone
+        result, score = w.getScore(types.RmakeTask('task', 'job', 'name',
+            'task.1', task_zone='zone.2'))
+        assert result == core_const.A_WRONG_ZONE
+        assert score == None
+
+    def test_workerSupports(self):
+        w = dispatcher.WorkerInfo(jid.JID('ham@spam/eggs'))
+        msg = message.Heartbeat(caps=[
+            types.TaskCapability('task.1'),
+            types.ZoneCapability('zone.1'),
+            ], tasks=[], addresses=[], slots=1)
+        w.setCaps(msg)
+        assert w.supports([types.TaskCapability('task.1')])
+        assert w.supports([types.ZoneCapability('zone.1')])
+        assert w.supports([types.TaskCapability('task.1'),
+            types.ZoneCapability('zone.1')])
+        assert not w.supports([types.ZoneCapability('task.1')])
+        assert not w.supports([types.TaskCapability('zone.1')])
+        assert not w.supports([types.TaskCapability('task.2')])
+
+    def test_zoneNames(self):
+        w = dispatcher.WorkerInfo(jid.JID('ham@spam/eggs'))
+        msg = message.Heartbeat(caps=[
+            types.TaskCapability('task.1'),
+            types.ZoneCapability('zone.1'),
+            types.ZoneCapability('zone.2'),
+            ], tasks=[], addresses=[], slots=1)
+        w.setCaps(msg)
+        assert sorted(w.zoneNames) == [
+                'zone.1', 'zone.2']
 
 
 class WorkerTest(unittest.TestCase):

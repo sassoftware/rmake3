@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2010 rPath, Inc.
+# Copyright (c) 2011 rPath, Inc.
 #
 # This program is distributed under the terms of the Common Public License,
 # version 1.0. A copy of this license should have been distributed with this
@@ -14,6 +14,7 @@
 
 import copy
 import inspect
+import itertools
 import sys
 from rmake.lib import chutney
 from rmake.lib import uuid
@@ -240,6 +241,26 @@ chutney.register(TaskCapability)
 class ZoneCapability(namedtuple('ZoneCapability', 'zoneName')):
     """Worker participates in the given zone."""
 chutney.register(ZoneCapability)
+
+
+class CapabilitySet(object):
+
+    def __init__(self, caps=()):
+        self.caps = {}
+        for cap in caps:
+            self.add(cap)
+
+    def add(self, cap):
+        self.caps.setdefault(type(cap), set()).add(cap)
+
+    def __contains__(self, cap):
+        return cap in self.caps.get(type(cap), ())
+
+    def __iter__(self):
+        return itertools.chain(*self.caps.values())
+
+    def __getitem__(self, capType):
+        return self.caps.get(capType, ())
 
 
 class ThawedObject(namedtuple('ThawedObject', 'object')):
