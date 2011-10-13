@@ -207,7 +207,12 @@ class JobHandler(object):
         return task
 
     def taskUpdated(self, task):
-        d, callbacks = self.tasks[task.task_uuid]
+        try:
+            d, callbacks = self.tasks[task.task_uuid]
+        except KeyError:
+            log.warning("Discarding task status update for unknown task %s",
+                    task.task_uuid)
+            return
         for func, args, kwargs in callbacks:
             try:
                 func(task, *args, **kwargs)
