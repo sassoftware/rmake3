@@ -605,6 +605,10 @@ def _shadowAndCommit(conaryclient, cfg, recipeDir, stateFile, message):
                     needsRefresh = oldState.fileNeedsRefresh(oldPathIds[path])
                     newState.fileNeedsRefresh(newPathIds[path], needsRefresh)
 
+            # if the factory changed, update it
+            if newState.getFactory() != oldState.getFactory():
+                newState.setFactory(oldState.getFactory())
+
             # we may have modified the state file. Write it back out to 
             # disk so it will be picked up by the commit.
             newConaryState.setSourceState(newState)
