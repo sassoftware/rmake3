@@ -58,10 +58,10 @@ class TroveNotFound(RmakeError):
 
     @classmethod
     def __thaw__(class_, data):
-        return class_(data[0], *thaw('troveTuple', data[1]))
+        return class_(data[0], *thaw('troveContextTuple', data[1]))
 
     def __freeze__(self):
-        return (self.args[0], freeze('troveTuple', self.args[1:]))
+        return (self.args[0], freeze('troveContextTuple', self.args[1:]))
 apiutils.register(TroveNotFound)
 
 
