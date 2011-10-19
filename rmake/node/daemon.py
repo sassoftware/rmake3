@@ -7,11 +7,9 @@ rMake multi-node worker daemon
 """
 import os
 import shutil
-import signal
 import sys
 
-from conary.lib import misc, options, log
-from conary.lib import coveragehook
+from conary.lib import options
 from conary import command
 
 from rmake import constants
