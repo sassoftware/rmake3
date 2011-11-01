@@ -189,7 +189,7 @@ class Builder(object):
             if buildTrove.isSpecial():
                 finalBuildTroves.append(buildTrove)
                 continue
-            troveTup = buildTrove.getNameVersionFlavor()
+            troveTup = buildTrove.getNameVersionFlavor(withContext=True)
             if troveTup not in troveDict:
                 troveDict[troveTup] = buildTrove
                 finalBuildTroves.append(buildTrove)
