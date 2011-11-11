@@ -463,7 +463,11 @@ class DisplayManager(xmlrpc.BasicXMLRPCStatusSubscriber):
         if ready:
             cmd = sys.stdin.read(1)
             if cmd == '\x1b':
-                cmd += sys.stdin.read(2)
+                try:
+                    cmd += sys.stdin.read(2)
+                except IOError:
+                    # User pressed 'Escape', no additional bytes
+                    sys.exit(0)
             if cmd == ' ':
                 self.do_switch_log()
             elif cmd == 'n' or cmd == '\x1b[C':
