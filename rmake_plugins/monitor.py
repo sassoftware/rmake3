@@ -1,6 +1,20 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) rPath, Inc.
 #
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
 """
 Monitor replacement under test.
 
@@ -16,14 +30,10 @@ import tempfile
 import termios
 import traceback
 
-from conary.lib import util
-
 from rmake import errors
-from rmake import subscribers
 from rmake.build import buildjob, buildtrove
 from rmake.cmdline import query
-from rmake.lib.apiutils import thaw, freeze
-from rmake.lib import rpclib, localrpc
+from rmake.lib.apirpc import NoSuchMethodError
 from rmake.subscribers import xmlrpc
 
 from rmake.cmdline import monitor
@@ -247,7 +257,6 @@ class JobLogDisplay(_AbstractDisplay):
         self._msg('[%d] %s' % (jobId, status))
 
     def _troveStateUpdated(self, (jobId, troveTuple), state, status):
-        isBuilding = (state == buildtrove.TROVE_STATE_BUILDING)
         state = buildtrove._getStateName(state)
         if troveTuple[3]:
             name = '%s{%s}' % (troveTuple[0], troveTuple[3])
@@ -276,8 +285,8 @@ class OutBuffer(object):
     def __init__(self, fd):
         if fd is None: 
             fd = sys.stdout.fileno()
-        elif not isinstance(out, int):
-            fd = out.fileno()
+        elif not isinstance(fd, int):
+            fd = fd.fileno()
         self.fd = fd
         self.data = []
 
@@ -332,10 +341,6 @@ class DisplayState(xmlrpc.BasicXMLRPCStatusSubscriber):
             return 'None'
         return buildjob._getStateName(self.jobState)
 
-
-    def isFailed(self, jobId, troveTuple):
-        return (self.getTroveState(jobId, troveTuple)
-                == buildtrove.TROVE_STATE_FAILED)
 
     def isBuilding(self, jobId, troveTuple):
         return self.getTroveState(jobId, troveTuple) in (
@@ -515,17 +520,6 @@ class DisplayManager(xmlrpc.BasicXMLRPCStatusSubscriber):
         if self.troveIndex != startIndex:
             self.displayTrove(*self.getCurrentTrove())
 
-    def do_next_failed(self):
-        if not self.state.troves:
-            return
-        startIndex = self.troveIndex
-        self.troveIndex = (self.troveIndex + 1) % len(self.state.troves)
-        while (not self.state.isFailedBuild(*self.getCurrentTrove())
-               and self.troveIndex != startIndex):
-            self.troveIndex = (self.troveIndex + 1) % len(self.state.troves)
-        if self.troveIndex != startIndex:
-            self.displayTrove(*self.getCurrentTrove())
-
     def do_goto(self):
         if not self.state.troves:
             print 'No troves loaded yet'
@@ -583,8 +577,6 @@ class DisplayManager(xmlrpc.BasicXMLRPCStatusSubscriber):
         context = troveTuple[3]
         context = context and '{%s}' % context or ''
         self.display._msg('Retreiving log for %s%s' % (name, context))
-        job = self.client.getJob(jobId)
-        trove = job.getTrove(*troveTuple)
         moreData, data, mark = self.client.getTroveBuildLog(jobId,
                                                             troveTuple, 0)
         if not data:
