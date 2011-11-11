@@ -73,7 +73,7 @@ class EventReceiver(nodeclient.NodeClient):
     def serve_forever(self):
         try:
             while True:
-                self.handleRequestIfReady(1)
+                self.handleRequestIfReady(0.01)
                 self._serveLoopHook()
                 if self.listener._shouldExit():
                     break

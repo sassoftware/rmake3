@@ -416,6 +416,7 @@ class DisplayManager(xmlrpc.BasicXMLRPCStatusSubscriber):
         if exitOnFinish is None:
             exitOnFinish = False
         self.exitOnFinish = exitOnFinish
+        self.lastLogPoll = 0
 
     def _receiveEvents(self, *args, **kw):
         methodname = '_receiveEvents'
@@ -458,7 +459,7 @@ class DisplayManager(xmlrpc.BasicXMLRPCStatusSubscriber):
         state = buildtrove._getStateName(state)
 
     def _serveLoopHook(self):
-        ready = select.select([sys.stdin], [], [], 0.1)[0]
+        ready = select.select([sys.stdin], [], [], 0.01)[0]
         if ready:
             cmd = sys.stdin.read(1)
             if cmd == '\x1b':
@@ -486,7 +487,9 @@ class DisplayManager(xmlrpc.BasicXMLRPCStatusSubscriber):
             elif cmd == 'g':
                 self.do_goto()
 
-        if self.showBuildLogs:
+        now = time.time()
+        if self.showBuildLogs and now - self.lastLogPoll >= 1:
+            self.lastLogPoll = now
             for jobId, troveTuple in self.state.getBuildingTroves():
                 self.display.updateBuildLog(jobId, troveTuple)
 
@@ -572,6 +575,10 @@ class DisplayManager(xmlrpc.BasicXMLRPCStatusSubscriber):
         if not self.getCurrentTrove():
             return
         jobId, troveTuple = self.getCurrentTrove()
+        name = troveTuple[0].split(':', 1)[0] # remove :source
+        context = troveTuple[3]
+        context = context and '{%s}' % context or ''
+        self.display._msg('Retreiving log for %s%s' % (name, context))
         job = self.client.getJob(jobId)
         trove = job.getTrove(*troveTuple)
         moreData, data, mark = self.client.getTroveBuildLog(jobId,
