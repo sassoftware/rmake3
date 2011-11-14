@@ -50,9 +50,6 @@ class CfgPortRange(cfg.CfgType):
         return "%s %s" % val
 
 
-    chrootServerPorts = (CfgPortRange, (63000, 64000),
-            "Port range to be used for 'rmake chroot' sessions.")
-
 
 class rMakeConfiguration(cfg.ConfigFile):
     logDir            = (CfgPath, '/var/log/rmake')
@@ -67,6 +64,8 @@ class rMakeConfiguration(cfg.ConfigFile):
     reposUser         = CfgUserInfo
 
     dbPath            = dbstore.CfgDriver
+    chrootServerPorts = (CfgPortRange, (63000, 64000),
+            "Port range to be used for 'rmake chroot' sessions.")
 
     def __init__(self, readConfigFiles = False, ignoreErrors=False):
         cfg.ConfigFile.__init__(self)

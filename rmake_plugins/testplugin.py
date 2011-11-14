@@ -163,3 +163,31 @@ def format_pi(pi, base, digits):
     return '.'.join((
         ''.join(out[:whole]),
         ''.join(out[whole:])))
+
+
+def test_main():
+    from rmake import client
+    from rmake.lib import uuid
+    cli = client.RmakeClient('http://localhost:9999')
+    job = types.RmakeJob(uuid.uuid4(), TEST_JOB, 'nobody')
+    job = cli.createJob(job.freeze(), subscribe=True)
+    for event in cli.firehose.iterAll():
+        ev = event.event
+        if ev[:2] != ('job', str(job.job_uuid)):
+            continue
+        elif ev[2] == 'self':
+            print event.data
+            if event.data in ('finalized', 'destroyed'):
+                break
+        elif ev[2] == 'status':
+            status = event.data
+            print 'Status: %s %s' % (status.code, status.text)
+            if status.detail:
+                print status.detail
+        else:
+            print ev
+        print event
+
+
+if __name__ == '__main__':
+    test_main()

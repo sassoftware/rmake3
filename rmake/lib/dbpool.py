@@ -80,6 +80,10 @@ class Connection(txpostgres.Connection):
 
     cursorFactory = Cursor
 
+    def __init__(self, reactor, pool):
+        txpostgres.Connection.__init__(self, reactor)
+        self.pool = pool
+
     def connect(self, path):
         params = path.asDict(exclude=('driver',))
         params['database'] = params.pop('dbname')
@@ -107,9 +111,7 @@ class ConnectionPool(deferred_service.Service):
             self.min = min
 
         self.connections = set()
-        self.ready = set()
-        self.semaphore = defer.DeferredSemaphore(1)
-        self.semaphore.tokens = self.semaphore.limit = 0
+        self.connQueue = defer.DeferredQueue()
 
         from twisted.internet import reactor
         self.reactor = reactor
@@ -146,7 +148,11 @@ class ConnectionPool(deferred_service.Service):
 
     def _finalClose(self):
         for conn in self.connections:
-            conn.close()
+            try:
+                conn.close()
+            except psycopg2.InterfaceError:
+                # Connection already closed
+                pass
         self.shutdownID = None
         if self.cleanupTask:
             self.cleanupTask.stop()
@@ -155,7 +161,7 @@ class ConnectionPool(deferred_service.Service):
     def rebalance(self):
         dfrs = []
         for x in range(self.min - len(self.connections)):
-            dfrs.append(self._addOne())
+            dfrs.append(self._startOne())
 
         d = defer.DeferredList(dfrs, fireOnOneErrback=True, consumeErrors=True)
         def eb_connect_failed(reason):
@@ -164,58 +170,70 @@ class ConnectionPool(deferred_service.Service):
         d.addErrback(eb_connect_failed)
         return d
 
-    def _addOne(self):
-        conn = self.connectionFactory(self.reactor)
-        self.connections.add(conn)
+    def _startOne(self):
+        conn = self.connectionFactory(self.reactor, self)
 
         log.debug("Connecting asynchronously to %s", self.path.asDSN())
         d = conn.connect(self.path)
 
         def cb_connected(dummy):
             log.debug("Database is connected")
-
-            self.ready.add(conn)
-            self.semaphore.limit += 1
-            self.semaphore.release()
+            self._add(conn)
         d.addCallback(cb_connected)
-
-        def eb_cleanup(reason):
-            self.connections.remove(conn)
-            return reason
-        d.addErrback(eb_cleanup)
-
         return d
+
+    def _add(self, conn):
+        self.connections.add(conn)
+        self.connQueue.put(conn)
+
+    def _remove(self, conn):
+        self.connections.discard(conn)
+        if conn in self.connQueue.pending:
+            self.connQueue.pending.remove(conn)
 
     # Running queries
 
     def runQuery(self, statement, args=None):
         """Execute a query and callback the result."""
-        return self.semaphore.run(self._runQuery, statement, args)
+        return self._runWithConn('runQuery', statement, args)
 
     def runOperation(self, statement, args=None):
         """Execute a statement and callback C{None} when done."""
-        return self.semaphore.run(self._runOperation, statement, args)
+        return self._runWithConn('runOperation', statement, args)
 
     def runInteraction(self, func, *args, **kwargs):
         """Run function in a transaction and callback the result."""
-        return self.semaphore.run(self._runInteraction, func, *args, **kwargs)
+        return self._runWithConn('runInteraction', func, *args, **kwargs)
 
 
-    def _queryDone(self, result, conn):
-        self.ready.add(conn)
-        return result
+    def _runWithConn(self, funcName, *args, **kwargs):
+        if self.connQueue.pending:
+            d = defer.succeed(None)
+        else:
+            d = self.rebalance()
+        d.addCallback(lambda _: self.connQueue.get())
 
-    def _runQuery(self, statement, args):
-        conn = self.ready.pop()
-        d = conn.runQuery(statement, args)
-        return d.addBoth(self._queryDone, conn)
-
-    def _runOperation(self, statement, args):
-        conn = self.ready.pop()
-        d = conn.runOperation(statement, args)
-        return d.addBoth(self._queryDone, conn)
-
-    def _runInteraction(self, *args, **kwargs):
-        conn = self.ready.pop()
-        d = conn.runInteraction(*args, **kwargs)
-        return d.addBoth(self._queryDone, conn)
+        def gotConn(conn):
+            func = getattr(conn, funcName)
+            d2 = defer.maybeDeferred(func, *args, **kwargs)
+            def handleConnClosed(reason):
+                reason.trap(psycopg2.DatabaseError, psycopg2.InterfaceError)
+                if not ('server closed ' in reason.value.pgerror
+                        or 'connection already closed' in reason.value.pgerror):
+                    return reason
+                # Connection was closed
+                self._remove(conn)
+                log.info("Lost connection to database")
+                return reason
+            d2.addErrback(handleConnClosed)
+            def releaseAndReturn(result):
+                # Only put the connection back in the queue if it is also still
+                # in the pool. This keeps it from being requeued if the
+                # connection was terminated during the operation.
+                if conn in self.connections:
+                    self.connQueue.put(conn)
+                return result
+            d2.addBoth(releaseAndReturn)
+            return d2
+        d.addCallback(gotConn)
+        return d
