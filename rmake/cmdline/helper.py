@@ -72,7 +72,7 @@ class rMakeHelper(object):
     BUILD_RECURSE_GROUPS_SOURCE = buildcmd.BUILD_RECURSE_GROUPS_SOURCE
 
     def __init__(self, uri=None, rmakeConfig=None, buildConfig=None, root='/',
-                 guiPassword=False, plugins=None, configureClient=True,
+                 plugins=None, configureClient=True,
                  clientCert=None):
         if rmakeConfig:
             log.warning('rmakeConfig parameter is now deprecated')
@@ -87,17 +87,6 @@ class rMakeHelper(object):
 
             self.client = client.rMakeClient(uri, clientCert)
 
-        if guiPassword:
-            try:
-                from rmake.cmdline import password
-                pwPrompt = password.PasswordPrompter(buildConfig).getPassword
-            except ImportError, err:
-                log.error('Could not load gtk password prompter - %s', err)
-                pwPrompt = None
-        else:
-            pwPrompt = None
-        self.pwPrompt = pwPrompt
-
         self.buildConfig = buildConfig
         self.plugins = plugins
 
@@ -105,8 +94,7 @@ class rMakeHelper(object):
         if buildConfig is None:
             buildConfig = self.buildConfig
         self.client.addRepositoryInfo(buildConfig)
-        return conaryclient.ConaryClient(buildConfig,
-                                         passwordPrompter=self.pwPrompt)
+        return conaryclient.ConaryClient(buildConfig)
 
     def updateBuildConfig(self, buildConfig=None):
         if buildConfig is None:
