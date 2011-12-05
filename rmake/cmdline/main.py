@@ -82,7 +82,7 @@ class RmakeMain(options.MainHandler):
             log.setMinVerbosity(log.INFO)
 
         # don't let the buildFlavor be overridden yet
-        client = helper.rMakeHelper(buildConfig=buildConfig)
+        client = helper.rMakeHelper(buildConfig=buildConfig, promptPassword=True)
 
         pluginManager.callClientHook('client_preCommand2', self, client,
                                      thisCommand)
