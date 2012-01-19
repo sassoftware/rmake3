@@ -1,6 +1,21 @@
 #
-# Copyright (c) 2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) rPath, Inc.
 #
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+
 """
 Command line utilities.  Should never be needed outside of the command line parsing, and thus should never need to be imported by anyone.
 """
@@ -30,4 +45,3 @@ def getSpecStringFromTuple(spec):
     if spec[2] is not None:
         troveSpec += '[%s]' % spec[2]
     return troveSpec, context
-
