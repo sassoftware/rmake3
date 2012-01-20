@@ -23,10 +23,11 @@ framework.
 
 import base64
 import urlparse
-import xmlrpclib
 from httplib import HTTPConnection
 
+from rmake.lib import xmlrpc_null
 from rmake.lib.localrpc import UnixDomainHTTPConnection
+
 
 VERSION = 0.1
 
@@ -272,7 +273,7 @@ class Transport(object):
 
     @staticmethod
     def getparser():
-        return xmlrpclib.getparser()
+        return xmlrpc_null.getparser()
 
     def parse_request(self, data):
         parser, unmarshaller = self.getparser()
@@ -520,7 +521,7 @@ class GenericServerProxy(BaseServerProxy):
 
     @staticmethod
     def _dumps(params, method, encoding):
-        return xmlrpclib.dumps(tuple(params), method, encoding=encoding)
+        return xmlrpc_null.dumps(tuple(params), method, encoding=encoding)
 
     def __repr__(self):
         return '<GenericServerProxy for %s>' % self._address

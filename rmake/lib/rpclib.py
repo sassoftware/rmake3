@@ -35,6 +35,8 @@ import struct
 import urllib
 
 from rmake.lib import localrpc
+from rmake.lib import xmlrpc_null
+
 
 # Secure server support
 try:
@@ -269,10 +271,10 @@ class XMLRPCResponseHandler(object):
 
     def serializeResponse(self, response):
         if isinstance(response, xmlrpclib.Fault):
-            response = xmlrpclib.dumps(response)
+            response = xmlrpc_null.dumps(response)
         else:
             response = (response,)
-            response = xmlrpclib.dumps(response, methodresponse=1)
+            response = xmlrpc_null.dumps(response, methodresponse=1)
         return response
 
     def sendResponse(self, response):
@@ -354,13 +356,13 @@ class DelayableXMLRPCDispatcher(SimpleXMLRPCDispatcher):
         return True
 
     def _marshaled_dispatch(self, data, responseHandler, headers):
-        params, method = xmlrpclib.loads(data)
+        params, method = xmlrpc_null.loads(data)
         if self.auth:
             self.auth.setHeaders(headers)
         # generate response
         try:
             self._dispatch(method, self.auth, responseHandler, params)
-        except Fault, fault:
+        except xmlrpclib.Fault, fault:
             responseHandler.sendResponse(fault)
         except:
             responseHandler.sendResponse(

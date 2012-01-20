@@ -21,17 +21,15 @@ import itertools
 import sys
 import time
 
-from conary.lib import log
 from conary.repository import trovesource
 
-from rmake import errors
 from rmake import failure
 from rmake.lib import apiutils
 from rmake.lib.apiutils import thaw, freeze
 from rmake.build import buildtrove
 from rmake.build import publisher
+from rmake.lib.xmlrpc_null import dumps, loads
 
-from xmlrpclib import dumps, loads
 
 jobStates = {
     'JOB_STATE_INIT'        : 0,

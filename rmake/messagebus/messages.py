@@ -17,9 +17,7 @@
 
 
 import StringIO
-import sys
-import types
-import xmlrpclib
+from rmake.lib import xmlrpc_null
 
 
 class MessageHeaders(object):
@@ -153,12 +151,12 @@ class _Message:
         self._payload.__dict__.update(d)
 
     def loadPayloadFromString(self, frz):
-        d = xmlrpclib.loads(frz)[0][0]
+        d = xmlrpc_null.loads(frz)[0][0]
         self.loadPayloadFromDict(d)
         self.payload._thawed = True
 
     def payloadToString(self):
-        return xmlrpclib.dumps((self.payloadToDict(),), allow_none=True)
+        return xmlrpc_null.dumps((self.payloadToDict(),), allow_none=True)
 
     def payloadToDict(self):
         return dict((x[0], x[1]) for x in 

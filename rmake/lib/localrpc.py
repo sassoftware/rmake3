@@ -27,7 +27,6 @@ import SocketServer
 import SimpleXMLRPCServer
 import urllib
 import IN
-import struct
 import sys
 
 BUFSIZE = 1024 * 2
@@ -72,7 +71,7 @@ class ShimTransport(xmlrpclib.Transport):
     shimmed object.
     """
     def request(self, host, handler, request_body, verbose=0):
-        params, method = xmlrpclib.loads(request_body)
+        params, method = xmlrpc_null.loads(request_body)
         host._dispatch(method, (None, self, params))
         return (self._response,)
 
