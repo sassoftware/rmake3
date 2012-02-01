@@ -170,6 +170,98 @@ umount_quiet(const char *path) {
 }
 
 
+/*
+ * chroot_kill_once: kill all processes under the given root
+ */
+static int
+chroot_kill_once(const char *root, int signum) {
+    DIR *procptr;
+    struct dirent *de;
+    char prefix[PATH_MAX];
+    char namebuf[PATH_MAX], linkbuf[PATH_MAX];
+    ssize_t n;
+    size_t plen;
+    unsigned long pid;
+    pid_t mypid;
+    int killed = 0;
+
+    /* make a version of root with trailing slash */
+    plen = strlen(root);
+    if (plen > PATH_MAX - 2) {
+        fprintf(stderr, "error: chroot path too long!\n");
+        return -1;
+    }
+    strcpy(prefix, root);
+    prefix[plen] = '/';
+    plen++;
+    prefix[plen] = '\0';
+
+    /* look for stuff in /proc where /proc/PID/root is a equal to or a
+     * descendant of our chroot */
+    if ((procptr = opendir("/proc")) == NULL) {
+        perror("opendir /proc");
+        return -1;
+    }
+    mypid = getpid();
+    while ((de = readdir(procptr))) {
+        if (de->d_type != DT_DIR
+                || !strcmp(de->d_name, ".")
+                || !strcmp(de->d_name, "..")) {
+            continue;
+        }
+        snprintf(namebuf, PATH_MAX, "/proc/%s/%s", de->d_name, "root");
+        n = readlink(namebuf, linkbuf, PATH_MAX - 1);
+        if (n < 0) {
+            /* Probably not a PID (no point in wasting time filtering those
+             * out) but even if it's a perm error or something just move on.
+             */
+            continue;
+        }
+        linkbuf[n] = '\0';
+        if (strcmp(linkbuf, root) /* exact match */
+                && strncmp(linkbuf, prefix, plen)) { /* prefix match */
+            continue;
+        }
+        if (sscanf(de->d_name, "%lu", &pid) != 1) {
+            /* Not an integer, how strange! */
+            continue;
+        }
+        if (pid != mypid) {
+            kill(pid, signum);
+            killed += 1;
+        }
+    }
+    closedir(procptr);
+    return killed;
+}
+
+
+static int
+chroot_kill(const char *root) {
+    int i, rc, signum;
+    for (i = 0; i < 15; i++) {
+        if (i == 0) {
+            signum = SIGTERM;
+        } else if (i == 9) {
+            signum = SIGKILL;
+        } else {
+            signum = 0;
+        }
+        if (signum) {
+            rc = chroot_kill_once(root, signum);
+            if (rc < 0) {
+                return -1;
+            } else if (rc == 0) {
+                /* no procs killed */
+                break;
+            }
+        }
+        usleep(200000);
+    }
+    return 0;
+}
+
+
 /***********************************************************
  *
  * --clean/--unmount command
@@ -203,6 +295,11 @@ unmountchroot(const char * chrootDir, int opt_clean) {
     }
     chroot_uid = chrootent->pw_uid;
     chroot_gid = chrootent->pw_gid;
+
+    /* Obliterate any processes still hanging out in the chroot */
+    if (chroot_kill(chrootDir)) {
+        return -1;
+    }
 
     /*enter chroot */
     rc = do_chroot(chrootDir);
