@@ -252,9 +252,13 @@ class XMLRPCResponseHandler(object):
                 sslsocket = self.request.request
                 socket = sslsocket.socket
                 sslsocket.close = socket.close
-                sslsocket.shutdown = socket.shutdown
                 sslsocket.sslbio = None
                 sslsocket.sockbio = None
+            else:
+                socket = self.request.request
+            # Python 2.7 tries to shutdown() first which the parent must not do
+            # after handing off
+            socket.close()
             return
         try:
             try:
@@ -309,11 +313,6 @@ class StreamXMLRPCResponseHandler(XMLRPCResponseHandler):
         self.request.wfile.close()
         self.request.rfile.close()
         try:
-            # FIXME: not possible w/ ssl connection 
-            # after a fork, but still needed otherwise.
-            # This seems to work.
-            if not (SSL and isinstance(self.request.request, SSLConnection)):
-                self.request.connection.shutdown(1)
             self.request.connection.close()
         except socket.error:
             pass

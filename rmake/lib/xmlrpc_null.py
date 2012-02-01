@@ -28,7 +28,7 @@ dumps = xmlrpclib.dumps
 
 def getparser():
     target = xmlrpclib.Unmarshaller()
-    if getattr(xmlrpclib, 'SgmlopParser'):
+    if getattr(xmlrpclib, 'SgmlopParser', None):
         parser = xmlrpclib.SgmlopParser(target)
     else:
         parser = xmlrpclib.SlowParser(target)
