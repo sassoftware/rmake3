@@ -1,6 +1,21 @@
 #
-# Copyright (c) 2006-2008 rPath, Inc.  All Rights Reserved.
+# Copyright (c) rPath, Inc.
 #
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+
 """
 Along with apiutils, implements an API-validating and versioning scheme for 
 rpc calls.
@@ -268,6 +283,11 @@ class XMLApiServer(ApiServer):
     def _close(self):
         ApiServer._close(self)
         if getattr(self, 'server', None):
+            sock = self.server.socket
+            if getattr(sock, 'socket', None):
+                # m2crypto doesn't seem to pass close() through to the
+                # underlying listener socket.
+                sock.socket.close()
             self.server.server_close()
 
     def handleRequestIfReady(self, sleepTime=0.1):
@@ -407,6 +427,3 @@ class CallData(object):
 
     def getAuth(self):
         return self.auth
-
-
-

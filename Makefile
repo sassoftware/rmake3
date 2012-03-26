@@ -1,6 +1,20 @@
 #
-# Copyright (c) 2006-2007 rPath, Inc.  All Rights Reserved.
+# Copyright (c) rPath, Inc.
 #
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
 
 all: default-subdirs default-all
 
@@ -8,16 +22,6 @@ export TOPDIR = $(shell pwd)
 export DISTDIR = $(TOPDIR)/rmake-$(VERSION)
 export CHANGESET = $(shell ./scripts/hg-version.sh)
 SUBDIRS=rmake commands extra man rmake_plugins
-
-extra_files = \
-	Make.rules 		\
-	Makefile		\
-	Make.defs		\
-	NEWS			\
-	CPL			\
-	LICENSE
-
-dist_files = $(extra_files)
 
 .PHONY: clean dist install subdirs
 
@@ -44,7 +48,7 @@ dist:
 	$(MAKE) forcedist
 
 
-archive: $(dist_files)
+archive:
 	hg archive -t tbz2 -r rmake-$(VERSION) rmake-$(VERSION).tar.bz2
 
 sanitycheck: archive

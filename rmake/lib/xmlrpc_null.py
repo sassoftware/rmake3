@@ -16,17 +16,27 @@
 #
 
 
-plugin_files = *.py
+"""
+Backwards-compatible xmlrpclib implementation that uses only parsers tolerant
+of null bytes and other binary garbage.
+"""
 
-dist_files = Makefile $(plugin_files)
+import xmlrpclib
 
-all: default-subdirs default-all
+dumps = xmlrpclib.dumps
 
-install: all install-subdirs pluginfiles-install default-install
 
-dist: default-dist
+def getparser():
+    target = xmlrpclib.Unmarshaller()
+    if getattr(xmlrpclib, 'SgmlopParser', None):
+        parser = xmlrpclib.SgmlopParser(target)
+    else:
+        parser = xmlrpclib.SlowParser(target)
+    return parser, target
 
-clean: clean-subdirs default-clean
 
-include ../../../Make.rules
-include ../../../Make.defs
+def loads(data):
+    p, u = getparser()
+    p.feed(data)
+    p.close()
+    return u.close(), u.getmethodname()

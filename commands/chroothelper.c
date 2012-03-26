@@ -1,17 +1,21 @@
 /*
- * Copyright (c) 2006-2009 rPath, Inc.
+ * Copyright (c) rPath, Inc.
  *
- * This program is distributed under the terms of the Common Public License,
- * version 1.0. A copy of this license should have been distributed with this
- * source file in a file called LICENSE. If it is not present, the license
- * is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * This program is distributed in the hope that it will be useful, but
- * without any warranty; without even the implied warranty of merchantability
- * or fitness for a particular purpose. See the Common Public License for
- * full details.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*
  * Rmake chroot helper - setuid program to enter chroots for rmake.
  *
  * usage:     chroothelper <path/to/chroot>
@@ -66,7 +70,8 @@ static int opt_verbose = 0;
 static char conary_interpreter[PATH_MAX];
 
 
-struct passwd * get_user_entry(const char * userName) {
+static struct passwd *
+get_user_entry(const char * userName) {
     struct passwd * pwent;
 
     errno = 0; /* required to trust errno after getpwnam() invocation */
@@ -83,7 +88,9 @@ struct passwd * get_user_entry(const char * userName) {
     return pwent;
 }
 
-int switch_to_uid_gid(int uid, int gid) {
+
+static int
+switch_to_uid_gid(int uid, int gid) {
     if (-1 == setgroups(0, NULL)) {
         perror("setgroups");
         return 1;
@@ -100,7 +107,8 @@ int switch_to_uid_gid(int uid, int gid) {
 }
 
 
-int mount_dir(const char *chrootDir, struct mount_t opts) {
+static int
+mount_dir(const char *chrootDir, struct mount_t opts) {
     int rc;
     struct stat st;
     char tempPath[PATH_MAX];
@@ -128,7 +136,9 @@ int mount_dir(const char *chrootDir, struct mount_t opts) {
     return 0;
 }
 
-int do_chroot(const char * chrootDir) {
+
+static int
+do_chroot(const char * chrootDir) {
     /* Enter in chroot and cd / */
     if (opt_verbose)
 	printf("chroot %s\n", chrootDir);
@@ -147,7 +157,7 @@ int do_chroot(const char * chrootDir) {
 
 /* umount_quiet: Unmount without whining about things that weren't mounted.
  */
-int
+static int
 umount_quiet(const char *path) {
     if (!umount(path))
         return 0;
@@ -159,6 +169,99 @@ umount_quiet(const char *path) {
     return -1;
 }
 
+
+/*
+ * chroot_kill_once: kill all processes under the given root
+ */
+static int
+chroot_kill_once(const char *root, int signum) {
+    DIR *procptr;
+    struct dirent *de;
+    char prefix[PATH_MAX];
+    char namebuf[PATH_MAX], linkbuf[PATH_MAX];
+    ssize_t n;
+    size_t plen;
+    unsigned long pid;
+    pid_t mypid;
+    int killed = 0;
+
+    /* make a version of root with trailing slash */
+    plen = strlen(root);
+    if (plen > PATH_MAX - 2) {
+        fprintf(stderr, "error: chroot path too long!\n");
+        return -1;
+    }
+    strcpy(prefix, root);
+    prefix[plen] = '/';
+    plen++;
+    prefix[plen] = '\0';
+
+    /* look for stuff in /proc where /proc/PID/root is a equal to or a
+     * descendant of our chroot */
+    if ((procptr = opendir("/proc")) == NULL) {
+        perror("opendir /proc");
+        return -1;
+    }
+    mypid = getpid();
+    while ((de = readdir(procptr))) {
+        if (de->d_type != DT_DIR
+                || !strcmp(de->d_name, ".")
+                || !strcmp(de->d_name, "..")) {
+            continue;
+        }
+        snprintf(namebuf, PATH_MAX, "/proc/%s/%s", de->d_name, "root");
+        n = readlink(namebuf, linkbuf, PATH_MAX - 1);
+        if (n < 0) {
+            /* Probably not a PID (no point in wasting time filtering those
+             * out) but even if it's a perm error or something just move on.
+             */
+            continue;
+        }
+        linkbuf[n] = '\0';
+        if (strcmp(linkbuf, root) /* exact match */
+                && strncmp(linkbuf, prefix, plen)) { /* prefix match */
+            continue;
+        }
+        if (sscanf(de->d_name, "%lu", &pid) != 1) {
+            /* Not an integer, how strange! */
+            continue;
+        }
+        if (pid != mypid) {
+            kill(pid, signum);
+            killed += 1;
+        }
+    }
+    closedir(procptr);
+    return killed;
+}
+
+
+static int
+chroot_kill(const char *root) {
+    int i, rc, signum;
+    for (i = 0; i < 15; i++) {
+        if (i == 0) {
+            signum = SIGTERM;
+        } else if (i == 9) {
+            signum = SIGKILL;
+        } else {
+            signum = 0;
+        }
+        if (signum) {
+            rc = chroot_kill_once(root, signum);
+            if (rc < 0) {
+                return -1;
+            } else if (rc == 0) {
+                /* no procs killed */
+                break;
+            }
+        }
+        usleep(200000);
+    }
+    return 0;
+}
+
+
 /***********************************************************
  *
  * --clean/--unmount command
@@ -167,7 +270,8 @@ umount_quiet(const char *path) {
  * from /tmp and /var/tmp (the only place they should be able to write
  *
  *********************************************************/
-int unmountchroot(const char * chrootDir, int opt_clean) {
+static int
+unmountchroot(const char * chrootDir, int opt_clean) {
     char childPath[PATH_MAX];
     int i;
     int rc;
@@ -191,6 +295,11 @@ int unmountchroot(const char * chrootDir, int opt_clean) {
     }
     chroot_uid = chrootent->pw_uid;
     chroot_gid = chrootent->pw_gid;
+
+    /* Obliterate any processes still hanging out in the chroot */
+    if (chroot_kill(chrootDir)) {
+        return -1;
+    }
 
     /*enter chroot */
     rc = do_chroot(chrootDir);
@@ -313,7 +422,7 @@ int unmountchroot(const char * chrootDir, int opt_clean) {
 
 /* set_chroot_caps: Set capabilities on files in the chroot.
  */
-int
+static int
 set_chroot_caps(const char *chrootDir) {
 
 #ifndef _HAVE_CAP_SET_FILE
@@ -420,7 +529,7 @@ end:
  *
  * Returns a pointer to a static buffer.
  */
-const char *
+static const char *
 get_conary_interpreter() {
     char tempBuf[PATH_MAX], *ptr;
     int fd, n;
@@ -467,7 +576,8 @@ get_conary_interpreter() {
  *
  *********************************************************/
 
-int enter_chroot(const char * chrootDir, const char * socketPath, int useTmpfs,
+static int
+enter_chroot(const char * chrootDir, const char * socketPath, int useTmpfs,
         int useChrootUser, int runTagScripts, int chrootCaps) {
     cap_t cap;
     int i;
@@ -650,7 +760,8 @@ int enter_chroot(const char * chrootDir, const char * socketPath, int useTmpfs,
     return 1;
 }
 
-int assert_correct_perms(const char * chrootDir) {
+static int
+assert_correct_perms(const char * chrootDir) {
     char parentDir[PATH_MAX];
     struct passwd * pwent;
     uid_t rmake_uid;
@@ -722,12 +833,15 @@ int assert_correct_perms(const char * chrootDir) {
     return 0;
 }
 
-void usage(char *progname)
+static void
+usage(char *progname)
 {
     fprintf(stderr, "usage: %s [--arch <arch>] [--clean] [--unmount] <path>\n", progname);
 };
 
-int main(int argc, char **argv)
+
+int
+main(int argc, char **argv)
 {
     int rc;
 
