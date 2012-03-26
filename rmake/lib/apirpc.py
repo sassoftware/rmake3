@@ -283,6 +283,11 @@ class XMLApiServer(ApiServer):
     def _close(self):
         ApiServer._close(self)
         if getattr(self, 'server', None):
+            sock = self.server.socket
+            if getattr(sock, 'socket', None):
+                # m2crypto doesn't seem to pass close() through to the
+                # underlying listener socket.
+                sock.socket.close()
             self.server.server_close()
 
     def handleRequestIfReady(self, sleepTime=0.1):
