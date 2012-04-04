@@ -25,7 +25,7 @@ class RMakeTest(CPackageRecipe, TestPackageRecipe):
         'conary-build:python',
         'conary-repository:python',
         'conary:runtime',
-        'conary-test:lib',
+        'conary-test:python',
         'gnupg:runtime',
         'mktemp:runtime',
         'net-tools:runtime',
@@ -52,6 +52,7 @@ class RMakeTest(CPackageRecipe, TestPackageRecipe):
         # Install the testsuite so that other testsuites can consume it
         r.macros.sitepkgs = '%(libdir)s/python%(pyver)s/site-packages'
         r.macros.archive = '%(sitepkgs)s/rmake_test/archive'
+        r.MakeDirs('%(sitepkgs)s')
         r.Run('cp -a rmake_test %(destdir)s%(sitepkgs)s/rmake_test')
         r.NormalizeCompression(exceptions='%(archive)s/.*')
         r.Requires(exceptions='%(archive)s/.*')
