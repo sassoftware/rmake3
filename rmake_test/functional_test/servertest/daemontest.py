@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+
 import os
 import re
 import shutil
@@ -128,4 +129,3 @@ class DaemonTest(rmakehelp.RmakeHelper):
 [TIME] - [rmake-server] - killing repository at <#>
 [TIME] - [rmake-server] - killing proxy at <#>
 ''')
-

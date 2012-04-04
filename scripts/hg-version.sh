@@ -16,6 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+
 # Get the build version for build.xml
 
 hgDir=`dirname $0`/..

@@ -15,6 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+
 #define RMAKE_USER  "@rmakeuser@"
 #define RMAKE_GROUP  "@rmakegroup@"
 #define CHROOT_USER "@chrootuser@"

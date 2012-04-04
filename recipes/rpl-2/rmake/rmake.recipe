@@ -88,7 +88,6 @@ class RmakeRecipe(CPackageRecipe):
         r.UtilizeUser('rmake-chroot', '%(libexecdir)s/rmake/chroothelper')
         r.UtilizeGroup('rmake-chroot', '%(libexecdir)s/rmake/chroothelper')
         r.Doc('extra/plugins/*.py')
-        r.Doc('CPL')
 
 
         ## package rmake-proxy

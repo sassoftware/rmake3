@@ -159,7 +159,7 @@ to any conflict of laws provisions, except that the United Nations
 Convention on the International Sale of Goods shall not apply.
 
 
-Copyright © 2005 - 2012.  rPath, Inc.  All rights reserved.
+Copyright © 2005 - 2011.  rPath, Inc.  All rights reserved.
 
 "rPath," “rPath” Logo, “Powered by rPath” Logo, ”rPath
 Appliance Platform” logo, “Conary,”  “rMake,” “rAA,”

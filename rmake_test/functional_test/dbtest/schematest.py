@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+
 import shutil
 
 from conary import dbstore
@@ -46,4 +47,3 @@ class SchemaTest(rmakehelp.RmakeHelper):
         dbPath = self.workDir + '/jobs.db'
         shutil.copyfile(resources.get_archive('jobs.db.v5'))
         db = database.Database(('sqlite', dbPath), self.workDir + '/contents')
-
