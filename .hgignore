@@ -3,6 +3,8 @@
 .*\.so$
 .*\.swp$
 .*\.orig$
+\.failed
+\.times
 
 ^bin/
 ^tmp/
