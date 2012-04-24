@@ -23,6 +23,8 @@
 # Source function library.
 . /etc/init.d/functions
 
+RMAKE_RESET=@sbindir@/rmake-server reset
+
 if [ -e @sysconfdir@/rmake ] ; then
     . @sysconfdir@/rmake
 fi
@@ -91,7 +93,7 @@ reset() {
 resetinternal() {
     echo $"Flushing rMake internal repository and database"
     cd /etc/rmake;
-    @sbindir@/rmake-server reset
+    $RMAKE_RESET
     RETVAL=$?
     echo
     return $RETVAL
