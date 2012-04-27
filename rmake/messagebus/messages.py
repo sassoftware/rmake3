@@ -1,13 +1,23 @@
 #
-# Copyright (c) 2006-2009 rPath, Inc.
+# Copyright (c) rPath, Inc.
 #
-# All rights reserved.
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+
 import StringIO
-import sys
-import types
-import xmlrpclib
+from rmake.lib import xmlrpc_null
 
 
 class MessageHeaders(object):
@@ -141,12 +151,12 @@ class _Message:
         self._payload.__dict__.update(d)
 
     def loadPayloadFromString(self, frz):
-        d = xmlrpclib.loads(frz)[0][0]
+        d = xmlrpc_null.loads(frz)[0][0]
         self.loadPayloadFromDict(d)
         self.payload._thawed = True
 
     def payloadToString(self):
-        return xmlrpclib.dumps((self.payloadToDict(),), allow_none=True)
+        return xmlrpc_null.dumps((self.payloadToDict(),), allow_none=True)
 
     def payloadToDict(self):
         return dict((x[0], x[1]) for x in 

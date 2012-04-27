@@ -1,6 +1,20 @@
 #
-# Copyright (c) 2006-2008 rPath, Inc.  All Rights Reserved.
+# Copyright (c) rPath, Inc.
 #
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
 
 """
 Classes for extracting and examining authentification methods passed from 
@@ -21,6 +35,8 @@ import struct
 import urllib
 
 from rmake.lib import localrpc
+from rmake.lib import xmlrpc_null
+
 
 # Secure server support
 try:
@@ -236,9 +252,13 @@ class XMLRPCResponseHandler(object):
                 sslsocket = self.request.request
                 socket = sslsocket.socket
                 sslsocket.close = socket.close
-                sslsocket.shutdown = socket.shutdown
                 sslsocket.sslbio = None
                 sslsocket.sockbio = None
+            else:
+                socket = self.request.request
+            # Python 2.7 tries to shutdown() first which the parent must not do
+            # after handing off
+            socket.close()
             return
         try:
             try:
@@ -255,10 +275,10 @@ class XMLRPCResponseHandler(object):
 
     def serializeResponse(self, response):
         if isinstance(response, xmlrpclib.Fault):
-            response = xmlrpclib.dumps(response)
+            response = xmlrpc_null.dumps(response)
         else:
             response = (response,)
-            response = xmlrpclib.dumps(response, methodresponse=1)
+            response = xmlrpc_null.dumps(response, methodresponse=1)
         return response
 
     def sendResponse(self, response):
@@ -293,11 +313,6 @@ class StreamXMLRPCResponseHandler(XMLRPCResponseHandler):
         self.request.wfile.close()
         self.request.rfile.close()
         try:
-            # FIXME: not possible w/ ssl connection 
-            # after a fork, but still needed otherwise.
-            # This seems to work.
-            if not (SSL and isinstance(self.request.request, SSLConnection)):
-                self.request.connection.shutdown(1)
             self.request.connection.close()
         except socket.error:
             pass
@@ -340,13 +355,13 @@ class DelayableXMLRPCDispatcher(SimpleXMLRPCDispatcher):
         return True
 
     def _marshaled_dispatch(self, data, responseHandler, headers):
-        params, method = xmlrpclib.loads(data)
+        params, method = xmlrpc_null.loads(data)
         if self.auth:
             self.auth.setHeaders(headers)
         # generate response
         try:
             self._dispatch(method, self.auth, responseHandler, params)
-        except Fault, fault:
+        except xmlrpclib.Fault, fault:
             responseHandler.sendResponse(fault)
         except:
             responseHandler.sendResponse(

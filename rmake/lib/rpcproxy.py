@@ -1,6 +1,20 @@
 #
-# Copyright (c) 2008 rPath, Inc.  All rights reserved.
+# Copyright (c) rPath, Inc.
 #
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
 
 """
 A (hopefully) smarter and (definitely) more extensible XMLRPC proxy
@@ -9,10 +23,11 @@ framework.
 
 import base64
 import urlparse
-import xmlrpclib
 from httplib import HTTPConnection
 
+from rmake.lib import xmlrpc_null
 from rmake.lib.localrpc import UnixDomainHTTPConnection
+
 
 VERSION = 0.1
 
@@ -258,7 +273,7 @@ class Transport(object):
 
     @staticmethod
     def getparser():
-        return xmlrpclib.getparser()
+        return xmlrpc_null.getparser()
 
     def parse_request(self, data):
         parser, unmarshaller = self.getparser()
@@ -506,7 +521,7 @@ class GenericServerProxy(BaseServerProxy):
 
     @staticmethod
     def _dumps(params, method, encoding):
-        return xmlrpclib.dumps(tuple(params), method, encoding=encoding)
+        return xmlrpc_null.dumps(tuple(params), method, encoding=encoding)
 
     def __repr__(self):
         return '<GenericServerProxy for %s>' % self._address

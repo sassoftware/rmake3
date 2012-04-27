@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+
 try:
     import keyutils as _keyutils
     _keyring = _keyutils.KEY_SPEC_SESSION_KEYRING
