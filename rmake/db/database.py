@@ -323,7 +323,6 @@ class Database(DBInterface):
     def troveBuilt(self, trove):
         self.jobStore.updateTrove(trove)
         self.jobStore.setBinaryTroves(trove, trove.getBinaryTroves())
-        self.nodeStore.setChrootActive(trove, False)
         self.commit()
 
     def jobCommitted(self, job,  troveMap):
@@ -338,11 +337,12 @@ class Database(DBInterface):
 
     def troveFailed(self, trove):
         self.jobStore.updateTrove(trove)
-        self.nodeStore.setChrootActive(trove, False)
         self.commit()
 
     def updateTroveStatus(self, trove):
         self.jobStore.updateTrove(trove)
+        if trove.isFinished():
+            self.nodeStore.setChrootActive(trove, False)
         self.commit()
 
     # return all the log messages since last mark
