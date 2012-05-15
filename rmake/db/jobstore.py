@@ -86,13 +86,13 @@ class JobStore(object):
         cu.execute("""
         CREATE TEMPORARY TABLE tjobIdList(
             jobId integer
-        )""", start_transaction=False)
+        )""")
         self.db.db.analyze('tjobIdList')
 
         try:
             for jobId in jobIdList:
                 cu.execute("INSERT INTO tJobIdList VALUES (?)",
-                           jobId, start_transaction=False)
+                           jobId)
             results = cu.execute('''
                             SELECT tjobIdList.jobId, Jobs.uuid, Jobs.owner,
                                    state, status, start, finish,
@@ -209,9 +209,14 @@ class JobStore(object):
                     configD = dict((x[0], thaw('BuildConfiguration', x[1]))
                                    for x in configD.iteritems())
                     jobsById[jobId].setConfigs(configD)
+        except:
+            cu.execute("DROP TABLE tJobIdList")
+            self.db.rollback()
+            raise
+        else:
+            cu.execute("DROP TABLE tJobIdList")
+            self.db.commit()
             return [jobsById[jobId] for jobId in jobIdList]
-        finally:
-            cu.execute("DROP TABLE tJobIdList", start_transaction = False)
 
     def getConfig(self, jobId, context):
         cu = self.db.cursor()
@@ -261,14 +266,14 @@ class JobStore(object):
                           version text,
                           flavor text,
                           context text
-                      )''', start_transaction=False)
+                      )''')
         self.db.db.analyze('tTroveInfo')
         try:
 
             for jobId, troveName, version, flavor, context in troveList:
                 cu.execute('''INSERT INTO tTroveInfo VALUES (?, ?, ?, ?, ?)''',
                            (jobId, troveName, version.freeze(), flavor.freeze(),
-                           context), start_transaction=False)
+                           context))
 
             results = cu.execute(
             """
@@ -345,11 +350,14 @@ class JobStore(object):
                     out.append(trovesByNVF[tup])
                 else:
                     raise KeyError(tup)
+        except:
+            cu.execute("DROP TABLE tTroveInfo")
+            self.db.rollback()
+            raise
+        else:
+            cu.execute("DROP TABLE tTroveInfo")
+            self.db.commit()
             return out
-        finally:
-            cu.execute("DROP TABLE tTroveInfo", start_transaction = False)
-
-
 
     # return all the log messages since last mark
     def getJobLogs(self, jobId, mark = 0):
