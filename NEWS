@@ -1,3 +1,23 @@
+Changes in 2.0.10:
+  o New Features:
+    * Processes remaining inside of a build chroot are now forcibly
+      terminated at the end of the build.
+    * If no password is configured (e.g. "user bob" in rmakerc) then
+      rMake will prompt for a password, and save it in keyutils if
+      available (RMK-1083)
+    * Improved compatibility with Python 2.7 and CentOS 6
+
+  o Bug Fixes:
+    * Fixed a wrongly-tagged exception that could cause ValueError to be
+      thrown when calling getTroveBuildLog or other functions that
+      accept a trove tuple as input. (RMK-1082)
+    * Fixed troves that finish in 'Duplicate' state taking up a slot on
+      a node permanently. (RMK-1086)
+    * Fixed postgres backend leaving an idle transaction open, which
+      could prevent vacuumdb from working.
+    * The interactive command-line interface has been made significantly
+      more responsive
+
 Changes in 2.0.9:
   o New Features:
     * Added the "chrootServerPorts" configuration option to control the

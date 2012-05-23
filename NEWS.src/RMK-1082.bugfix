@@ -1,1 +1,0 @@
-Fixed a wrongly-tagged exception that could cause ValueError to be thrown when calling getTroveBuildLog or other functions that accept a trove tuple as input.
