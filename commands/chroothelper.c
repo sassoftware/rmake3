@@ -1,33 +1,20 @@
 /*
- * Copyright (c) 2006-2009 rPath, Inc.
+ * Copyright (c) rPath, Inc.
  *
- * This program is distributed under the terms of the Common Public License,
- * version 1.0. A copy of this license should have been distributed with this
- * source file in a file called LICENSE. If it is not present, the license
- * is always available at http://www.rpath.com/permanent/licenses/CPL-1.0.
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * This program is distributed in the hope that it will be useful, but
- * without any warranty; without even the implied warranty of merchantability
- * or fitness for a particular purpose. See the Common Public License for
- * full details.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- *
- * Rmake chroot helper - setuid program to enter chroots for rmake.
- *
- * usage:     chroothelper <path/to/chroot>
- *              - creates necessary mount points, dev nodes,
- *                and switches to CHROOT_USER
- *
- *         OR chroothelper <path/to/chroot> --clean
- *              - removes mount points, cleans up files owned by
- *                CHROOT_USER.
- *
- * The program must be run as RMAKE_USER, the directory about the chroot
- * must be owned by RMAKE_USER.
- *
- * This program should be kept as small as possible to try to avoid security
- * holes.
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+
 
 #define _GNU_SOURCE
 #include <features.h>
