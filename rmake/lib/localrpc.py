@@ -28,6 +28,8 @@ import SimpleXMLRPCServer
 import urllib
 import IN
 import sys
+from rmake.lib import xmlrpc_null
+
 
 BUFSIZE = 1024 * 2
 

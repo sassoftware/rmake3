@@ -28,6 +28,7 @@ from conary.lib.util import rethrow
 from httplib import HTTPConnection
 
 from rmake import errors
+from rmake.lib import xmlrpc_null
 from rmake.lib.localrpc import UnixDomainHTTPConnection
 
 

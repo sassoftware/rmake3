@@ -25,8 +25,6 @@ import IN
 import pwd
 import socket
 import struct
-from rmake.lib import xmlrpc_null
-
 
 
 class AuthObject(object):
