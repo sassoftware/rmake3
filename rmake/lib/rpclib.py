@@ -145,9 +145,3 @@ class CertificateAuth(HttpAuth):
         if self.certUser:
             return self.certUser
         return HttpAuth.getUser(self)
-
-            else:
-                socket = self.request.request
-            # Python 2.7 tries to shutdown() first which the parent must not do
-            # after handing off
-            socket.close()

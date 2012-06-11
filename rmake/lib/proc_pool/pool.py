@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+
 # Adapted from ampoule, provided under the MIT License:
 # Copyright (c) 2008 Valentino Volonghi, Matthew Lefkowitz
 # Copyright (c) 2009 Canonical Ltd.

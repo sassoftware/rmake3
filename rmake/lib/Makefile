@@ -16,7 +16,6 @@
 #
 
 
-
 SUBDIRS = proc_pool twisted_extras
 
 so_targets = osutil.so pycap.so

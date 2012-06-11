@@ -16,8 +16,6 @@
 #
 
 
-
-
 import inspect
 from conary.lib.util import rethrow
 from rmake import errors

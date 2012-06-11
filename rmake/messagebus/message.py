@@ -16,7 +16,6 @@
 #
 
 
-
 import logging
 
 from rmake.lib import chutney
