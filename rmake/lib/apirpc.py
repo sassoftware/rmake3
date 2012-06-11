@@ -66,11 +66,6 @@ class RPCServer(object):
                     else:
                         args = (self,) + args
 
-            sock = self.server.socket
-            if getattr(sock, 'socket', None):
-                # m2crypto doesn't seem to pass close() through to the
-                # underlying listener socket.
-                sock.socket.close()
                     try:
                         args = filler.fill(args, kwargs)
                     except:
