@@ -16,10 +16,7 @@
 #
 
 
-from rmake import failure
-
 from rmake.build import builder
-from rmake.build import buildtrove
 
 from rmake.lib import server
 
@@ -28,6 +25,7 @@ from rmake.worker import worker
 from rmake.multinode import messages
 from rmake.multinode import nodeclient
 from rmake.multinode import nodetypes
+
 
 class WorkerClient(server.Server):
     """

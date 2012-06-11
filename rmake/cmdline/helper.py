@@ -133,16 +133,18 @@ class rMakeHelper(object):
         raise errors.RmakeError("Could not authenticate to remote rMake server")
 
     def _setAndCheckPassword(self, cfg, passwd):
-        old = cfg.rmakeUser
-        cfg.rmakeUser = (old[0], passwd)
-        cli = client.rMakeClient(cfg.getServerUri())
-        try:
-            cli.ping(seconds=0.01)
-        except errors.InsufficientPermission:
-            cfg.rmakeUser = old
-            return False
-        else:
-            return True
+        # FIXME
+        raise NotImplementedError
+        #old = cfg.rmakeUser
+        #cfg.rmakeUser = (old[0], passwd)
+        #cli = client.rMakeClient(cfg.getServerUri())
+        #try:
+        #    cli.ping(seconds=0.01)
+        #except errors.InsufficientPermission:
+        #    cfg.rmakeUser = old
+        #    return False
+        #else:
+        #    return True
 
 
     def getRepos(self, buildConfig=None):

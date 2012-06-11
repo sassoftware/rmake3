@@ -16,13 +16,8 @@
 #
 
 
-import random
-import socket
-
-from rmake import errors
 from rmake.lib import apirpc
-from rmake.lib import procutil
-from rmake.lib.apiutils import api, api_parameters, api_return, freeze, thaw
+from rmake.lib.apiutils import api, api_parameters, api_return, freeze
 from rmake.multinode.server import subscriber
 from rmake.worker.chroot import rootmanager
 

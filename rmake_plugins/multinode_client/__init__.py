@@ -16,13 +16,8 @@
 #
 
 
-import os
-import socket
-import traceback
+from conary.lib import log
 
-from conary.lib import cfgtypes, log, util
-
-from rmake import errors
 from rmake.plugins import plugin
 
 from rmake_plugins.multinode_client.build import buildcfg

@@ -16,15 +16,15 @@
 #
 
 
-import copy
 import itertools
 from conary.deps import deps
 from conary.local import deptable
 
 from conary.conaryclient import resolve
-from conary.repository import findtrove,trovesource
+from conary.repository import trovesource
 
 from rmake.lib import flavorutil
+
 
 class TroveSourceMesh(trovesource.SearchableTroveSource):
     def __init__(self, extraSource, mainSource, repos):

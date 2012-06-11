@@ -16,8 +16,7 @@
 #
 
 
-from rmake.build.subscriber import *
-from rmake.build.subscriber import _RmakePublisherProxy, _JobDbLogger
+from rmake.build.subscriber import _RmakePublisherProxy
 
 
 from rmake.multinode import messages

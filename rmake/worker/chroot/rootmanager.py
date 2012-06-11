@@ -16,7 +16,6 @@
 #
 
 
-import errno
 import copy
 import os
 import stat

@@ -16,7 +16,7 @@
 #
 
 
-from rmake.lib.apiutils import thaw, freeze, register
+from rmake.lib.apiutils import thaw, freeze
 from rmake.lib import apiutils
 
 class Node(object):

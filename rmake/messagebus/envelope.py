@@ -16,7 +16,6 @@
 #
 
 
-import os
 from cStringIO import StringIO
 
 from conary import streams
