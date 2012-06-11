@@ -22,6 +22,7 @@ Client that contains most of the behavior available from the command line.
 This client wraps around the low-level rMake Server client to provide
 functionality that crosses client/server boundaries.
 """
+import getpass
 import copy
 import itertools
 import os
@@ -52,6 +53,7 @@ from rmake.cmdline import cmdutil
 from rmake.cmdline import commit
 from rmake.cmdline import monitor
 from rmake.cmdline import query
+from rmake.lib import keystore
 
 class rMakeHelper(object):
     """
@@ -85,31 +87,25 @@ class rMakeHelper(object):
     BUILD_RECURSE_GROUPS_SOURCE = buildcmd.BUILD_RECURSE_GROUPS_SOURCE
 
     def __init__(self, uri=None, rmakeConfig=None, buildConfig=None, root='/',
-                 guiPassword=False, plugins=None, configureClient=True,
-                 clientCert=None):
+                 plugins=None, configureClient=True,
+                 clientCert=None, promptPassword=False):
         if rmakeConfig:
             log.warning('rmakeConfig parameter is now deprecated')
         if not buildConfig:
             buildConfig = buildcfg.BuildConfiguration(True, root)
 
         if configureClient:
-            if uri is None:
-                uri = buildConfig.getServerUri()
             if clientCert is None:
                 clientCert = buildConfig.clientCert
+            if uri is None:
+                if (promptPassword and buildConfig.rmakeUser
+                        and buildConfig.rmakeUser[0]
+                        and not buildConfig.rmakeUser[1]
+                        and not clientCert):
+                    self._promptPassword(buildConfig)
+                uri = buildConfig.getServerUri()
 
             self.client = rMakeClient(uri, clientCert)
-
-        if guiPassword:
-            try:
-                from rmake.cmdline import password
-                pwPrompt = password.PasswordPrompter(buildConfig).getPassword
-            except ImportError, err:
-                log.error('Could not load gtk password prompter - %s', err)
-                pwPrompt = None
-        else:
-            pwPrompt = None
-        self.pwPrompt = pwPrompt
 
         self.buildConfig = buildConfig
         self.plugins = plugins
@@ -118,13 +114,47 @@ class rMakeHelper(object):
         if buildConfig is None:
             buildConfig = self.buildConfig
         self.client.addRepositoryInfo(buildConfig)
-        return conaryclient.ConaryClient(buildConfig,
-                                         passwordPrompter=self.pwPrompt)
+        return conaryclient.ConaryClient(buildConfig)
 
     def updateBuildConfig(self, buildConfig=None):
         if buildConfig is None:
             buildConfig = self.buildConfig
         self.client.addRepositoryInfo(buildConfig)
+
+    def _promptPassword(self, cfg):
+        # Try to share descriptor with rbuild so only one prompt is seen
+        user = cfg.rmakeUser[0]
+        url = cfg.rmakeUrl.replace(':9999', '')
+        keyDesc = 'rbuild:user:%s:%s' % (user, url)
+        passwd = keystore.getPassword(keyDesc)
+        if passwd and self._setAndCheckPassword(cfg, passwd):
+            return
+        for x in range(3):
+            print "Please enter the password for user %r on %s" % (user,
+                    cfg.rmakeUrl)
+            passwd = getpass.getpass("Password: ")
+            if self._setAndCheckPassword(cfg, passwd):
+                keystore.setPassword(keyDesc, passwd)
+                return
+            if not passwd:
+                # User wants out but getpass eats Ctrl-C
+                break
+            print "The specified credentials were not valid."
+            print
+        raise errors.RmakeError("Could not authenticate to remote rMake server")
+
+    def _setAndCheckPassword(self, cfg, passwd):
+        old = cfg.rmakeUser
+        cfg.rmakeUser = (old[0], passwd)
+        cli = client.rMakeClient(cfg.getServerUri())
+        try:
+            cli.ping(seconds=0.01)
+        except errors.InsufficientPermission:
+            cfg.rmakeUser = old
+            return False
+        else:
+            return True
+
 
     def getRepos(self, buildConfig=None):
         return self.getConaryClient(buildConfig).getRepos()

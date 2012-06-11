@@ -14,6 +14,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
 
 
 """
@@ -24,12 +28,12 @@ framework.
 import base64
 import socket
 import urlparse
-import xmlrpclib
 from conary.lib.util import rethrow
 from httplib import HTTPConnection
 
 from rmake import errors
 from rmake.lib.localrpc import UnixDomainHTTPConnection
+
 
 VERSION = 0.1
 
@@ -504,7 +508,7 @@ class GenericServerProxy(BaseServerProxy):
 
     @staticmethod
     def _dumps(params, method, encoding):
-        return xmlrpclib.dumps(tuple(params), method, encoding=encoding)
+        return xmlrpc_null.dumps(tuple(params), method, encoding=encoding)
 
     @staticmethod
     def _filter_response(response):

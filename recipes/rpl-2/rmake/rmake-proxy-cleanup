@@ -1,0 +1,4 @@
+#!/bin/bash
+
+/usr/sbin/tmpwatch 336 %(proxydir)s/contents
+/usr/sbin/tmpwatch 336 %(proxydir)s/cscache

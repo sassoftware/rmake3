@@ -16,6 +16,8 @@
 #
 
 
+
+
 import inspect
 from conary.lib.util import rethrow
 from rmake import errors
@@ -64,6 +66,11 @@ class RPCServer(object):
                     else:
                         args = (self,) + args
 
+            sock = self.server.socket
+            if getattr(sock, 'socket', None):
+                # m2crypto doesn't seem to pass close() through to the
+                # underlying listener socket.
+                sock.socket.close()
                     try:
                         args = filler.fill(args, kwargs)
                     except:
@@ -128,7 +135,6 @@ class ArgFiller(object):
         if len(args) + len(kwargs) > len(self.names):
             raise TypeError("Got %d arguments but expected no more than "
                     "%d to method %s" % (total, len(self.names), self.name))
-
         newArgs = []
         for n, (name, default) in enumerate(zip(self.names, self.defaults)):
             if n < len(args):
@@ -147,9 +153,7 @@ class ArgFiller(object):
                 # Missing
                 raise TypeError("Missing argument %s to method %s"
                         % (name, self.name))
-
         if kwargs:
             raise TypeError("Got unexpected argument %s to method %s"
                     % (sorted(kwargs)[0], self.name))
-
         return tuple(newArgs)

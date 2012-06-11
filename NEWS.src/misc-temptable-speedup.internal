@@ -1,1 +1,0 @@
-The getJobs() and getTroves() calls are now significantly faster on servers with tens of thousands of jobs.

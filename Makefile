@@ -17,7 +17,6 @@
 
 
 export VERSION=2.99.0
-
 # This can be overridden on the command line.
 export PYVER = $(shell python -c 'import sys; print sys.version[:3]')
 export PKGNAME = rmake
@@ -40,7 +39,7 @@ version:
 	sed -i 's/@NEW@/$(VERSION)/g' NEWS
 
 show-version:
-	echo $(VERSION)
+	@echo $(VERSION)
 
 dist:
 	if ! grep "^Changes in $(VERSION)" NEWS > /dev/null 2>&1; then \
@@ -51,7 +50,7 @@ dist:
 
 forcedist: archive sanitycheck
 
-archive: $(dist_files)
+archive:
 	hg archive -t tbz2 -r rmake-$(VERSION) rmake-$(VERSION).tar.bz2
 
 sanitycheck: archive

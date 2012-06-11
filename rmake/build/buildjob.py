@@ -23,6 +23,7 @@ import time
 from rmake import failure
 from rmake.build import buildtrove
 from rmake.lib import uuid
+from rmake.lib.xmlrpc_null import dumps, loads
 
 jobStates = {
     'JOB_STATE_INIT'        : 0,

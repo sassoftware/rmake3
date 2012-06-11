@@ -1,1 +1,0 @@
-Daemonized processes spawned by a cooked recipe will no longer block the cook from completing.

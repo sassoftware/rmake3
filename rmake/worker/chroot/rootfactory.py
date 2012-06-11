@@ -22,6 +22,8 @@
     Uses the chroothelper program to do final processing and chrooting.
 """
 
+import errno
+import fcntl
 import grp
 import itertools
 import os
@@ -113,6 +115,7 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
 
     def install(self):
         self.cfg.root = self.root
+        self._lock(self.root, fcntl.LOCK_SH)
         if self.oldRoot:
             if self.serverCfg.reuseChroots:
                 self._moveOldRoot(self.oldRoot, self.root)
@@ -166,6 +169,7 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
                                    tagScript=self.cfg.root + '/root/tagscripts')
 
         self._installRPM()
+        self._touchShadow()
 
         if self.bootstrapJobList:
             self.logger.info("Installing initial chroot bootstrap requirements")
@@ -285,6 +289,15 @@ class ConaryBasedChroot(rootfactory.BasicChroot):
             if name.split('.')[0] == 'rpm':
                 del sys.modules[name]
 
+    def _touchShadow(self):
+        # Create shadow files with owner-writable permissions before RPM can
+        # create them with no permissions. (RMK-1079)
+        etc = os.path.join(self.root, 'etc')
+        util.mkdirChain(etc)
+        for name in (etc + '/shadow', etc + '/gshadow'):
+            open(name, 'a').close()
+            os.chmod(name, 0600)
+
     def _getChrootFingerprint(self, client):
         job = (sorted(self.jobList) + sorted(self.crossJobList) +
                 sorted(self.bootstrapJobList))
@@ -357,6 +370,7 @@ class rMakeChroot(ConaryBasedChroot):
         self.callback = ChrootCallback(self.buildTrove, logger,
                                        caching=bool(csCache))
         self.copyInConary = copyInConary
+        self.lockFile = None
 
         if copyInConary:
             self._copyInConary()
@@ -462,23 +476,51 @@ class rMakeChroot(ConaryBasedChroot):
     def canChroot(self):
         return (pwd.getpwnam(constants.rmakeUser).pw_uid == os.getuid())
 
+    def _lock(self, root, mode):
+        if not self.lockFile:
+            util.mkdirChain(root)
+            self.lockFile = open(root + '/lock', 'w+')
+            os.fchmod(self.lockFile.fileno(), 0666)
+        try:
+            fcntl.lockf(self.lockFile.fileno(), mode | fcntl.LOCK_NB)
+        except IOError, err:
+            if err.errno != errno.EAGAIN:
+                raise
+            return False
+        else:
+            return True
+
+    def _unlock(self, root):
+        if not self.lockFile:
+            return
+        self.lockFile.close()
+        self.lockFile = None
 
     def unmount(self, root, raiseError=True):
         if not os.path.exists(root):
             return True
         if self.canChroot():
-            self.logger.info('Running chroot helper to unmount...')
-            util.mkdirChain(root + '/sbin')
-            rc = os.system('%s --unmount %s' % (self.chrootHelperPath, root))
-            if rc:
-                if raiseError:
-                    raise errors.ServerError('Could not unmount old chroot')
-                return False
+            if self._lock(root, fcntl.LOCK_EX):
+                self.logger.info('Running chroot helper to unmount...')
+                util.mkdirChain(root + '/sbin')
+                rc = os.system('%s --unmount %s' % (self.chrootHelperPath, root))
+                if rc:
+                    if raiseError:
+                        raise errors.ServerError('Could not unmount old chroot')
+                    return False
+            else:
+                self.logger.info("Not unmounting chroot because it is locked "
+                        "by another process")
+        self._unlock(root)
         return True
 
 
     def clean(self, root, raiseError=True):
         if self.canChroot():
+            if not self._lock(root, fcntl.LOCK_EX):
+                self.logger.info("Not cleaning chroot because it is locked "
+                        "by another process")
+                return False
             self.logger.info('Running chroot helper to clean/unmount...')
             util.mkdirChain(root + '/sbin')
             shutil.copy('/sbin/busybox', root + '/sbin/busybox')
@@ -516,6 +558,7 @@ class rMakeChroot(ConaryBasedChroot):
                 ' completely died.  Please shut down rmake, kill any remaining'
                 ' rmake processes, and then retry.  If that does not work,'
                 ' please remove the old root by hand.' % root)
+        self._unlock(root)
         return not removeFailed
 
 
@@ -525,11 +568,13 @@ class ExistingChroot(rMakeChroot):
         self.logger = logger
         self.chrootHelperPath = chrootHelperPath
         self.chrootFingerprint = None
+        self.lockFile = None
         rootfactory.BasicChroot.__init__(self)
         self._copyInRmake()
 
     def create(self, root):
         rootfactory.BasicChroot.create(self, root)
+        self._lock(root, fcntl.LOCK_SH)
 
     def install(self):
         pass

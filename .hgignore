@@ -1,4 +1,6 @@
 \.(py[co]|o|so|ccs|swp|swo|orig|rej)$
+\.failed
+\.times
 
 ^altroot/
 ^bin/
