@@ -58,8 +58,6 @@ class RmakeRecipe(CPackageRecipe):
                 )
         r.ExcludeDirectories(exceptions='%(srvdir)s.*')
 
-        r.Doc('CPL')
-
         # library
         r.Requires(exceptDeps='python: epdb')
         r.ComponentProvides('%(version)s')

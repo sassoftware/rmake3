@@ -25,6 +25,7 @@ from twisted.words.protocols.jabber import jid
 from rmake.core import config
 from rmake.core import constants as core_const
 from rmake.core import dispatcher
+from rmake.core import handler
 from rmake.core import support
 from rmake.core import types
 from rmake.lib import pluginlib
@@ -198,30 +199,33 @@ class DispatcherTest(unittest.TestCase):
         self.disp.jobLogger.emitMany._mock.assertCalled(records)
 
     def test_taskScore(self):
+        job = self.job
         w = dispatcher.WorkerInfo(jid.JID('ham@spam/eggs'))
+        self.disp.workers[w.jid] = w
+        self.disp.jobs[job.job_uuid] = handler.JobHandler(self.disp, job)
         msg = message.Heartbeat(caps=[
             types.TaskCapability('task.1'),
             types.ZoneCapability('zone.1'),
             ], tasks=[], addresses=[], slots=1)
         # Assignable
         w.setCaps(msg)
-        result, score = w.getScore(types.RmakeTask('task', 'job', 'name',
-            'task.1', task_zone='zone.1'))
+        result, score = self.disp._scoreTask(types.RmakeTask('task',
+            job.job_uuid, 'name', 'task.1', task_zone='zone.1'), w)
         assert result == core_const.A_NOW
         assert score == 1
         # Busy
         w.tasks['bogus'] = 1
-        result, score = w.getScore(types.RmakeTask('task', 'job', 'name',
-            'task.1', task_zone='zone.1'))
+        result, score = self.disp._scoreTask(types.RmakeTask('task',
+            job.job_uuid,  'name', 'task.1', task_zone='zone.1'), w)
         assert result == core_const.A_LATER
         del w.tasks['bogus']
         # No task
-        result, score = w.getScore(types.RmakeTask('task', 'job', 'name',
-            'task.2', task_zone='zone.1'))
+        result, score = self.disp._scoreTask(types.RmakeTask('task',
+            job.job_uuid, 'name', 'task.2', task_zone='zone.1'), w)
         assert result == core_const.A_NEVER
         # No zone
-        result, score = w.getScore(types.RmakeTask('task', 'job', 'name',
-            'task.1', task_zone='zone.2'))
+        result, score = self.disp._scoreTask(types.RmakeTask('task',
+            job.job_uuid, 'name', 'task.1', task_zone='zone.2'), w)
         assert result == core_const.A_WRONG_ZONE
         assert score == None
 
