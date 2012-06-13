@@ -62,6 +62,7 @@ class JobHandler(object):
 
     jobType = None
     jobVersion = 1
+    slotType = None
     firstState = 'starting'
 
     def __init__(self, dispatcher, job):
@@ -285,7 +286,8 @@ class JobHandler(object):
         """
         # Are there slots available to run this task in?
         assigned = len(worker.tasks)
-        free = max(worker.slots - assigned, 0)
+        available = worker.slots.get(self.slotType, 2)
+        free = max(available - assigned, 0)
         if free:
             return core_const.A_NOW, free
         else:

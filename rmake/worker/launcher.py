@@ -158,7 +158,7 @@ class HeartbeatService(TimerService):
 
     def heartbeat(self):
         tasks = self.launcher.pool.getTaskList()
-        slots = self.launcher.cfg.slots
+        slots = self.launcher.cfg.getSlots()
         addresses = set(x[1] for x in self.netlink.getAllAddresses())
         msg = message.Heartbeat(caps=self.launcher.caps, tasks=tasks,
                 slots=slots, addresses=addresses)
@@ -192,6 +192,7 @@ class WorkerConfig(BusClientConfig):
     lockDir             = (cfgtypes.CfgPath, '/var/lock')
     logDir              = (cfgtypes.CfgPath, '/var/log/rmake')
     slots               = (cfgtypes.CfgInt, 2)
+    slotsByType         = cfgtypes.CfgDict(cfgtypes.CfgInt)
     zone                = (cfgtypes.CfgList(cfgtypes.CfgString), [])
 
     # Plugins
@@ -199,3 +200,8 @@ class WorkerConfig(BusClientConfig):
     pluginOption        = (cfgtypes.CfgDict(
         cfgtypes.CfgList(cfgtypes.CfgString)), {})
     usePlugin           = (cfgtypes.CfgDict(cfgtypes.CfgBool), {})
+
+    def getSlots(self):
+        slots = dict(self.slotsByType)
+        slots[None] = self.slots
+        return slots

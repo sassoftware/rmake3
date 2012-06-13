@@ -431,7 +431,7 @@ class WorkerInfo(object):
         self.jid = jid
         self.caps = types.CapabilitySet()
         self.tasks = {}
-        self.slots = 0
+        self.slots = {}
         self.addresses = set()
         # expiring is incremented each time WorkerChecker runs and zeroed each
         # time the worker heartbeats. When it gets high enough, the worker is
@@ -440,7 +440,10 @@ class WorkerInfo(object):
 
     def setCaps(self, msg):
         self.caps = types.CapabilitySet(msg.caps)
-        self.slots = msg.slots
+        if isinstance(msg.slots, (int, long)):
+            self.slots = {None: msg.slots}
+        else:
+            self.slots = msg.slots
         self.addresses = msg.addresses
         self.expiring = 0
 
