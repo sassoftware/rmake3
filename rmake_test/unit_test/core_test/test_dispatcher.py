@@ -52,6 +52,9 @@ class DispatcherTest(unittest.TestCase):
 
         self.job = types.RmakeJob(
                 uuid.uuid4(), 'test', 'spam', data='ham').freeze()
+        self.caps = set([
+            types.VersionCapability(tuple(dispatcher.PROTOCOL_VERSIONS)),
+            ])
 
     def tearDown(self):
         mock.unmockAll()
@@ -150,9 +153,9 @@ class DispatcherTest(unittest.TestCase):
     def test_workerHeartbeat(self):
         w = jid.JID('ham@spam/eggs')
         class h_msg(object):
-            caps = set()
+            caps = self.caps
             tasks = {}
-            slots = 0
+            slots = {None: 0}
             addresses = set()
         heartbeat = dict(jid=w, msg=h_msg())
 
@@ -176,9 +179,9 @@ class DispatcherTest(unittest.TestCase):
         """A worker fails to heartbeat for a given interval."""
         w = jid.JID('ham@spam/eggs')
         class h_msg(object):
-            caps = set()
+            caps = self.caps
             tasks = {}
-            slots = 0
+            slots = {None: 0}
             addresses = set()
         self.disp.workerHeartbeat(w, h_msg())
         self.assertEqual(self.disp.workers[w].jid, w)
@@ -206,7 +209,8 @@ class DispatcherTest(unittest.TestCase):
         msg = message.Heartbeat(caps=[
             types.TaskCapability('task.1'),
             types.ZoneCapability('zone.1'),
-            ], tasks=[], addresses=[], slots=1)
+            ] + list(self.caps),
+            tasks=[], addresses=[], slots={None: 1})
         # Assignable
         w.setCaps(msg)
         result, score = self.disp._scoreTask(types.RmakeTask('task',
@@ -234,7 +238,8 @@ class DispatcherTest(unittest.TestCase):
         msg = message.Heartbeat(caps=[
             types.TaskCapability('task.1'),
             types.ZoneCapability('zone.1'),
-            ], tasks=[], addresses=[], slots=1)
+            ] + list(self.caps),
+            tasks=[], addresses=[], slots={None: 1})
         w.setCaps(msg)
         assert w.supports([types.TaskCapability('task.1')])
         assert w.supports([types.ZoneCapability('zone.1')])
@@ -250,7 +255,8 @@ class DispatcherTest(unittest.TestCase):
             types.TaskCapability('task.1'),
             types.ZoneCapability('zone.1'),
             types.ZoneCapability('zone.2'),
-            ], tasks=[], addresses=[], slots=1)
+            ] + list(self.caps),
+            tasks=[], addresses=[], slots={None: 1})
         w.setCaps(msg)
         assert sorted(w.zoneNames) == [
                 'zone.1', 'zone.2']

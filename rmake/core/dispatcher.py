@@ -53,6 +53,9 @@ from twisted.web.server import Site
 
 log = logging.getLogger(__name__)
 
+# Protocol versions of the launcher that are supported by the dispatcher
+PROTOCOL_VERSIONS = set([2])
+
 
 class Dispatcher(deferred_service.MultiService, RPCServer):
 
@@ -358,19 +361,23 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
         laters = 0
         wrong_zone = 0
         for worker in self.workers.values():
+            if not worker.active:
+                log.debug("Worker %s is offline and can't run new tasks",
+                        worker.jid.full())
+                continue
             result, score = self._scoreTask(task, worker)
             if result == core_const.A_NOW:
                 log.debug("Worker %s can run task %s now: score=%s",
-                        worker.jid, task.task_uuid, score)
+                        worker.jid.full(), task.task_uuid, score)
                 scores.setdefault(score, []).append(worker.jid)
             elif result == core_const.A_LATER:
-                log.debug("Worker %s can run task %s later", worker.jid,
+                log.debug("Worker %s can run task %s later", worker.jid.full(),
                         task.task_uuid)
                 laters += 1
             else:
                 if result == core_const.A_WRONG_ZONE:
                     wrong_zone += 1
-                log.debug("Worker %s cannot run task %s", worker.jid,
+                log.debug("Worker %s cannot run task %s", worker.jid.full(),
                         task.task_uuid)
 
         if scores:
@@ -433,6 +440,8 @@ class WorkerInfo(object):
         self.tasks = {}
         self.slots = {}
         self.addresses = set()
+        self.protocol = 0
+        self.active = None
         # expiring is incremented each time WorkerChecker runs and zeroed each
         # time the worker heartbeats. When it gets high enough, the worker is
         # assumed dead.
@@ -446,6 +455,24 @@ class WorkerInfo(object):
             self.slots = msg.slots
         self.addresses = msg.addresses
         self.expiring = 0
+
+        vcap = self.caps[types.VersionCapability]
+        if vcap:
+            assert len(vcap) == 1
+            versions = set(vcap.pop().versions)
+        else:
+            # Version 1 didn't advertise a version
+            versions = set([1])
+        if versions & PROTOCOL_VERSIONS:
+            self.active = True
+            self.protocol = sorted(versions & PROTOCOL_VERSIONS)[-1]
+        else:
+            if self.active is not False:
+                us, them = max(PROTOCOL_VERSIONS), max(versions)
+                log.error("Worker %s is not running a version of rMake "
+                        "compatible with this dispatcher (worker: %r, "
+                        "required: %r)", self.jid.full(), them, us)
+            self.active = False
 
     def supports(self, caps):
         """Return C{True} if the worker supports all of C{caps}."""

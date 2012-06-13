@@ -43,6 +43,9 @@ from rmake.worker import executor
 
 log = logging.getLogger(__name__)
 
+# Protocol versions of the dispatcher that are supported by the launcher
+PROTOCOL_VERSIONS = set([2])
+
 
 class LauncherService(MultiService):
 
@@ -61,6 +64,8 @@ class LauncherService(MultiService):
         self.plugins.p.launcher.post_setup(self)
 
     def _set_caps(self):
+        versions = tuple(sorted(PROTOCOL_VERSIONS))
+        self.caps.add(types.VersionCapability(versions))
         for plugin, tasks in self.plugins.p.worker.get_task_types().items():
             for task in tasks:
                 self.caps.add(TaskCapability(task))

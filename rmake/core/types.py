@@ -242,6 +242,11 @@ class JobTimes(SlotCompare):
 FrozenJobTimes = freezify(JobTimes)
 
 
+class VersionCapability(namedtuple('VersionCapability', 'versions')):
+    """Worker supports these protocol versions."""
+chutney.register(VersionCapability)
+
+
 class TaskCapability(namedtuple('TaskCapability', 'taskType')):
     """Worker is capable of running the given task type."""
 chutney.register(TaskCapability)
