@@ -330,14 +330,19 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
     ## Task assignment
 
     def _assignTasks(self):
-        for task in self.taskQueue[:]:
-            result = self._assignTask(task)
-            if result != core_const.A_LATER:
-                # Task is no longer queued (assigned or failed)
-                self.taskQueue.remove(task)
-            if result == core_const.A_NOW:
-                # Update task now that node_assigned is set.
-                self.updateTask(task)
+        # Sort by priority but preserve the insertion order within each level
+        buckets = {}
+        for task in self.taskQueue:
+            buckets.setdefault(task.task_priority, []).append(task)
+        for priority, tasks in sorted(buckets.iteritems()):
+            for task in tasks:
+                result = self._assignTask(task)
+                if result != core_const.A_LATER:
+                    # Task is no longer queued (assigned or failed)
+                    self.taskQueue.remove(task)
+                if result == core_const.A_NOW:
+                    # Update task now that node_assigned is set.
+                    self.updateTask(task)
 
     def _assignTask(self, task):
         """Attempt to assign a task to a node.

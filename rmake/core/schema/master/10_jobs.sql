@@ -17,7 +17,8 @@ CREATE TABLE jobs (
     expires_after interval,
     frozen_handler bytea,
     time_ticks integer DEFAULT (-1) NOT NULL,
-    frozen_data bytea NOT NULL
+    frozen_data bytea NOT NULL,
+    job_priority integer DEFAULT 0 NOT NULL
 );
 CREATE INDEX jobs_active ON jobs ((1)) WHERE ( time_finished IS NULL );
 CREATE INDEX jobs_uuids_short ON jobs ( public.shorten_uuid(job_uuid) );
@@ -38,7 +39,8 @@ CREATE TABLE tasks (
     status_code smallint DEFAULT 0 NOT NULL,
     status_text text DEFAULT ''::text NOT NULL,
     status_detail text,
-    time_ticks integer DEFAULT (-1) NOT NULL
+    time_ticks integer DEFAULT (-1) NOT NULL,
+    task_priority integer DEFAULT 0 NOT NULL
 );
 
 

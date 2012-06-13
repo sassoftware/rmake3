@@ -195,11 +195,12 @@ class JobHandler(object):
 
     ## Creating/monitoring tasks
 
-    def newTask(self, taskName, taskType, data, zone=None):
+    def newTask(self, taskName, taskType, data, zone=None, priority=0):
         if not isinstance(data, rmk_types.FrozenObject):
             data = rmk_types.FrozenObject.fromObject(data)
+        priority = self.job.job_priority + priority
         task = rmk_types.RmakeTask(None, self.job.job_uuid, taskName, taskType,
-                data, task_zone=zone)
+                data, task_zone=zone, task_priority=priority)
 
         d = defer.Deferred()
         self.tasks[task.task_uuid] = TaskCallbacks(d, [])

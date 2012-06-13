@@ -149,16 +149,19 @@ def slottype(name, attrs):
 
 
 class RmakeJob(SlotCompare):
-    __slots__ = ('job_uuid', 'job_type', 'owner', 'status', 'times', 'data')
+    __slots__ = ('job_uuid', 'job_type', 'owner', 'status', 'times', 'data',
+            'job_priority',
+            )
 
     def __init__(self, job_uuid, job_type, owner, status=None, times=None,
-            data=None):
+            data=None, job_priority=0):
         self.job_uuid = job_uuid
         self.job_type = job_type
         self.owner = owner
         self.status = status or JobStatus()
         self.times = times or JobTimes()
         self.data = data
+        self.job_priority = 0
 
 
 FrozenRmakeJob = freezify(RmakeJob)
@@ -167,11 +170,12 @@ FrozenRmakeJob = freezify(RmakeJob)
 class RmakeTask(SlotCompare):
     __slots__ = ('task_uuid', 'job_uuid', 'task_name', 'task_type',
             'task_zone', 'task_data', 'node_assigned', 'status', 'times',
+            'task_priority',
             )
 
     def __init__(self, task_uuid, job_uuid, task_name, task_type,
             task_data=None, node_assigned=None, status=None, times=None,
-            task_zone=None):
+            task_zone=None, task_priority=0):
         if not task_uuid:
             task_uuid = uuid.uuid5(NAMESPACE_TASK,
                     str(job_uuid) + str(task_name))
@@ -184,6 +188,7 @@ class RmakeTask(SlotCompare):
         self.node_assigned = node_assigned
         self.status = status or JobStatus()
         self.times = times or JobTimes()
+        self.task_priority = task_priority
 
 
 FrozenRmakeTask = freezify(RmakeTask)

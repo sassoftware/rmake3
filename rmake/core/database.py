@@ -45,7 +45,7 @@ class CoreDB(object):
         d = self.pool.runQuery("""
             SELECT job_uuid, job_type, owner, status_code, status_text,
                 status_detail, time_started, time_updated, time_finished,
-                expires_after, time_ticks, frozen_data
+                expires_after, time_ticks, frozen_data, job_priority
             FROM jobs.jobs WHERE job_uuid IN %s
             """, (tuple(uuids),))
         d.addCallback(_mergeThings, pkeys=uuids, func=_oneJob)
@@ -75,13 +75,13 @@ class CoreDB(object):
             INSERT INTO jobs.jobs ( job_uuid, job_type, owner,
                 status_code, status_text, status_detail,
                 expires_after,
-                frozen_data, frozen_handler )
-            VALUES ( %s, %s, %s, %s, %s, %s, %s, %s, %s )
+                frozen_data, frozen_handler, job_priority )
+            VALUES ( %s, %s, %s, %s, %s, %s, %s, %s, %s, %s )
             RETURNING jobs.jobs.*
             """, (job.job_uuid, job.job_type, job.owner,
                 job.status.code, job.status.text, job.status.detail,
                 job.times.expires_after,
-                job.data, frozen_handler,
+                job.data, frozen_handler, job.job_priority,
                 ))
         d.addCallback(_grabOne, func=_oneJob)
         return d
@@ -90,9 +90,11 @@ class CoreDB(object):
         stmt = SQL("""
             UPDATE jobs.jobs SET
                 status_code = %s, status_text = %s, status_detail = %s,
-                time_updated = now(), time_ticks = %s, frozen_data = %s
+                time_updated = now(), time_ticks = %s, frozen_data = %s,
+                job_priority = %s
                 """, job.status.code, job.status.text, job.status.detail,
-                job.times.ticks, job.data)
+                job.times.ticks, job.data, job.job_priority,
+                )
         if job.status.final:
             stmt += SQL(", time_finished = now()")
         elif frozen_handler is not None:
@@ -113,13 +115,13 @@ class CoreDB(object):
         d = self.pool.runQuery("""
             INSERT INTO jobs.tasks ( task_uuid, job_uuid, task_name, task_type,
                 task_zone, task_data, status_code, status_text, status_detail,
-                node_assigned )
-            VALUES ( %s, %s, %s, %s, %s, %s, %s, %s, %s, %s )
+                node_assigned, task_priority )
+            VALUES ( %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING jobs.tasks.*
             """, (task.task_uuid, task.job_uuid, task.task_name,
                 task.task_type, task.task_zone, task.task_data,
                 task.status.code, task.status.text, task.status.detail,
-                task.node_assigned))
+                task.node_assigned, task.task_priority))
         d.addCallback(_grabOne, func=_oneTask)
         return d
 
@@ -127,9 +129,9 @@ class CoreDB(object):
         stmt = SQL("""
             UPDATE jobs.tasks SET status_code = %s, status_text = %s,
                 status_detail = %s, time_updated = now(), time_ticks = %s,
-                node_assigned = %s
+                node_assigned = %s, task_priority = %s
                 """, task.status.code, task.status.text, task.status.detail,
-                task.times.ticks, task.node_assigned)
+                task.times.ticks, task.node_assigned, task.task_priority)
         if task.status.final:
             stmt += SQL(", time_finished = now()")
         if task.task_data is not None:
