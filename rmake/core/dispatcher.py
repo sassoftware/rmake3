@@ -353,7 +353,7 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
         laters = 0
         wrong_zone = 0
         for worker in self.workers.values():
-            result, score = worker.getScore(task)
+            result, score = self._scoreTask(task, worker)
             if result == core_const.A_NOW:
                 log.debug("Worker %s can run task %s now: score=%s",
                         worker.jid, task.task_uuid, score)
@@ -386,6 +386,18 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
             self.clock.callLater(0, self._failTask, task, error)
             return core_const.A_NEVER
 
+    def _scoreTask(self, task, worker):
+        # Task must be supported
+        if types.TaskCapability(task.task_type) not in worker.caps:
+            return core_const.A_NEVER, None
+        # Task must be in no zone or this zone
+        if (task.task_zone is not None and types.ZoneCapability(
+                task.task_zone) not in worker.caps):
+            return core_const.A_WRONG_ZONE, None
+        # Use slot logic and custom logic from job handler
+        handler = self.jobs[task.job_uuid]
+        return handler.scoreTask(task, worker)
+
     def _sendTask(self, task, jid):
         log.debug("Assigning task %s to worker %s", task.task_uuid, jid)
 
@@ -402,7 +414,6 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
 
     def _failTask(self, task, message):
         log.error("Task %s failed: %s", task.task_uuid, message)
-        text = "Task failed: %s" % (message,)
         task.times.ticks = types.JobTimes.TICK_OVERRIDE
         task.status.code = core_const.TASK_NOT_ASSIGNABLE
         task.status.text = "Task failed: %s" % (message,)
@@ -427,27 +438,6 @@ class WorkerInfo(object):
         self.slots = msg.slots
         self.addresses = msg.addresses
         self.expiring = 0
-
-    def getScore(self, task):
-        """Score how able this worker is to run the given task.
-
-        Returns a tuple of an A_* constant and a number. Higher is better.
-        """
-        # Task must be supported
-        if types.TaskCapability(task.task_type) not in self.caps:
-            return core_const.A_NEVER, None
-        # Task must be in no zone or this zone
-        if (task.task_zone is not None
-                and types.ZoneCapability(task.task_zone) not in self.caps):
-            return core_const.A_WRONG_ZONE, None
-
-        # Are there slots available to run this task in?
-        assigned = len(self.tasks)
-        free = max(self.slots - assigned, 0)
-        if free:
-            return core_const.A_NOW, free
-        else:
-            return core_const.A_LATER, None
 
     def supports(self, caps):
         """Return C{True} if the worker supports all of C{caps}."""

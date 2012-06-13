@@ -33,6 +33,7 @@ restart tasks that were already failed at recovery time.
 """
 
 import logging
+from rmake.core import constants as core_const
 from rmake.core import types as rmk_types
 from rmake.lib import logger
 from rmake.lib.ninamori.types import namedtuple
@@ -275,6 +276,19 @@ class JobHandler(object):
         d.addErrback(self.failJob)
 
         return d
+
+    def scoreTask(self, task, worker):
+        """Score how able a given worker is to run the given task.
+
+        Returns a tuple of an A_* constant and a number. Higher is better.
+        """
+        # Are there slots available to run this task in?
+        assigned = len(worker.tasks)
+        free = max(worker.slots - assigned, 0)
+        if free:
+            return core_const.A_NOW, free
+        else:
+            return core_const.A_LATER, None
 
     ## Freezer machinery
 
