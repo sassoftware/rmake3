@@ -51,6 +51,18 @@ class CoreDB(object):
         d.addCallback(_mergeThings, pkeys=uuids, func=_oneJob)
         return d
 
+    @staticmethod
+    def _coerceBuffer(val):
+        if hasattr(val, 'asBuffer'):
+            return val.asBuffer()
+        elif isinstance(val, str):
+            return buffer(val)
+        elif isinstance(val, buffer) or val is None:
+            return val
+        else:
+            raise TypeError("Data of type %s is not coercable to a buffer",
+                    type(val).__name__)
+
     def createJob(self, job, frozen_handler, callback=None):
         if callback is None:
             # It's faster not to use an interaction since the interaction has
@@ -81,7 +93,8 @@ class CoreDB(object):
             """, (job.job_uuid, job.job_type, job.owner,
                 job.status.code, job.status.text, job.status.detail,
                 job.times.expires_after,
-                job.data, frozen_handler, job.job_priority,
+                self._coerceBuffer(job.data), frozen_handler,
+                job.job_priority,
                 ))
         d.addCallback(_grabOne, func=_oneJob)
         return d
@@ -93,7 +106,8 @@ class CoreDB(object):
                 time_updated = now(), time_ticks = %s, frozen_data = %s,
                 job_priority = %s
                 """, job.status.code, job.status.text, job.status.detail,
-                job.times.ticks, job.data, job.job_priority,
+                job.times.ticks, self._coerceBuffer(job.data),
+                job.job_priority,
                 )
         if job.status.final:
             stmt += SQL(", time_finished = now()")
