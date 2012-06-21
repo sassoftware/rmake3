@@ -222,12 +222,12 @@ class ConnectionPool(deferred_service.Service):
             d2 = defer.maybeDeferred(func, *args, **kwargs)
             def handleConnClosed(reason):
                 reason.trap(psycopg2.DatabaseError, psycopg2.InterfaceError)
-                if not ('server closed ' in reason.value.pgerror
-                        or 'connection already closed' in reason.value.pgerror):
-                    return reason
-                # Connection was closed
-                self._remove(conn)
-                log.info("Lost connection to database")
+                msg = reason.value.pgerror
+                if msg and ('server closed ' in msg
+                        or 'connection already closed' in msg):
+                    # Connection was closed
+                    self._remove(conn)
+                    log.info("Lost connection to database")
                 return reason
             d2.addErrback(handleConnClosed)
             def releaseAndReturn(result):

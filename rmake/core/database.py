@@ -123,6 +123,24 @@ class CoreDB(object):
         d.addCallback(_grabOne, func=_oneJob)
         return d
 
+    def deleteJobs(self, job_uuids):
+        if not job_uuids:
+            return defer.succeed([])
+        job_uuids = _castUUIDS(job_uuids)
+        d = self.pool.runOperation(
+                "DELETE FROM jobs.jobs WHERE job_uuid in %s",
+                ( tuple(job_uuids), ))
+        d.addCallback(lambda _: None)
+        return d
+
+    def getExpiredJobs(self):
+        d = self.pool.runQuery("""
+            SELECT job_uuid FROM jobs.jobs
+            WHERE now() > time_finished + expires_after
+            """)
+        d.addCallback(lambda rows: set(x[0] for x in rows))
+        return d
+
     ## Tasks
 
     def createTask(self, task):

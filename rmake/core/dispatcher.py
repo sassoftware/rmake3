@@ -29,11 +29,13 @@ import logging
 import os
 import random
 import stat
+from conary.lib import util
+from rmake import errors
 from rmake.core import admin
 from rmake.core import constants as core_const
 from rmake.core import database as coredb
+from rmake.core import support
 from rmake.core import types
-from rmake.core.support import DispatcherBusService, WorkerChecker
 from rmake.core.handler import getHandlerClass
 from rmake.errors import RmakeError
 from rmake.lib import dbpool
@@ -94,10 +96,11 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
         self.db = coredb.CoreDB(self.pool)
 
     def _start_bus(self):
-        self.bus = DispatcherBusService(self, self.cfg)
+        self.bus = support.DispatcherBusService(self, self.cfg)
         self.bus.setServiceParent(self)
 
-        WorkerChecker(self).setServiceParent(self)
+        support.WorkerChecker(self).setServiceParent(self)
+        support.JobPruner(self).setServiceParent(self)
 
     def _start_rpc(self):
         # Child controllers
@@ -131,6 +134,9 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
     def getJobs(self, job_uuids):
         return self.db.getJobs(job_uuids)
 
+    def _jobLogDir(self, job):
+        return os.path.join(self.cfg.jobLogDir, str(job.job_uuid))
+
     @expose
     def createJob(self, job, callbackInTrans=None, firehose=None):
         """Add the given job the database and start running it.
@@ -160,8 +166,7 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
         except KeyError:
             raise RmakeError("Job type %r is unsupported" % job.job_type)
 
-        basePath = os.path.join(self.cfg.jobLogDir, str(job.job_uuid))
-        logManager = structlog.JobLogManager(basePath)
+        logManager = structlog.JobLogManager(self._jobLogDir(job))
         jobLog = logManager.getLogger()
 
         handler = handlerClass(self, job, jobLog)
@@ -201,6 +206,23 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
             job = job.job_uuid
         event = ('job', str(job), category)
         self.firehose.publish(event, data)
+
+    @expose
+    def deleteJobs(self, job_uuids):
+        d = self.db.getJobs(job_uuids)
+        @d.addCallback
+        def got_jobs(result):
+            for job_uuid, job in zip(job_uuids, result):
+                if not job:
+                    raise errors.JobNotFound(str(job_uuid))
+                if not job.status.final:
+                    raise RmakeError("Can't delete a running job")
+            for job in result:
+                jobLogDir = self._jobLogDir(job)
+                if os.path.exists(jobLogDir):
+                    util.rmtree(jobLogDir)
+            return self.db.deleteJobs(job_uuids)
+        return d
 
     # Job handler API
 

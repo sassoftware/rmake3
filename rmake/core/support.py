@@ -17,6 +17,7 @@
 
 
 import logging
+from rmake.lib.logger import logFailure
 from rmake.lib.uuid import UUID
 from rmake.messagebus import message
 from rmake.messagebus.client import BusService
@@ -95,3 +96,21 @@ class WorkerChecker(TimerService):
             info.expiring += 1
             if info.expiring > self.threshold:
                 self.dispatcher.workerDown(info.jid)
+
+
+class JobPruner(TimerService):
+
+    def __init__(self, dispatcher):
+        TimerService.__init__(self, 60, self.pruneJobs)
+        self.dispatcher = dispatcher
+
+    def pruneJobs(self):
+        d = self.dispatcher.db.getExpiredJobs()
+        @d.addCallback
+        def got_jobs(jobs):
+            if not jobs:
+                return
+            log.info("Deleting %d expired jobs", len(jobs))
+            return self.dispatcher.deleteJobs(jobs)
+        d.addErrback(logFailure)
+        return d
