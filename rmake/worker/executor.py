@@ -24,6 +24,7 @@ in-process or by forking off additional tasks.
 import cPickle
 import logging
 import os
+import sys
 from twisted.internet import defer
 from twisted.internet import error as ierror
 from twisted.protocols.basic import Int32StringReceiver
@@ -32,6 +33,7 @@ from rmake.core.types import JobStatus
 from rmake.lib import logger
 from rmake.lib import osutil
 from rmake.lib import pluginlib
+from rmake.messagebus.logger import LogRelay
 
 log = logging.getLogger(__name__)
 
@@ -66,6 +68,8 @@ class WorkerParent(WorkerProtocol):
         self.ctr = 0
         self.pending = {}
         self.task = None
+        self.launcher = None
+        self.logRelay = None
 
     def callRemote(self, command, **kwargs):
         ctr = self.ctr
@@ -91,6 +95,7 @@ class WorkerParent(WorkerProtocol):
         """Snoop launch commands to keep track of the current task."""
         self.task = kwargs['task']
         self.launcher = kwargs.pop('launcher')
+        self.logRelay = LogRelay(self.launcher.bus.sendToTarget, self.task)
 
         # Fail tasks that exited cleanly but didn't report success.
         def cb_checkResult(result):
@@ -118,7 +123,8 @@ class WorkerParent(WorkerProtocol):
 
         # Clear saved task and launcher fields after the task is done.
         def bb_clearTask(result):
-            self.task = self.launcher = None
+            self.logRelay.close()
+            self.task = self.launcher = self.logRelay = None
         d.addBoth(bb_clearTask)
 
         d.addErrback(logger.logFailure)
@@ -131,6 +137,11 @@ class WorkerParent(WorkerProtocol):
             return
         self.task = task
         self.launcher.forwardTaskStatus(task)
+
+    def cmd_push_logs(self, ctr, records):
+        if not self.task:
+            return
+        self.launcher.forwardTaskLogs(self.task, records)
 
 
 class WorkerChild(WorkerProtocol):
@@ -146,6 +157,7 @@ class WorkerChild(WorkerProtocol):
     # Runtime (per task)
     shutdown = False
     task = None
+    logger = None
 
     def _setproctitle(self):
         title = 'rmake-worker: '
@@ -179,6 +191,11 @@ class WorkerChild(WorkerProtocol):
             return
         self._setproctitle()
 
+        root = logging.getLogger()
+        root.setLevel(logging.NOTSET)
+        self.logger = ChildLogger(self.sendLogs)
+        root.handlers = [self.logger]
+
         handler = handlerClass(self, task)
         self.plugins.getPlugin(pluginName).worker_pre_build(handler)
         d = handler.start()
@@ -186,6 +203,11 @@ class WorkerChild(WorkerProtocol):
         d.addErrback(self.failTask)
         @d.addBoth
         def cb_cleanup(result):
+            self.logger.close()
+            self.logger = None
+            root.handlers = []
+            sys.stdout.flush()
+            sys.stderr.flush()
             self.task = None
             self._setproctitle()
             self.sendCommand(ctr, 'ack')
@@ -228,6 +250,33 @@ class WorkerChild(WorkerProtocol):
             logger.logFailure(reason, "Fatal error in task runner:")
         self.sendStatus(JobStatus.from_failure(reason,
                 "Fatal error in task runner"))
+
+    def sendLogs(self, records):
+        self.sendCommand(None, 'push_logs', records=records)
+
+
+class ChildLogger(logging.Handler):
+
+    def __init__(self, sendFunc):
+        logging.Handler.__init__(self, logging.NOTSET)
+        self.sendFunc = sendFunc
+
+    def emit(self, record):
+        if not self.sendFunc:
+            return
+        # Don't send traceback objects over the wire if it can be helped.
+        if record.exc_info and not record.exc_text:
+            record.exc_text = self._formatException(record.exc_info)
+        record.exc_info = None
+
+        # All logging is going to be happening in the worker thread, but all IO
+        # needs to happen in the main thread.
+        from twisted.internet import reactor
+        reactor.callFromThread(self.sendFunc, [record])
+
+    def close(self):
+        self.sendFunc = None
+        logging.Handler.close(self)
 
 
 class InternalWorkerError(RuntimeError):

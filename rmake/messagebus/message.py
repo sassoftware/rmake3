@@ -165,4 +165,4 @@ class Heartbeat(Message):
 
 class LogRecords(Message):
     messageType = 'logging'
-    _payload_slots = ('records', 'task_uuid')
+    _payload_slots = ('records', 'job_uuid', 'task_uuid')

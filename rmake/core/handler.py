@@ -58,17 +58,18 @@ def getHandlerClass(jobType):
 
 
 class JobHandler(object):
-    __slots__ = ('dispatcher', 'job', 'state', 'tasks', 'clock')
+    __slots__ = ('dispatcher', 'job', 'state', 'tasks', 'clock', 'log')
 
     jobType = None
     jobVersion = 1
     slotType = None
     firstState = 'starting'
 
-    def __init__(self, dispatcher, job):
+    def __init__(self, dispatcher, job, log):
         self.dispatcher = dispatcher
         self.clock = dispatcher.clock
         self.job = job
+        self.log = log
         self.state = None
         self.tasks = {}
         self.setup()

@@ -22,7 +22,7 @@ import time
 from rmake.messagebus.message import LogRecords
 
 
-class LogRelay(logging.Handler):
+class LogRelay(object):
     """
     Relay log records to a message bus server.
 
@@ -31,10 +31,9 @@ class LogRelay(logging.Handler):
 
     DEADLINE = 0.25
 
-    def __init__(self, client, task_uuid):
-        logging.Handler.__init__(self)
-        self.client = client
-        self.task_uuid = task_uuid
+    def __init__(self, sendFunc, task):
+        self.sendFunc = sendFunc
+        self.task = task
         self.buffered = []
         self.last_send = 0
         self.delayed_call = None
@@ -42,16 +41,19 @@ class LogRelay(logging.Handler):
     def _formatException(self, ei):
         return logging._defaultFormatter.formatException(ei)
 
+    def emitMany(self, records):
+        for record in records:
+            # Don't send traceback objects over the wire if it can be helped.
+            if record.exc_info and not record.exc_text:
+                record.exc_text = self._formatException(record.exc_info)
+            record.exc_info = None
+            self.buffered.append(record)
+        self.maybeFlush()
+
     def emit(self, record):
-        # Don't send traceback objects over the wire if it can be helped.
-        if record.exc_info and not record.exc_text:
-            record.exc_text = self._formatException(record.exc_info)
-        record.exc_info = None
+        self.emitMany([record])
 
-        self.buffered.append(record)
-        self.maybe_flush()
-
-    def maybe_flush(self):
+    def maybeFlush(self):
         if self.delayed_call or not self.buffered:
             # Nothing to do, or there's already a delayed call scheduled.
             return
@@ -62,15 +64,13 @@ class LogRelay(logging.Handler):
             self.flush()
             return
 
-        # Not long enough to send immediately, so schedule a call. A small
-        # constant is added to the delay to prevent fibrillation if callLater
-        # returns sooner than expected.
+        # Not long enough to send immediately, so schedule a call.
         from twisted.internet import reactor
-        delay = deadline - now + 0.05
+        delay = deadline - now
         self.delayed_call = reactor.callLater(delay, self.flush)
 
     def flush(self):
-        if not self.buffered or not self.client:
+        if not self.buffered:
             return
 
         # If there's a delayed flush in-flight (or if this *is* the delayed
@@ -81,19 +81,9 @@ class LogRelay(logging.Handler):
             self.delayed_call = None
 
         records, self.buffered = self.buffered, []
-        msg = LogRecords(records, self.task_uuid)
-        self.client.sendToTarget(msg)
+        msg = LogRecords(records, self.task.job_uuid, self.task.task_uuid)
+        self.sendFunc(msg)
         self.last_send = time.time()
 
     def close(self):
         self.flush()
-        self.client = None
-        logging.Handler.close(self)
-
-
-def createLogRelay(logBase, client, task_uuid, propagate=False):
-    relay = LogRelay(client, task_uuid)
-    logger = logging.getLogger(logBase)
-    logger.propagate = propagate
-    logger.handlers = [relay]
-    return logger, relay

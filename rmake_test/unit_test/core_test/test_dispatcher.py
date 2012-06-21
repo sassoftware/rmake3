@@ -195,17 +195,18 @@ class DispatcherTest(unittest.TestCase):
         self.assertEqual(self.disp.workers, {})
 
     def test_workerLogging(self):
+        job_uuid = uuid.uuid4()
         task_uuid = uuid.uuid4()
+        self.disp.jobLoggers[job_uuid] = logManager = mock.MockObject()
         records = ['log records go here']
-        self.disp.tasks[task_uuid] = None
-        self.disp.workerLogging(records, task_uuid)
-        self.disp.jobLogger.emitMany._mock.assertCalled(records)
+        self.disp.workerLogging(records, job_uuid, task_uuid)
+        logManager.emitMany._mock.assertCalled(records, task_uuid)
 
     def test_taskScore(self):
         job = self.job
         w = dispatcher.WorkerInfo(jid.JID('ham@spam/eggs'))
         self.disp.workers[w.jid] = w
-        self.disp.jobs[job.job_uuid] = handler.JobHandler(self.disp, job)
+        self.disp.jobs[job.job_uuid] = handler.JobHandler(self.disp, job, None)
         msg = message.Heartbeat(caps=[
             types.TaskCapability('task.1'),
             types.ZoneCapability('zone.1'),
@@ -274,7 +275,7 @@ class WorkerTest(unittest.TestCase):
 
 class MockHandler(object):
 
-    def __init__(self, disp, job):
+    def __init__(self, disp, job, log):
         self.job = job
 
     def start(self):

@@ -60,7 +60,7 @@ class DispatcherTest(unittest.TestCase):
         """Test monitoring a task using deferreds and callbacks."""
         mock.mock(logger, 'logFailure')
         disp = mock.MockObject()
-        handler = rmk_handler.JobHandler(disp, self.job)
+        handler = rmk_handler.JobHandler(disp, self.job, None)
         task = handler.newTask('spam', 'ham', 'eggs').freeze()
 
         toSend = [

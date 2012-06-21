@@ -38,13 +38,12 @@ from rmake.lib.proc_pool import pool
 from rmake.messagebus import message
 from rmake.messagebus.client import BusClientService
 from rmake.messagebus.config import BusClientConfig
-from rmake.messagebus.logger import createLogRelay
 from rmake.worker import executor
 
 log = logging.getLogger(__name__)
 
 # Protocol versions of the dispatcher that are supported by the launcher
-PROTOCOL_VERSIONS = set([2])
+PROTOCOL_VERSIONS = set([3])
 
 
 class LauncherService(MultiService):
@@ -96,22 +95,11 @@ class LauncherService(MultiService):
         log.info("Task %s starting: job %s, task '%s'", task.task_uuid.short,
                 task.job_uuid.short, task.task_name)
 
-        logBase = 'rmake.jobs.%s.tasks.%s' % (task.job_uuid, task.task_uuid)
-        taskLogger, taskRelay = createLogRelay('rmake.jobs', self.bus,
-                task.task_uuid)
         d = self.pool.launch(
                 task=task,
                 launcher=self,
-                logBase=logBase,
                 )
         d.addErrback(self.failTask, task)
-        def bb_cleanup(result):
-            try:
-                taskRelay.close()
-            except:
-                pass
-            return result
-        d.addBoth(bb_cleanup)
 
     def failTask(self, reason, task):
         task = task.thaw()
@@ -127,6 +115,14 @@ class LauncherService(MultiService):
                     status.completed and 'complete' or 'failed', status.code,
                     status.text)
         msg = message.TaskStatus(task.freeze())
+        self.bus.sendToTarget(msg)
+
+    def forwardTaskLogs(self, task, records):
+        msg = message.LogRecords(
+                records=records,
+                job_uuid=task.job_uuid,
+                task_uuid=task.task_uuid,
+                )
         self.bus.sendToTarget(msg)
 
 
@@ -175,11 +171,10 @@ class PoolService(pool.ProcessPool):
     childFactory = executor.WorkerChild
     parentFactory = executor.WorkerParent
 
-    def launch(self, task, launcher, logBase):
+    def launch(self, task, launcher):
         return self.doWork('launch',
                 task=task,
                 launcher=launcher,
-                logBase=logBase,
                 )
 
     def getTaskList(self):

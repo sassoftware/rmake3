@@ -56,3 +56,4 @@ class DispatcherConfig(BusConfig):
     logPath_http = _path('logDir', 'access.log')
     logPath_server = _path('logDir', 'server.log')
     lockDir = _path('dataDir', 'lock')
+    jobLogDir = _path('dataDir', 'logs')

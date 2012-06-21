@@ -32,13 +32,13 @@ import stat
 from rmake.core import admin
 from rmake.core import constants as core_const
 from rmake.core import database as coredb
-from rmake.core import file_store
 from rmake.core import types
 from rmake.core.support import DispatcherBusService, WorkerChecker
 from rmake.core.handler import getHandlerClass
 from rmake.errors import RmakeError
 from rmake.lib import dbpool
 from rmake.lib import rpc_pickle
+from rmake.lib import structlog
 from rmake.lib import uuid
 from rmake.lib.apirpc import RPCServer, expose
 from rmake.lib.logger import logFailure
@@ -54,7 +54,7 @@ from twisted.web.server import Site
 log = logging.getLogger(__name__)
 
 # Protocol versions of the launcher that are supported by the dispatcher
-PROTOCOL_VERSIONS = set([2])
+PROTOCOL_VERSIONS = set([3])
 
 
 class Dispatcher(deferred_service.MultiService, RPCServer):
@@ -76,13 +76,13 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
             self.clock = clock
 
         self.jobs = {}
+        self.jobLoggers = {}
         self.workers = {}
         self.tasks = {}
         self.taskQueue = []
 
         self.plugins.p.dispatcher.pre_setup(self)
         self._start_db()
-        self._start_filestore()
         self._start_bus()
         self._start_rpc()
         self.plugins.p.dispatcher.post_setup(self)
@@ -92,10 +92,6 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
         self.pool = dbpool.ConnectionPool(self.cfg.databaseUrl)
         self.pool.setServiceParent(self)
         self.db = coredb.CoreDB(self.pool)
-
-    def _start_filestore(self):
-        self.fileStore = file_store.FileStore(self.cfg)
-        self.jobLogger = file_store.openJobLogger(self.fileStore)
 
     def _start_bus(self):
         self.bus = DispatcherBusService(self, self.cfg)
@@ -163,7 +159,12 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
             handlerClass = getHandlerClass(job.job_type)
         except KeyError:
             raise RmakeError("Job type %r is unsupported" % job.job_type)
-        handler = handlerClass(self, job)
+
+        basePath = os.path.join(self.cfg.jobLogDir, str(job.job_uuid))
+        logManager = structlog.JobLogManager(basePath)
+        jobLog = logManager.getLogger()
+
+        handler = handlerClass(self, job, jobLog)
 
         if firehose:
             try:
@@ -178,6 +179,7 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
             log.info("Job %s of type '%s' started", newJob.job_uuid,
                     newJob.job_type)
             self.jobs[newJob.job_uuid] = handler
+            self.jobLoggers[newJob.job_uuid] = logManager
             handler.start()
 
             # Note that the handler will immediately send a new status, so no
@@ -231,6 +233,9 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
                 log.debug("Discarding task %s from queue", task.task_uuid)
                 self.taskQueue.remove(task)
 
+        logManager = self.jobLoggers.pop(job_uuid, None)
+        if logManager:
+            logManager.close()
         del self.jobs[job_uuid]
 
     def updateJob(self, job, frozen_handler=None):
@@ -323,12 +328,11 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
 
         self.plugins.p.dispatcher.worker_down(self, worker)
 
-    def workerLogging(self, records, task_uuid):
-        if task_uuid not in self.tasks:
-            log.warning("Discarding %d log record(s) from errant task %s",
-                    len(records), task_uuid.short)
+    def workerLogging(self, records, job_uuid, task_uuid):
+        logManager = self.jobLoggers.get(job_uuid)
+        if logManager is None:
             return
-        self.jobLogger.emitMany(records)
+        logManager.emitMany(records, task_uuid)
 
     ## Task assignment
 
