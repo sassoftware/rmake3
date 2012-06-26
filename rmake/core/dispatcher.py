@@ -34,6 +34,7 @@ from rmake import errors
 from rmake.core import admin
 from rmake.core import constants as core_const
 from rmake.core import database as coredb
+from rmake.core import log_server
 from rmake.core import support
 from rmake.core import types
 from rmake.core.handler import getHandlerClass
@@ -70,6 +71,7 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
         self.pool = None
         self.plugins = plugin_mgr
         self.firehose = None
+        self.logServer = None
 
         if clock is None:
             from twisted.internet import reactor
@@ -110,6 +112,8 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
         root.putChild('picklerpc', rpc_pickle.PickleRPCResource(self))
         self.firehose = FirehoseResource()
         root.putChild('firehose', self.firehose)
+        self.logServer = log_server.LogTreeManager(self.cfg.jobLogDir)
+        root.putChild('logs', self.logServer.getResource())
         site = Site(root, logPath=self.cfg.logPath_http)
         if self.cfg.listenPath:
             try:
@@ -168,6 +172,7 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
 
         logManager = structlog.JobLogManager(self._jobLogDir(job))
         jobLog = logManager.getLogger()
+        self.logServer.setNodeActive(logManager.getPath(None), True)
 
         handler = handlerClass(self, job, jobLog)
 
@@ -240,6 +245,7 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
         log.info("Job %s %s: %s", job_uuid, result, status.text)
 
         self._publish(job_uuid, 'self', 'finalized')
+        self._setLogActive(job_uuid, None, False)
 
         # Discard tasks that are out for processing
         handler = self.jobs[job_uuid]
@@ -280,6 +286,8 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
             handler = self.jobs[newTask.job_uuid]
             self.tasks[newTask.task_uuid] = TaskInfo(newTask, handler)
             self.taskQueue.append(newTask)
+            self._setLogActive(newTask.job_uuid, newTask.task_uuid, True)
+            # Try to assign the task immediately
             self._assignTasks()
             return newTask
         d.addCallback(cb_post_create)
@@ -296,6 +304,20 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
         if not handler:
             return
         handler.failJob(failure, "Unhandled error in dispatcher:")
+
+    def _setLogActive(self, job_uuid, task_uuid, active):
+        logManager = self.jobLoggers.get(job_uuid)
+        if not logManager:
+            return
+        logPath = logManager.getPath(task_uuid)
+        if active:
+            self.logServer.setNodeActive(logPath, True)
+        else:
+            # Allow time for any misordered messages in the pipe to take effect
+            # before finalizing.
+            # TODO: close the logfile here, too
+            self.clock.callLater(1, self.logServer.setNodeActive, logPath,
+                    False)
 
     ## Message bus API
 
@@ -318,6 +340,7 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
             if info and info.worker:
                 info.worker.tasks.pop(newTask.task_uuid, None)
             self.clock.callLater(0, self._assignTasks)
+            self._setLogActive(newTask.job_uuid, newTask.task_uuid, False)
         handler = self.jobs.get(newTask.job_uuid)
         if handler:
             handler.taskUpdated(newTask)
@@ -355,6 +378,8 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
         if logManager is None:
             return
         logManager.emitMany(records, task_uuid)
+        logPath = logManager.getPath(task_uuid)
+        self.logServer.touchNode(logPath)
 
     ## Task assignment
 

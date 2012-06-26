@@ -157,12 +157,15 @@ class JobLogManager(object):
         handler = self.handlers.get(task_uuid)
         if handler:
             return handler
-        if task_uuid:
-            path = os.path.join(self.basePath, 'task-%s.log' % task_uuid)
-        else:
-            path = os.path.join(self.basePath, 'job.log')
+        path = self.getPath(task_uuid)
         self.handlers[task_uuid] = handler = self.handlerClass(path, 'ab')
         return handler
+
+    def getPath(self, task_uuid=None):
+        if task_uuid:
+            return os.path.join(self.basePath, 'task-%s.log' % task_uuid)
+        else:
+            return os.path.join(self.basePath, 'job.log')
 
     def emitMany(self, records, task_uuid=None):
         self._get(task_uuid).emitMany(records)
