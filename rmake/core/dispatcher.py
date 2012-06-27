@@ -319,6 +319,10 @@ class Dispatcher(deferred_service.MultiService, RPCServer):
             self.clock.callLater(1, self.logServer.setNodeActive, logPath,
                     False)
 
+    def getLogPath(self, job_uuid, task_uuid=None):
+        logManager = self.jobLoggers.get(job_uuid)
+        return logManager.getPath(task_uuid)
+
     ## Message bus API
 
     def updateTask(self, task):
