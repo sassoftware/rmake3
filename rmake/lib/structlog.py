@@ -21,10 +21,11 @@ regardless of the contents of the log message.
 """
 
 
-import datetime
 import logging
 import os
 import time
+from collections import namedtuple
+from conary.lib import util
 
 
 class StructuredLogFormatter(logging.Formatter):
@@ -50,9 +51,13 @@ class StructuredLogFormatter(logging.Formatter):
         return '%x %s' % (size, payload)
 
 
+_LogLine = namedtuple('_LogLine',
+        'timestamp level name message startPos endPos raw')
+
+
 class StructuredLogParser(object):
 
-    def __init__(self, stream, asRecords=False):
+    def __init__(self, stream, asRecords=True):
         self.stream = stream
         self.asRecords = asRecords
 
@@ -60,35 +65,41 @@ class StructuredLogParser(object):
         return self
 
     def next(self):
+        startPos = self.stream.tell()
         buf = ''
         while True:
             d = self.stream.read(1)
             if not d:
+                self.stream.seek(startPos)
                 raise StopIteration
+            buf += d
             if d == ' ':
                 break
             if not (('0' <= d <= '9') or ('a' <= d <= 'f')):
                 raise ValueError("malformed logfile")
-            buf += d
         size = int(buf, 16)
         payload = self.stream.read(size)
         if len(payload) < size:
+            self.stream.seek(startPos)
             raise StopIteration
+        endPos = startPos + len(buf) + size
         timestamp, level, name, message = payload.split(' ', 3)
         level = int(level)
         message = message[:-1]  # remove newline
-
-        # Trick strptime into parsing UTC timestamps
-        # [1970-01-01T00:00:00.000000Z] -> 1970-01-01T00:00:00 UTC
-        parseable = timestamp[1:-9] + ' UTC'
-        timetup = time.strptime(parseable, '%Y-%m-%dT%H:%M:%S %Z')
-        microseconds = int(timestamp[-8:-2])
+        logLine = _LogLine(timestamp, level, name, message, startPos, endPos,
+                buf + payload)
 
         if self.asRecords:
+            # Trick strptime into parsing UTC timestamps
+            # [1970-01-01T00:00:00.000000Z] -> 1970-01-01T00:00:00 UTC
+            parseable = timestamp[1:-9] + ' UTC'
+            timetup = time.strptime(parseable, '%Y-%m-%dT%H:%M:%S %Z')
+            microseconds = int(timestamp[-8:-2])
+
             # Trick mktime into epoch-izing UTC timestamps
             timetup = timetup[:8] + (0,)  # Set DST off
             epoch = time.mktime(timetup) - time.timezone
-            epoch += int(timestamp[-8:-2]) / 1e6  # Add microseconds
+            epoch += microseconds / 1e6  # Add microseconds
 
             record = logging.LogRecord(
                     name=name,
@@ -104,9 +115,7 @@ class StructuredLogParser(object):
             record.relativeCreated = 0
             return record
         else:
-            timetup = timetup[:6] + (microseconds,)
-            timestamp = datetime.datetime(*timetup)
-            return timestamp, level, name, message
+            return logLine
 
 
 class BulkHandler(object):
@@ -167,6 +176,12 @@ class JobLogManager(object):
         else:
             return os.path.join(self.basePath, 'job.log')
 
+    def getAllPaths(self):
+        out = []
+        for name in self.handlers:
+            out.append(self.getPath(name))
+        return out
+
     def emitMany(self, records, task_uuid=None):
         self._get(task_uuid).emitMany(records)
 
@@ -186,3 +201,56 @@ class JobLogManager(object):
         for handler in self.handlers.values():
             handler.close()
         self.handlers = {}
+
+
+def _softIter(iterable):
+    try:
+        return iterable.next()
+    except StopIteration:
+        return None
+
+
+def _splitLog(inFile):
+    """
+    Split a logfile into a series of subfiles at each boundary where the
+    timestamp goes backwards
+    """
+    firstByte = 0
+    lastByte = 0
+    lastStamp = None
+    regions = []
+    for record in StructuredLogParser(inFile, asRecords=False):
+        timestamp = record.timestamp
+        if timestamp <= lastStamp:
+            # Timestamp went backwards, start a new segment
+            regions.append((firstByte, lastByte))
+            firstByte = lastByte
+        lastByte = inFile.tell()
+        lastStamp = timestamp
+    if firstByte != lastByte:
+        regions.append((firstByte, lastByte))
+    return [util.SeekableNestedFile(inFile, end - start, start)
+            for (start, end) in regions]
+
+
+def mergeLogs(inFiles, sort=True):
+    if not inFiles:
+        return
+    if sort:
+        # Sort records within an invididual log by breaking them apart wherever
+        # a discontinuity exists
+        splitFiles = []
+        for inFile in inFiles:
+            splitFiles.extend(_splitLog(inFile))
+        inFiles = splitFiles
+    # Get the first record from each file
+    parsers = [StructuredLogParser(fobj, asRecords=True) for fobj in inFiles]
+    nextRecord = [_softIter(x) for x in parsers]
+    while True:
+        if not any(nextRecord):
+            break
+        # Find which record from all files that has the lowest timestamp
+        n = min((x.created, n) for (n, x) in enumerate(nextRecord) if x)[1]
+        yield nextRecord[n]
+        # Grab the next one from the same file
+        nextRecord[n] = _softIter(parsers[n])
