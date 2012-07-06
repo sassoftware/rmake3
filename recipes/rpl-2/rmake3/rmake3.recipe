@@ -57,6 +57,7 @@ class RmakeRecipe(CPackageRecipe):
                 '/var/run/%(name)s',
                 )
         r.ExcludeDirectories(exceptions='%(srvdir)s.*')
+        r.SetModes(0700, '%(srvdir)s')
 
         # library
         r.Requires(exceptDeps='python: epdb')

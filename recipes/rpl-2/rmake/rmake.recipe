@@ -57,6 +57,7 @@ class RmakeRecipe(CPackageRecipe):
                 '/var/run/%(name)s',
                 )
         r.ExcludeDirectories(exceptions='%(srvdir)s.*')
+        r.SetModes(0700, '%(srvdir)s')
 
         # library
         r.Requires(exceptDeps='python: epdb')
@@ -66,11 +67,11 @@ class RmakeRecipe(CPackageRecipe):
         chpath = '%(prefix)s/libexec/rmake/chroothelper'
         r.SetModes(chpath, 04755)
         r.Provides('file', chpath)
-        #r.Requires('file: ' + chpath, 'rootfactory.py')
+        r.Requires('file: ' + chpath, 'rootfactory.py')
         r.Requires('busybox:runtime', chpath)
         r.UtilizeUser('rmake-chroot', chpath)
         r.UtilizeGroup('rmake-chroot', chpath)
-        r.ResolveFileDependencies(exceptions=chpath) # HACK until CNP-198
+        r.ResolveFileDependencies(exceptions=chpath) # HACK until CNP-199
 
         ## package rmake-tests
         r.PackageSpec('%(name)s-tests',
