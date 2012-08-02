@@ -24,15 +24,17 @@ class Serializer(object):
         self._lock = defer.DeferredLock()
         self._waiting = {}
 
-    def call(self, func, collapsible=False):
+    def call(self, func, args=(), kwargs=None, collapsible=False):
         d = self._lock.acquire()
         self._waiting[d] = collapsible
+        if not kwargs:
+            kwargs = {}
         @d.addCallback
         def _locked(_):
             if collapsible and len(self._waiting) > 1:
                 # Superseded
                 return
-            return func()
+            return func(*args, **kwargs)
         @d.addBoth
         def _unlock(result):
             self._lock.release()
