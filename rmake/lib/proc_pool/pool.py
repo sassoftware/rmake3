@@ -128,10 +128,10 @@ class ProcessPool(service.Service):
             log.info("Terminating worker %r with signal %d", child, signum)
             child.signalProcess(signum)
             if signals:
-                delayCall[0] = reactor.callLater(1, _killProcess)
+                delayCall[0] = reactor.callLater(3, _killProcess)
             else:
                 delayCall[0] = None
-        delayCall = [reactor.callLater(1, _killProcess)]
+        delayCall = [reactor.callLater(3, _killProcess)]
 
         # Stop the kill cycle once the process has exited.
         onExit = child.finished
