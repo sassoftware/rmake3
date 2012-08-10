@@ -16,20 +16,24 @@
 #
 
 
-import marshal
-
 from rmake.build import buildjob
 from rmake.worker import chroot
 from rmake.worker import node
 
 from rmake.lib.apiutils import thaw, freeze
 
+
 def toBuildFlavors(frz):
-    lst = marshal.loads(frz)
-    return [ thaw('flavor', x) for x in lst ]
+    if '\\000' in frz or '\0' in frz:
+        # Looks like the old marshal-based format, just ignore it
+        return []
+    else:
+        return [ thaw('flavor', x) for x in frz.splitlines() ]
+
 
 def fromBuildFlavors(flavorList):
-    return marshal.dumps([freeze('flavor', x) for x in flavorList])
+    return '\n'.join([freeze('flavor', x) for x in flavorList])
+
 
 class NodeStore(object):
     def __init__(self, db):
