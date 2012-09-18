@@ -38,7 +38,6 @@ class RmakeRecipe(CPackageRecipe):
             r.macros.prefix = '/opt/%(name)s'
         r.macros.confdir = '/etc/%(name)s'
         r.macros.srvdir = '/srv/%(name)s'
-        r.macros.initdir = '%(sysconfdir)s/rc.d/init.d'
         r.addMercurialSnapshot('http://hg.rpath.com/rmake')
         r.MakeInstall(
             'PKGNAME=%(name)s '
@@ -46,6 +45,7 @@ class RmakeRecipe(CPackageRecipe):
             'prefix=%(prefix)s '
             # Use regular prefix for python code so things are importable
             'libdir=/usr/%(lib)s '
+            'initdir=%(initdir)s '
             )
         r.CompilePython('/')
 
