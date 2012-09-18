@@ -24,13 +24,13 @@ class RmakeRecipe(CPackageRecipe):
         'conary:python',
         'conary-repository:python',
         'libcap-devel:rpm',
-        'python-m2crypto:rpm',
         'python-psycopg2:python',
         'python-devel:rpm',
         'python-setuptools:rpm',
         'python-twisted:python',
         'python-txpostgres:python',
         'python-wokkel:python',
+        'm2crypto:rpm',
     ]
 
     def setup(r):
