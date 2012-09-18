@@ -38,6 +38,7 @@ class RmakeRecipe(CPackageRecipe):
             r.macros.prefix = '/opt/%(name)s'
         r.macros.confdir = '/etc/%(name)s'
         r.macros.srvdir = '/srv/%(name)s'
+        r.macros.initdir = '%(syscondir)s/rc.d/init.d'
         r.addMercurialSnapshot('http://hg.rpath.com/rmake')
         r.MakeInstall(
             'PKGNAME=%(name)s '
