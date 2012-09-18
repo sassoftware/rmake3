@@ -103,3 +103,5 @@ class RmakeRecipe(CPackageRecipe):
                 )
         r.Provides('file', '%(binpath)s/rmake-dispatcher')
         r.Requires('%(name)s:python(%(version)s)', '%(binpath)s/rmake-dispatcher')
+
+        r.NormalizeInitscriptContents(exceptions='%(initdir)s/.*')
