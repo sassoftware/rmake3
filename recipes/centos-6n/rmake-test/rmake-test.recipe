@@ -1,0 +1,60 @@
+#
+# Copyright (c) rPath, Inc.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+
+loadSuperClass('testpackage')
+class RMakeTest(CPackageRecipe, TestPackageRecipe):
+    name = 'rmake-test'
+    version = '1.0'
+
+    buildRequires = [
+        'conary-build:python',
+        'conary-repository:python',
+        'conary:runtime',
+        'conary-test:python',
+        'coreutils:rpm',
+        'gnupg2:rpm',
+        'net-tools:rpm',
+        'openssl:rpm',
+        'perl:rpm',
+        'procps:rpm',
+        'python-devel:rpm',
+        'rmake-multinode-server:config',
+        'rmake-multinode-server:data',
+        'rmake:python',
+        'rmake:runtime',
+        'testutils:runtime',
+      ]
+
+    Flags.coverage = False
+    testDir = '.'
+
+    def setup(r):
+        r.addMercurialSnapshot('http://scc.eng.rpath.com/rmake-private')
+
+        if Flags.test:
+            r.run_tests(do_coverage=Flags.coverage, args='rmake_test.unit_test')
+
+        # Install the testsuite so that other testsuites can consume it
+        r.macros.sitepkgs = '%(libdir)s/python%(pyver)s/site-packages'
+        r.macros.archive = '%(sitepkgs)s/rmake_test/archive'
+        r.MakeDirs('%(sitepkgs)s')
+        r.Run('cp -a rmake_test %(destdir)s%(sitepkgs)s/rmake_test')
+        r.NormalizeCompression(exceptions='%(archive)s/.*')
+        r.Requires(exceptions='%(archive)s/.*')
+        r.Provides(exceptions='%(archive)s/.*')
+        r.Flavor(exceptions='%(archive)s/.*')

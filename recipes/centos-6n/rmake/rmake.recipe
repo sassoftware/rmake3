@@ -1,0 +1,171 @@
+#
+# Copyright (c) rPath, Inc.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+
+class RmakeRecipe(CPackageRecipe):
+    name = 'rmake'
+    version = '2.0.0'
+
+    buildRequires = [
+        'conary:python',
+        'conary-repository:python',
+        'info-rmake-chroot:user',
+        'info-rmake:user',
+        'libcap-devel:rpm',
+        'm2crypto:rpm',
+        'python-devel:rpm',
+    ]
+
+    def setup(r):
+        r.addMercurialSnapshot('http://scc.eng.rpath.com/products/rmake/trunk/rmake/')
+
+        r.addSource('server.conf', dest='%(sysconfdir)s/rmake/serverrc',
+                    macros=True)
+        r.addSource('client.conf', dest='%(sysconfdir)s/rmake/rmakerc',
+                    macros=True)
+
+
+        r.InitialContents('%(sysconfdir)s/rmake/(serverrc|rmakerc)')
+
+        r.Make('libdir=%(libdir)s')
+        r.MakeInstall('libdir=%(libdir)s')
+
+        r.MakeDirs('%(localstatedir)s/{lib,log,run}/rmake')
+        r.MakeDirs('%(localstatedir)s/rmake', mode=0700)
+        r.MakeDirs('%(localstatedir)s/rmake/{chroots,archive,chrootcache}',
+                   mode=0700)
+        r.MakeDirs('%(servicedir)s/rmake', mode=0700)
+        r.MakeDirs('%(sysconfdir)s/rmake/{server,client}.d')
+        r.Ownership('rmake', 'rmake',
+                    '%(localstatedir)s/rmake',
+                    '%(localstatedir)s/rmake/chroots',
+                    '%(localstatedir)s/rmake/archive',
+                    '%(localstatedir)s/rmake/chrootcache',
+                    '%(localstatedir)s/(lib|log|run)/rmake',
+                    '%(servicedir)s/rmake',
+                    '%(libexecdir)s/rmake')
+        r.ExcludeDirectories(exceptions='%(localstatedir)s/(lib|log|run)/rmake')
+        r.ExcludeDirectories(exceptions='%(localstatedir)s/rmake')
+        r.ExcludeDirectories(exceptions='%(localstatedir)s/rmake/chroots')
+        r.ExcludeDirectories(exceptions='%(localstatedir)s/rmake/archive')
+        r.ExcludeDirectories(exceptions='%(localstatedir)s/rmake/chrootcache')
+        r.ExcludeDirectories(exceptions='%(servicedir)s/rmake')
+        r.ExcludeDirectories(exceptions='%(sysconfdir)s/rmake')
+        r.ExcludeDirectories(exceptions='%(sysconfdir)s/rmake/client.d')
+        r.ExcludeDirectories(exceptions='%(sysconfdir)s/rmake/server.d')
+
+        r.ComponentSpec('libexec', 'chroothelper',
+                                   '%(localstatedir)s/rmake',
+                                   '%(localstatedir)s/rmake/.*',
+                                   '%(localstatedir)s/run/rmake')
+        r.SetModes('%(libexecdir)s/rmake/chroothelper', 04755)
+        r.Requires('rmake:libexec', 'rootfactory.py')
+        r.Requires('/sbin/busybox',
+                   '%(libexecdir)s/rmake/chroothelper')
+        r.Requires(exceptDeps='python: (epdb|rmake.cmdline.password)')
+        r.ComponentProvides('%(version)s')
+        r.UtilizeUser('rmake-chroot', '%(libexecdir)s/rmake/chroothelper')
+        r.UtilizeGroup('rmake-chroot', '%(libexecdir)s/rmake/chroothelper')
+        r.Doc('extra/plugins/*.py')
+
+
+        ## package rmake-proxy
+        r.macros.proxydir = '%(servicedir)s/rmake-proxy'
+        r.macros.proxyport = '7778'
+        r.addSource('rmake-proxy.conf',
+                    dir = '/etc/httpd/conf.d/', macros=True,
+                    package='rmake-proxy')
+        r.addSource('rmake-proxy.cnr',
+                    dir = '%(proxydir)s/config/', macros=True,
+                    package='rmake-proxy')
+        r.addSource('rmake-proxy-cleanup', dest = '/etc/cron.daily/',
+                    macros=True,
+                    package='rmake-proxy', mode=0755)
+        r.Create('%(sysconfdir)s/rmake/server.d/proxy',
+                 contents='proxy http://localhost:%(proxyport)s/',
+                 package='rmake-proxy')
+        for x in [ 'cscache', 'contents', 'tmp' ]:
+            dir = '%%(proxydir)s/%s' % x
+            r.MakeDirs(dir)
+            r.Ownership('apache', 'apache', dir)
+            r.SetModes(dir, 0700)
+
+        r.PackageSpec('rmake-proxy',
+                      '%(proxydir)s/',
+                      '/etc/httpd/conf.d/rmake-proxy.conf',
+                      '/etc/cron.daily/rmake-proxy-cleanup',
+                      '%(sysconfdir)s/rmake/server.d/proxy')
+        r.ExcludeDirectories(exceptions='%(proxydir)s.*')
+
+        # Runtime dependencies
+        r.Requires('mod_python:rpm', '/etc/httpd/conf.d/rmake-proxy.conf')
+
+
+        ## package rmake-repos
+        r.macros.reposdir = '%(servicedir)s/rmake-repos'
+        r.macros.reposport = '7777'
+        r.addSource('rmake-repos.conf',
+                    dir = '/etc/httpd/conf.d/', macros=True,
+                    package='rmake-repos')
+        r.addSource('rmake-repos.cnr',
+                    dir = '%(reposdir)s/config/', macros=True,
+                    package='rmake-repos')
+        r.addSource('rmake-resetrepos', dir='%(sbindir)s', macros=True,
+                    mode=0755)
+        r.Create('%(sysconfdir)s/rmake/server.d/repos',
+                 contents='''
+serverUrl http://localhost:%(reposport)s/conary/
+serverName localhost
+''',
+                 package='rmake-repos')
+        for x in [ 'cscache', 'contents', 'tmp', 'db' ]:
+            dir = '%%(reposdir)s/%s' % x
+            r.MakeDirs(dir)
+            r.Ownership('apache', 'apache', dir)
+            r.SetModes(dir, 0700)
+
+        r.PackageSpec('rmake-repos',
+                      '%(reposdir)s/',
+                      '/etc/httpd/conf.d/rmake-repos.conf',
+                      '%(sbindir)s/rmake-resetrepos',
+                      '%(sysconfdir)s/rmake/server.d/repos')
+
+        # Runtime dependencies
+        r.Requires('mod_python:runtime', '/etc/httpd/conf.d/rmake-repos.conf')
+
+
+        ## package rmake-node
+        # This package has files required on individual build nodes
+        # controlled by a head node
+        r.PackageSpec('rmake-node',
+                      '%(initdir)s/rmake-node',
+                      '%(sbindir)s/rmake-node',
+                      '%(mandir)s/.*rmake-node.*')
+        r.Requires('rmake:python(%(version)s)', '%(sbindir)s/rmake-node')
+
+
+        ## package rmake-multinode-server
+        # This package has files required on the head node that controls
+        # all the individual build nodes that are connected to it
+        r.Create('%(sysconfdir)s/rmake/client.d/00_rmake_multinode',
+                 contents='rmakeUrl https://localhost')
+        r.PackageSpec('rmake-multinode-server',
+                      '.*/rmake/plugins/multinode/.*',
+                      '%(sysconfdir)s/rmake/client.d/00_rmake_multinode')
+        r.Requires('rmake:python(%(version)s)', 'rmake_node/__init__.py')
+        # Avoid rpl-2-py26 <-> fl:2 compatibility issues
+        r.Requires(exceptDeps='file: /etc/init.d/functions')
