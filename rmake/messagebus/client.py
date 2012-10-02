@@ -23,8 +23,6 @@ This includes a client protocol, factory, and XMLRPC proxy.
 """
 
 
-from twisted.internet import defer
-
 from rmake.lib.jabberlink import cred as jcred
 from rmake.lib.jabberlink import client as jclient
 from rmake.lib.jabberlink import message as jmessage
@@ -65,14 +63,9 @@ class _BaseService(jclient.LinkClient):
             self.listenNeighbor(jid)
         self.link.addMessageHandler(MessageHandler(self))
 
-    def sendTo(self, jid, message, wait=False):
+    def sendTo(self, jid, message):
         jmsg = message.to_jmessage()
-        d = self.link.sendWithDeferred(jid, jmsg)
-        if wait:
-            return d
-        # If you don't wait for delivery, errors are always discarded.
-        d.addErrback(lambda _: None)
-        return defer.succeed(None)
+        self.link.sendTo(jid, jmsg)
 
     def postStartService(self):
         return self.deferUntilConnected()
@@ -104,8 +97,8 @@ class BusClientService(_BaseService):
 
         self.connectNeighbor(self.cfg.dispatcherJID)
 
-    def sendToTarget(self, message, wait=False):
-        return self.sendTo(self.targetJID, message, wait)
+    def sendToTarget(self, message):
+        return self.sendTo(self.targetJID, message)
 
     def isConnected(self):
         neighbor = self.link._findNeighbor(self.targetJID)

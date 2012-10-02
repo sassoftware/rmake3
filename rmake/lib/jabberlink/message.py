@@ -29,15 +29,11 @@ class Message(object):
 
     max_frame = 32768
 
-    def __init__(self, message_type, payload='', headers=(), in_reply_to=None,
+    def __init__(self, message_type, payload='', headers=(),
             more=False, seq=None):
         self.message_type = message_type
         self.payload = payload
         self.headers = dict(headers)
-        if isinstance(in_reply_to, Message):
-            assert in_reply_to.seq is not None
-            in_reply_to = in_reply_to.seq
-        self.in_reply_to = in_reply_to
         self.more = more
         self.seq = seq
 
@@ -56,8 +52,6 @@ class Message(object):
                 headers = dict(self.headers)
                 headers['type'] = unicode(self.message_type)
                 headers['transport-encoding'] = 'base64'
-                if self.in_reply_to is not None:
-                    headers['in-reply-to'] = unicode(self.in_reply_to)
                 if self.more:
                     headers['more'] = 'true'
             else:
@@ -78,9 +72,6 @@ class Message(object):
 
         message_type = headers.pop('type')
         transport_encoding = headers.pop('transport-encoding')
-        in_reply_to = headers.pop('in-reply-to', None)
-        if in_reply_to is not None:
-            in_reply_to = long(in_reply_to)
         more = headers.pop('more', '').lower() == 'true'
 
         if transport_encoding == 'base64':
@@ -89,8 +80,7 @@ class Message(object):
             log.error("Discarding message with unknown payload coding %r" %
                     (transport_encoding,))
             return None
-        return cls(message_type, payload, headers, in_reply_to, more,
-                frames[0].seq)
+        return cls(message_type, payload, headers, more, frames[0].seq)
 
 
 class Frame(object):

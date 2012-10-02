@@ -94,15 +94,6 @@ class LinkHandler(XMPPHandler):
         jid = toJID(jid)
         self._findNeighbor(jid).send(message)
 
-    def sendWithDeferred(self, jid, message):
-        jid = toJID(jid)
-        return self._findNeighbor(jid).sendWithDeferred(message)
-
-    def sendWithCallbacks(self, jid, message, callback, *args, **kwargs):
-        jid = toJID(jid)
-        self._findNeighbor(jid).sendWithCallbacks(message, callback,
-                *args, **kwargs)
-
     def deferUntilConnected(self):
         if self.jid:
             return defer.succeed(None)
@@ -231,8 +222,6 @@ class Neighbor(object):
         self.out_buf = []
         self.in_buf = []
 
-        self.callbacks = {}
-
     def neighborUp(self, fullJID):
         if not self.isAvailable:
             self._setAvailable(fullJID)
@@ -342,22 +331,6 @@ class Neighbor(object):
         self.out_seq_ackd += 1
         self._do_send()
 
-    def sendWithCallbacks(self, message, callback, *args, **kwargs):
-        self.send(message)
-        self.callbacks.setdefault(message.seq, []).append((callback, args,
-            kwargs))
-
-    def sendWithDeferred(self, message):
-        d = defer.Deferred()
-        results = []  # accumulator for incoming replies
-        self.sendWithCallbacks(message, self._deferred_reply, d, results)
-        return d
-
-    def _deferred_reply(self, message, d, results):
-        results.append(message)
-        if not message.more:
-            d.callback(results)
-
     # Receiving
 
     def onFrame(self, iq):
@@ -392,16 +365,5 @@ class Neighbor(object):
             message = Message.join(frames)
             if not message:
                 continue
-
             message.sender = self.jid
-
-            usedCallback = False
-            if message.in_reply_to in self.callbacks:
-                for func, args, kwargs in self.callbacks[message.in_reply_to]:
-                    func(message, *args, **kwargs)
-                    usedCallback = True
-                if not message.more:
-                    del self.callbacks[message.in_reply_to]
-
-            if not usedCallback:
-                self.link.onMessage(self, message)
+            self.link.onMessage(self, message)
