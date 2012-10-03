@@ -63,9 +63,12 @@ class _BaseService(jclient.LinkClient):
             self.listenNeighbor(jid)
         self.link.addMessageHandler(MessageHandler(self))
 
-    def sendTo(self, jid, message):
+    def sendTo(self, jid, message, wait=False):
         jmsg = message.to_jmessage()
-        self.link.sendTo(jid, jmsg)
+        if wait:
+            return self.link.sendWithDeferred(jid, jmsg)
+        else:
+            self.link.sendTo(jid, jmsg)
 
     def postStartService(self):
         return self.deferUntilConnected()
@@ -97,8 +100,8 @@ class BusClientService(_BaseService):
 
         self.connectNeighbor(self.cfg.dispatcherJID)
 
-    def sendToTarget(self, message):
-        return self.sendTo(self.targetJID, message)
+    def sendToTarget(self, message, wait=False):
+        return self.sendTo(self.targetJID, message, wait)
 
     def isConnected(self):
         neighbor = self.link._findNeighbor(self.targetJID)
