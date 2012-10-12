@@ -41,8 +41,12 @@ class RmakeRecipe(CPackageRecipe):
 
         r.InitialContents('%(sysconfdir)s/rmake/(serverrc|rmakerc)')
 
-        r.Make('libdir=%(libdir)s')
-        r.MakeInstall('libdir=%(libdir)s')
+        makeargs = (
+            'libdir=%(libdir)s '
+            'initdir=%(initdir)s '
+            )
+        r.Make(makeargs)
+        r.MakeInstall(makeargs)
 
         r.MakeDirs('%(localstatedir)s/{lib,log,run}/rmake')
         r.MakeDirs('%(localstatedir)s/rmake', mode=0700)
