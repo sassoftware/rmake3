@@ -172,4 +172,5 @@ serverName localhost
                       '%(sysconfdir)s/rmake/client.d/00_rmake_multinode')
         r.Requires('rmake:python(%(version)s)', 'rmake_node/__init__.py')
         # Avoid rpl-2-py26 <-> fl:2 compatibility issues
-        r.Requires(exceptDeps='file: /etc/init.d/functions')
+
+        r.NormalizeInitscriptContents(exceptions='%(initdir)s/.*')
