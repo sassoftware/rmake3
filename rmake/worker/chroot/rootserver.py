@@ -131,8 +131,7 @@ class ChrootServer(apirpc.XMLApiServer):
         logPath, pid, buildInfo = cook.cookTrove(buildCfg, repos, self._logger,
                                                  name, version, flavorList,
                                                  targetLabel, loadSpecsList,
-                                                 builtTroves, logData,
-                                                 buildReqs, crossReqs)
+                                                 logData, buildReqs, crossReqs)
         pid = buildInfo[1]
         self._buildInfo[name, version, flavorList] = buildInfo
         return logPath, pid

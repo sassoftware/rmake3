@@ -39,7 +39,6 @@ from rmake.lib import logfile
 from rmake.lib import pipereader
 from rmake.lib import recipeutil
 from rmake.lib.apiutils import thaw, freeze
-from rmake.worker import resolvesource
 
 
 class CookResults(object):
@@ -105,7 +104,7 @@ class CookResults(object):
 
 
 def cookTrove(cfg, repos, logger, name, version, flavorList, targetLabel,
-              loadSpecsList=None, builtTroves=None, logData=None,
+              loadSpecsList=None, logData=None,
               buildReqs=None, crossReqs=None):
     if not isinstance(flavorList, (tuple, list)):
         flavorList = [flavorList]
@@ -141,7 +140,7 @@ def cookTrove(cfg, repos, logger, name, version, flavorList, targetLabel,
                 log.setVerbosity(log.DEBUG)
                 log.info("Cook process started (pid %s)" % os.getpid())
                 _cookTrove(cfg, repos, name, version, flavorList, targetLabel,
-                           loadSpecsList, builtTroves,
+                           loadSpecsList,
                            csFile, buildReqs=buildReqs, crossReqs=crossReqs,
                            failureFd=outF, logger=logger)
             except Exception, msg:
@@ -244,7 +243,7 @@ def _buildFailed(failureFd, errMsg, traceBack=''):
     os._exit(1)
 
 def _cookTrove(cfg, repos, name, version, flavorList, targetLabel,
-               loadSpecsList, builtTroves, csFile, buildReqs, crossReqs,
+               loadSpecsList, csFile, buildReqs, crossReqs,
                failureFd, logger):
     baseFlavor = cfg.buildFlavor
     db = database.Database(cfg.root, cfg.dbPath)
@@ -325,27 +324,6 @@ def _cookTrove(cfg, repos, name, version, flavorList, targetLabel,
             and hasattr(cfg, 'defaultBuildReqs')):
             for recipeClass in recipeClasses:
                 recipeClass.buildRequires += cfg.defaultBuildReqs
-
-        if builtTroves:
-            # FIXME: is this cached?
-            builtTroves = repos.getTroves(builtTroves, withFiles=False)
-
-            builtTroves = resolvesource.BuiltTroveSource(builtTroves, repos)
-            builtTroves.searchAsRepository()
-            if targetLabel:
-                builtTroves = recipeutil.RemoveHostSource(builtTroves,
-                                                          targetLabel.getHost())
-            else:
-                builtTroves = recipeutil.RemoveHostSource(builtTroves,
-                                              version.trailingLabel().getHost())
-
-            # this should only make a difference when cooking groups, redirects,
-            # etc.
-            oldRepos = repos
-            repos = resolvesource.DepHandlerSource(builtTroves,
-                                                   None,
-                                                   repos)
-            repos.TROVE_QUERY_ALL = oldRepos.TROVE_QUERY_ALL
 
         # if we're already on the target label, we'll assume no targeting 
         # is necessary
