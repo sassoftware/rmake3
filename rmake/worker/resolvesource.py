@@ -16,13 +16,12 @@
 #
 
 
-import copy
 import itertools
 from conary.deps import deps
 from conary.local import deptable
 
 from conary.conaryclient import resolve
-from conary.repository import findtrove,trovesource
+from conary.repository import trovesource
 
 from rmake.lib import flavorutil
 
@@ -183,7 +182,6 @@ class TroveSourceMesh(trovesource.SearchableTroveSource):
         else:
             map = {}
             newQuery = list(query)
-            labelDict = {}
             names = [(x[0], x[1][0], x[1][2]) for x in enumerate(query)]
             for idx, name, flavor in names:
                 labels = set(x[1].trailingLabel() for x in
@@ -286,7 +284,7 @@ class TroveSourceMesh(trovesource.SearchableTroveSource):
                 results.setdefault(troveSpec, []).extend(troveTups)
         if not allowMissing:
             for troveSpec in troveSpecs:
-                assert(troveSpec in finalResults)
+                assert(troveSpec in results)
         return results
 
     def resolveDependencies(self, label, depList, *args, **kw):
@@ -330,7 +328,6 @@ class DepHandlerSource(TroveSourceMesh):
             self.resolveTroveSource = troveListList
         else:
             if troveListList:
-                troveSources = []
                 for troveList in troveListList:
                     allTroves = [ x.getNameVersionFlavor() for x in troveList ]
                     childTroves = itertools.chain(*
@@ -425,7 +422,6 @@ class ResolutionMesh(resolve.BasicResolutionMethod):
             if depSet not in suggMap2:
                 suggMap2[depSet] = [[] for x in depSet.iterDeps() ]
         for depSet, results in suggMap.iteritems():
-            finalResults = []
             mainResults = suggMap2[depSet]
             for troveList1, troveList2 in itertools.izip(results, mainResults):
                 troveList2.extend(troveList1)

@@ -233,9 +233,13 @@ class Builder(object):
         logDir = self.serverCfg.getBuildLogDir(self.job.jobId)
         util.mkdirChain(logDir)
         specialTroves = [ x for x in buildTroves if x.isSpecial() ]
+        resolverCachePath = (self.serverCfg.useResolverCache
+                and self.serverCfg.getResolverCachePath())
         self.dh = dephandler.DependencyHandler(self.job.getPublisher(),
                 self.logger, regularTroves, specialTroves, logDir,
-                dumbMode=self.buildCfg.isolateTroves)
+                dumbMode=self.buildCfg.isolateTroves,
+                resolverCachePath=resolverCachePath,
+                )
         if not self._checkBuildSanity(buildTroves):
             return False
         return True

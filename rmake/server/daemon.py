@@ -45,7 +45,8 @@ class ResetCommand(daemon.DaemonCommand):
 
     def runCommand(self, daemon, cfg, argSet, args):
         for dir in (cfg.getReposDir(), cfg.getBuildLogDir(),
-                    cfg.getDbContentsPath(), cfg.getProxyDir()):
+                    cfg.getDbContentsPath(), cfg.getProxyDir(),
+                    cfg.getResolverCachePath()):
             if os.path.exists(dir):
                 print "Deleting %s" % dir
                 shutil.rmtree(dir)

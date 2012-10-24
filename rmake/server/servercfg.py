@@ -181,6 +181,7 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
     sslCertPath       = (CfgPath, '/srv/rmake/certs/rmake-server-cert.pem')
     caCertPath        = CfgPath
     reposUser         = CfgUserInfo
+    useResolverCache  = (CfgBool, True)
 
     dbPath            = dbstore.CfgDriver
 
@@ -275,6 +276,9 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
     def getSubscriberLogPath(self):
         return self.logDir + '/subscriber.log'
 
+    def getResolverCachePath(self):
+        return self.serverDir + '/resolvercache'
+
     def getRepositoryMap(self):
         url = self.translateUrl(self.reposUrl)
         return { self.reposName : url }
@@ -363,6 +367,9 @@ class rMakeConfiguration(rMakeBuilderConfiguration):
             if not os.access(self[path], os.W_OK):
                 log.error('user "%s" cannot write to %s at %s - cannot start server' % (currUser, path, self[path]))
                 sys.exit(1)
+
+        if self.useResolverCache:
+            util.mkdirChain(self.getResolverCachePath())
 
     def reposRequiresSsl(self):
         return urllib.splittype(self.reposUrl)[0] == 'https'

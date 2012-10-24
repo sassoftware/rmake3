@@ -20,12 +20,17 @@
 Dependency Handler and DependencyState classes
 """
 
+import errno
 import itertools
+import os
 import sys
 import traceback
+import xmlrpclib
 
 from conary.deps import deps
+from conary.lib import digestlib
 from conary.lib import graph
+from conary.lib import util
 from conary import display
 from conary import trove
 from conary import versions
@@ -69,6 +74,20 @@ class ResolveJob(object):
         # for other troves that are being cross compiled.  This is 
         # only important when cross compiling for your current arch.
         return self.crossTroves
+
+    def getJobHash(self):
+        # Disqualify anything other than a simple, isolated build.
+        if self.inCycle or self.builtTroves or self.crossTroves:
+            return None
+        # Hash all the inputs to the resolver so that the result can be cached.
+        inputs = [
+                '\0'.join(sorted(self.trove.getBuildRequirements())),
+                '\0'.join(sorted(self.trove.getCrossRequirements())),
+                '\0'.join(str(x) for x in self.buildCfg.flavor),
+                '\1'.join('\0'.join(sorted(str(y) for y in x))
+                    for x in self.buildCfg.resolveTroveTups),
+                ]
+        return digestlib.sha1('\2'.join(inputs)).hexdigest()
 
     def __freeze__(self):
         d = dict(trove=freeze('BuildTrove', self.trove),
@@ -427,7 +446,7 @@ class DependencyHandler(object):
         Updates what troves are buildable based on dependency information.
     """
     def __init__(self, statusLog, logger, buildTroves, specialTroves,
-            logDir=None, dumbMode=False):
+            logDir=None, dumbMode=False, resolverCachePath=None):
         self.depState = DependencyBasedBuildState(buildTroves, specialTroves,
                                                   logger)
         self.logger = logger
@@ -445,6 +464,10 @@ class DependencyHandler(object):
         self._possibleDuplicates = {}
         self._prebuiltBinaries = set()
         self._hasPrimaryTroves = self.depState.hasPrimaryTroves
+        if resolverCachePath:
+            self._resolverCache = ResolverCache(resolverCachePath)
+        else:
+            self._resolverCache = None
 
         statusLog.subscribe(statusLog.TROVE_BUILT, self.troveBuilt)
         statusLog.subscribe(statusLog.TROVE_PREPARED, self.trovePrepared)
@@ -694,8 +717,16 @@ class DependencyHandler(object):
             builtTroves = self.depState.getAllBinaries()
             crossTroves = []
 
-        return ResolveJob(buildTrove, buildTrove.cfg, builtTroves, crossTroves,
+        job = ResolveJob(buildTrove, buildTrove.cfg, builtTroves, crossTroves,
                           inCycle=inCycle)
+        if self._resolverCache:
+            hash = job.getJobHash()
+            result = self._resolverCache.get(hash)
+            if result:
+                self.logger.info("Using cached resolver result %s", hash)
+                self.resolutionComplete(buildTrove, result)
+                return None
+        return job
 
     def prioritize(self, trv):
         self.priorities.append(trv)
@@ -906,6 +937,8 @@ class DependencyHandler(object):
         if trv in self.priorities:
             self.priorities.remove(trv)
         if results.success:
+            if self._resolverCache:
+                self._resolverCache.put(results)
             buildReqs = results.getBuildReqs()
             crossReqs = results.getCrossReqs()
             bootstrapReqs = results.getBootstrapReqs()
@@ -1088,3 +1121,30 @@ class DependencyHandler(object):
             results = resolver.resolve(resolveJob)
             resolveJob.getTrove().troveResolved(results)
             count += 1
+
+
+class ResolverCache(object):
+
+    def __init__(self, path):
+        self.path = path
+
+    def get(self, hash):
+        path = os.path.join(self.path, hash)
+        try:
+            fobj = open(path)
+        except IOError, err:
+            if err.args[0] == errno.ENOENT:
+                return None
+            raise
+        result = xmlrpclib.loads(fobj.read())[0][0]
+        fobj.close()
+        return thaw('ResolveResult', result)
+
+    def put(self, result):
+        if not result.jobHash:
+            return
+        path = os.path.join(self.path, result.jobHash)
+        result = freeze('ResolveResult', result)
+        fobj = util.AtomicFile(path, chmod=0644)
+        fobj.write(xmlrpclib.dumps((result,)))
+        fobj.commit()
