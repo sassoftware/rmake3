@@ -1129,6 +1129,8 @@ class ResolverCache(object):
         self.path = path
 
     def get(self, hash):
+        if not hash:
+            return None
         path = os.path.join(self.path, hash)
         try:
             fobj = open(path)
