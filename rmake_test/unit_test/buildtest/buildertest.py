@@ -75,11 +75,13 @@ class BuilderTest(rmakehelp.RmakeHelper):
         job.setBuildTroves._mock.assertCalled(expected)
 
         logDir = builderObj.serverCfg.getBuildLogDir(1)
+        rscache = self.rmakeCfg.getResolverCachePath()
         dephandler.DependencyHandler._mock.assertCalled(
                                          builderObj.job.getPublisher(),
                                          builderObj.logger,
                                          expectReg, [specTrv], logDir,
-                                         dumbMode=False)
+                                         dumbMode=False,
+                                         resolverCachePath=rscache)
 
     def testBuild(self):
         trv = imagetrove.ImageTrove(1, *self.makeTroveTuple('group-foo'))
