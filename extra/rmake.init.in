@@ -1,6 +1,6 @@
 #/bin/bash
 #
-# chkconfig: 345 81 19
+# chkconfig: 345 88 12
 # description: Starts the rMake Daemon
 #
 # Copyright (c) rPath, Inc.
