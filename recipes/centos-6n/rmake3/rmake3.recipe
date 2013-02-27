@@ -74,8 +74,8 @@ class RmakeRecipe(CPackageRecipe):
         r.ResolveFileDependencies(exceptions=chpath) # HACK until CNP-199
 
         ## package rmake-tests
-        r.PackageSpec('%(name)s-tests',
-                '%(libdir)s/.*/rmake_test/',
+        r.PackageSpec('%(name)s-test',
+                '%(libdir)s/.*/rmake_test/.*',
                 )
 
         ## package rmake-node
