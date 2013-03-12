@@ -35,6 +35,7 @@ class RmakeRecipe(CPackageRecipe):
     def setup(r):
         if r.name != 'rmake':
             r.macros.prefix = '/opt/%(name)s'
+        r.macros.oldlibdir = '/usr/%(lib)s'
         r.macros.confdir = '/etc/%(name)s'
         r.macros.srvdir = '/srv/%(name)s'
         r.macros.initdir = '%(sysconfdir)s/rc.d/init.d'
@@ -44,7 +45,7 @@ class RmakeRecipe(CPackageRecipe):
             'NO_COMPILE=1 '
             'prefix=%(prefix)s '
             # Use regular prefix for python code so things are importable
-            'libdir=/usr/%(lib)s '
+            'libdir=%(oldlibdir)s '
             'initdir=%(initdir)s '
             )
         r.CompilePython('/')
@@ -73,8 +74,8 @@ class RmakeRecipe(CPackageRecipe):
         r.ResolveFileDependencies(exceptions=chpath) # HACK until CNP-199
 
         ## package rmake-tests
-        r.PackageSpec('%(name)s-tests',
-                '%(libdir)s/.*/rmake_test/',
+        r.PackageSpec('%(name)s-test',
+                '%(oldlibdir)s/.*/rmake_test/.*',
                 )
 
         ## package rmake-node
