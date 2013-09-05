@@ -135,6 +135,8 @@ class WorkerParent(WorkerProtocol):
             log.warning("Dropping worker status report for wrong task.")
             return
         self.task = task
+        log.debug("Setting task %s status: %s %s",
+                task.task_uuid.short, task.status.code, task.status.text)
         self.launcher.forwardTaskStatus(task)
 
     def cmd_push_logs(self, ctr, records):

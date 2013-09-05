@@ -23,20 +23,22 @@
 # Source function library.
 . /etc/init.d/functions
 
-prog=rmake-dispatcher
-desc="rMake Server and Repository"
-
 name=`basename $0`
 if [ ${name:0:1} = "S" -o ${name:0:1} = "K" ]
 then
     name=${name:3}
 fi
 
-PRE_OPTS="--config-file @confdir@/serverrc"
+prog=rmake-dispatcher
+desc="rMake Server and Repository"
+pidfile=@lockdir@/${prog}.pid
+lockfile=/var/lock/subsys/${name}
 
-if [ -e /etc/sysconfig/${name} ] ; then
-    . /etc/sysconfig/${name}
-fi
+PRE_OPTS="--config-file @confdir@/serverrc"
+RMAKE_RESET="@sbindir@/$prog reset"
+
+sysconf=@sysconfdir@/$(echo ${name} | sed -e 's/-node//')
+[ -e $sysconf ] && . $sysconf
 
 config() {
     cd @confdir@;
@@ -51,7 +53,7 @@ start() {
     ulimit -n 65536
     @sbindir@/${prog} start ${PRE_OPTS} ${RMAKE_OPTS}
     RETVAL=$?
-    [ $RETVAL = 0 ] && touch /var/lock/subsys/${name} && success || failure
+    [ $RETVAL = 0 ] && touch $lockfile && success || failure
     echo
     if [ $RETVAL != 0 ]; then
         echo "rMake: Please check @logdir@/${prog}.log for details"
@@ -65,7 +67,7 @@ stop() {
     cd @confdir@;
     @sbindir@/${prog} stop ${PRE_OPTS}
     RETVAL=$?
-    [ $RETVAL = 0 ] && rm -f /var/lock/subsys/${name} && success || failure
+    [ $RETVAL = 0 ] && rm -f $lockfile && success || failure
     echo
     return $RETVAL
 }
@@ -76,7 +78,7 @@ restart() {
 }
 
 reset() {
-    status ${prog} > /dev/null
+    status -p $pidfile -l $lockfile ${prog} > /dev/null
     RUNNING=$?
     if [ $RUNNING -eq 0 ] ; then
         stop
@@ -89,8 +91,8 @@ reset() {
 
 resetinternal() {
     echo $"Flushing ${desc}: "
-    cd @confdir@;
-    @sbindir@/${prog} reset ${PRE_OPTS}
+    cd @confdir@
+    $RMAKE_RESET
     RETVAL=$?
     echo
     return $RETVAL
@@ -109,11 +111,8 @@ case "$1" in
     stop)
         stop
         ;;
-    debug)
-        startdebug
-        ;;
     status)
-        status ${prog}
+        status -p $pidfile -l $lockfile ${prog}
         ;;
     restart|reload)
         restart
@@ -122,7 +121,7 @@ case "$1" in
         reset
         ;;
     *)
-        echo $"Usage: $0 {start|stop|debug|status|restart|reload|config|reset}"
+        echo $"Usage: $0 {start|stop|status|restart|reload|config|reset}"
         exit 1
 esac
 
