@@ -153,6 +153,11 @@ class JobHandler(object):
         self.job.times.ticks += 1
         log.debug("Job %s status is: %s %s", self.job.job_uuid,
                 self.job.status.code, self.job.status.text)
+        level = logging.ERROR if self.job.status.failed else logging.INFO
+        self.log.log(level, "Job status is: %s %s%s", self.job.status.code,
+                self.job.status.text,
+                '\n%s' % self.job.status.detail
+                if self.job.status.detail else '')
 
         d = self.dispatcher.updateJob(self.job)
         d.addErrback(self.failJob, message="Error setting job status:",

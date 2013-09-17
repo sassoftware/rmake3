@@ -53,6 +53,7 @@ export sysconfdir = /etc/sysconfig
 export confdir = /etc/$(PKGNAME)
 export servicedir = /srv/$(PKGNAME)
 export logdir = /var/log/$(PKGNAME)
+export lockdir = /var/run/$(PKGNAME)
 export sockdir = /var/lib/$(PKGNAME)
 
 # Programs

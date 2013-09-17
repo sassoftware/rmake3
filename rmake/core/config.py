@@ -34,6 +34,7 @@ class DispatcherConfig(BusConfig):
     listenPort          = (CfgInt, 9999)
     listenPath          = (CfgString, '/var/lib/rmake/socket')
     dataDir             = (CfgPath, '/srv/rmake')
+    lockDir             = (CfgPath, '/var/run/rmake')
 
     # Ancilliary components
     proxyUrl            = (CfgString, 'http://LOCAL:7778/')
@@ -54,5 +55,4 @@ class DispatcherConfig(BusConfig):
     # Calculated paths
     logPath_http = _path('logDir', 'access.log')
     logPath_server = _path('logDir', 'server.log')
-    lockDir = _path('dataDir', 'lock')
     jobLogDir = _path('dataDir', 'logs')

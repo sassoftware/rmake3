@@ -28,10 +28,10 @@ install: $(generated_files) default-install
 	echo "includeConfigFile node.d/*.conf" >$(DESTDIR)$(confdir)/noderc
 	install -D -m0644 server_defaults.conf $(DESTDIR)$(confdir)/server.d/05_defaults.conf
 	install -D -m0644 node_defaults.conf $(DESTDIR)$(confdir)/node.d/05_defaults.conf
+	mkdir -p $(DESTDIR)$(lockdir)
 	mkdir -p $(DESTDIR)$(logdir)
 	mkdir -p $(DESTDIR)$(sockdir)
 	mkdir -p $(DESTDIR)$(servicedir)
-	mkdir -p $(DESTDIR)$(servicedir)/lock
 
 rmake.init: rmake.init.in ../Make.defs ../Makefile
 	sed \
@@ -39,6 +39,8 @@ rmake.init: rmake.init.in ../Make.defs ../Makefile
 	    -e 's^@sbindir@^$(sbindir)^g' \
 	    -e 's^@confdir@^$(confdir)^g' \
 	    -e 's^@logdir@^$(logdir)^g' \
+	    -e 's^@sysconfdir@^$(sysconfdir)^g' \
+	    -e 's^@lockdir@^$(lockdir)^g' \
 	    $< > $@
 
 rmake-node.init: rmake.init
@@ -51,6 +53,7 @@ rmake-node.init: rmake.init
 
 server_defaults.conf: Makefile ../Make.defs
 	> $@
+	echo "lockDir $(lockdir)" >> $@
 	echo "logDir $(logdir)" >> $@
 	echo "pluginDirs $(plugindir)" >> $@
 	echo "dataDir $(servicedir)" >> $@
@@ -59,7 +62,7 @@ server_defaults.conf: Makefile ../Make.defs
 
 node_defaults.conf: Makefile ../Make.defs
 	> $@
-	echo "lockDir $(servicedir)/lock" >> $@
+	echo "lockDir $(lockdir)" >> $@
 	echo "logDir $(logdir)" >> $@
 	echo "pluginDirs $(plugindir)" >> $@
 	echo "slots 2" >> $@
