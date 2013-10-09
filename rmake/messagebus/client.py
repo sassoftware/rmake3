@@ -55,8 +55,13 @@ class _BaseService(jclient.LinkClient):
 
     handlerClass = RmakeHandler
 
-    def __init__(self, *args, **kwargs):
-        jclient.LinkClient.__init__(self, *args, **kwargs)
+    def __init__(self, cfg, name, creds, handlers):
+        self.cfg = cfg
+        jclient.LinkClient.__init__(self, name, creds, handlers,
+                host=cfg.xmppHost,
+                port=cfg.xmppPort,
+                secure=cfg.xmppSecure,
+                )
         self.link.permissive = self.cfg.xmppPermissive
         for jid in self.cfg.xmppPermit:
             self.listenNeighbor(jid)
@@ -79,11 +84,9 @@ class _BaseService(jclient.LinkClient):
 class BusService(_BaseService):
 
     def __init__(self, cfg, other_handlers=None):
-        self.cfg = cfg
         creds = jcred.XmppServerCredentials(cfg.xmppIdentFile)
-        name = self.cfg.xmppJID.user, self.cfg.xmppJID.host
-        _BaseService.__init__(self, name, creds, handlers=other_handlers,
-                host=cfg.xmppHost)
+        name = cfg.xmppJID.user, cfg.xmppJID.host
+        _BaseService.__init__(self, cfg, name, creds, handlers=other_handlers)
 
 
 class BusClientService(_BaseService):
@@ -91,13 +94,12 @@ class BusClientService(_BaseService):
     """Base class for services that maintain a messagebus client."""
 
     def __init__(self, cfg, other_handlers=None):
-        self.cfg = cfg
         creds = jcred.XmppClientCredentials(cfg.xmppIdentFile)
-        self.targetJID = self.cfg.dispatcherJID
-        _BaseService.__init__(self, self.targetJID.host, creds,
-                handlers=other_handlers, host=cfg.xmppHost)
+        self.targetJID = cfg.dispatcherJID
+        _BaseService.__init__(self, cfg, self.targetJID.host, creds,
+                handlers=other_handlers)
 
-        self.connectNeighbor(self.cfg.dispatcherJID)
+        self.connectNeighbor(cfg.dispatcherJID)
 
     def sendToTarget(self, message, wait=False):
         return self.sendTo(self.targetJID, message, wait)

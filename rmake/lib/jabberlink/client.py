@@ -42,7 +42,8 @@ class LinkClient(XMPPClient):
 
     initialDelay = 0.1  # faster restart after registration
 
-    def __init__(self, domain, creds, handlers=None, host=None, port=5222):
+    def __init__(self, domain, creds, handlers=None, host=None, port=5222,
+            secure=True):
         # Note that this partly duplicates XMPPClient.__init__, so that method
         # should not be called.
         user, domain, password = creds.get(domain)
@@ -52,7 +53,8 @@ class LinkClient(XMPPClient):
         self.host = host
         self.port = port
 
-        auth = self.authClass(self.jid, password, self._writeCreds)
+        auth = self.authClass(self.jid, password, self._writeCreds,
+                secure=secure)
         factory = XmlStreamFactory(auth)
         subprotocols.StreamManager.__init__(self, factory)
 

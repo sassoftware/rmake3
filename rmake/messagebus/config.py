@@ -59,6 +59,9 @@ class BusConfig(ConfigFile):
             "Allow any node to connect to this one without authentication.")
     xmppPermit          = (cfgtypes.CfgList(CfgJID), [],
             "List of nodes permitted to connect to this one.")
+    xmppPort            = (cfgtypes.CfgInt, 5222)
+    xmppSecure          = (cfgtypes.CfgBool, True,
+            "Secure the XMPP connection with TLS")
 
 
 class BusClientConfig(BusConfig):

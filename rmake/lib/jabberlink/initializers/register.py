@@ -33,6 +33,7 @@ class RegisteringInitializer(object):
 
     def initialize(self):
         si = sasl.SASLInitiatingInitializer(self.xmlstream)
+        si.required = True
         d = si.initialize()
         d.addErrback(self.saslFailed)
         return d
@@ -88,19 +89,20 @@ class RegisteringAuthenticator(xmlstream.ConnectAuthenticator):
 
     namespace = 'jabber:client'
 
-    def __init__(self, jid, password, registerCB):
+    def __init__(self, jid, password, registerCB, secure=True):
         xmlstream.ConnectAuthenticator.__init__(self, jid.host)
         self.jid = jid
         self.password = password
         self.registerCB = registerCB
+        self.secure = secure
 
     def associateWithStream(self, xs):
         xmlstream.ConnectAuthenticator.associateWithStream(self, xs)
 
-        xs.initializers = [
-                xmlstream.TLSInitiatingInitializer(xs),
-                RegisteringInitializer(xs, self.registerCB),
-                ]
+        xs.initializers = []
+        if self.secure:
+            xs.initializers.append(xmlstream.TLSInitiatingInitializer(xs))
+        xs.initializers.append(RegisteringInitializer(xs, self.registerCB))
 
         for initClass, required in [
                 (jclient.BindInitializer, True),
