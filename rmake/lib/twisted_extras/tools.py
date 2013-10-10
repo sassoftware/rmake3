@@ -37,7 +37,7 @@ class Serializer(object):
             return func(*args, **kwargs)
         @d.addBoth
         def _unlock(result):
-            self._lock.release()
             del self._waiting[d]
+            self._lock.release()
             return result
         return d
