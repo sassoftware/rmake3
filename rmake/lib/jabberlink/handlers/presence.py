@@ -31,13 +31,6 @@ class FriendlyPresenceProtocol(xmppim.PresenceProtocol,
         # RFC-3921 7.3 says that we should request the roster before sending
         # initial presence or expecting any subscriptions to be in effect.
         d = self.getRoster()
-
-        @d.addCallback
-        def process_roster(roster):
-            # Purge roster items with no active subscription.
-            for item in roster.values():
-                if not item.subscriptionTo and not item.subscriptionFrom:
-                    self.removeItem(item.jid)
         d.addBoth(lambda result: self.available())
 
     # Subscriptions / roster
@@ -47,17 +40,6 @@ class FriendlyPresenceProtocol(xmppim.PresenceProtocol,
         log.debug("Auto-subscribing to %s", presence.sender.userhost())
         self.subscribed(presence.sender)
         self.subscribe(presence.sender.userhostJID())
-
-    def unsubscribeReceived(self, presence):
-        """If someone unsubscribed us, unsubscribe them."""
-        log.debug("Auto-unsubscribing to %s", presence.sender.userhost())
-        self.unsubscribed(presence.sender)
-        self.unsubscribe(presence.sender.userhostJID())
-
-    def onRosterSet(self, item):
-        """If we no longer have visibility on someone, remove them entirely."""
-        if not item.subscriptionTo and not item.subscriptionFrom:
-            self.removeItem(item.jid)
 
     # Presence
 
