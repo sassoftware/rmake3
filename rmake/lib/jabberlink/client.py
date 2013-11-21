@@ -40,8 +40,6 @@ class LinkClient(XMPPClient):
     description = None
     resource = 'jabberlink'
 
-    initialDelay = 0.1  # faster restart after registration
-
     def __init__(self, domain, creds, handlers=None, host=None, port=5222,
             secure=True):
         # Note that this partly duplicates XMPPClient.__init__, so that method
@@ -113,6 +111,8 @@ class LinkClient(XMPPClient):
 class XmlStreamFactory(xmlstream.XmlStreamFactory):
 
     reconnecting = False
+    initialDelay = 0.1  # faster restart after registration
+    maxDelay = 300
 
     def buildProtocol(self, addr):
         # Override to prevent resetDelay() from being called until we actually
