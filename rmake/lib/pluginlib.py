@@ -146,10 +146,9 @@ class PluginManager(object):
             return False
         path = dir + '/' + fileName
         if os.path.isdir(path):
-            if (os.path.exists(path + '/__init__.py') 
-                or os.path.exists(path + '/__init__.pyc')):
+            if os.path.exists(path + '/__init__.py'):
                 return True
-        elif path.endswith('.py') or path.endswith('.pyc'):
+        elif path.endswith('.py'):
             return True
         return False
 
@@ -162,10 +161,7 @@ class PluginManager(object):
             for fileName in os.listdir(dir):
                 if not self.isValidPluginFileName(dir, fileName):
                     continue
-                if fileName.endswith('.pyc'):
-                    pluginFileName = fileName[:-1]
-                else:
-                    pluginFileName = fileName
+                pluginFileName = fileName
                 if pluginFileName in pluginFiles:
                     otherFileName = pluginFiles[pluginFileName]
                     otherFileMtime = os.stat(dir + '/' + otherFileName).st_mtime
@@ -365,8 +361,6 @@ class PluginImporter(object):
                 return '%s/__init__.py' % (path)
             if os.path.exists(path + '.py'):
                 return path + '.py'
-            if os.path.exists(path + '.pyc'):
-                return path + '.pyc'
 
     def install(self):
         # install on meta_path so that this will get searched before sys.path...
