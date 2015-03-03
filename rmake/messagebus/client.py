@@ -58,7 +58,7 @@ class _BaseService(jclient.LinkClient):
     def __init__(self, cfg, name, creds, handlers):
         self.cfg = cfg
         jclient.LinkClient.__init__(self, name, creds, handlers,
-                host=cfg.xmppHost,
+                host=str(cfg.xmppHost),
                 port=cfg.xmppPort,
                 secure=cfg.xmppSecure,
                 )
