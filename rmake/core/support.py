@@ -84,7 +84,7 @@ class DispatcherInteractiveHandler(InteractiveHandler):
 
 class WorkerChecker(TimerService):
 
-    threshold = 4
+    threshold = 60
 
     def __init__(self, dispatcher):
         TimerService.__init__(self, 5, self.checkWorkers)
